@@ -1001,8 +1001,8 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 /* ── FRO Panel - Donor Detail Card Layout ── */
 .panel-fro .content-body { padding:16px 20px; display:flex; flex-direction:column; }
 .panel-fro .detail-split { display:flex; gap:16px; flex:1; min-height:0; }
-.panel-fro .detail-left { width:50%; display:flex; flex-direction:column; gap:10px; min-height:0; }
-.panel-fro .detail-right { width:50%; display:flex; flex-direction:column; gap:10px; min-height:0; }
+.panel-fro .detail-left { width:25%; display:flex; flex-direction:column; gap:10px; min-height:0; }
+.panel-fro .detail-right { width:75%; display:flex; flex-direction:column; gap:10px; min-height:0; }
 .panel-fro .detail-card { background:#fff; border-radius:12px; border:1px solid var(--line); display:flex; flex-direction:column; overflow:hidden; }
 .panel-fro .detail-card-scroll { flex:1; overflow-y:auto; padding:12px; min-height:0; }
 .panel-fro .detail-card-head { padding:8px 12px; border-bottom:1px solid var(--line); font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-soft); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
