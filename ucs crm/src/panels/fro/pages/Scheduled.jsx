@@ -132,10 +132,6 @@ function DispositionModal({ donorId, ngoId, donorName, scheduledAt: origSchedule
           <div style={{ display:'flex', gap:6 }}>
             <button onClick={onClose}
               style={{ padding:'7px 12px', border:'1px solid var(--line)', borderRadius:6, background:'#fff', fontSize:11, fontWeight:600, fontFamily:'inherit', cursor:'pointer' }}>Cancel</button>
-            <button onClick={() => { onClose(); }}
-              style={{ padding:'7px 12px', border:'1px solid var(--sage)', borderRadius:6, background:'#f0fdf4', fontSize:11, fontWeight:700, fontFamily:'inherit', cursor:'pointer', color:'var(--sage)' }}>
-              Skip →
-            </button>
             <button onClick={handleSave} disabled={saving}
               style={{ padding:'7px 12px', border:'none', borderRadius:6, background:'var(--sage)', color:'#fff', fontSize:11, fontWeight:700, fontFamily:'inherit', cursor:'pointer', opacity:saving?.5:1 }}>
               {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'Save'}
@@ -154,6 +150,7 @@ export default function Scheduled() {
   const [modalDonor, setModalDonor] = useState(null);
   const [refetch, setRefetch] = useState(0);
   const poppedIds = useRef(new Set());
+  const autoPoppedId = useRef(null);
   const [pollTick, setPollTick] = useState(0);
 
   const loadRows = () => {
@@ -210,16 +207,19 @@ export default function Scheduled() {
     if (due.length > 0) {
       const next = due[0];
       poppedIds.current.add(next.id);
+      autoPoppedId.current = next.id;
       setModalDonor(next);
     }
   }, [pollTick, rows, modalDonor]);
 
   const openModal = (row) => {
     poppedIds.current.add(row.id);
+    autoPoppedId.current = null;
     setModalDonor(row);
   };
 
   const handlePopDone = () => {
+    autoPoppedId.current = null;
     setModalDonor(null);
     setRefetch(n => n + 1);
   };
@@ -287,7 +287,12 @@ export default function Scheduled() {
           ngoId={modalDonor.ngo_id}
           donorName={modalDonor.donor_name}
           scheduledAt={modalDonor.scheduled_at}
-          onClose={() => { setModalDonor(null); setPollTick(t => t + 1); }}
+          onClose={() => {
+            if (autoPoppedId.current !== null) poppedIds.current.delete(autoPoppedId.current);
+            autoPoppedId.current = null;
+            setModalDonor(null);
+            setPollTick(t => t + 1);
+          }}
           onDone={handlePopDone}
         />
       )}

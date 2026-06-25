@@ -173,7 +173,9 @@ export default function MyDonors() {
       }
       await addDonorLog(donor.id, logData);
       setSelected(null); setNotes(''); setLeadScreenshot(null); setScreenshotPreview(null); setLeadAddress(''); setLeadPan(''); setLeadDob('');
-      setIndex(i => i + 1 >= donors.length ? 0 : i + 1);
+      const nextDonors = donors.filter(d => d.id !== donor.id || d.ngo_id !== donor.ngo_id);
+      setDonors(nextDonors);
+      if (index >= nextDonors.length && nextDonors.length > 0) setIndex(0);
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
     } finally { setSaving(false); }
@@ -181,8 +183,7 @@ export default function MyDonors() {
 
   const handleButtonClick = () => {
     if (selected) { handleSave(); return; }
-    setMessage(null);
-    setIndex(i => i + 1 >= donors.length ? 0 : i + 1);
+    setMessage({ type: 'error', text: 'Select a disposition' });
   };
 
   if (loading) return <div className="loading">Loading donors...</div>;
@@ -456,7 +457,7 @@ export default function MyDonors() {
       <button className="btn-next"
         disabled={saving}
         onClick={handleButtonClick}>
-        {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'Next →'}
+        {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'NEXT'}
       </button>
     </div>
 
