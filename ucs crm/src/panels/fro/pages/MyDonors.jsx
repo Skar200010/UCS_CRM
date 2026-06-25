@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot, getDonorDonations } from '../api/donors';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const NOT_CONNECTED = [
   { id: 'busy', label: 'Busy' }, { id: 'ringing', label: 'Ringing' },
@@ -43,7 +45,7 @@ export default function MyDonors() {
 
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState('');
-  const [scheduledAt, setScheduledAt] = useState('');
+  const [scheduledAt, setScheduledAt] = useState(null);
   const [leadScreenshot, setLeadScreenshot] = useState(null);
   const [leadAddress, setLeadAddress] = useState('');
   const [leadPan, setLeadPan] = useState('');
@@ -86,9 +88,7 @@ export default function MyDonors() {
     setSelected(detailId);
     setMessage(null);
     if (detailId === 'scheduled') {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() + 5 - now.getTimezoneOffset());
-      setScheduledAt(now.toISOString().slice(0, 16));
+      setScheduledAt(new Date());
     }
     if (detailId !== 'lead_done') {
       setLeadScreenshot(null);
@@ -150,7 +150,7 @@ export default function MyDonors() {
         notes: notes || null,
         ngo_id: donor.ngo_id,
       };
-      if (selected === 'scheduled') logData.scheduled_at = new Date(scheduledAt + ':00').toISOString();
+      if (selected === 'scheduled') logData.scheduled_at = scheduledAt.toISOString();
       if (selected === 'lead_done') {
         if (leadScreenshot) {
           const uploadResult = await uploadPaymentScreenshot(leadScreenshot.base64, leadScreenshot.mime);
@@ -330,7 +330,9 @@ export default function MyDonors() {
                 <div className="detail-field-row">
                   <div className="fld">
                     <label>Schedule Date & Time</label>
-                    <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
+                    <DatePicker selected={scheduledAt} onChange={setScheduledAt} showTimeSelect dateFormat="d MMM yyyy h:mm aa" timeFormat="HH:mm" timeIntervals={15} timeCaption="Time"
+                      calendarStartDay={1}
+                      className="dp-input" wrapperClassName="dp-wrap" popperClassName="dp-popper" />
                   </div>
                 </div>
               )}
@@ -340,26 +342,22 @@ export default function MyDonors() {
                   <div className="detail-field-row">
                     <div className="fld">
                       <label>Screenshot</label>
-                      {screenshotPreview ? (
-                        <div style={{ position:'relative', display:'inline-block' }}>
-                          <img src={screenshotPreview} alt="screenshot preview"
-                            style={{ width:'100%', maxHeight:100, objectFit:'cover', borderRadius:6, border:'1px solid var(--line)', cursor:'pointer' }}
-                            onClick={() => window.open(screenshotPreview, '_blank')} />
-                          <span className="material-symbols-outlined" style={{ position:'absolute', top:4, right:4, fontSize:14, background:'rgba(0,0,0,.5)', color:'#fff', borderRadius:4, padding:2, cursor:'pointer' }}
-                            onClick={() => { setLeadScreenshot(null); setScreenshotPreview(null); document.getElementById('ss-input').value=''; }}>close</span>
-                        </div>
-                      ) : (
-                        <div onClick={() => document.getElementById('ss-input').click()}
-                          style={{ border:'1px dashed var(--line)', borderRadius:6, padding:'10px 8px', textAlign:'center', cursor:'pointer', fontSize:10, color:'var(--ink-soft)', transition:'all .12s' }}
-                          onMouseOver={e => e.currentTarget.style.borderColor='var(--sage)'}
-                          onMouseOut={e => e.currentTarget.style.borderColor='var(--line)'}>
-                          <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize:14 }}>upload</span>
-                            <span>Click to upload screenshot</span>
+                      <label htmlFor="ss-input" className="ss-upload">
+                        {screenshotPreview ? (
+                          <div style={{ position:'relative' }}>
+                            <img src={screenshotPreview} alt="preview" className="ss-preview"
+                              onClick={e => { e.preventDefault(); window.open(screenshotPreview, '_blank'); }} />
+                            <span className="ss-remove"
+                              onClick={e => { e.preventDefault(); setLeadScreenshot(null); setScreenshotPreview(null); document.getElementById('ss-input').value=''; }}>close</span>
                           </div>
-                        </div>
-                      )}
-                      <input id="ss-input" type="file" accept="image/*" onChange={handleScreenshotChange} style={{ display:'none' }} />
+                        ) : (
+                          <div className="ss-placeholder">
+                            <span className="material-symbols-outlined">upload</span>
+                            <span>Upload screenshot</span>
+                          </div>
+                        )}
+                      </label>
+                      <input id="ss-input" type="file" accept="image/*" onChange={handleScreenshotChange} />
                     </div>
                   </div>
                   <div className="detail-field-row">
