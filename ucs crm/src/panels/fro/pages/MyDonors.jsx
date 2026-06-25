@@ -233,8 +233,8 @@ export default function MyDonors() {
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="detail-right" style={{ padding: '12px 12px 12px 0' }}>
+        {/* MIDDLE PANEL — Status (55%) */}
+        <div className="detail-mid" style={{ padding: '12px 0 12px 8px' }}>
           {message && (
             <div className={`detail-message ${message.type}`}>
               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{message.type === 'error' ? 'error' : 'check_circle'}</span>
@@ -242,7 +242,7 @@ export default function MyDonors() {
             </div>
           )}
 
-          {/* Dropdowns + Notes card */}
+          {/* Connection Status card */}
           <div className="detail-card" style={{ flex: 1, minHeight: 0 }}>
             <div className="detail-card-head">Connection Status</div>
             <div className="detail-card-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -273,14 +273,24 @@ export default function MyDonors() {
                   </div>
                 </div>
               )}
-
-              <div className="detail-notes">
-                <label style={{ display: 'block', fontSize: 9, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 3 }}>Notes</label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Add notes here..." />
-              </div>
             </div>
           </div>
 
+          {/* Action Bar */}
+          <div className="detail-action-outer">
+            <span className="counter">{index + 1} of {donors.length}</span>
+            <button className="btn-prev" disabled={index === 0} onClick={() => setIndex(i => i - 1)}>← Prev</button>
+            <button className="btn-next"
+              disabled={saving}
+              onClick={handleSave}>
+              {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'NEXT'}
+            </button>
+            <button className="btn-prev" disabled={index === donors.length - 1} onClick={() => setIndex(i => i + 1)}>Next →</button>
+          </div>
+        </div>
+
+        {/* RIGHT PANEL — Timeline + Notes (20%) */}
+        <div className="detail-right" style={{ padding: '12px 12px 12px 0' }}>
           {/* Timeline card */}
           <div className="detail-card" style={{ flex: 1, minHeight: 0 }}>
             <div className="detail-card-head">
@@ -326,16 +336,10 @@ export default function MyDonors() {
             </div>
           </div>
 
-          {/* Action Bar */}
-          <div className="detail-action-outer">
-            <span className="counter">{index + 1} of {donors.length}</span>
-            <button className="btn-prev" disabled={index === 0} onClick={() => setIndex(i => i - 1)}>← Prev</button>
-            <button className="btn-next"
-              disabled={saving}
-              onClick={handleSave}>
-              {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'NEXT'}
-            </button>
-            <button className="btn-prev" disabled={index === donors.length - 1} onClick={() => setIndex(i => i + 1)}>Next →</button>
+          {/* Notes */}
+          <div className="detail-notes" style={{ flexShrink: 0 }}>
+            <label style={{ display: 'block', fontSize: 9, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 3 }}>Previous Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Add notes here..." />
           </div>
         </div>
       </div>
