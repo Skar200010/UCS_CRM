@@ -136,7 +136,7 @@ export default function MyDonors() {
   };
 
   return (
-    <div className="detail-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div className="detail-split" style={{ flex: 1, minHeight: 0 }}>
         {/* LEFT PANEL — merged profile + details */}
         <div className="detail-left" style={{ padding: 12 }}>
@@ -159,39 +159,39 @@ export default function MyDonors() {
               )}
             </div>
 
-            {/* Fields */}
+            {/* Fields — plain, no container */}
             <div style={{ flex: 1, overflowY: 'auto', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div className="detail-field-row">
                 <div className="fld">
                   <label>City</label>
-                  <div className="val">{donor.donor_city || 'NA'}</div>
+                  <div>{donor.donor_city || 'NA'}</div>
                 </div>
                 <div className="fld fld-sm">
                   <label>Amount</label>
-                  <div className="val">₹{Number(donor.donor_amount || 0).toLocaleString('en-IN')}</div>
+                  <div>₹{Number(donor.donor_amount || 0).toLocaleString('en-IN')}</div>
                 </div>
               </div>
               <div className="detail-field-row">
                 <div className="fld">
                   <label>Email</label>
-                  <div className="val" style={{ fontStyle: donor.donor_email ? 'normal' : 'italic', color: donor.donor_email ? 'inherit' : 'var(--ink-soft)' }}>{donor.donor_email || 'No email'}</div>
+                  <div style={{ fontStyle: donor.donor_email ? 'normal' : 'italic', color: donor.donor_email ? 'inherit' : 'var(--ink-soft)' }}>{donor.donor_email || 'No email'}</div>
                 </div>
               </div>
               <div className="detail-field-row">
                 <div className="fld">
                   <label>Project</label>
-                  <div className="val">{donor.donor_project || '—'}</div>
+                  <div>{donor.donor_project || '—'}</div>
                 </div>
                 <div className="fld">
                   <label>Donations</label>
-                  <div className="val">{donor.donation_count || 0} time{donor.donation_count !== 1 ? 's' : ''} (₹{Number(donor.total_donated || 0).toLocaleString('en-IN')})</div>
+                  <div>{donor.donation_count || 0} time{donor.donation_count !== 1 ? 's' : ''} (₹{Number(donor.total_donated || 0).toLocaleString('en-IN')})</div>
                 </div>
               </div>
               {donor.donor_address && (
                 <div className="detail-field-row">
                   <div className="fld">
                     <label>Address</label>
-                    <div className="val">{donor.donor_address}</div>
+                    <div>{donor.donor_address}</div>
                   </div>
                 </div>
               )}
@@ -199,7 +199,7 @@ export default function MyDonors() {
                 <div className="detail-field-row">
                   <div className="fld">
                     <label>PAN</label>
-                    <div className="val">{donor.donor_pan}</div>
+                    <div>{donor.donor_pan}</div>
                   </div>
                 </div>
               )}
@@ -207,7 +207,7 @@ export default function MyDonors() {
                 <div className="detail-field-row">
                   <div className="fld">
                     <label>DOB</label>
-                    <div className="val">{donor.donor_dob}</div>
+                    <div>{donor.donor_dob}</div>
                   </div>
                 </div>
               )}
@@ -273,23 +273,17 @@ export default function MyDonors() {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* Action Bar */}
-          <div className="detail-action-outer">
-            <span className="counter">{index + 1} of {donors.length}</span>
-            <button className="btn-prev" disabled={index === 0} onClick={() => setIndex(i => i - 1)}>← Prev</button>
-            <button className="btn-next"
-              disabled={saving}
-              onClick={handleSave}>
-              {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'NEXT'}
-            </button>
-            <button className="btn-prev" disabled={index === donors.length - 1} onClick={() => setIndex(i => i + 1)}>Next →</button>
+              {/* Notes */}
+              <div className="detail-notes">
+                <label style={{ display: 'block', fontSize: 9, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 3 }}>Notes</label>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Add notes here..." />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* RIGHT PANEL — Timeline + Notes (20%) */}
+        {/* RIGHT PANEL — Timeline (20%) */}
         <div className="detail-right" style={{ padding: '12px 12px 12px 0' }}>
           {/* Timeline card */}
           <div className="detail-card" style={{ flex: 1, minHeight: 0 }}>
@@ -335,13 +329,19 @@ export default function MyDonors() {
               )}
             </div>
           </div>
-
-          {/* Notes */}
-          <div className="detail-notes" style={{ flexShrink: 0 }}>
-            <label style={{ display: 'block', fontSize: 9, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 3 }}>Previous Notes</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Add notes here..." />
-          </div>
         </div>
+      </div>
+
+      {/* Action Bar — outside all containers */}
+      <div className="detail-action-outer">
+        <span className="counter">{index + 1} of {donors.length}</span>
+        <button className="btn-prev" disabled={index === 0} onClick={() => setIndex(i => i - 1)}>← Prev</button>
+        <button className="btn-next"
+          disabled={saving}
+          onClick={handleSave}>
+          {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'NEXT'}
+        </button>
+        <button className="btn-prev" disabled={index === donors.length - 1} onClick={() => setIndex(i => i + 1)}>Next →</button>
       </div>
     </div>
   );
