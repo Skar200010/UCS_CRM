@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot, getDonorDonations } from '../api/donors';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 
 const NOT_CONNECTED = [
   { id: 'busy', label: 'Busy' }, { id: 'ringing', label: 'Ringing' },
@@ -45,7 +43,7 @@ export default function MyDonors() {
 
   const [selected, setSelected] = useState(null);
   const [notes, setNotes] = useState('');
-  const [scheduledAt, setScheduledAt] = useState(null);
+  const [scheduledAt, setScheduledAt] = useState('');
   const [leadScreenshot, setLeadScreenshot] = useState(null);
   const [leadAddress, setLeadAddress] = useState('');
   const [leadPan, setLeadPan] = useState('');
@@ -88,7 +86,9 @@ export default function MyDonors() {
     setSelected(detailId);
     setMessage(null);
     if (detailId === 'scheduled') {
-      setScheduledAt(new Date());
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + 5 - now.getTimezoneOffset());
+      setScheduledAt(now.toISOString().slice(0, 16));
     }
     if (detailId !== 'lead_done') {
       setLeadScreenshot(null);
@@ -150,7 +150,7 @@ export default function MyDonors() {
         notes: notes || null,
         ngo_id: donor.ngo_id,
       };
-      if (selected === 'scheduled') logData.scheduled_at = scheduledAt.toISOString();
+      if (selected === 'scheduled') logData.scheduled_at = new Date(scheduledAt + ':00').toISOString();
       if (selected === 'lead_done') {
         if (leadScreenshot) {
           const uploadResult = await uploadPaymentScreenshot(leadScreenshot.base64, leadScreenshot.mime);
@@ -330,9 +330,7 @@ export default function MyDonors() {
                 <div className="detail-field-row">
                   <div className="fld">
                     <label>Schedule Date & Time</label>
-                    <DatePicker selected={scheduledAt} onChange={setScheduledAt} showTimeSelect dateFormat="d MMM yyyy h:mm aa" timeFormat="HH:mm" timeIntervals={15} timeCaption="Time"
-                      calendarStartDay={1}
-                      className="dp-input" wrapperClassName="dp-wrap" popperClassName="dp-popper" />
+                    <input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
                   </div>
                 </div>
               )}

@@ -1055,12 +1055,6 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 .panel-fro .ss-remove:hover { background:rgba(0,0,0,.7); }
 .panel-fro #ss-input { display:none; }
 
-/* ── Datepicker ── */
-.panel-fro .dp-input { width:100%; padding:5px 7px; border:1px solid var(--line); border-radius:5px; font-size:11px; font-family:inherit; outline:none; box-sizing:border-box; background:#fff; }
-.panel-fro .dp-input:focus { border-color:var(--sage); }
-.panel-fro .dp-wrap { width:100%; }
-.panel-fro .dp-popper { z-index:10; }
-
 /* Bento grid */
 .panel-fro .bento-grid { display:grid; grid-template-columns:repeat(12,1fr); gap:10px; flex:1; align-content:start; }
 .panel-fro .bento-grid:only-child { min-height:0; }
