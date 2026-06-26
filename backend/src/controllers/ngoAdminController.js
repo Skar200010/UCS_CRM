@@ -1313,7 +1313,10 @@ export const transferStationData = async (req, res) => {
     const ngoIds = await getUserNgoIds(req.user);
     if (ngoIds.length === 0) return res.status(403).json({ message: 'No NGO access' });
 
-    const ngoId = ngoIds[0];
+    const { data: worker } = await supabase.from('workers').select('ngo_id').eq('id', source_fro_id).single();
+    const ngoId = worker?.ngo_id || ngoIds[0];
+    if (!ngoId) return res.status(400).json({ message: 'Could not determine NGO for source FRO' });
+
     const autoReturnAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
 
     const result = await createTemporaryTransfer(source_fro_id, target_fro_id, ngoId, station.trim(), count, autoReturnAt, req.user.id);
