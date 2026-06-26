@@ -21,6 +21,8 @@ const CONNECTED = [
   { id: 'transferred_senior', label: 'Transferred to Senior' }, { id: 'query_complaint', label: 'Query/Complaint' },
   { id: 'receipt_request', label: 'Request Receipt/Info' },
 ];
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
 const ALL_DISPOSITIONS = [...NOT_CONNECTED, ...CONNECTED];
 const CONNECTED_IDS = new Set(CONNECTED.map(d => d.id));
 const isConnected = (id) => CONNECTED_IDS.has(id);
@@ -53,6 +55,7 @@ export default function MyDonors() {
   const [leadScreenshot, setLeadScreenshot] = useState(null);
   const [leadAddress, setLeadAddress] = useState('');
   const [leadPan, setLeadPan] = useState('');
+  const [panError, setPanError] = useState('');
   const [leadDob, setLeadDob] = useState('');
   const [projectName, setProjectName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -117,11 +120,13 @@ export default function MyDonors() {
     }
     if (detailId === 'lead_done') {
       setProjectName(donor?.donor_project || '');
+      setPanError('');
     } else {
       setLeadScreenshot(null);
       setScreenshotPreview(null);
       setLeadAddress('');
       setLeadPan('');
+      setPanError('');
       setLeadDob('');
       setProjectName('');
     }
@@ -169,6 +174,7 @@ export default function MyDonors() {
   const handleSave = async () => {
     if (!selected) { setMessage({ type: 'error', text: 'Select a disposition' }); return; }
     if (selected === 'scheduled' && !scheduledAt) { setMessage({ type: 'error', text: 'Select date & time' }); return; }
+
     setSaving(true); setMessage(null);
     try {
       const logData = {
@@ -190,7 +196,7 @@ export default function MyDonors() {
         logData.project_name = projectName || null;
       }
       await addDonorLog(donor.id, logData);
-      setSelected(null); setNotes(''); setLeadScreenshot(null); setScreenshotPreview(null); setLeadAddress(''); setLeadPan(''); setLeadDob(''); setProjectName('');
+      setSelected(null); setNotes(''); setLeadScreenshot(null); setScreenshotPreview(null); setLeadAddress(''); setLeadPan(''); setPanError(''); setLeadDob(''); setProjectName('');
       const nextDonors = donors.filter(d => d.id !== donor.id || d.ngo_id !== donor.ngo_id);
       setDonors(nextDonors);
       if (index >= nextDonors.length && nextDonors.length > 0) setIndex(0);
@@ -410,7 +416,20 @@ export default function MyDonors() {
                   <div className="detail-field-row">
                     <div className="fld">
                       <label>PAN</label>
-                      <input type="text" value={leadPan} onChange={e => setLeadPan(e.target.value)} placeholder="PAN number" />
+                      <input type="text" value={leadPan} onChange={e => {
+                        const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        setLeadPan(v);
+                        if (v.length === 0) {
+                          setPanError('');
+                        } else if (!PAN_REGEX.test(v) && v.length === 10) {
+                          setPanError('Invalid PAN — use format: ABCDE1234F');
+                        } else if (v.length > 0 && v.length < 10) {
+                          setPanError('PAN must be 10 characters');
+                        } else {
+                          setPanError('');
+                        }
+                      }} placeholder="e.g. ABCDE1234F" maxLength={10} style={{ borderColor: panError ? '#dc2626' : undefined }} />
+                      {leadPan.length > 0 && panError && <span style={{ fontSize:9, color:'#dc2626', marginTop:1, display:'block' }}>{panError}</span>}
                     </div>
                     <div className="fld">
                       <label>DOB</label>
