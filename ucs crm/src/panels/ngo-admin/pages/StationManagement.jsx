@@ -71,7 +71,6 @@ export default function StationManagement() {
       setStations(list);
       setAllNgos(Array.isArray(n) ? n : []);
       setFroWorkers(Array.isArray(f) ? f : []);
-      if (!newStation) setNewStation(computeNextName(list));
     }).catch(() => {});
   };
 
@@ -98,9 +97,12 @@ export default function StationManagement() {
         station: newStation.trim(),
         ngo_ids: newStationNgos,
       });
-      setNewStation('');
       setNewStationNgos([]);
-      fetchData();
+      const list = await apiGet('/ngo-admin/stations');
+      if (Array.isArray(list)) {
+        setStations(list);
+        setNewStation(computeNextName(list));
+      }
     } catch (err) {
       alert(err.message);
     } finally {
@@ -152,24 +154,26 @@ export default function StationManagement() {
           <h3>Add Station</h3>
         </div>
         <div className="card-pad">
-          <div className="form-row">
-            <label className="field" style={{ flex: 1 }}>
-              Station Name
-              <input value={newStation} onChange={e => setNewStation(e.target.value)} />
-            </label>
-            <label className="field">
-              NGOs
-              <div>
-                <button type="button" className="btn btn-sm btn-outline" onClick={() => setNewNgoModalOpen(true)} style={{ width: '100%', textAlign: 'left' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="form-row">
+              <label className="field" style={{ flex: 1 }}>
+                Station Name
+                <input value={newStation} onChange={e => setNewStation(e.target.value)} />
+              </label>
+              <button className="btn btn-primary" onClick={handleAddStation} disabled={adding || !newStation.trim()} style={{ alignSelf: 'flex-end' }}>
+                {adding ? 'Adding...' : 'Create'}
+              </button>
+            </div>
+            <div>
+              <label className="field" style={{ marginBottom: 0 }}>
+                NGOs
+                <button type="button" className="btn btn-outline" onClick={() => setNewNgoModalOpen(true)} style={{ width: '100%', textAlign: 'left' }}>
                   {newStationNgos.length > 0
-                    ? `${newStationNgos.length} selected`
+                    ? `${newStationNgos.length} NGOs selected`
                     : 'Select NGOs'}
                 </button>
-              </div>
-            </label>
-            <button className="btn btn-primary" onClick={handleAddStation} disabled={adding || !newStation.trim()} style={{ alignSelf: 'flex-end' }}>
-              {adding ? 'Adding...' : 'Create'}
-            </button>
+              </label>
+            </div>
           </div>
         </div>
       </div>
