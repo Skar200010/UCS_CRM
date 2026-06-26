@@ -247,6 +247,88 @@ export const getStationDispositionStats = async (ngoId) => {
   return stationMap;
 };
 
+export const getTransferableCount = async (station, ngoId, froWorkerId) => {
+  const { count, error } = await supabase
+    .from('fro_assignments')
+    .select('id', { count: 'exact', head: true })
+    .eq('station', station)
+    .eq('ngo_id', ngoId)
+    .eq('fro_worker_id', froWorkerId)
+    .not('status', 'eq', 'reassigned');
+  if (error) throw error;
+  return count ?? 0;
+};
+
+export const createTemporaryTransfer = async (sourceFroId, targetFroId, ngoId, station, count, autoReturnAt, assignedBy) => {
+  const { data: transfer, error: tErr } = await supabase
+    .from('fro_transfers')
+    .insert([{
+      station, source_fro_id: sourceFroId, target_fro_id: targetFroId,
+      ngo_id: ngoId, donor_count: count, auto_return_at: autoReturnAt, created_by: assignedBy,
+    }])
+    .select()
+    .single();
+  if (tErr) throw tErr;
+
+  const { data: assignments } = await supabase
+    .from('fro_assignments')
+    .select('id, donor_id, status, station')
+    .eq('station', station)
+    .eq('ngo_id', ngoId)
+    .eq('fro_worker_id', sourceFroId)
+    .not('status', 'eq', 'reassigned')
+    .order('assigned_at', { ascending: true })
+    .limit(count);
+
+  if (!assignments || assignments.length === 0) {
+    await supabase.from('fro_transfers').delete().eq('id', transfer.id);
+    return { transfer: null, transferred: 0 };
+  }
+
+  const ids = assignments.map(a => a.id);
+  await supabase.from('fro_assignments').update({ status: 'reassigned', updated_at: new Date().toISOString() }).in('id', ids);
+
+  const newAssignments = assignments.map(a => ({
+    donor_id: a.donor_id, fro_worker_id: targetFroId, ngo_id: ngoId,
+    station, status: a.status, assigned_by: assignedBy,
+    assigned_at: new Date().toISOString(), transfer_id: transfer.id,
+  }));
+
+  await supabase.from('fro_assignments').insert(newAssignments);
+
+  return { transfer, transferred: assignments.length };
+};
+
+export const reverseTransfer = async (transferId) => {
+  const { data: transfer } = await supabase.from('fro_transfers').select('*').eq('id', transferId).single();
+  if (!transfer || transfer.returned) return 0;
+
+  const { data: assignments } = await supabase
+    .from('fro_assignments')
+    .select('id, donor_id, status, station')
+    .eq('transfer_id', transferId)
+    .not('status', 'eq', 'reassigned');
+
+  if (!assignments || assignments.length === 0) {
+    await supabase.from('fro_transfers').update({ returned: true, returned_at: new Date().toISOString() }).eq('id', transferId);
+    return 0;
+  }
+
+  const ids = assignments.map(a => a.id);
+  await supabase.from('fro_assignments').update({ status: 'reassigned', updated_at: new Date().toISOString() }).in('id', ids);
+
+  const newAssignments = assignments.map(a => ({
+    donor_id: a.donor_id, fro_worker_id: transfer.source_fro_id, ngo_id: transfer.ngo_id,
+    station: transfer.station, status: a.status, assigned_by: transfer.created_by,
+    assigned_at: new Date().toISOString(), transfer_id: transferId,
+  }));
+
+  await supabase.from('fro_assignments').insert(newAssignments);
+  await supabase.from('fro_transfers').update({ returned: true, returned_at: new Date().toISOString() }).eq('id', transferId);
+
+  return assignments.length;
+};
+
 export const createScheduledContact = async (data) => {
   const { data: result, error } = await supabase
     .from('fro_scheduled_contacts')

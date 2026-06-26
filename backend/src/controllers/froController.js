@@ -840,16 +840,22 @@ export const getMyHistory = async (req, res) => {
 export const requestData = async (req, res) => {
   try {
     const workerId = req.user.id;
+    const ngoId = req.user.ngo_id;
     const { message } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ message: 'Message is required' });
     }
+
+    const { data: worker } = await supabase.from('workers').select('name').eq('id', workerId).maybeSingle();
+    const froName = worker?.name || 'Unknown';
+
     const { data, error } = await supabase
       .from('fro_data_requests')
       .insert([{ fro_worker_id: workerId, message: message.trim(), status: 'pending', ngo_id: req.user.ngo_id || null }])
       .select()
       .single();
     if (error) throw error;
+
     return res.json({ message: 'Request sent successfully', data });
   } catch (error) {
     return res.status(500).json({ message: error.message });

@@ -935,6 +935,11 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 .panel-ngo-admin .hamburger { display:none; align-items:center; justify-content:center; width:36px; height:36px; border:none; background:transparent; border-radius:8px; cursor:pointer; color:var(--ink); margin-right:8px; flex-shrink:0; }
 .panel-ngo-admin .hamburger:hover { background:var(--bg); }
 .panel-ngo-admin .sidebar-overlay { display:none; }
+.panel-ngo-admin .mobile-only { display:none !important; }
+@media (max-width:820px) {
+  .panel-ngo-admin .mobile-only { display:block !important; }
+  .panel-ngo-admin .desktop-only { display:none !important; }
+}
 
 @media (max-width:820px) {
   .panel-ngo-admin .sidebar { position:fixed; top:0; left:0; bottom:0; z-index:100; transform:translateX(-100%); transition:transform .25s; border-right:1px solid var(--line); box-shadow:4px 0 20px rgba(0,0,0,.1); }

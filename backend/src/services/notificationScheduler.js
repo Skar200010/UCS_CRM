@@ -9,6 +9,7 @@ import { getAllFcmTokens } from '../models/notificationModel.js';
 import { getPendingScheduledNotifications, markNotificationSent } from '../models/notificationAdminModel.js';
 import { getSetting } from '../models/settingsModel.js';
 import { sendPushToMultiple } from './fcmService.js';
+import { reverseTransfer } from '../models/froAssignmentModel.js';
 
 let lastNoticeCheck = new Date(0).toISOString();
 let lastAchievementCheck = new Date(0).toISOString();
@@ -349,6 +350,27 @@ console.log('Scheduled: every-minute check for punch-in reminders');
 cron.schedule('* * * * *', () => sendPunchOutReminders());
 console.log('Scheduled: every-minute check for punch-out reminders');
 
+async function autoReturnTransfers() {
+  try {
+    const { data: expired } = await supabase
+      .from('fro_transfers')
+      .select('id')
+      .eq('returned', false)
+      .lte('auto_return_at', new Date().toISOString());
+
+    if (!expired || expired.length === 0) return;
+
+    for (const t of expired) {
+      const count = await reverseTransfer(t.id);
+      if (count > 0) {
+        console.log(`[autoReturnTransfers] Transfer ${t.id}: ${count} leads returned to original FRO`);
+      }
+    }
+  } catch (error) {
+    console.error('[autoReturnTransfers] Error:', error.message);
+  }
+}
+
 async function resetCycledDonors() {
   try {
     const thirtyDaysAgo = new Date();
@@ -447,3 +469,6 @@ async function autoReportMissedSchedules() {
 
 cron.schedule('* * * * *', () => autoReportMissedSchedules());
 console.log('Scheduled: every-minute check for missed schedules (10 min overdue)');
+
+cron.schedule('* * * * *', () => autoReturnTransfers());
+console.log('Scheduled: every-minute check for expired lead transfers');

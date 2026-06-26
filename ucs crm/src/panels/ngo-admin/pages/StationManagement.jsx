@@ -1,6 +1,106 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/auth';
 
+function TransferDataModal({ station, froWorkers, onClose, onTransferred }) {
+  const [sourceId, setSourceId] = useState('');
+  const [targetId, setTargetId] = useState('');
+  const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [transferInfo, setTransferInfo] = useState(null);
+
+  useEffect(() => {
+    apiGet(`/ngo-admin/stations/${encodeURIComponent(station)}/transferable`)
+      .then(d => {
+        if (d?.froWorkers) {
+          setTransferInfo(d.froWorkers);
+          if (d.froWorkers.length > 0) setSourceId(String(d.froWorkers[0].id));
+        }
+      })
+      .catch(() => {});
+  }, [station]);
+
+  const sourceWorker = transferInfo?.find(w => String(w.id) === sourceId);
+  const maxCount = sourceWorker?.total_count || 0;
+  const availableTargets = (transferInfo || []).filter(w => String(w.id) !== sourceId);
+
+  const handleTransfer = async () => {
+    if (!sourceId || !targetId || count < 1) return;
+    setLoading(true);
+    try {
+      const res = await apiPost(`/ngo-admin/stations/${encodeURIComponent(station)}/transfer-data`, {
+        source_fro_id: parseInt(sourceId),
+        target_fro_id: parseInt(targetId),
+        count,
+      });
+      if (onTransferred) onTransferred(res);
+      onClose();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+        <div className="modal-head">
+          <h3>Transfer Leads — {station}</h3>
+          <button className="btn btn-sm btn-outline" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <label className="field">
+            Source FRO (absent)
+            <select value={sourceId} onChange={e => { setSourceId(e.target.value); setCount(0); }}>
+              {transferInfo?.map(w => (
+                <option key={w.id} value={w.id}>{w.name} ({w.total_count} leads)</option>
+              ))}
+            </select>
+          </label>
+          {sourceWorker && (
+            <div style={{ fontSize: 13, color: '#6b7280', background: '#f9fafb', padding: '8px 12px', borderRadius: 6 }}>
+              {sourceWorker.total_count} leads available to transfer
+            </div>
+          )}
+          <label className="field">
+            Number of leads to transfer
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.max(0, count - 5))} disabled={count < 1}>−5</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.max(0, count - 1))} disabled={count < 1}>−1</button>
+              <input
+                type="number" min={0} max={maxCount}
+                value={count} onChange={e => setCount(Math.min(maxCount, Math.max(0, parseInt(e.target.value) || 0)))}
+                style={{ width: 80, textAlign: 'center' }}
+              />
+              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.min(maxCount, count + 1))} disabled={count >= maxCount}>+1</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.min(maxCount, count + 5))} disabled={count >= maxCount}>+5</button>
+            </div>
+          </label>
+          <label className="field">
+            Target FRO (covering)
+            <select value={targetId} onChange={e => setTargetId(e.target.value)}>
+              <option value="">-- Select FRO --</option>
+              {availableTargets.map(w => (
+                <option key={w.id} value={w.id}>{w.name} ({w.total_count} leads)</option>
+              ))}
+            </select>
+          </label>
+          <div style={{ fontSize: 12, color: '#6b7280', background: '#f0fdf4', padding: '8px 12px', borderRadius: 6 }}>
+            Leads auto-return after 8 hours (end of shift).
+          </div>
+          <div className="modal-actions">
+            <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleTransfer}
+              disabled={loading || !sourceId || !targetId || count < 1}>
+              {loading ? 'Transferring...' : `Transfer ${count} Leads`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NgoSelectModal({ allNgos, selectedIds, onSave, onClose }) {
   const [selected, setSelected] = useState(() => new Set(selectedIds));
 
@@ -49,6 +149,7 @@ export default function StationManagement() {
   const [adding, setAdding] = useState(false);
   const [editNgoStation, setEditNgoStation] = useState(null);
   const [newNgoModalOpen, setNewNgoModalOpen] = useState(false);
+  const [transferStation, setTransferStation] = useState(null);
 
   const computeNextName = (existingStations) => {
     const nums = existingStations
@@ -227,10 +328,16 @@ export default function StationManagement() {
                     </td>
                     <td><span className="pill pill-blue">{s.donor_count}</span></td>
                     <td>
-                      <button className="btn btn-sm btn-outline" onClick={() => handleDeleteStation(s.station)}
-                        style={{ color: 'var(--danger)' }}>
-                        Delete
-                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-sm btn-outline" onClick={() => setTransferStation(s.station)}
+                          style={{ color: 'var(--sage, #5B6B4E)' }}>
+                          Transfer
+                        </button>
+                        <button className="btn btn-sm btn-outline" onClick={() => handleDeleteStation(s.station)}
+                          style={{ color: 'var(--danger)' }}>
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -255,6 +362,14 @@ export default function StationManagement() {
           selectedIds={newStationNgos}
           onSave={(ids) => { setNewStationNgos(ids); setNewNgoModalOpen(false); }}
           onClose={() => setNewNgoModalOpen(false)}
+        />
+      )}
+
+      {transferStation && (
+        <TransferDataModal
+          station={transferStation}
+          onClose={() => setTransferStation(null)}
+          onTransferred={() => fetchData()}
         />
       )}
     </div>

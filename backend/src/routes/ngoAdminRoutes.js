@@ -52,6 +52,9 @@ router.delete('/station-assignments/:id', removeStationAssignment);
 router.put('/station-assignments/:id/reassign', reassignStationFro);
 router.put('/stations/:station/update-ngos', updateStationNgos);
 router.delete('/stations/:station', removeStationByName);
+router.get('/stations/:station/transferable', getTransferableData);
+router.post('/stations/:station/transfer-data', transferStationData);
+router.post('/transfers/:id/return-early', returnTransferEarly);
 
 router.get('/new-data', getNewData);
 router.post('/new-data/distribute', distributeNewData);

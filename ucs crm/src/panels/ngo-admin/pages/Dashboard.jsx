@@ -111,8 +111,8 @@ function StationDetailModal({ station, stats, stationInfo, onClose }) {
               {total} donors
             </span>
             {stationInfo?.ngos?.map(n => (
-              <span key={n} style={{ fontSize: 11, background: '#eef2ff', color: '#6366f1', padding: '2px 8px', borderRadius: 12 }}>
-                {n}
+              <span key={n.ngo_id || n.ngo_name} style={{ fontSize: 11, background: '#eef2ff', color: '#6366f1', padding: '2px 8px', borderRadius: 12 }}>
+                {n.ngo_name}
               </span>
             ))}
           </div>
@@ -400,70 +400,86 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {pieData.length > 0 && (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-head">
-            <h3>Disposition Summary</h3>
-            <span className="count">{grandTotal} total across {stationNames.length} stations</span>
-          </div>
-          <div className="card-pad" style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-            {pieData.map(d => (
-              <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 140 }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{d.name}</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: d.color }}>{d.value}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {stationNames.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginBottom: 16 }}>
-          {stationNames.map(st => {
-            const total = getStationTotal(st);
-            const info = stationInfoMap[st];
-            const hasFro = info?.fro_worker_name;
-            const groupCounts = DISPOSITION_GROUPS.map(g => ({
-              ...g, count: g.statuses.reduce((t, s) => t + getCell(st, s), 0),
-            }));
-            const visibleGroups = groupCounts.filter(g => g.count > 0);
-            return (
-              <div key={st} className="card" style={{ marginBottom: 0, padding: '14px 16px', cursor: 'pointer' }}
-                onClick={() => setSelectedStation(st)}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                  <span style={{ fontSize: 13, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>{st}</span>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{total}</span>
-                </div>
-                <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', display: 'flex', overflow: 'hidden', marginBottom: 8 }}>
-                  {visibleGroups.map((g, i) => (
-                    <div key={g.label} style={{
-                      width: `${(g.count / total) * 100}%`, height: '100%',
-                      background: g.color, opacity: 0.5,
-                      borderRight: i < visibleGroups.length - 1 ? '1px solid #fff' : 'none',
-                    }} />
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
-                  {visibleGroups.slice(0, 3).map(g => (
-                    <span key={g.label} style={{ fontSize: 10, color: g.color, fontWeight: 600, padding: '1px 7px', borderRadius: 8, background: g.bg }}>{g.count}</span>
-                  ))}
-                </div>
-                {hasFro && (
-                  <div style={{ fontSize: 11, color: 'var(--ink-soft)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    {info.fro_worker_name}
+        <>
+          <div className="card desktop-only" style={{ marginBottom: 16 }}>
+            <div className="card-head">
+              <h3>Stations</h3>
+              <span className="count">{stationNames.length} total</span>
+            </div>
+            <div className="card-pad" style={{ padding: 0 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Station</th>
+                    <th>Donors</th>
+                    <th>Converted</th>
+                    <th>In Progress</th>
+                    <th>Negative</th>
+                    <th>NGOs</th>
+                    <th>FRO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stationNames.map(st => {
+                    const total = getStationTotal(st);
+                    const info = stationInfoMap[st];
+                    const converted = DISPOSITION_GROUPS[0].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                    const inProgress = DISPOSITION_GROUPS[1].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                    const negative = DISPOSITION_GROUPS[2].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                    return (
+                      <tr key={st} onClick={() => setSelectedStation(st)} style={{ cursor: 'pointer' }}>
+                        <td style={{ fontWeight: 600 }}>{st}</td>
+                        <td>{total}</td>
+                        <td style={{ color: '#16a34a', fontWeight: 600 }}>{converted}</td>
+                        <td style={{ color: '#d97706', fontWeight: 600 }}>{inProgress}</td>
+                        <td style={{ color: '#dc2626', fontWeight: 600 }}>{negative}</td>
+                        <td style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{info?.ngos?.map(n => n.ngo_name).join(', ') || '—'}</td>
+                        <td style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{info?.fro_worker_name || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="mobile-only" style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '0 2px' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, flex: 1 }}>Stations</h3>
+              <span className="count">{stationNames.length} total</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {stationNames.map(st => {
+                const total = getStationTotal(st);
+                const info = stationInfoMap[st];
+                const converted = DISPOSITION_GROUPS[0].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                const inProgress = DISPOSITION_GROUPS[1].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                const negative = DISPOSITION_GROUPS[2].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                return (
+                  <div key={st} className="card" style={{ marginBottom: 0, padding: '12px 14px', cursor: 'pointer' }}
+                    onClick={() => setSelectedStation(st)}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{st}</span>
+                      <span style={{ fontWeight: 700, fontSize: 16 }}>{total} donors</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>C: {converted}</span>
+                      <span style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>IP: {inProgress}</span>
+                      <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>N: {negative}</span>
+                    </div>
+                    {info?.ngos?.length > 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>NGOs: {info.ngos.map(n => n.ngo_name).join(', ')}</div>
+                    )}
+                    {info?.fro_worker_name && (
+                      <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>FRO: {info.fro_worker_name}</div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
 
       {selectedStation && (
