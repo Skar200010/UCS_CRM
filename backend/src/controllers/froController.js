@@ -805,6 +805,8 @@ export const getMyHistory = async (req, res) => {
 export const requestData = async (req, res) => {
   try {
     const workerId = req.user.id;
+    const froName = req.user.name || 'Unknown';
+    const ngoId = req.user.ngo_id;
     const { message } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ message: 'Message is required' });
@@ -815,6 +817,18 @@ export const requestData = async (req, res) => {
       .select()
       .single();
     if (error) throw error;
+
+    if (ngoId) {
+      await supabase.from('alerts').insert([{
+        ngo_id: ngoId,
+        type: 'data_request',
+        title: 'Data Request',
+        description: `${froName} requested more data: ${message.trim()}`,
+        fro_name: froName,
+        reference_id: data.id,
+      }]);
+    }
+
     return res.json({ message: 'Request sent successfully', data });
   } catch (error) {
     return res.status(500).json({ message: error.message });
