@@ -1,14 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiGet } from '../api/auth';
 
-const DISPOSITION_ORDER = [
-  'donation_collected', 'promise_to_pay', 'lead_done', 'visit_donate', 'payment_pending', 'already_donated',
-  'pending', 'contacted', 'follow_up', 'scheduled',
-  'not_interested', 'not_interested_now', 'rejected', 'busy', 'ringing',
-  'unreachable', 'switched_off', 'wrong_number', 'invalid_number', 'language_barrier',
-  'transferred_senior', 'query_complaint', 'receipt_request',
-];
-
 const DISPOSITION_LABELS = {
   pending: 'Pending', contacted: 'Contacted', follow_up: 'Follow Up', scheduled: 'Scheduled',
   busy: 'Busy', ringing: 'Ringing', unreachable: 'Unreachable', switched_off: 'Switched Off',
@@ -22,35 +14,26 @@ const DISPOSITION_LABELS = {
 };
 
 const STATUS_COLORS = {
-  donation_collected: '#22c55e',
-  promise_to_pay: '#22c55e',
-  lead_done: '#22c55e',
-  visit_donate: '#22c55e',
-  payment_pending: '#22c55e',
-  already_donated: '#22c55e',
-  pending: '#f59e0b',
-  contacted: '#f59e0b',
-  follow_up: '#f59e0b',
-  scheduled: '#f59e0b',
-  transferred_senior: '#3b82f6',
-  query_complaint: '#3b82f6',
-  receipt_request: '#3b82f6',
+  donation_collected: '#16a34a', promise_to_pay: '#16a34a', lead_done: '#16a34a',
+  visit_donate: '#16a34a', payment_pending: '#16a34a', already_donated: '#16a34a',
+  pending: '#d97706', contacted: '#d97706', follow_up: '#d97706', scheduled: '#d97706',
+  transferred_senior: '#2563eb', query_complaint: '#2563eb', receipt_request: '#2563eb',
 };
 
-const getStatusColor = (status) => STATUS_COLORS[status] || '#ef4444';
+const getStatusColor = (status) => STATUS_COLORS[status] || '#dc2626';
 
 const DISPOSITION_GROUPS = [
   { label: 'Converted', color: '#16a34a', bg: '#f0fdf4', statuses: ['donation_collected', 'promise_to_pay', 'lead_done', 'visit_donate', 'payment_pending', 'already_donated'] },
   { label: 'In Progress', color: '#d97706', bg: '#fffbeb', statuses: ['pending', 'contacted', 'follow_up', 'scheduled'] },
   { label: 'Negative', color: '#dc2626', bg: '#fef2f2', statuses: ['not_interested', 'not_interested_now', 'rejected', 'busy', 'ringing', 'unreachable', 'switched_off', 'wrong_number', 'invalid_number', 'language_barrier'] },
-  { label: 'Other', color: '#6366f1', bg: '#eef2ff', statuses: ['transferred_senior', 'query_complaint', 'receipt_request'] },
+  { label: 'Other', color: '#5B6B4E', bg: '#f0f2ee', statuses: ['transferred_senior', 'query_complaint', 'receipt_request'] },
 ];
 
-const CARDS = [
-  { label: 'Total Donors', key: 'total_donors', color: '#6366f1', gradient: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg> },
-  { label: 'Assigned Donors', key: 'assigned_donors', color: '#22c55e', gradient: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><polyline points="16 3.13 19 6.13 22 3.13" /></svg> },
-  { label: 'Active FRO Workers', key: 'active_fros', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg> },
-  { label: 'Month Collection', key: 'month_collection', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', format: (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`, icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8 12h8" /><path d="M12 8v8" /></svg> },
+const STAT_CARDS = [
+  { label: 'Total Donors', key: 'total_donors', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+  { label: 'Assigned Donors', key: 'assigned_donors', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 3.13 19 6.13 22 3.13"/></svg> },
+  { label: 'Active FRO Workers', key: 'active_fros', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+  { label: 'Month Collection', key: 'month_collection', format: (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`, icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg> },
 ];
 
 export default function Dashboard() {
@@ -92,89 +75,79 @@ export default function Dashboard() {
     <div>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: 16, marginBottom: 24,
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: 14, marginBottom: 20,
       }}>
-        {CARDS.map((card, i) => {
+        {STAT_CARDS.map((card, i) => {
           const val = card.format ? card.format(data[card.key]) : data[card.key];
           return (
-            <div key={i} style={{
-              position: 'relative', background: '#fff', borderRadius: 16, padding: '24px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.06)', overflow: 'hidden', cursor: 'default',
-              transition: 'transform .2s ease, box-shadow .2s ease',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)'; }}>
-              <div style={{
-                position: 'absolute', top: 0, right: 0, width: 100, height: 100,
-                borderRadius: '0 16px 0 80px', background: card.gradient, opacity: 0.08,
-              }} />
-              <div style={{
-                width: 44, height: 44, borderRadius: 12, background: card.gradient,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', marginBottom: 16,
-              }}>
-                {card.icon}
+            <div key={i} className="card" style={{ marginBottom: 0, padding: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 'var(--radius-sm)', background: 'var(--sage)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0,
+                }}>
+                  {card.icon}
+                </div>
+                <span style={{ fontSize: 13, color: 'var(--ink-soft)', fontWeight: 500 }}>{card.label}</span>
               </div>
-              <div style={{ fontSize: 28, fontWeight: 800, color: '#1a1a2e', lineHeight: 1.2 }}>{val}</div>
-              <div style={{ fontSize: 13, color: '#6b7280', marginTop: 4, fontWeight: 500 }}>{card.label}</div>
+              <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.15 }}>{val}</div>
             </div>
           );
         })}
       </div>
 
       {stationNames.length > 0 && (
-        <div className="card" style={{ borderRadius: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginBottom: 16 }}>
-          <div className="card-head" style={{ padding: '16px 20px', borderBottom: '1px solid var(--line, #e5e7eb)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
-              <h3 style={{ margin: 0, fontSize: 15 }}>Station Overview</h3>
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-head">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
+              <h3>Station Overview</h3>
             </div>
-            <span className="count" style={{ background: '#eef2ff', color: '#6366f1', fontSize: 12, padding: '4px 12px', borderRadius: 20, fontWeight: 600 }}>
+            <span className="count" style={{ background: '#5B6B4E12', color: 'var(--sage)', fontSize: 12, padding: '4px 12px', borderRadius: 20, fontWeight: 600 }}>
               {stationNames.length} stations · {grandTotal} donors
             </span>
           </div>
-          <div className="card-pad" style={{ padding: '16px 20px' }}>
+          <div className="card-pad">
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: 12,
+              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+              gap: 10,
             }}>
               {stationNames.map(st => {
                 const total = getStationTotal(st);
                 const groupCounts = DISPOSITION_GROUPS.map(g => ({
-                  ...g,
-                  count: g.statuses.reduce((t, s) => t + getCell(st, s), 0),
+                  ...g, count: g.statuses.reduce((t, s) => t + getCell(st, s), 0),
                 }));
-                const maxGroup = groupCounts.reduce((m, g) => Math.max(m, g.count), 0);
                 return (
                   <div key={st} style={{
-                    background: '#fafbfc', borderRadius: 12, padding: '14px 16px',
-                    border: '1px solid var(--line, #e5e7eb)', cursor: 'pointer',
+                    background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: '12px 14px',
+                    border: '1px solid var(--line)', cursor: 'pointer',
                     transition: 'box-shadow .15s, border-color .15s',
                   }}
                     onClick={() => setExpandedStation(expandedStation === st ? null : st)}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(99,102,241,0.12)'; }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.boxShadow = ''; }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <span style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>{st}</span>
-                      <span style={{ fontWeight: 800, fontSize: 15, color: '#6366f1' }}>{total}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{st}</span>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--sage)' }}>{total}</span>
                     </div>
 
-                    <div style={{ height: 6, borderRadius: 3, background: '#f1f5f9', display: 'flex', overflow: 'hidden', marginBottom: 10 }}>
+                    <div style={{ height: 5, borderRadius: 3, background: '#e5e7eb', display: 'flex', overflow: 'hidden', marginBottom: 8 }}>
                       {groupCounts.map((g, i) => g.count > 0 && (
                         <div key={g.label} style={{
                           width: `${(g.count / total) * 100}%`, height: '100%',
-                          background: g.color, opacity: 0.6,
+                          background: g.color, opacity: 0.55,
                           borderRight: i < groupCounts.length - 1 ? '1px solid #fff' : 'none',
                         }} />
                       ))}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {groupCounts.filter(g => g.count > 0).map(g => (
                         <span key={g.label} style={{
-                          fontSize: 11, color: g.color, fontWeight: 600,
-                          background: g.bg, padding: '1px 8px', borderRadius: 10,
+                          fontSize: 10, color: g.color, fontWeight: 600,
+                          background: g.bg, padding: '1px 7px', borderRadius: 8,
                         }}>
                           {g.label}: {g.count}
                         </span>
@@ -182,26 +155,22 @@ export default function Dashboard() {
                     </div>
 
                     {expandedStation === st && (
-                      <div style={{ marginTop: 12, borderTop: '1px solid var(--line, #e5e7eb)', paddingTop: 10 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', fontSize: 12 }}>
-                          {DISPOSITION_GROUPS.map(g => {
-                            const visibileStatuses = g.statuses.filter(s => getCell(st, s) > 0);
-                            if (visibileStatuses.length === 0) return null;
-                            return (
-                              <div key={g.label} style={{ gridColumn: '1 / -1', marginTop: 4 }}>
-                                <span style={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', color: g.color }}>{g.label}</span>
-                              </div>
-                            );
-                          })}
-                          {DISPOSITION_GROUPS.flatMap(g =>
-                            g.statuses.filter(s => getCell(st, s) > 0).map(s => (
-                              <div key={s} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                                <span style={{ color: '#64748b' }}>{DISPOSITION_LABELS[s] || s}</span>
-                                <span style={{ fontWeight: 700, color: getStatusColor(s) }}>{getCell(st, s)}</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
+                      <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+                        {DISPOSITION_GROUPS.map(g => {
+                          const items = g.statuses.filter(s => getCell(st, s) > 0);
+                          if (items.length === 0) return null;
+                          return (
+                            <div key={g.label} style={{ marginBottom: 4 }}>
+                              <div style={{ fontWeight: 600, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', color: g.color, marginBottom: 2 }}>{g.label}</div>
+                              {items.map(s => (
+                                <div key={s} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0', fontSize: 12 }}>
+                                  <span style={{ color: 'var(--ink-soft)' }}>{DISPOSITION_LABELS[s] || s}</span>
+                                  <span style={{ fontWeight: 600, color: getStatusColor(s) }}>{getCell(st, s)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -214,8 +183,8 @@ export default function Dashboard() {
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: 16,
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: 14,
       }}>
         {DISPOSITION_GROUPS.map(group => {
           const items = group.statuses
@@ -224,24 +193,24 @@ export default function Dashboard() {
           if (items.length === 0) return null;
           const groupTotal = items.reduce((t, x) => t + x.total, 0);
           return (
-            <div key={group.label} className="card" style={{ borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-              <div className="card-head" style={{ padding: '12px 16px', borderBottom: `2px solid ${group.color}20` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: group.color }} />
-                  <h3 style={{ margin: 0, fontSize: 14, color: group.color }}>{group.label}</h3>
+            <div key={group.label} className="card" style={{ marginBottom: 0 }}>
+              <div className="card-head" style={{ padding: '12px 16px', borderBottom: `2px solid ${group.color}18` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: group.color, flexShrink: 0 }} />
+                  <h3 style={{ margin: 0, fontSize: 13, color: group.color }}>{group.label}</h3>
                 </div>
-                <span style={{ fontWeight: 800, fontSize: 16, color: group.color }}>{groupTotal}</span>
+                <span style={{ fontWeight: 700, fontSize: 15, color: group.color }}>{groupTotal}</span>
               </div>
               <div className="card-pad" style={{ padding: '8px 16px 12px' }}>
                 {items.map(({ status, total }) => {
                   const pct = groupTotal > 0 ? (total / groupTotal) * 100 : 0;
                   return (
-                    <div key={status} style={{ marginBottom: 6 }}>
+                    <div key={status} style={{ marginBottom: 5 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
-                        <span style={{ color: '#475569' }}>{DISPOSITION_LABELS[status] || status}</span>
-                        <span style={{ fontWeight: 700, color: getStatusColor(status) }}>{total}</span>
+                        <span style={{ color: 'var(--ink-soft)' }}>{DISPOSITION_LABELS[status] || status}</span>
+                        <span style={{ fontWeight: 600, color: getStatusColor(status) }}>{total}</span>
                       </div>
-                      <div style={{ height: 4, borderRadius: 2, background: '#f1f5f9', overflow: 'hidden' }}>
+                      <div style={{ height: 3, borderRadius: 2, background: '#e5e7eb', overflow: 'hidden' }}>
                         <div style={{ width: `${pct}%`, height: '100%', borderRadius: 2, background: group.color, opacity: 0.5 }} />
                       </div>
                     </div>
