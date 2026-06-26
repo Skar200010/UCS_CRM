@@ -33,9 +33,9 @@ const NAV = [
   { id: 'station-mgmt', label: 'Station Mgmt', icon: ICONS.station },
 ]
 
-function Sidebar({ active, setActive }) {
+function Sidebar({ active, setActive, open, onClose }) {
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${open ? ' open' : ''}`}>
       <div className="sidebar-brand">
         <div className="brand-mark">NA</div>
         <div><h1>UFS</h1><span>NGO Admin Panel</span></div>
@@ -43,7 +43,7 @@ function Sidebar({ active, setActive }) {
       <nav className="sidebar-nav">
         {NAV.map(n => (
           <button key={n.id} className={`snav-item ${active === n.id ? 'active' : ''}`}
-            onClick={() => setActive(n.id)}>
+            onClick={() => { setActive(n.id); onClose?.(); }}>
             <span className="ico">{n.icon}</span>
             <span>{n.label}</span>
           </button>
@@ -58,6 +58,7 @@ export default function NgoAdminPanel() {
   const [active, setActive] = useState('dashboard')
   const [selectedDonor, setSelectedDonor] = useState(null)
   const [showMenu, setShowMenu] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [themeName, setThemeName] = useState(() => localStorage.getItem('ngoadmin_theme') || 'sky')
   const menuRef = useRef(null)
 
@@ -84,6 +85,7 @@ export default function NgoAdminPanel() {
   const handleNav = useCallback((id) => {
     setActive(id)
     setSelectedDonor(null)
+    setSidebarOpen(false)
   }, [])
 
   const userName = user?.name || 'Admin'
@@ -92,10 +94,14 @@ export default function NgoAdminPanel() {
 
   return (
     <div className="app">
-      <Sidebar active={active} setActive={handleNav} />
+      <Sidebar active={active} setActive={handleNav} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
       <div className="main">
         <header className="topbar">
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <button className="hamburger" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+            </button>
             <div className="eyebrow">{meta?.label || 'Dashboard'}</div>
             <h2>{meta?.label || 'Dashboard'}</h2>
           </div>
