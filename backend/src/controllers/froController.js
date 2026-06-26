@@ -385,7 +385,7 @@ export const createDonorLogHandler = async (req, res) => {
   try {
     const workerId = req.user.id;
     const donorId = parseInt(req.params.id);
-    const { action, notes, outcome, amount_collected, disposition_category, disposition_detail, scheduled_at, payment_screenshot_url, pan_number, donor_address, donor_dob, ngo_id } = req.body;
+    const { action, notes, outcome, amount_collected, disposition_category, disposition_detail, scheduled_at, payment_screenshot_url, pan_number, donor_address, donor_dob, ngo_id, project_name } = req.body;
 
     if (!action) return res.status(400).json({ message: 'action is required' });
     const allowedActions = ['call', 'visit', 'message', 'follow_up', 'donation', 'note', 'disposition'];
@@ -421,6 +421,7 @@ export const createDonorLogHandler = async (req, res) => {
     const updateFields = {};
     if (donor_address) updateFields.address_1 = donor_address;
     if (donor_dob) updateFields.birth_date = donor_dob;
+    if (project_name) updateFields.project_supported = project_name;
     if (Object.keys(updateFields).length > 0) {
       await supabase.from('donor_profiles').update(updateFields).eq('id', donorId);
     }

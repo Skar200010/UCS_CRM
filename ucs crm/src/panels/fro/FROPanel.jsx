@@ -17,8 +17,8 @@ const NAV = [
   { id: 'donors', label: 'Donors', icon: 'card_giftcard' },
   { id: 'logs', label: 'Call Logs', icon: 'call_log' },
   { id: 'target', label: 'My Target', icon: 'track_changes' },
-  { id: 'history', label: 'History', icon: 'history' },
-  { id: 'incentive-info', label: 'Incentive Info', icon: 'emoji_events' },
+  // { id: 'history', label: 'History', icon: 'history' },
+  // { id: 'incentive-info', label: 'Incentive Info', icon: 'emoji_events' },
 ]
 
 function Sidebar({ active, setActive }) {

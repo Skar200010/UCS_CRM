@@ -8,6 +8,11 @@ const NOT_CONNECTED = [
   { id: 'wrong_number', label: 'Wrong Number' }, { id: 'invalid', label: 'Invalid' },
   { id: 'rejected', label: 'Rejected' },
 ];
+const PROJECTS = [
+  'Mission Annapurna', 'Mission Vidhya', 'Mission Aurat', 'Mission Bezubaan',
+  'Mission Atmanirbhar', 'Mission Arogya', 'Sevak Seva Kendra', 'Mission Eco-Warriors',
+];
+
 const CONNECTED = [
   { id: 'lead_done', label: 'Lead Done' }, { id: 'scheduled', label: 'Schedule' },
   { id: 'visit_donate', label: 'Visit & Donate' }, { id: 'promise_to_pay', label: 'Promise to Pay' },
@@ -49,6 +54,7 @@ export default function MyDonors() {
   const [leadAddress, setLeadAddress] = useState('');
   const [leadPan, setLeadPan] = useState('');
   const [leadDob, setLeadDob] = useState('');
+  const [projectName, setProjectName] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
   const [showDonationModal, setShowDonationModal] = useState(false);
@@ -109,12 +115,15 @@ export default function MyDonors() {
       now.setMinutes(now.getMinutes() + 5 - now.getTimezoneOffset());
       setScheduledAt(now.toISOString().slice(0, 16));
     }
-    if (detailId !== 'lead_done') {
+    if (detailId === 'lead_done') {
+      setProjectName(donor?.donor_project || '');
+    } else {
       setLeadScreenshot(null);
       setScreenshotPreview(null);
       setLeadAddress('');
       setLeadPan('');
       setLeadDob('');
+      setProjectName('');
     }
   };
 
@@ -178,9 +187,10 @@ export default function MyDonors() {
         logData.donor_address = leadAddress || null;
         logData.donor_pan = leadPan || null;
         logData.donor_dob = leadDob || null;
+        logData.project_name = projectName || null;
       }
       await addDonorLog(donor.id, logData);
-      setSelected(null); setNotes(''); setLeadScreenshot(null); setScreenshotPreview(null); setLeadAddress(''); setLeadPan(''); setLeadDob('');
+      setSelected(null); setNotes(''); setLeadScreenshot(null); setScreenshotPreview(null); setLeadAddress(''); setLeadPan(''); setLeadDob(''); setProjectName('');
       const nextDonors = donors.filter(d => d.id !== donor.id || d.ngo_id !== donor.ngo_id);
       setDonors(nextDonors);
       if (index >= nextDonors.length && nextDonors.length > 0) setIndex(0);
@@ -361,6 +371,15 @@ export default function MyDonors() {
 
               {selected === 'lead_done' && (
                 <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  <div className="detail-field-row">
+                    <div className="fld">
+                      <label>Project</label>
+                      <select value={projectName} onChange={e => setProjectName(e.target.value)}>
+                        <option value="">— Select Project —</option>
+                        {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                  </div>
                   <div className="detail-field-row">
                     <div className="fld">
                       <label>Screenshot</label>
