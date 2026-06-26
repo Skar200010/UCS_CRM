@@ -401,45 +401,80 @@ export default function Dashboard() {
       </div>
 
       {stationNames.length > 0 && (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-head">
-            <h3>Stations</h3>
-            <span className="count">{stationNames.length} total</span>
+        <>
+          <div className="card desktop-only" style={{ marginBottom: 16 }}>
+            <div className="card-head">
+              <h3>Stations</h3>
+              <span className="count">{stationNames.length} total</span>
+            </div>
+            <div className="card-pad" style={{ padding: 0 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Station</th>
+                    <th>Donors</th>
+                    <th>Converted</th>
+                    <th>In Progress</th>
+                    <th>Negative</th>
+                    <th>FRO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stationNames.map(st => {
+                    const total = getStationTotal(st);
+                    const info = stationInfoMap[st];
+                    const converted = DISPOSITION_GROUPS[0].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                    const inProgress = DISPOSITION_GROUPS[1].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                    const negative = DISPOSITION_GROUPS[2].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                    return (
+                      <tr key={st} onClick={() => setSelectedStation(st)} style={{ cursor: 'pointer' }}>
+                        <td style={{ fontWeight: 600 }}>{st}</td>
+                        <td>{total}</td>
+                        <td style={{ color: '#16a34a', fontWeight: 600 }}>{converted}</td>
+                        <td style={{ color: '#d97706', fontWeight: 600 }}>{inProgress}</td>
+                        <td style={{ color: '#dc2626', fontWeight: 600 }}>{negative}</td>
+                        <td style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{info?.fro_worker_name || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div className="card-pad" style={{ padding: 0 }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Station</th>
-                  <th>Donors</th>
-                  <th>Converted</th>
-                  <th>In Progress</th>
-                  <th>Negative</th>
-                  <th>FRO</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stationNames.map(st => {
-                  const total = getStationTotal(st);
-                  const info = stationInfoMap[st];
-                  const converted = DISPOSITION_GROUPS[0].statuses.reduce((t, s) => t + getCell(st, s), 0);
-                  const inProgress = DISPOSITION_GROUPS[1].statuses.reduce((t, s) => t + getCell(st, s), 0);
-                  const negative = DISPOSITION_GROUPS[2].statuses.reduce((t, s) => t + getCell(st, s), 0);
-                  return (
-                    <tr key={st} onClick={() => setSelectedStation(st)} style={{ cursor: 'pointer' }}>
-                      <td style={{ fontWeight: 600 }}>{st}</td>
-                      <td>{total}</td>
-                      <td style={{ color: '#16a34a', fontWeight: 600 }}>{converted}</td>
-                      <td style={{ color: '#d97706', fontWeight: 600 }}>{inProgress}</td>
-                      <td style={{ color: '#dc2626', fontWeight: 600 }}>{negative}</td>
-                      <td style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{info?.fro_worker_name || '—'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+          <div className="mobile-only" style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '0 2px' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, flex: 1 }}>Stations</h3>
+              <span className="count">{stationNames.length} total</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {stationNames.map(st => {
+                const total = getStationTotal(st);
+                const info = stationInfoMap[st];
+                const converted = DISPOSITION_GROUPS[0].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                const inProgress = DISPOSITION_GROUPS[1].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                const negative = DISPOSITION_GROUPS[2].statuses.reduce((t, s) => t + getCell(st, s), 0);
+                return (
+                  <div key={st} className="card" style={{ marginBottom: 0, padding: '12px 14px', cursor: 'pointer' }}
+                    onClick={() => setSelectedStation(st)}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{st}</span>
+                      <span style={{ fontWeight: 700, fontSize: 16 }}>{total} donors</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>C: {converted}</span>
+                      <span style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>IP: {inProgress}</span>
+                      <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>N: {negative}</span>
+                    </div>
+                    {info?.fro_worker_name && (
+                      <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>FRO: {info.fro_worker_name}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {selectedStation && (
