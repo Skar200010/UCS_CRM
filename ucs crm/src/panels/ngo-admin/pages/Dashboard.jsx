@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { apiGet } from '../api/auth';
 
@@ -21,7 +21,15 @@ const DISPOSITION_GROUPS = [
   { label: 'Other', color: '#5B6B4E', bg: '#f0f2ee', statuses: ['transferred_senior', 'query_complaint', 'receipt_request'] },
 ];
 
+const PER_PAGE = 50;
+
 function StationDetailModal({ station, stats, stationInfo, onClose }) {
+  const [donors, setDonors] = useState([]);
+  const [loadingDonors, setLoadingDonors] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
+
   if (!station) return null;
   const total = Object.values(stats || {}).reduce((t, v) => t + v, 0);
   const groupData = DISPOSITION_GROUPS.map(g => ({
@@ -31,27 +39,78 @@ function StationDetailModal({ station, stats, stationInfo, onClose }) {
     g.statuses.filter(s => (stats?.[s] || 0) > 0).map(s => ({ status: s, count: stats[s], group: g }))
   );
 
+  const fetchDonors = useCallback(async (status) => {
+    setLoadingDonors(true);
+    setStatusFilter(status || '');
+    try {
+      const params = new URLSearchParams({ station });
+      if (status) params.set('status', status);
+      const data = await apiGet(`/ngo-admin/donors-by-station?${params}`);
+      setDonors(data || []);
+      setPage(1);
+    } catch {
+      setDonors([]);
+    } finally {
+      setLoadingDonors(false);
+    }
+  }, [station]);
+
+  const filtered = useMemo(() => {
+    if (!search) return donors;
+    const q = search.toLowerCase();
+    return donors.filter(d =>
+      (d.donor_name && d.donor_name.toLowerCase().includes(q)) ||
+      (d.donor_mobile && d.donor_mobile.includes(q)) ||
+      (d.donor_city && d.donor_city.toLowerCase().includes(q)) ||
+      (d.fro_name && d.fro_name.toLowerCase().includes(q))
+    );
+  }, [donors, search]);
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PER_PAGE;
+    return filtered.slice(start, start + PER_PAGE);
+  }, [filtered, page]);
+
+  useEffect(() => { setPage(1); }, [search]);
+
+  const handleStatusClick = (status) => {
+    if (statusFilter === status) {
+      setStatusFilter('');
+      setDonors([]);
+    } else {
+      fetchDonors(status);
+    }
+  };
+
+  const handleClear = () => {
+    setDonors([]);
+    setStatusFilter('');
+    setSearch('');
+    setPage(1);
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 820 }}>
         <div className="modal-head">
           <h3>{station}</h3>
           <button className="btn btn-sm btn-outline" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-            <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--sage)' }}>{total}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: 12, textAlign: 'center' }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--sage)' }}>{total}</div>
               <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>Total Donors</div>
             </div>
-            <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--sage)' }}>{stationInfo?.ngos?.length || 0}</div>
+            <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: 12, textAlign: 'center' }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--sage)' }}>{stationInfo?.ngos?.length || 0}</div>
               <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>NGOs</div>
             </div>
           </div>
           {stationInfo?.fro_worker_name && (
-            <div style={{ marginBottom: 14, padding: '10px 14px', background: '#f0f2ee', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5B6B4E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <div style={{ marginBottom: 14, padding: '8px 14px', background: '#f0f2ee', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5B6B4E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{stationInfo.fro_worker_name}</span>
             </div>
           )}
@@ -62,7 +121,7 @@ function StationDetailModal({ station, stats, stationInfo, onClose }) {
                   <div key={g.label} style={{ width: `${(g.total / total) * 100}%`, height: '100%', background: g.color, opacity: 0.6 }} />
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
                 {groupData.map(g => (
                   <span key={g.label} style={{ fontSize: 11, fontWeight: 600, color: g.color, background: g.bg, padding: '2px 10px', borderRadius: 10 }}>
                     {g.label}: {g.total}
@@ -71,17 +130,108 @@ function StationDetailModal({ station, stats, stationInfo, onClose }) {
               </div>
             </div>
           )}
+
+          <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--ink-soft)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Disposition Breakdown
+            {statusFilter && (
+              <span style={{ marginLeft: 8, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                — click a status to view donors
+              </span>
+            )}
+          </div>
+
           {allStatuses.length > 0 && (
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--ink-soft)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Disposition Breakdown</div>
-              <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-                {allStatuses.map(({ status, count, group }) => (
-                  <div key={status} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--line)', fontSize: 12 }}>
-                    <span style={{ color: 'var(--ink-soft)' }}>{DISPOSITION_LABELS[status] || status}</span>
-                    <span style={{ fontWeight: 600, color: group.color }}>{count}</span>
-                  </div>
-                ))}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 16 }}>
+              {allStatuses.map(({ status, count, group }) => (
+                <button key={status} onClick={() => handleStatusClick(status)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '3px 10px', borderRadius: 20, border: `1px solid ${statusFilter === status ? group.color : 'transparent'}`,
+                    background: statusFilter === status ? group.bg : 'var(--bg)',
+                    cursor: 'pointer', fontSize: 12, fontWeight: statusFilter === status ? 700 : 500,
+                    color: statusFilter === status ? group.color : 'var(--ink-soft)',
+                    transition: 'all .15s',
+                  }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: group.color, flexShrink: 0 }} />
+                  {DISPOSITION_LABELS[status] || status}
+                  <span style={{ fontWeight: 700, color: group.color, marginLeft: 2 }}>{count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!statusFilter && !donors.length && (
+            <div style={{ padding: '12px 0', textAlign: 'center', fontSize: 12, color: 'var(--ink-soft)' }}>
+              Click a disposition above to view donor list for that status.
+            </div>
+          )}
+
+          {(statusFilter || donors.length > 0) && (
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14, marginTop: 4 }}>
+              <div className="filter-bar" style={{ marginBottom: 12 }}>
+                <input placeholder="Search name, phone, city..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 240 }} />
+                {statusFilter && (
+                  <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: '#f0f2ee', color: 'var(--ink-soft)', fontWeight: 500 }}>
+                    {DISPOSITION_LABELS[statusFilter] || statusFilter}
+                  </span>
+                )}
+                <span className="count">{loadingDonors ? 'Loading...' : `${filtered.length} donors`}</span>
+                {donors.length > 0 && (
+                  <button className="btn btn-sm btn-outline" onClick={handleClear}>Clear</button>
+                )}
               </div>
+
+              {loadingDonors ? (
+                <div className="loading" style={{ padding: 20 }}>Loading donors...</div>
+              ) : paginated.length > 0 ? (
+                <div style={{ overflowX: 'auto' }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>City</th>
+                        <th>FRO</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginated.map(d => (
+                        <tr key={d.id}>
+                          <td style={{ fontWeight: 500 }}>{d.donor_name || '—'}</td>
+                          <td>{d.donor_mobile || '—'}</td>
+                          <td>{d.donor_city || '—'}</td>
+                          <td style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{d.fro_name || 'Unassigned'}</td>
+                          <td><span className="pill" style={{
+                            background: (() => { const g = DISPOSITION_GROUPS.find(gr => gr.statuses.includes(d.status)); return g ? g.bg : '#f3f4f6'; })(),
+                            color: (() => { const g = DISPOSITION_GROUPS.find(gr => gr.statuses.includes(d.status)); return g ? g.color : '#6b7280'; })(),
+                          }}>{DISPOSITION_LABELS[d.status] || d.status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ padding: 12, textAlign: 'center', fontSize: 12, color: 'var(--ink-soft)' }}>
+                  No donors match this filter.
+                </div>
+              )}
+
+              {totalPages > 1 && !loadingDonors && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '12px 0 4px' }}>
+                  <button className="btn btn-sm btn-outline" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                    Previous
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                    <button key={p} className={`btn btn-sm ${p === page ? 'btn-primary' : 'btn-outline'}`} onClick={() => setPage(p)} style={{ minWidth: 32 }}>
+                      {p}
+                    </button>
+                  ))}
+                  <button className="btn btn-sm btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
