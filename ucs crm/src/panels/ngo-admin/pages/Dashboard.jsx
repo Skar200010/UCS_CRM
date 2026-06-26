@@ -421,68 +421,48 @@ export default function Dashboard() {
       )}
 
       {stationNames.length > 0 && (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-head">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-              <h3>Station Details</h3>
-            </div>
-            <span className="count" style={{ background: '#5B6B4E12', color: 'var(--sage)', fontSize: 12, padding: '4px 12px', borderRadius: 20, fontWeight: 600 }}>
-              {stationNames.length} stations
-            </span>
-          </div>
-          <div className="card-pad">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
-              {stationNames.map(st => {
-                const total = getStationTotal(st);
-                const info = stationInfoMap[st];
-                const hasFro = info?.fro_worker_name;
-                const groupCounts = DISPOSITION_GROUPS.map(g => ({
-                  ...g, count: g.statuses.reduce((t, s) => t + getCell(st, s), 0),
-                }));
-                const visibleGroups = groupCounts.filter(g => g.count > 0);
-                return (
-                  <div key={st} style={{
-                    background: 'var(--card-bg)', borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--line)', cursor: 'pointer',
-                    transition: 'box-shadow .2s, border-color .2s, transform .2s',
-                    overflow: 'hidden',
-                  }}
-                    onClick={() => setSelectedStation(st)}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; }}>
-                    <div style={{ padding: '14px 14px 10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{st}</span>
-                        <span style={{ background: 'var(--sage)', color: '#fff', borderRadius: 20, padding: '0 10px', fontSize: 12, fontWeight: 700, lineHeight: '22px' }}>{total}</span>
-                      </div>
-                      <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', display: 'flex', overflow: 'hidden', marginBottom: 8 }}>
-                        {visibleGroups.map((g, i) => (
-                          <div key={g.label} style={{
-                            width: `${(g.count / total) * 100}%`, height: '100%',
-                            background: g.color, opacity: 0.5,
-                            borderRight: i < visibleGroups.length - 1 ? '1px solid #fff' : 'none',
-                          }} />
-                        ))}
-                      </div>
-                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 0 }}>
-                        {visibleGroups.slice(0, 3).map(g => (
-                          <span key={g.label} style={{ fontSize: 10, color: g.color, fontWeight: 600, padding: '1px 7px', borderRadius: 8, background: g.bg }}>{g.count}</span>
-                        ))}
-                      </div>
-                    </div>
-                    {hasFro && (
-                      <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', background: 'var(--bg)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-soft)' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5B6B4E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        {info.fro_worker_name}
-                        {info?.ngos?.length > 0 && <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--ink-soft)' }}>{info.ngos.length} NGO{info.ngos.length > 1 ? 's' : ''}</span>}
-                      </div>
-                    )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginBottom: 16 }}>
+          {stationNames.map(st => {
+            const total = getStationTotal(st);
+            const info = stationInfoMap[st];
+            const hasFro = info?.fro_worker_name;
+            const groupCounts = DISPOSITION_GROUPS.map(g => ({
+              ...g, count: g.statuses.reduce((t, s) => t + getCell(st, s), 0),
+            }));
+            const visibleGroups = groupCounts.filter(g => g.count > 0);
+            return (
+              <div key={st} className="card" style={{ marginBottom: 0, padding: '14px 16px', cursor: 'pointer' }}
+                onClick={() => setSelectedStation(st)}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = ''; }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                  <span style={{ fontSize: 13, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>{st}</span>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{total}</span>
+                </div>
+                <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', display: 'flex', overflow: 'hidden', marginBottom: 8 }}>
+                  {visibleGroups.map((g, i) => (
+                    <div key={g.label} style={{
+                      width: `${(g.count / total) * 100}%`, height: '100%',
+                      background: g.color, opacity: 0.5,
+                      borderRight: i < visibleGroups.length - 1 ? '1px solid #fff' : 'none',
+                    }} />
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 4 }}>
+                  {visibleGroups.slice(0, 3).map(g => (
+                    <span key={g.label} style={{ fontSize: 10, color: g.color, fontWeight: 600, padding: '1px 7px', borderRadius: 8, background: g.bg }}>{g.count}</span>
+                  ))}
+                </div>
+                {hasFro && (
+                  <div style={{ fontSize: 11, color: 'var(--ink-soft)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    {info.fro_worker_name}
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
