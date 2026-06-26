@@ -203,6 +203,9 @@ export const getMyDonors = async (req, res) => {
       .select('*')
       .in('id', donorIds);
 
+    const donorMap = {};
+    for (const d of donors || []) donorMap[d.id] = d;
+
     const assignmentIds = assignments.map(a => a.id);
     const { data: schedules } = await supabase
       .from('fro_scheduled_contacts')
