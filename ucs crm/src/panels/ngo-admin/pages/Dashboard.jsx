@@ -416,6 +416,7 @@ export default function Dashboard() {
                     <th>Converted</th>
                     <th>In Progress</th>
                     <th>Negative</th>
+                    <th>NGOs</th>
                     <th>FRO</th>
                   </tr>
                 </thead>
@@ -433,6 +434,7 @@ export default function Dashboard() {
                         <td style={{ color: '#16a34a', fontWeight: 600 }}>{converted}</td>
                         <td style={{ color: '#d97706', fontWeight: 600 }}>{inProgress}</td>
                         <td style={{ color: '#dc2626', fontWeight: 600 }}>{negative}</td>
+                        <td style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{info?.ngos?.map(n => n.ngo_name).join(', ') || '—'}</td>
                         <td style={{ fontSize: 13, color: 'var(--ink-soft)' }}>{info?.fro_worker_name || '—'}</td>
                       </tr>
                     );
@@ -466,6 +468,9 @@ export default function Dashboard() {
                       <span style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>IP: {inProgress}</span>
                       <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>N: {negative}</span>
                     </div>
+                    {info?.ngos?.length > 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>NGOs: {info.ngos.map(n => n.ngo_name).join(', ')}</div>
+                    )}
                     {info?.fro_worker_name && (
                       <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>FRO: {info.fro_worker_name}</div>
                     )}
