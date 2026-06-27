@@ -378,7 +378,7 @@ export default function StationManagement() {
                       {(() => {
                         const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
                         if (!w) return <span style={{ color: '#9ca3af' }}>—</span>;
-                        const t = targets.find(tg => tg.fro_worker_id === w.id);
+                        const t = targets.find(tg => tg.id === w.id);
                         return <strong>₹{Number(t?.target || 0).toLocaleString('en-IN')}</strong>;
                       })()}
                     </td>
@@ -386,7 +386,7 @@ export default function StationManagement() {
                       {(() => {
                         const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
                         if (!w) return <span style={{ color: '#9ca3af' }}>—</span>;
-                        const t = targets.find(tg => tg.fro_worker_id === w.id);
+                        const t = targets.find(tg => tg.id === w.id);
                         if (!t) return <span style={{ color: '#9ca3af' }}>—</span>;
                         return (
                           <>
@@ -415,7 +415,7 @@ export default function StationManagement() {
                         {(() => {
                           const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
                           if (!w) return null;
-                          const t = targets.find(tg => tg.fro_worker_id === w.id);
+                          const t = targets.find(tg => tg.id === w.id);
                           if (!t || t?.months_employed >= 3) {
                             return (
                               <button className="btn btn-sm btn-outline" onClick={() => { setEditTarget(w); setTargetAmount(String(t?.target || '')); }}>
