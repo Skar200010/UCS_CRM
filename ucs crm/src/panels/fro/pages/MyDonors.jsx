@@ -66,7 +66,6 @@ export default function MyDonors() {
   const [donationLoading, setDonationLoading] = useState(false);
 
   useEffect(() => {
-    localStorage.removeItem('mydonors_index');
     setLoading(true);
     getMyDonors(filterStatus).then(r => {
       setDonors(r);
@@ -74,10 +73,10 @@ export default function MyDonors() {
       const saved = localStorage.getItem('mydonors_current_donor');
       if (saved) {
         try {
-          const { id, ngo_id } = JSON.parse(saved);
+          const { id, ngo_id, idx } = JSON.parse(saved);
           const found = r.findIndex(d => d.id === id && d.ngo_id === (ngo_id ?? null));
-          setIndex(found >= 0 ? found : 0);
-          return;
+          if (found >= 0) { setIndex(found); return; }
+          if (typeof idx === 'number' && idx < r.length) { setIndex(idx); return; }
         } catch {}
       }
       setIndex(0);
@@ -88,9 +87,9 @@ export default function MyDonors() {
 
   useEffect(() => {
     if (donor) {
-      localStorage.setItem('mydonors_current_donor', JSON.stringify({ id: donor.id, ngo_id: donor.ngo_id }));
+      localStorage.setItem('mydonors_current_donor', JSON.stringify({ id: donor.id, ngo_id: donor.ngo_id, idx: index }));
     }
-  }, [donor?.id, donor?.ngo_id]);
+  }, [donor?.id, donor?.ngo_id, index]);
   const logs = detail?.logs || [];
   const totalCollected = detail?.total_collected || 0;
   const nextSchedule = detail?.next_schedule;

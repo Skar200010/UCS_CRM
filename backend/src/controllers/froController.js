@@ -233,7 +233,7 @@ export const getMyDonors = async (req, res) => {
     } else if (statusFilter) {
       query = query.eq('status', statusFilter);
     } else {
-      query = query.eq('status', 'pending');
+      query = query.in('status', ['pending', ...NOT_CONNECTED_STATUSES]).order('is_new', { ascending: false });
     }
 
     const { data: assignments } = await query;
