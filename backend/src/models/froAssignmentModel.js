@@ -273,6 +273,9 @@ export const createTemporaryTransfer = async (sourceFroId, ngoIds, sourceStation
     return { transfer: null, transferred: 0 };
   }
 
+  const donorIds = assignments.map(a => a.donor_id);
+  await supabase.from('fro_transfers').update({ donor_ids: donorIds }).eq('id', transfer.id);
+
   const ids = assignments.map(a => a.id);
   await supabase.from('fro_assignments').update({ status: 'reassigned', updated_at: new Date().toISOString() }).in('id', ids);
 
@@ -284,6 +287,8 @@ export const createTemporaryTransfer = async (sourceFroId, ngoIds, sourceStation
 
   const { error: insErr } = await supabase.from('fro_assignments').insert(newAssignments);
   if (insErr) throw insErr;
+
+  transfer.donor_ids = donorIds;
 
   return { transfer, transferred: assignments.length };
 };

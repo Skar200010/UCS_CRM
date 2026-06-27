@@ -11,6 +11,7 @@ CREATE TABLE fro_transfers (
   target_station TEXT NOT NULL,
   ngo_id TEXT,
   donor_count INTEGER DEFAULT 0,
+  donor_ids JSONB DEFAULT '[]'::jsonb,
   returned BOOLEAN DEFAULT FALSE,
   auto_return_at TIMESTAMPTZ,
   returned_at TIMESTAMPTZ,

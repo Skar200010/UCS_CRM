@@ -1405,7 +1405,7 @@ export const returnTransferEarly = async (req, res) => {
   }
 };
 
-export const getActiveTransfers = async (req, res) => {
+export const getTransferHistory = async (req, res) => {
   try {
     const ngoIds = await getUserNgoIds(req.user);
     if (ngoIds.length === 0) return res.json([]);
@@ -1414,7 +1414,6 @@ export const getActiveTransfers = async (req, res) => {
       .from('fro_transfers')
       .select('*')
       .in('ngo_id', ngoIds)
-      .or('returned.is.null,returned.eq.false')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -1434,12 +1433,63 @@ export const getActiveTransfers = async (req, res) => {
       station: t.station,
       target_station: t.target_station,
       donor_count: t.donor_count,
+      donor_ids: t.donor_ids || [],
       source_fro_name: froNameMap[t.source_fro_worker_id] || 'Unknown',
       auto_return_at: t.auto_return_at,
+      returned: !!t.returned,
+      returned_at: t.returned_at,
       created_at: t.created_at,
     }));
 
     return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getTransferDonors = async (req, res) => {
+  try {
+    const ngoIds = await getUserNgoIds(req.user);
+    if (ngoIds.length === 0) return res.json([]);
+
+    const { id } = req.params;
+
+    const { data: transfer, error: tErr } = await supabase
+      .from('fro_transfers')
+      .select('*')
+      .eq('id', id)
+      .in('ngo_id', ngoIds)
+      .single();
+
+    if (tErr || !transfer) {
+      return res.status(404).json({ message: 'Transfer not found' });
+    }
+
+    const donorIds = transfer.donor_ids || [];
+
+    if (donorIds.length === 0) return res.json([]);
+
+    // Fetch donor details from donors table (or new_data table as fallback)
+    const { data: donors } = await supabase
+      .from('donors')
+      .select('id, name, mobile, lead_status')
+      .in('id', donorIds);
+
+    if (donors && donors.length > 0) {
+      return res.json(donors);
+    }
+
+    // Fallback: try new_data table
+    const { data: newDonors } = await supabase
+      .from('new_data')
+      .select('id, name, mobile, status')
+      .in('id', donorIds);
+
+    const fallback = (newDonors || []).map(d => ({
+      id: d.id, name: d.name, mobile: d.mobile, lead_status: d.status,
+    }));
+
+    return res.json(fallback);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
