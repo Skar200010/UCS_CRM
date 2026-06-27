@@ -1374,13 +1374,13 @@ export const getTransferableData = async (req, res) => {
 export const transferStationData = async (req, res) => {
   try {
     const { station } = req.params;
-    const { target_fro_worker_id, donor_count } = req.body;
+    const { target_station, donor_count } = req.body;
     const ngoIds = await getUserNgoIds(req.user);
     if (ngoIds.length === 0) return res.status(400).json({ message: 'No NGO assigned' });
 
     const ngoId = ngoIds[0];
-    if (!target_fro_worker_id || !donor_count) {
-      return res.status(400).json({ message: 'target_fro_worker_id and donor_count are required' });
+    if (!target_station || !donor_count) {
+      return res.status(400).json({ message: 'target_station and donor_count are required' });
     }
 
     const { data: sourceAssign } = await supabase
@@ -1391,17 +1391,21 @@ export const transferStationData = async (req, res) => {
       .single();
 
     if (!sourceAssign || !sourceAssign.fro_worker_id) {
-      return res.status(400).json({ message: 'No FRO assigned to this station' });
+      return res.status(400).json({ message: 'No FRO assigned to source station' });
     }
 
-    const autoReturnAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+    if (target_station.trim() === station.trim()) {
+      return res.status(400).json({ message: 'Target station must be different from source station' });
+    }
+
+    const autoReturnAt = new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString();
     const result = await createTemporaryTransfer(
-      sourceAssign.fro_worker_id, target_fro_worker_id, ngoId,
-      station.trim(), donor_count, autoReturnAt, req.user.id
+      sourceAssign.fro_worker_id, ngoId,
+      station.trim(), target_station.trim(), donor_count, autoReturnAt, req.user.id
     );
 
     return res.json({
-      message: `Transferred ${result.transferred} donors to new FRO`,
+      message: `Transferred ${result.transferred} donors to ${target_station}`,
       transfer: result.transfer,
       transferred: result.transferred,
     });

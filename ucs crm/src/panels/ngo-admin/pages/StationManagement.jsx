@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/auth';
 
-function TransferDataModal({ station, sourceFroId, sourceName, sourceCount, allFroWorkers, onClose, onTransferred }) {
-  const [targetId, setTargetId] = useState('');
+function TransferDataModal({ station, sourceName, sourceCount, stations, onClose, onTransferred }) {
+  const [targetStation, setTargetStation] = useState('');
   const [count, setCount] = useState(sourceCount);
   const [loading, setLoading] = useState(false);
   const maxCount = sourceCount;
 
-  const availableTargets = allFroWorkers.filter(w => w.id !== sourceFroId && !w.disabledForStation);
+  const availableStations = stations.filter(s => s.station !== station);
 
   const handleTransfer = async () => {
-    if (!targetId || count < 1) return;
+    if (!targetStation || count < 1) return;
     setLoading(true);
     try {
       await apiPost(`/ngo-admin/stations/${encodeURIComponent(station)}/transfer-data`, {
-        target_fro_worker_id: parseInt(targetId),
+        target_station: targetStation,
         donor_count: count,
       });
       if (onTransferred) onTransferred();
@@ -50,21 +50,21 @@ function TransferDataModal({ station, sourceFroId, sourceName, sourceCount, allF
             </div>
           </label>
           <label className="field">
-            Transfer to (covering FRO)
-            <select value={targetId} onChange={e => setTargetId(e.target.value)}>
-              <option value="">-- Select FRO --</option>
-              {availableTargets.map(w => (
-                <option key={w.id} value={w.id}>{w.name}</option>
+            Transfer to station
+            <select value={targetStation} onChange={e => setTargetStation(e.target.value)}>
+              <option value="">-- Select Station --</option>
+              {availableStations.map(s => (
+                <option key={s.station} value={s.station}>{s.station}</option>
               ))}
             </select>
           </label>
           <div style={{ fontSize: 12, color: '#6b7280', background: '#f0fdf4', padding: '8px 12px', borderRadius: 6 }}>
-            All leads (pending, scheduled, callback, contacted, etc.) are included. Auto-return after 8 hours.
+            Leads transferred to target station (unassigned). Auto-return after 10 hours.
           </div>
           <div className="modal-actions">
             <button className="btn btn-outline" onClick={onClose}>Cancel</button>
             <button className="btn btn-primary" onClick={handleTransfer}
-              disabled={loading || !targetId || count < 1}>
+              disabled={loading || !targetStation || count < 1}>
               {loading ? 'Transferring...' : `Transfer ${count} Leads`}
             </button>
           </div>
@@ -306,7 +306,6 @@ export default function StationManagement() {
                           const fro = froWorkers.find(w => w.id === s.fro_worker_id);
                           setTransferData({
                             station: s.station,
-                            sourceFroId: s.fro_worker_id,
                             sourceName: fro?.name || 'Unknown',
                             sourceCount: s.donor_count || 0,
                           });
@@ -348,10 +347,9 @@ export default function StationManagement() {
       {transferData && (
         <TransferDataModal
           station={transferData.station}
-          sourceFroId={transferData.sourceFroId}
           sourceName={transferData.sourceName}
           sourceCount={transferData.sourceCount}
-          allFroWorkers={froWorkers}
+          stations={stations}
           onClose={() => setTransferData(null)}
           onTransferred={() => fetchData()}
         />
