@@ -1378,19 +1378,20 @@ export const transferStationData = async (req, res) => {
     const ngoIds = await getUserNgoIds(req.user);
     if (ngoIds.length === 0) return res.status(400).json({ message: 'No NGO assigned' });
 
-    const ngoId = ngoIds[0];
     if (!target_station || !donor_count) {
       return res.status(400).json({ message: 'target_station and donor_count are required' });
     }
 
-    const { data: sourceAssign } = await supabase
+    const { data: sourceAssigns } = await supabase
       .from('fro_station_assignments')
-      .select('fro_worker_id')
+      .select('fro_worker_id, ngo_id')
+      .in('ngo_id', ngoIds)
       .eq('station', station.trim())
-      .eq('ngo_id', ngoId)
-      .single();
+      .not('fro_worker_id', 'is', null)
+      .limit(1);
 
-    if (!sourceAssign || !sourceAssign.fro_worker_id) {
+    const sourceAssign = sourceAssigns?.[0];
+    if (!sourceAssign) {
       return res.status(400).json({ message: 'No FRO assigned to source station' });
     }
 
@@ -1400,7 +1401,7 @@ export const transferStationData = async (req, res) => {
 
     const autoReturnAt = new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString();
     const result = await createTemporaryTransfer(
-      sourceAssign.fro_worker_id, ngoId,
+      sourceAssign.fro_worker_id, sourceAssign.ngo_id,
       station.trim(), target_station.trim(), donor_count, autoReturnAt, req.user.id
     );
 
