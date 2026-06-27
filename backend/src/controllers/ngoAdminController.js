@@ -9,7 +9,6 @@ import {
   findAssignmentsByNgo,
   getStationDispositionStats,
   getDonorsByStationAndStatus,
-  getTransferableCount,
   createTemporaryTransfer,
   reverseTransfer,
 } from '../models/froAssignmentModel.js';
@@ -1348,36 +1347,6 @@ export const resolveDataRequest = async (req, res) => {
 };
 
 // ---- Station Transfers ----
-
-export const getTransferableData = async (req, res) => {
-  try {
-    const { station } = req.params;
-    const ngoIds = await getUserNgoIds(req.user);
-    if (ngoIds.length === 0) return res.status(400).json({ message: 'No NGO assigned' });
-
-    const ngoId = ngoIds[0];
-    const { data: stationAssigns } = await supabase
-      .from('fro_station_assignments')
-      .select('fro_worker_id, workers!fro_station_assignments_fro_worker_id_fkey(name)')
-      .eq('station', station.trim())
-      .eq('ngo_id', ngoId)
-      .single();
-
-    if (!stationAssigns || !stationAssigns.fro_worker_id) {
-      return res.json({ fro_worker: null, transferable_count: 0 });
-    }
-
-    const count = await getTransferableCount(station.trim(), ngoId, stationAssigns.fro_worker_id);
-
-    return res.json({
-      fro_worker_id: stationAssigns.fro_worker_id,
-      fro_worker_name: stationAssigns.workers?.name || 'Unknown',
-      transferable_count: count,
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
 
 export const transferStationData = async (req, res) => {
   try {

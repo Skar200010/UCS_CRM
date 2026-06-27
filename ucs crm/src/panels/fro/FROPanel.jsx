@@ -5,6 +5,7 @@ import { getScheduled, getCallbacks } from './api/donors'
 import DispositionModal from './components/DispositionModal'
 import Dashboard from './pages/Dashboard'
 import MyDonors from './pages/MyDonors'
+import TransferredLeads from './pages/TransferredLeads'
 import Donors from './pages/Donors'
 import Scheduled from './pages/Scheduled'
 import IncentiveInfo from './pages/IncentiveInfo'
@@ -16,6 +17,7 @@ const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'scheduled', label: 'Scheduled / Callback', icon: 'calendar_month' },
   { id: 'my-leads', label: 'My Leads', icon: 'group' },
+  { id: 'transferred-leads', label: 'Transferred', icon: 'swap_horiz' },
   { id: 'donors', label: 'Donors', icon: 'card_giftcard' },
   { id: 'logs', label: 'Call Logs', icon: 'call_log' },
   { id: 'target', label: 'My Target', icon: 'track_changes' },
@@ -180,6 +182,8 @@ export default function FROPanel() {
             <Scheduled />
           ) : active === 'my-leads' ? (
             <MyDonors />
+          ) : active === 'transferred-leads' ? (
+            <TransferredLeads />
           ) : active === 'donors' ? (
             <Donors />
           ) : active === 'logs' ? (

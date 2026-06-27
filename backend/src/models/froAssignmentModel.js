@@ -247,18 +247,6 @@ export const getStationDispositionStats = async (ngoId) => {
   return stationMap;
 };
 
-export const getTransferableCount = async (station, ngoId, froWorkerId) => {
-  const { count, error } = await supabase
-    .from('fro_assignments')
-    .select('id', { count: 'exact', head: true })
-    .eq('station', station)
-    .eq('ngo_id', ngoId)
-    .eq('fro_worker_id', froWorkerId)
-    .not('status', 'eq', 'reassigned');
-  if (error) throw error;
-  return count ?? 0;
-};
-
 export const createTemporaryTransfer = async (sourceFroId, ngoId, sourceStation, targetStation, count, autoReturnAt, assignedBy) => {
   const { data: transfer, error: tErr } = await supabase
     .from('fro_transfers')
