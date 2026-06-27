@@ -35,7 +35,7 @@ function TransferDataModal({ station, sourceName, sourceCount, stations, onClose
         </div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ fontSize: 13, color: '#6b7280', background: '#f9fafb', padding: '10px 12px', borderRadius: 6 }}>
-            Source: <strong>{sourceName}</strong> — {sourceCount} leads assigned to this FRO (all statuses)
+            Source station: <strong>{station}</strong> — {sourceCount} leads (all statuses)
           </div>
           <label className="field">
             Number of leads to transfer
@@ -307,7 +307,7 @@ export default function StationManagement() {
                           setTransferData({
                             station: s.station,
                             sourceName: fro?.name || 'Unknown',
-                            sourceCount: s.fro_donor_count || 0,
+                            sourceCount: s.donor_count || 0,
                           });
                         }} style={{ color: 'var(--sage, #5B6B4E)' }}>
                           Transfer

@@ -275,7 +275,6 @@ export const createTemporaryTransfer = async (sourceFroId, ngoId, sourceStation,
     .select('id, donor_id, status, station')
     .eq('station', sourceStation)
     .eq('ngo_id', ngoId)
-    .eq('fro_worker_id', sourceFroId)
     .not('status', 'eq', 'reassigned')
     .order('assigned_at', { ascending: true })
     .limit(count);
