@@ -315,7 +315,13 @@ export default function StationManagement() {
               <tbody>
                 {stations.map((s, i) => (
                   <tr key={s.station}>
-                    <td><strong>{s.station}</strong></td>
+                    <td>
+                      <strong>{s.station}</strong>
+                      {(() => {
+                        const at = activeTransfers.find(t => t.station === s.station);
+                        return at ? <span style={{ marginLeft: 6, fontSize: 12, color: '#9ca3af' }}>→ {at.target_station}</span> : null;
+                      })()}
+                    </td>
                     <td>
                       <span onClick={() => setEditNgoStation(s.station)}
                         style={{ cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
