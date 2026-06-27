@@ -1,38 +1,24 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/auth';
 
-function TransferDataModal({ station, froWorkers, onClose, onTransferred }) {
-  const [sourceId, setSourceId] = useState('');
+function TransferDataModal({ station, sourceFroId, sourceName, sourceCount, allFroWorkers, onClose, onTransferred }) {
   const [targetId, setTargetId] = useState('');
-  const [count, setCount] = useState(0);
+  const [count, setCount] = useState(sourceCount);
   const [loading, setLoading] = useState(false);
-  const [transferInfo, setTransferInfo] = useState(null);
+  const maxCount = sourceCount;
 
-  useEffect(() => {
-    apiGet(`/ngo-admin/stations/${encodeURIComponent(station)}/transferable`)
-      .then(d => {
-        if (d?.froWorkers) {
-          setTransferInfo(d.froWorkers);
-          if (d.froWorkers.length > 0) setSourceId(String(d.froWorkers[0].id));
-        }
-      })
-      .catch(() => {});
-  }, [station]);
-
-  const sourceWorker = transferInfo?.find(w => String(w.id) === sourceId);
-  const maxCount = sourceWorker?.total_count || 0;
-  const availableTargets = (transferInfo || []).filter(w => String(w.id) !== sourceId);
+  const availableTargets = allFroWorkers.filter(w => w.id !== sourceFroId && !w.disabledForStation);
 
   const handleTransfer = async () => {
-    if (!sourceId || !targetId || count < 1) return;
+    if (!targetId || count < 1) return;
     setLoading(true);
     try {
-      const res = await apiPost(`/ngo-admin/stations/${encodeURIComponent(station)}/transfer-data`, {
-        source_fro_id: parseInt(sourceId),
+      await apiPost(`/ngo-admin/stations/${encodeURIComponent(station)}/transfer-data`, {
+        source_fro_id: sourceFroId,
         target_fro_id: parseInt(targetId),
         count,
       });
-      if (onTransferred) onTransferred(res);
+      if (onTransferred) onTransferred();
       onClose();
     } catch (err) {
       alert(err.message);
@@ -49,49 +35,37 @@ function TransferDataModal({ station, froWorkers, onClose, onTransferred }) {
           <button className="btn btn-sm btn-outline" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <label className="field">
-            Source FRO (absent)
-            <select value={sourceId} onChange={e => { setSourceId(e.target.value); setCount(0); }}>
-              {transferInfo?.map(w => (
-                <option key={w.id} value={w.id}>{w.name} ({w.total_count} leads)</option>
-              ))}
-            </select>
-          </label>
-          {sourceWorker && (
-            <div style={{ fontSize: 13, color: '#6b7280', background: '#f9fafb', padding: '8px 12px', borderRadius: 6 }}>
-              {sourceWorker.total_count} leads available to transfer
-            </div>
-          )}
+          <div style={{ fontSize: 13, color: '#6b7280', background: '#f9fafb', padding: '10px 12px', borderRadius: 6 }}>
+            Source: <strong>{sourceName}</strong> — {sourceCount} leads available (all statuses)
+          </div>
           <label className="field">
             Number of leads to transfer
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.max(0, count - 5))} disabled={count < 1}>−5</button>
-              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.max(0, count - 1))} disabled={count < 1}>−1</button>
-              <input
-                type="number" min={0} max={maxCount}
-                value={count} onChange={e => setCount(Math.min(maxCount, Math.max(0, parseInt(e.target.value) || 0)))}
-                style={{ width: 80, textAlign: 'center' }}
-              />
+              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.max(1, count - 5))} disabled={count <= 1}>−5</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.max(1, count - 1))} disabled={count <= 1}>−1</button>
+              <input type="number" min={1} max={maxCount}
+                value={count} onChange={e => setCount(Math.min(maxCount, Math.max(1, parseInt(e.target.value) || 1)))}
+                style={{ width: 80, textAlign: 'center' }} />
               <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.min(maxCount, count + 1))} disabled={count >= maxCount}>+1</button>
               <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.min(maxCount, count + 5))} disabled={count >= maxCount}>+5</button>
             </div>
           </label>
           <label className="field">
-            Target FRO (covering)
+            Transfer to (covering FRO)
             <select value={targetId} onChange={e => setTargetId(e.target.value)}>
               <option value="">-- Select FRO --</option>
               {availableTargets.map(w => (
-                <option key={w.id} value={w.id}>{w.name} ({w.total_count} leads)</option>
+                <option key={w.id} value={w.id}>{w.name}</option>
               ))}
             </select>
           </label>
           <div style={{ fontSize: 12, color: '#6b7280', background: '#f0fdf4', padding: '8px 12px', borderRadius: 6 }}>
-            Leads auto-return after 8 hours (end of shift).
+            All leads (pending, scheduled, callback, contacted, etc.) are included. Auto-return after 8 hours.
           </div>
           <div className="modal-actions">
             <button className="btn btn-outline" onClick={onClose}>Cancel</button>
             <button className="btn btn-primary" onClick={handleTransfer}
-              disabled={loading || !sourceId || !targetId || count < 1}>
+              disabled={loading || !targetId || count < 1}>
               {loading ? 'Transferring...' : `Transfer ${count} Leads`}
             </button>
           </div>
@@ -149,7 +123,7 @@ export default function StationManagement() {
   const [adding, setAdding] = useState(false);
   const [editNgoStation, setEditNgoStation] = useState(null);
   const [newNgoModalOpen, setNewNgoModalOpen] = useState(false);
-  const [transferStation, setTransferStation] = useState(null);
+  const [transferData, setTransferData] = useState(null);
 
   const computeNextName = (existingStations) => {
     const nums = existingStations
@@ -329,8 +303,15 @@ export default function StationManagement() {
                     <td><span className="pill pill-blue">{s.donor_count}</span></td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-sm btn-outline" onClick={() => setTransferStation(s.station)}
-                          style={{ color: 'var(--sage, #5B6B4E)' }}>
+                        <button className="btn btn-sm btn-outline" onClick={() => {
+                          const fro = froWorkers.find(w => w.id === s.fro_worker_id);
+                          setTransferData({
+                            station: s.station,
+                            sourceFroId: s.fro_worker_id,
+                            sourceName: fro?.name || 'Unknown',
+                            sourceCount: s.donor_count || 0,
+                          });
+                        }} style={{ color: 'var(--sage, #5B6B4E)' }}>
                           Transfer
                         </button>
                         <button className="btn btn-sm btn-outline" onClick={() => handleDeleteStation(s.station)}
@@ -365,10 +346,14 @@ export default function StationManagement() {
         />
       )}
 
-      {transferStation && (
+      {transferData && (
         <TransferDataModal
-          station={transferStation}
-          onClose={() => setTransferStation(null)}
+          station={transferData.station}
+          sourceFroId={transferData.sourceFroId}
+          sourceName={transferData.sourceName}
+          sourceCount={transferData.sourceCount}
+          allFroWorkers={froWorkers}
+          onClose={() => setTransferData(null)}
           onTransferred={() => fetchData()}
         />
       )}
