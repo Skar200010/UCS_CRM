@@ -123,6 +123,8 @@ export default function StationManagement() {
   const [editNgoStation, setEditNgoStation] = useState(null);
   const [newNgoModalOpen, setNewNgoModalOpen] = useState(false);
   const [transferData, setTransferData] = useState(null);
+  const [activeTransfers, setActiveTransfers] = useState([]);
+  const [returningId, setReturningId] = useState(null);
 
   const computeNextName = (existingStations) => {
     const nums = existingStations
@@ -133,6 +135,12 @@ export default function StationManagement() {
       .filter(n => !isNaN(n));
     const max = nums.length > 0 ? Math.max(...nums) : 0;
     return `new_ucs-${max + 1}`;
+  };
+
+  const fetchTransfers = () => {
+    apiGet('/ngo-admin/transfers').then(r => {
+      setActiveTransfers(Array.isArray(r) ? r : []);
+    }).catch(() => {});
   };
 
   const fetchData = () => {
@@ -146,6 +154,7 @@ export default function StationManagement() {
       setAllNgos(Array.isArray(n) ? n : []);
       setFroWorkers(Array.isArray(f) ? f : []);
     }).catch(() => {});
+    fetchTransfers();
   };
 
   useEffect(() => {
@@ -154,11 +163,13 @@ export default function StationManagement() {
       apiGet('/ngo-admin/stations'),
       apiGet('/ngo-admin/ngos'),
       apiGet('/ngo-admin/fro-workers'),
-    ]).then(([s, n, f]) => {
+      apiGet('/ngo-admin/transfers'),
+    ]).then(([s, n, f, t]) => {
       const list = Array.isArray(s) ? s : [];
       setStations(list);
       setAllNgos(Array.isArray(n) ? n : []);
       setFroWorkers(Array.isArray(f) ? f : []);
+      setActiveTransfers(Array.isArray(t) ? t : []);
       setNewStation(computeNextName(list));
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
@@ -207,6 +218,22 @@ export default function StationManagement() {
     }
   };
 
+  const handleReturnEarly = async (transferId) => {
+    if (!confirm('Return these leads to the original station now?')) return;
+    setReturningId(transferId);
+    try {
+      await apiPost(`/ngo-admin/transfers/${transferId}/return-early`);
+      fetchTransfers();
+      apiGet('/ngo-admin/stations').then(s => {
+        if (Array.isArray(s)) setStations(s);
+      }).catch(() => {});
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setReturningId(null);
+    }
+  };
+
   const handleDeleteStation = async (station) => {
     if (!confirm(`Delete station "${station}"?`)) return;
     try {
@@ -251,6 +278,39 @@ export default function StationManagement() {
           </div>
         </div>
       </div>
+
+      {activeTransfers.length > 0 && (
+        <div className="card" style={{ marginBottom: 16, borderLeft: '3px solid var(--sage, #5B6B4E)' }}>
+          <div className="card-head">
+            <h3>Active Transfers</h3>
+            <span className="count">{activeTransfers.length}</span>
+          </div>
+          <div className="card-pad">
+            {activeTransfers.map(t => {
+              const timeLeft = t.auto_return_at ? new Date(t.auto_return_at) - new Date() : 0;
+              const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000));
+              const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000));
+              return (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--line, #e5e7eb)', fontSize: 13 }}>
+                  <div style={{ flex: 1 }}>
+                    <strong>{t.station}</strong> → <strong>{t.target_station}</strong>
+                    <span style={{ marginLeft: 8, color: '#6b7280' }}>{t.donor_count} leads</span>
+                  </div>
+                  <div style={{ color: '#6b7280', fontSize: 11 }}>
+                    Auto-return in {hoursLeft}h {minsLeft}m
+                  </div>
+                  <button className="btn btn-sm btn-outline"
+                    onClick={() => handleReturnEarly(t.id)}
+                    disabled={returningId === t.id}
+                    style={{ color: 'var(--sage, #5B6B4E)' }}>
+                    {returningId === t.id ? 'Returning...' : 'Return Early'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-head">

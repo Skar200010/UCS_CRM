@@ -1404,3 +1404,43 @@ export const returnTransferEarly = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
+export const getActiveTransfers = async (req, res) => {
+  try {
+    const ngoIds = await getUserNgoIds(req.user);
+    if (ngoIds.length === 0) return res.json([]);
+
+    const { data: transfers, error } = await supabase
+      .from('fro_transfers')
+      .select('*')
+      .in('ngo_id', ngoIds)
+      .or('returned.is.null,returned.eq.false')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const froIds = [...new Set((transfers || []).map(t => t.source_fro_worker_id).filter(Boolean))];
+    let froNameMap = {};
+    if (froIds.length > 0) {
+      const { data: workers } = await supabase
+        .from('workers')
+        .select('id, name')
+        .in('id', froIds);
+      for (const w of workers || []) froNameMap[w.id] = w.name;
+    }
+
+    const result = (transfers || []).map(t => ({
+      id: t.id,
+      station: t.station,
+      target_station: t.target_station,
+      donor_count: t.donor_count,
+      source_fro_name: froNameMap[t.source_fro_worker_id] || 'Unknown',
+      auto_return_at: t.auto_return_at,
+      created_at: t.created_at,
+    }));
+
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};

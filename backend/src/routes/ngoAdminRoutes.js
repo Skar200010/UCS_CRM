@@ -28,6 +28,7 @@ import {
   resolveDataRequest,
   transferStationData,
   returnTransferEarly,
+  getActiveTransfers,
 } from '../controllers/ngoAdminController.js';
 
 const router = Router();
@@ -55,6 +56,7 @@ router.put('/station-assignments/:id/reassign', reassignStationFro);
 router.put('/stations/:station/update-ngos', updateStationNgos);
 router.delete('/stations/:station', removeStationByName);
 router.post('/stations/:station/transfer-data', transferStationData);
+router.get('/transfers', getActiveTransfers);
 router.post('/transfers/:id/return-early', returnTransferEarly);
 
 router.get('/new-data', getNewData);
