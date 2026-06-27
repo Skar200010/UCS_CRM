@@ -17,8 +17,8 @@ function TransferDataModal({ station, sourceName, sourceCount, stations, onClose
         target_station: targetStation,
         donor_count: count,
       });
-      if (onTransferred) onTransferred();
       onClose();
+      setTimeout(() => { if (onTransferred) onTransferred(); }, 600);
     } catch (err) {
       alert(err.message);
     } finally {
@@ -123,6 +123,15 @@ export default function StationManagement() {
   const [editNgoStation, setEditNgoStation] = useState(null);
   const [newNgoModalOpen, setNewNgoModalOpen] = useState(false);
   const [transferData, setTransferData] = useState(null);
+  const [transfers, setTransfers] = useState([]);
+  const [returningId, setReturningId] = useState(null);
+  const [msg, setMsg] = useState(null);
+
+  useEffect(() => {
+    if (!msg) return;
+    const t = setTimeout(() => setMsg(null), 3000);
+    return () => clearTimeout(t);
+  }, [msg]);
 
   const computeNextName = (existingStations) => {
     const nums = existingStations
@@ -135,17 +144,20 @@ export default function StationManagement() {
     return `new_ucs-${max + 1}`;
   };
 
-  const fetchData = () => {
-    Promise.all([
-      apiGet('/ngo-admin/stations'),
-      apiGet('/ngo-admin/ngos'),
-      apiGet('/ngo-admin/fro-workers'),
-    ]).then(([s, n, f]) => {
-      const list = Array.isArray(s) ? s : [];
-      setStations(list);
-      setAllNgos(Array.isArray(n) ? n : []);
-      setFroWorkers(Array.isArray(f) ? f : []);
+  const fetchTransfers = () => {
+    apiGet('/ngo-admin/transfers').then(r => {
+      setTransfers(Array.isArray(r) ? r : []);
     }).catch(() => {});
+  };
+
+  const fetchData = (successMsg) => {
+    apiGet('/ngo-admin/stations').then(s => {
+      if (Array.isArray(s)) setStations(s);
+    }).catch(err => console.error('fetchData error:', err));
+    apiGet('/ngo-admin/transfers').then(t => {
+      setTransfers(Array.isArray(t) ? t : []);
+    }).catch(err => console.error('fetchData transfers error:', err));
+    if (successMsg) setMsg(successMsg);
   };
 
   useEffect(() => {
@@ -160,8 +172,14 @@ export default function StationManagement() {
       setAllNgos(Array.isArray(n) ? n : []);
       setFroWorkers(Array.isArray(f) ? f : []);
       setNewStation(computeNextName(list));
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch(err => console.error('Initial load error:', err)).finally(() => setLoading(false));
+    apiGet('/ngo-admin/transfers').then(t => {
+      setTransfers(Array.isArray(t) ? t : []);
+    }).catch(err => console.error('Initial transfers load error:', err));
   }, []);
+
+  const activeTransfers = transfers.filter(t => !t.returned);
+  const historyTransfers = transfers.filter(t => t.returned);
 
   const handleAddStation = async () => {
     if (!newStation.trim()) return;
@@ -207,6 +225,19 @@ export default function StationManagement() {
     }
   };
 
+  const handleReturnEarly = async (transferId) => {
+    if (!confirm('Return these leads to the original station now?')) return;
+    setReturningId(transferId);
+    try {
+      await apiPost(`/ngo-admin/transfers/${transferId}/return-early`);
+      setTimeout(() => fetchData('Leads returned successfully'), 400);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setReturningId(null);
+    }
+  };
+
   const handleDeleteStation = async (station) => {
     if (!confirm(`Delete station "${station}"?`)) return;
     try {
@@ -223,6 +254,12 @@ export default function StationManagement() {
 
   return (
     <div>
+      {msg && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>✓</span>
+          <span>{msg}</span>
+        </div>
+      )}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-head">
           <h3>Add Station</h3>
@@ -278,7 +315,13 @@ export default function StationManagement() {
               <tbody>
                 {stations.map((s, i) => (
                   <tr key={s.station}>
-                    <td><strong>{s.station}</strong></td>
+                    <td>
+                      <strong>{s.station}</strong>
+                      {(() => {
+                        const at = activeTransfers.find(t => t.station === s.station);
+                        return at ? <span style={{ marginLeft: 6, fontSize: 12, color: '#9ca3af' }}>→ {at.target_station}</span> : null;
+                      })()}
+                    </td>
                     <td>
                       <span onClick={() => setEditNgoStation(s.station)}
                         style={{ cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
@@ -299,9 +342,22 @@ export default function StationManagement() {
                         ))}
                       </select>
                     </td>
-                    <td><span className="pill pill-blue">{s.donor_count}</span></td>
+                    <td>
+                      <span className="pill pill-blue">{s.donor_count}</span>
+                    </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
+                        {(() => {
+                          const at = activeTransfers.find(t => t.station === s.station);
+                          return at ? (
+                            <button className="btn btn-sm btn-outline"
+                              onClick={() => handleReturnEarly(at.id)}
+                              disabled={returningId === at.id}
+                              style={{ color: 'var(--sage, #5B6B4E)' }}>
+                              {returningId === at.id ? 'Returning...' : 'Return'}
+                            </button>
+                          ) : null;
+                        })()}
                         <button className="btn btn-sm btn-outline" onClick={() => {
                           const fro = froWorkers.find(w => w.id === s.fro_worker_id);
                           setTransferData({
@@ -351,7 +407,7 @@ export default function StationManagement() {
           sourceCount={transferData.sourceCount}
           stations={stations}
           onClose={() => setTransferData(null)}
-          onTransferred={() => fetchData()}
+            onTransferred={() => fetchData('Transfer successful')}
         />
       )}
     </div>

@@ -9,7 +9,6 @@ import {
   findAssignmentsByNgo,
   getStationDispositionStats,
   getDonorsByStationAndStatus,
-  getTransferableCount,
   createTemporaryTransfer,
   reverseTransfer,
 } from '../models/froAssignmentModel.js';
@@ -1349,36 +1348,6 @@ export const resolveDataRequest = async (req, res) => {
 
 // ---- Station Transfers ----
 
-export const getTransferableData = async (req, res) => {
-  try {
-    const { station } = req.params;
-    const ngoIds = await getUserNgoIds(req.user);
-    if (ngoIds.length === 0) return res.status(400).json({ message: 'No NGO assigned' });
-
-    const ngoId = ngoIds[0];
-    const { data: stationAssigns } = await supabase
-      .from('fro_station_assignments')
-      .select('fro_worker_id, workers!fro_station_assignments_fro_worker_id_fkey(name)')
-      .eq('station', station.trim())
-      .eq('ngo_id', ngoId)
-      .single();
-
-    if (!stationAssigns || !stationAssigns.fro_worker_id) {
-      return res.json({ fro_worker: null, transferable_count: 0 });
-    }
-
-    const count = await getTransferableCount(station.trim(), ngoId, stationAssigns.fro_worker_id);
-
-    return res.json({
-      fro_worker_id: stationAssigns.fro_worker_id,
-      fro_worker_name: stationAssigns.workers?.name || 'Unknown',
-      transferable_count: count,
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
 export const transferStationData = async (req, res) => {
   try {
     const { station } = req.params;
@@ -1409,7 +1378,7 @@ export const transferStationData = async (req, res) => {
 
     const autoReturnAt = new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString();
     const result = await createTemporaryTransfer(
-      sourceAssign.fro_worker_id, sourceAssign.ngo_id,
+      sourceAssign.fro_worker_id, ngoIds,
       station.trim(), target_station.trim(), donor_count, autoReturnAt, req.user.id
     );
 
@@ -1431,6 +1400,96 @@ export const returnTransferEarly = async (req, res) => {
       message: `Returned ${count} donors to original FRO`,
       returned: count,
     });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getTransferHistory = async (req, res) => {
+  try {
+    const ngoIds = await getUserNgoIds(req.user);
+    if (ngoIds.length === 0) return res.json([]);
+
+    const { data: transfers, error } = await supabase
+      .from('fro_transfers')
+      .select('*')
+      .in('ngo_id', ngoIds)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const froIds = [...new Set((transfers || []).map(t => t.source_fro_worker_id).filter(Boolean))];
+    let froNameMap = {};
+    if (froIds.length > 0) {
+      const { data: workers } = await supabase
+        .from('workers')
+        .select('id, name')
+        .in('id', froIds);
+      for (const w of workers || []) froNameMap[w.id] = w.name;
+    }
+
+    const result = (transfers || []).map(t => ({
+      id: t.id,
+      station: t.station,
+      target_station: t.target_station,
+      donor_count: t.donor_count,
+      donor_ids: t.donor_ids || [],
+      source_fro_name: froNameMap[t.source_fro_worker_id] || 'Unknown',
+      auto_return_at: t.auto_return_at,
+      returned: !!t.returned,
+      returned_at: t.returned_at,
+      created_at: t.created_at,
+    }));
+
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getTransferDonors = async (req, res) => {
+  try {
+    const ngoIds = await getUserNgoIds(req.user);
+    if (ngoIds.length === 0) return res.json([]);
+
+    const { id } = req.params;
+
+    const { data: transfer, error: tErr } = await supabase
+      .from('fro_transfers')
+      .select('*')
+      .eq('id', id)
+      .in('ngo_id', ngoIds)
+      .single();
+
+    if (tErr || !transfer) {
+      return res.status(404).json({ message: 'Transfer not found' });
+    }
+
+    const donorIds = transfer.donor_ids || [];
+
+    if (donorIds.length === 0) return res.json([]);
+
+    // Fetch donor details from donors table (or new_data table as fallback)
+    const { data: donors } = await supabase
+      .from('donors')
+      .select('id, name, mobile, lead_status')
+      .in('id', donorIds);
+
+    if (donors && donors.length > 0) {
+      return res.json(donors);
+    }
+
+    // Fallback: try new_data table
+    const { data: newDonors } = await supabase
+      .from('new_data')
+      .select('id, name, mobile, status')
+      .in('id', donorIds);
+
+    const fallback = (newDonors || []).map(d => ({
+      id: d.id, name: d.name, mobile: d.mobile, lead_status: d.status,
+    }));
+
+    return res.json(fallback);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

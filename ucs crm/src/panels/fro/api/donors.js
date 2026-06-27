@@ -1,5 +1,9 @@
 import { api } from './auth'
 
+export async function getTransferredLeads() {
+  return api('/fro/transferred-leads', { _prefix: 'ucs' })
+}
+
 export async function getMyDonors(status, statusGroup) {
   const params = new URLSearchParams();
   if (statusGroup) params.set('status_group', statusGroup);

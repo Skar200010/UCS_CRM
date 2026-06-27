@@ -310,6 +310,89 @@ export const getMyDonors = async (req, res) => {
   }
 };
 
+export const getTransferredLeads = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const stationNames = await getMyStationNames(workerId);
+    if (stationNames.length === 0) return res.json([]);
+
+    const { data: assignments } = await supabase
+      .from('fro_assignments')
+      .select('*, ngos(name)')
+      .in('station', stationNames)
+      .is('fro_worker_id', null)
+      .not('status', 'eq', 'reassigned');
+
+    if (!assignments || assignments.length === 0) return res.json([]);
+
+    const donorIds = [...new Set(assignments.map(a => a.donor_id))];
+    const { data: donors } = await supabase
+      .from('donor_profiles')
+      .select('*')
+      .in('id', donorIds);
+
+    const donorMap = {};
+    for (const d of donors || []) donorMap[d.id] = d;
+
+    const assignmentIds = assignments.map(a => a.id);
+    const { data: schedules } = await supabase
+      .from('fro_scheduled_contacts')
+      .select('*')
+      .in('assignment_id', assignmentIds)
+      .eq('is_completed', false);
+
+    const scheduleMap = {};
+    for (const s of schedules || []) {
+      if (!scheduleMap[s.assignment_id]) scheduleMap[s.assignment_id] = s;
+    }
+
+    const result = [];
+    const seen = new Set();
+    for (const a of assignments || []) {
+      const d = donorMap[a.donor_id];
+      if (!d) continue;
+      const key = `${a.donor_id}-${a.ngo_id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const s = scheduleMap[a.id];
+      result.push({
+        id: a.donor_id,
+        donor_id: a.donor_id,
+        assignment_id: a.id,
+        ngo_id: a.ngo_id,
+        ngo_name: a.ngos?.name || 'Unknown',
+        station: a.station || '',
+        donor_mobile: d.mobile_number || '',
+        donor_name: d.name || 'Unknown',
+        donor_city: d.city || '',
+        donor_address: d.address_1 || '',
+        donor_amount: d.amount || 0,
+        donor_email: d.email || '',
+        donor_pan: d.pan_number || '',
+        donor_project: d.project_supported || '',
+        donor_dob: d.birth_date || '',
+        donation_count: d.donation_count || 0,
+        total_donated: d.total_amount || 0,
+        status: a.status || 'pending',
+        notes: a.notes || null,
+        last_contacted_at: a.last_contacted_at || null,
+        next_follow_up: a.next_follow_up || null,
+        assigned_at: a.assigned_at || null,
+        is_new: a.is_new !== false,
+        next_scheduled_at: s?.scheduled_at || null,
+        is_overdue: s ? new Date(s.scheduled_at) < new Date() : false,
+        schedule_id: s?.id || null,
+        schedule_notes: s?.notes || null,
+      });
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error('getTransferredLeads error for worker', req.user?.id, ':', error.message);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const updateDonorStatus = async (req, res) => {
   try {
     const workerId = req.user.id;

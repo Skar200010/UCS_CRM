@@ -26,9 +26,10 @@ import {
   acknowledgeAlert,
   getDataRequests,
   resolveDataRequest,
-  getTransferableData,
   transferStationData,
   returnTransferEarly,
+  getTransferHistory,
+  getTransferDonors,
 } from '../controllers/ngoAdminController.js';
 
 const router = Router();
@@ -55,8 +56,9 @@ router.delete('/station-assignments/:id', removeStationAssignment);
 router.put('/station-assignments/:id/reassign', reassignStationFro);
 router.put('/stations/:station/update-ngos', updateStationNgos);
 router.delete('/stations/:station', removeStationByName);
-router.get('/stations/:station/transferable', getTransferableData);
 router.post('/stations/:station/transfer-data', transferStationData);
+router.get('/transfers', getTransferHistory);
+router.get('/transfers/:id/donors', getTransferDonors);
 router.post('/transfers/:id/return-early', returnTransferEarly);
 
 router.get('/new-data', getNewData);

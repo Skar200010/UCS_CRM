@@ -4,6 +4,7 @@ import supabase from '../config/supabase.js';
 import {
   getDashboard,
   getMyDonors,
+  getTransferredLeads,
   updateDonorStatus,
   getDonorLogs,
   createDonorLogHandler,
@@ -37,6 +38,7 @@ router.use(requireFro);
 
 router.get('/dashboard', getDashboard);
 router.get('/donors', getMyDonors);
+router.get('/transferred-leads', getTransferredLeads);
 router.put('/donors/:id/status', updateDonorStatus);
 router.put('/donors/:id/mark-seen', async (req, res) => {
   try {
