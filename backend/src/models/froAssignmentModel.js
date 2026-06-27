@@ -263,7 +263,7 @@ export const createTemporaryTransfer = async (sourceFroId, targetFroId, ngoId, s
   const { data: transfer, error: tErr } = await supabase
     .from('fro_transfers')
     .insert([{
-      station, source_fro_id: sourceFroId, target_fro_id: targetFroId,
+      station, source_fro_worker_id: sourceFroId, target_fro_worker_id: targetFroId,
       ngo_id: ngoId, donor_count: count, auto_return_at: autoReturnAt, created_by: assignedBy,
     }])
     .select()
@@ -318,7 +318,7 @@ export const reverseTransfer = async (transferId) => {
   await supabase.from('fro_assignments').update({ status: 'reassigned', updated_at: new Date().toISOString() }).in('id', ids);
 
   const newAssignments = assignments.map(a => ({
-    donor_id: a.donor_id, fro_worker_id: transfer.source_fro_id, ngo_id: transfer.ngo_id,
+    donor_id: a.donor_id, fro_worker_id: transfer.source_fro_worker_id, ngo_id: transfer.ngo_id,
     station: transfer.station, status: a.status, assigned_by: transfer.created_by,
     assigned_at: new Date().toISOString(), transfer_id: transferId,
   }));
