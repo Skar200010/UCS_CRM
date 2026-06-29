@@ -87,7 +87,7 @@ export default function FROPanel() {
       const todayStr = new Date().toISOString().slice(0, 10);
       const items = [];
       const seen = new Set();
-      const k = (d) => `${d.id}-${d.ngo_id || ''}`;
+      const k = (d) => `${d.id}`;
       (scheduled || []).forEach(d => {
         if (d.scheduled_at && d.scheduled_at.slice(0, 10) !== todayStr && !seen.has(k(d))) {
           seen.add(k(d));

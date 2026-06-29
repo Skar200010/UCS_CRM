@@ -120,7 +120,6 @@ export default function DispositionModal({ donorId, ngoId, donorName, donorMobil
       }
       await addDonorLog(donorId, logPayload);
       onDone();
-      onClose();
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
     } finally { setSaving(false); }

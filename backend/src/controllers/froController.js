@@ -163,15 +163,25 @@ export const getDashboard = async (req, res) => {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const [monthlyConnectedRes, dailyConnectedRes, dailyDonationsRes, totalDonationsRes, assignmentsRes] = stationNames.length > 0
+    const fyYear = now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear();
+    const fyStart = new Date(fyYear, 3, 1);
+
+    const [
+      monthlyConnectedRes, dailyConnectedRes, dailyDonationsRes, totalDonationsRes, assignmentsRes,
+      leadDoneAllRes, fyDonorsRes, todayDonorsRes, monthDonorsRes,
+    ] = stationNames.length > 0
       ? await Promise.all([
           supabase.from('fro_donor_logs').select('donor_id, fro_assignments!inner(station)').in('fro_assignments.station', stationNames).gte('created_at', monthStart).lte('created_at', monthEnd),
           supabase.from('fro_donor_logs').select('donor_id, fro_assignments!inner(station)').in('fro_assignments.station', stationNames).gte('created_at', todayStart.toISOString()).lte('created_at', todayEnd.toISOString()),
           supabase.from('fro_donor_logs').select('amount_collected, fro_assignments!inner(station)').in('fro_assignments.station', stationNames).gte('created_at', todayStart.toISOString()).lte('created_at', todayEnd.toISOString()),
           supabase.from('fro_donor_logs').select('amount_collected, fro_assignments!inner(station)').in('fro_assignments.station', stationNames),
           supabase.from('fro_assignments').select('status').in('station', stationNames).not('status', 'eq', 'reassigned'),
+          supabase.from('fro_donor_logs').select('donor_id, created_at, fro_assignments!inner(station)').in('fro_assignments.station', stationNames).eq('action', 'disposition').eq('disposition_detail', 'lead_done'),
+          supabase.from('fro_donor_logs').select('donor_id, created_at, fro_assignments!inner(station)').in('fro_assignments.station', stationNames).or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition)').gte('created_at', fyStart.toISOString()),
+          supabase.from('fro_donor_logs').select('donor_id, fro_assignments!inner(station)').in('fro_assignments.station', stationNames).or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition)').gte('created_at', todayStart.toISOString()).lte('created_at', todayEnd.toISOString()),
+          supabase.from('fro_donor_logs').select('donor_id, fro_assignments!inner(station)').in('fro_assignments.station', stationNames).or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition)').gte('created_at', monthStart).lte('created_at', monthEnd),
         ])
-      : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
+      : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
     const connectedStatuses = new Set(['contacted', 'donation_collected', 'lead_done', 'follow_up', 'scheduled', 'visit_donate', 'promise_to_pay', 'payment_pending', 'already_donated', 'language_barrier', 'transferred_senior', 'query_complaint', 'receipt_request']);
     let dataUsed = 0, dataUnused = 0;
@@ -187,6 +197,32 @@ export const getDashboard = async (req, res) => {
     let totalDonations = 0;
     for (const l of totalDonationsRes.data || []) totalDonations += parseFloat(l.amount_collected || 0);
 
+    // New donors: first lead_done per donor
+    const earliestLeadDone = {};
+    for (const log of leadDoneAllRes.data || []) {
+      if (!earliestLeadDone[log.donor_id] || log.created_at < earliestLeadDone[log.donor_id]) {
+        earliestLeadDone[log.donor_id] = log.created_at;
+      }
+    }
+    const todayStr = todayStart.toISOString();
+    const todayEndStr = todayEnd.toISOString();
+    const newDonorsToday = Object.entries(earliestLeadDone)
+      .filter(([_, date]) => date >= todayStr && date <= todayEndStr).length;
+    const newDonorsMonthly = Object.entries(earliestLeadDone)
+      .filter(([_, date]) => date >= monthStart && date <= monthEnd).length;
+
+    // Reactivated: donors who donated in period but had no donation in FY before the period
+    const fyBeforeTodayDonors = new Set();
+    const fyBeforeMonthDonors = new Set();
+    for (const log of fyDonorsRes.data || []) {
+      if (log.created_at < todayStr) fyBeforeTodayDonors.add(log.donor_id);
+      if (log.created_at < monthStart) fyBeforeMonthDonors.add(log.donor_id);
+    }
+    const todayDonorSet = new Set((todayDonorsRes.data || []).map(l => l.donor_id).filter(Boolean));
+    const monthDonorSet = new Set((monthDonorsRes.data || []).map(l => l.donor_id).filter(Boolean));
+    const reactivatedToday = [...todayDonorSet].filter(id => !fyBeforeTodayDonors.has(id)).length;
+    const reactivatedMonthly = [...monthDonorSet].filter(id => !fyBeforeMonthDonors.has(id)).length;
+
     return res.json({
       stats,
       target,
@@ -197,6 +233,10 @@ export const getDashboard = async (req, res) => {
       monthly_connected: monthlyDonorIds.size,
       daily_connected: dailyDonorIds.size,
       daily_donations: dailyDonations,
+      new_donors_today: newDonorsToday,
+      new_donors_monthly: newDonorsMonthly,
+      reactivated_today: reactivatedToday,
+      reactivated_monthly: reactivatedMonthly,
       data_used: dataUsed,
       data_unused: dataUnused,
       total_donations: totalDonations,

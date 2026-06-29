@@ -190,6 +190,40 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* New Donors & Reactivations */}
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'#8b5cf6'}}>{ds.new_donors_today ?? 0}</div>
+            <div className="m3-stat-lbl">New Donors Today</div>
+          </div>
+        </div>
+      </div>
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'#8b5cf6'}}>{ds.new_donors_monthly ?? 0}</div>
+            <div className="m3-stat-lbl">New Donors This Month</div>
+          </div>
+        </div>
+      </div>
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'#f59e0b'}}>{ds.reactivated_today ?? 0}</div>
+            <div className="m3-stat-lbl">Reactivated Today</div>
+          </div>
+        </div>
+      </div>
+      <div className="bento-col-3">
+        <div className="bento-card">
+          <div className="m3-stat">
+            <div className="m3-stat-num" style={{color:'#f59e0b'}}>{ds.reactivated_monthly ?? 0}</div>
+            <div className="m3-stat-lbl">Reactivated This Month</div>
+          </div>
+        </div>
+      </div>
+
       {/* Lead Stats */}
       <div className="bento-col-6">
         <div className="bento-card" style={{ flex:1 }}>
