@@ -1,7 +1,8 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { createHR, getHRByEmail, getHRById, getAllHRs, updateHR } from '../models/hrModel.js';
 
-const DEFAULT_PASSWORD = '123456';
+const generateTempPassword = () => crypto.randomBytes(4).toString('hex');
 
 export const addHR = async (req, res) => {
   try {
@@ -19,8 +20,9 @@ export const addHR = async (req, res) => {
       return res.status(409).json({ message: 'An HR with this email already exists' });
     }
 
+    const tempPassword = generateTempPassword();
     const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(DEFAULT_PASSWORD, salt);
+    const password_hash = await bcrypt.hash(tempPassword, salt);
 
     const hr = await createHR({
       ngo_id: ngo_id || null,
@@ -34,7 +36,7 @@ export const addHR = async (req, res) => {
     const { password_hash: _, ...safeHR } = hr;
     return res.status(201).json({
       message: 'HR created successfully',
-      hr: { ...safeHR, generated_password: DEFAULT_PASSWORD },
+      hr: { ...safeHR, generated_password: tempPassword },
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });

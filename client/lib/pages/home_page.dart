@@ -105,7 +105,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         switch (rec['status']?.toString() ?? '') {
           case 'present': p++; break;
           case 'absent': a++; break;
-          case 'late': l++; break;
+          case 'late': l++; p++; break;
           case 'leave': lv++; break;
         }
       }
@@ -124,8 +124,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
 
     setState(() => _loading = false);
-
-    int p = 0, a = 0, l = 0, lv = 0;
 
     try {
       final res = await Future.wait([
@@ -160,6 +158,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         }
       });
+      int p = 0, a = 0, l = 0, lv = 0;
       for (final rec in history) {
         final s = rec['status']?.toString() ?? '';
         if (s == 'present') {
@@ -173,6 +172,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           lv++;
         }
       }
+      setState(() {
+        _present = p;
+        _absent = a;
+        _late = l;
+        _leave = lv;
+      });
     } catch (_) {}
 
     try {
@@ -185,13 +190,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
       }
     } catch (_) {}
-
-    setState(() {
-      _present = p;
-      _absent = a;
-      _late = l;
-      _leave = lv;
-    });
   }
 
   void _applyTodayStatus(Map<String, dynamic> today) {
@@ -254,6 +252,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Future<void> _punchIn() async {
     if (!await _requestLocationPermission()) return;
+
+    // Check connectivity first
+    final online = await ApiService.checkConnectivity();
+    if (!online && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection. Please check your network.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(builder: (_) => const ScannerPage()),
@@ -286,9 +298,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       }
     } catch (e) {
       if (mounted) {
+        final msg = _friendlyNetworkError(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception:', '').trim()),
+            content: Text(msg),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -298,6 +311,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Future<void> _punchOut() async {
     if (!await _requestLocationPermission()) return;
+
+    // Check connectivity first
+    final online = await ApiService.checkConnectivity();
+    if (!online && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection. Please check your network.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(builder: (_) => const ScannerPage()),
@@ -322,14 +349,29 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       }
     } catch (e) {
       if (mounted) {
+        final msg = _friendlyNetworkError(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception:', '').trim()),
+            content: Text(msg),
             backgroundColor: Colors.red.shade700,
           ),
         );
       }
     }
+  }
+
+  String _friendlyNetworkError(Object e) {
+    final s = e.toString();
+    if (s.contains('SocketException') || s.contains('Connection refused') || s.contains('No route to host')) {
+      return 'Network unreachable. Please check your internet connection.';
+    }
+    if (s.contains('TimeoutException') || s.contains('timed out')) {
+      return 'Request timed out. Please try again.';
+    }
+    if (s.contains('FormatException') || s.contains('json')) {
+      return 'Server error. Please try again later.';
+    }
+    return s.replaceFirst('Exception: ', '').trim();
   }
 
   String _fmtTime(dynamic ts) {
@@ -446,7 +488,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       case 0: return 'Within grace limit';
       case 1: return 'Half-day deduction';
       case 2: return 'One-day deduction';
-      case 3: return 'Hourly pay mode';
+      case 3: return 'Proportional deduction';
       default: return '';
     }
   }

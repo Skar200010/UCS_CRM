@@ -17,14 +17,25 @@ router.get('/', authenticateRole('super_admin', 'hoadmin', 'hr', 'accounts', 're
 
     const ngoId = req.user.role === 'super_admin' ? req.query.ngo_id : req.user.ngo_id;
 
+    let eventsQuery = supabase.from('events').select('*')
+      .gte('event_date', fromDate).lte('event_date', toDate)
+      .eq('is_active', true);
+
+    let holidaysQuery = supabase.from('holidays').select('*');
+
+    let workersQuery = supabase.from('workers').select('id, name, dob');
+
+    if (ngoId) {
+      eventsQuery = eventsQuery.eq('ngo_id', ngoId);
+      holidaysQuery = holidaysQuery.eq('ngo_id', ngoId);
+      workersQuery = workersQuery.eq('ngo_id', ngoId);
+    }
+
+    eventsQuery = eventsQuery.order('event_date', { ascending: true });
+    holidaysQuery = holidaysQuery.order('date', { ascending: true });
+
     const [eventsRes, holidaysRes, workersRes] = await Promise.all([
-      supabase.from('events').select('*')
-        .gte('event_date', fromDate).lte('event_date', toDate)
-        .eq('is_active', true)
-        .order('event_date', { ascending: true }),
-      supabase.from('holidays').select('*')
-        .order('date', { ascending: true }),
-      supabase.from('workers').select('id, name, dob'),
+      eventsQuery, holidaysQuery, workersQuery,
     ]);
 
     const events = (eventsRes.data || []).map(e => ({

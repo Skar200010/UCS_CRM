@@ -15,8 +15,10 @@ export default function Donors() {
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
+    let mounted = true;
     setLoading(true);
-    getMyDonors('lead_done').then(setDonors).catch(() => setDonors([])).finally(() => setLoading(false));
+    getMyDonors('lead_done').then(data => { if (mounted) setDonors(data); }).catch(() => { if (mounted) setDonors([]); }).finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
   }, []);
 
   const openDetail = async (d) => {

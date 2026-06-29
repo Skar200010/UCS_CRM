@@ -783,7 +783,7 @@ export const getMyTarget = async (req, res) => {
       } else {
         incentive.totalAKI = totalAKI;
       }
-    } catch (_) { /* keep defaults */ }
+    } catch (err) { console.error('Incentive calculation error:', err); }
 
     return res.json({
       month: monthStr,

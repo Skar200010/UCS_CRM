@@ -22,7 +22,11 @@ void main() async {
   } catch (e) {
     print('Firebase init error: $e');
   }
-  await SupabaseService.initialize();
+  try {
+    await SupabaseService.initialize();
+  } catch (e) {
+    print('Supabase init error (non-fatal): $e');
+  }
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,

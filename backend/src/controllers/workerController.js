@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import {
   createWorker,
   createWorkers,
@@ -15,18 +16,13 @@ import {
 import { saveWorkerEducation, getFullWorkerProfile } from '../models/onboardingModel.js';
 import { getActiveSalaryByWorker } from '../models/salaryModel.js';
 
-const DEFAULT_PASSWORD = '123456';
+const generateTempPassword = () => crypto.randomBytes(4).toString('hex');
 
-async function generateLoginId(name) {
-  const parts = name.trim().split(/\s+/);
-  const firstName = parts[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-  const surnameInitial = parts.length > 1
-    ? parts[parts.length - 1].charAt(0).toLowerCase().replace(/[^a-z0-9]/g, '')
-    : '';
-  const base = surnameInitial ? `${firstName}${surnameInitial}` : firstName;
-  const count = await getWorkerCount();
-  return `${base}_ufs_${String(count + 1).padStart(2, '0')}`;
-}
+const generateLoginId = async () => {
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `UFS${ts}${rand}`;
+};
 
 function validateAllocations(allocations, salary) {
   if (!allocations || !Array.isArray(allocations) || allocations.length === 0) {
@@ -60,9 +56,10 @@ export const addWorker = async (req, res) => {
       finalAllocations = [{ ngo_id, salary_portion: 0 }];
     }
 
-    const login_id = await generateLoginId(name);
+    const tempPassword = generateTempPassword();
+    const login_id = await generateLoginId();
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(DEFAULT_PASSWORD, salt);
+    const hashedPassword = await bcrypt.hash(tempPassword, salt);
 
     const workerData = {
       name,
@@ -96,7 +93,7 @@ export const addWorker = async (req, res) => {
         gender: worker.gender,
         dob: worker.dob,
         department: worker.department,
-        generated_password: DEFAULT_PASSWORD,
+        generated_password: tempPassword,
       },
     });
   } catch (error) {
@@ -110,17 +107,11 @@ export const bulkAddWorkers = async (req, res) => {
     if (!workers || !Array.isArray(workers) || workers.length === 0) {
       return res.status(400).json({ message: 'Workers array is required' });
     }
-    const count = await getWorkerCount();
+    const tempPassword = generateTempPassword();
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(DEFAULT_PASSWORD, salt);
+    const hashedPassword = await bcrypt.hash(tempPassword, salt);
     const prepared = workers.map((w, i) => {
-      const parts = (w.name || '').trim().split(/\s+/);
-      const firstName = parts[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-      const surnameInitial = parts.length > 1
-        ? parts[parts.length - 1].charAt(0).toLowerCase().replace(/[^a-z0-9]/g, '')
-        : '';
-      const base = surnameInitial ? `${firstName}${surnameInitial}` : firstName;
-      const login_id = `${base}_ufs_${String(count + i + 1).padStart(2, '0')}`;
+      const login_id = `UFS${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
       return {
         name: w.name,
         email: w.email,
@@ -151,7 +142,7 @@ export const bulkAddWorkers = async (req, res) => {
         login_id: w.login_id,
         gender: w.gender,
         dob: w.dob,
-        generated_password: DEFAULT_PASSWORD,
+        generated_password: tempPassword,
       })),
     });
   } catch (error) {

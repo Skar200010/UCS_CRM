@@ -455,7 +455,7 @@ class _ProfilePageState extends State<ProfilePage> {
       case 0: return 'No deduction';
       case 1: return 'Half-day deduction';
       case 2: return 'One-day deduction';
-      case 3: return 'Hourly pay mode';
+      case 3: return 'Proportional deduction';
       default: return '';
     }
   }
@@ -465,7 +465,7 @@ class _ProfilePageState extends State<ProfilePage> {
       case 0: return '$_lateUsed min used — within the 180 min grace period. No expense deduction for lateness.';
       case 1: return '$_lateUsed min used — exceeds grace limit. Half-day (0.5 day) will be deducted from expenses.';
       case 2: return '$_lateUsed min used — exceeds half-day threshold. One full day will be deducted from expenses.';
-      case 3: return '$_lateUsed min used — exceeds 480 min. Expenses are calculated from actual working hours instead of per-day rate.';
+      case 3: return '$_lateUsed min used — exceeds 480 min. Proportional deduction (total min / 480) applied to salary.';
       default: return '';
     }
   }
@@ -567,7 +567,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 _ruleRow('0 – 180 min', 'No deduction', _lateTier == 0),
                 _ruleRow('181 – 240 min', 'Half-day deduction', _lateTier == 1),
                 _ruleRow('241 – 480 min', 'One-day deduction', _lateTier == 2),
-                _ruleRow('> 480 min', 'Hourly pay mode', _lateTier == 3),
+                _ruleRow('> 480 min', 'Proportional deduction', _lateTier == 3),
               ],
             ),
           ),

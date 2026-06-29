@@ -12,11 +12,12 @@ export default function NGOs() {
   const [assignForm, setAssignForm] = useState({ name: '', email: '', password: '123456', role: 'hoadmin' })
   const [assignErr, setAssignErr] = useState('')
 
-  const load = () => {
-    api('/ngos').then(setNgos).catch(e => setErr(e.message))
-    api('/users').then(setUsers).catch(() => {})
-  }
-  useEffect(load, [])
+  useEffect(() => {
+    let mounted = true;
+    api('/ngos').then(data => { if (mounted) setNgos(data); }).catch(e => { if (mounted) setErr(e.message); })
+    api('/users').then(data => { if (mounted) setUsers(data); }).catch(() => {})
+    return () => { mounted = false; };
+  }, [])
 
   const openNew = () => { setEdit(null); setForm({ name: '', code: '', address: '', registration_no: '' }); setShowForm(true) }
   const openEdit = (n) => { setEdit(n); setForm({ name: n.name, code: n.code, address: n.address || '', registration_no: n.registration_no || '' }); setShowForm(true) }

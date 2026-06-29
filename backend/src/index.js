@@ -42,7 +42,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors("*"));
+app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -85,7 +85,7 @@ app.use('/api/accounts', accountsRoutes);
 
 if (fs.existsSync(froDist)) {
   app.use('/assets', express.static(path.join(froDist, 'assets')));
-  app.get(/^\/(?!api\/|admin\/|accounts\/).*$/, (req, res) => {
+  app.get(/^\/(?!api\/|admin$|admin\/|accounts$|accounts\/).*$/, (req, res) => {
     res.sendFile(path.join(froDist, 'index.html'));
   });
   app.get('/', (req, res) => {
@@ -110,6 +110,15 @@ if (fs.existsSync(accountsDist)) {
     res.sendFile(path.join(accountsDist, 'index.html'));
   });
 }
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ message: 'Internal server error' });
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+});
 
 async function checkLeavesTable() {
   try {

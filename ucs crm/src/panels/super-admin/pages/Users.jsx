@@ -13,12 +13,13 @@ export default function Users() {
   const [tab, setTab] = useState('users')
   const [filterRole, setFilterRole] = useState('')
 
-  const load = () => {
-    api('/users').then(setUsers).catch(e => setErr(e.message))
-    api('/hrs').then(setHrs).catch(() => {})
-    api('/ngos').then(setNgos).catch(() => {})
-  }
-  useEffect(load, [])
+  useEffect(() => {
+    let mounted = true;
+    api('/users').then(data => { if (mounted) setUsers(data); }).catch(e => { if (mounted) setErr(e.message); })
+    api('/hrs').then(data => { if (mounted) setHrs(data); }).catch(() => {})
+    api('/ngos').then(data => { if (mounted) setNgos(data); }).catch(() => {})
+    return () => { mounted = false; };
+  }, [])
 
   const openNew = () => {
     setEditingUser(null)

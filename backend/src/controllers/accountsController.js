@@ -124,7 +124,7 @@ export const verifyLead = async (req, res) => {
         donorUpdate.total_amount = (donor?.total_amount || 0) + (log.amount_collected || 0);
         donorUpdate.donation_count = (donor?.donation_count || 0) + 1;
         await supabase.from('donor_profiles').update(donorUpdate).eq('id', log.fro_assignments.donor_id);
-      } catch (_) {}
+      } catch (err) { console.error('Failed to update donor totals:', err); }
     }
 
     return res.json({ message: 'Lead verified, amount added to target' });

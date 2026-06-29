@@ -232,9 +232,7 @@ export const getWorkerSalaryWithAllocations = async (req, res) => {
           incentiveTotal: akiPayout + monthlyIncentive,
         };
         }
-      } catch {
-        // keep the default zero-object
-      }
+      } catch (err) { console.error('Sunday bonus calculation error:', err); }
     }
 
     return res.json({
@@ -441,9 +439,7 @@ export const getMySalaryBreakdown = async (req, res) => {
           incentiveAKIPayout = isNewJoiner ? incentiveAKI : Math.round(incentiveAKI / 2);
           incentiveTotal = incentiveAKIPayout + incentiveMonthly;
         }
-      } catch {
-        // silently fail — incentives are supplemental
-      }
+      } catch (err) { console.error('Incentive calculation error:', err); }
     }
 
     const safeRecord = (r) => ({
@@ -468,7 +464,7 @@ export const getMySalaryBreakdown = async (req, res) => {
           totalDue: Math.round(allocTotalDue),
         };
       });
-    } catch { /* allocations are supplemental */ }
+    } catch (err) { console.error('Failed to load allocations:', err); }
 
     return res.json({
       hasSalary: true,

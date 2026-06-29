@@ -2,10 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useHR } from '../store';
 import { Who, Dropdown } from './ui';
 import { Plus, Trash } from '../icons';
+import { api } from '../../../api/auth';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'https://attendance-roan-zeta.vercel.app/api';
 
 function load() {
   try { return JSON.parse(sessionStorage.getItem('wrk') || '{}'); } catch { return {}; }
@@ -30,11 +29,7 @@ export default function Workers({ onSelect, onOffboard }) {
   useEffect(() => {
     fetchWorkers().then(setWorkers).catch(() => {});
     fetchNGOs().catch(() => {});
-    const token = localStorage.getItem('ucs_token');
-    fetch(API_BASE + '/salary/workers-summary', {
-      headers: { Authorization: 'Bearer ' + token },
-    })
-      .then(r => r.json())
+    api('/salary/workers-summary', { _prefix: 'ucs' })
       .then(data => {
         const map = {};
         for (const w of data) map[w.id] = w;
@@ -83,13 +78,8 @@ export default function Workers({ onSelect, onOffboard }) {
   const handleFullPayExport = async () => {
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const token = localStorage.getItem('ucs_token');
     try {
-      const res = await fetch(API_BASE + '/salary/payroll?month=' + month + '&extended=true', {
-        headers: { Authorization: 'Bearer ' + token },
-      });
-      if (!res.ok) throw new Error('Failed to fetch payroll data');
-      const data = await res.json();
+      const data = await api('/salary/payroll?month=' + month + '&extended=true', { _prefix: 'ucs' });
       if (!data.rows || data.rows.length === 0) { alert('No payroll data for this month'); return; }
 
       const groups = {};
@@ -185,13 +175,8 @@ export default function Workers({ onSelect, onOffboard }) {
   const handlePayExport = async () => {
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const token = localStorage.getItem('ucs_token');
     try {
-      const res = await fetch(API_BASE + '/salary/payroll?month=' + month, {
-        headers: { Authorization: 'Bearer ' + token },
-      });
-      if (!res.ok) throw new Error('Failed to fetch payroll data');
-      const data = await res.json();
+      const data = await api('/salary/payroll?month=' + month, { _prefix: 'ucs' });
       if (!data.rows || data.rows.length === 0) { alert('No payroll data for this month'); return; }
 
       const groups = {};

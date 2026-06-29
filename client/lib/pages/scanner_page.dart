@@ -81,8 +81,10 @@ class _ScannerPageState extends State<ScannerPage>
 
     try {
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
-      );
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      ).timeout(const Duration(seconds: 15));
       if (mounted) {
         Navigator.pop(context, {
           'code': code,
@@ -94,8 +96,15 @@ class _ScannerPageState extends State<ScannerPage>
       if (mounted) {
         _detected = false;
         _controller.start();
+        final msg = e.toString().contains('timeout')
+            ? 'Location timed out. Make sure GPS is enabled and try again.'
+            : e.toString().contains('denied')
+                ? 'Location permission denied. Enable GPS permission in settings.'
+                : e.toString().contains('disabled')
+                    ? 'GPS is disabled. Please turn on location.'
+                    : 'Could not get location. Please try again.';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('GPS error: $e')),
+          SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
         );
       }
     }

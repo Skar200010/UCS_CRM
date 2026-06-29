@@ -1,8 +1,9 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { createUser, getUserByEmail, getUserById, getAllUsers, updateUser } from '../models/userModel.js';
 import { getUserNgoAccess as getNgoAccess, setUserNgoAccess as setNgoAccess } from '../models/userNgoAccessModel.js';
 
-const DEFAULT_PASSWORD = '123456';
+const generateTempPassword = () => crypto.randomBytes(4).toString('hex');
 
 async function attachNgoAccess(users) {
   const result = [];
@@ -44,10 +45,11 @@ export const addUser = async (req, res) => {
 
     // hoadmin (NGO Admin) is global — no NGO binding
     if (role === 'hoadmin') {
+      const tempPassword = generateTempPassword();
       const user = await createUser({
         ngo_id: null,
         name, email,
-        password_hash: await bcrypt.hash(DEFAULT_PASSWORD, await bcrypt.genSalt(10)),
+        password_hash: await bcrypt.hash(tempPassword, await bcrypt.genSalt(10)),
         role, department: department || null,
         created_by: req.user.id || null,
       });
@@ -55,7 +57,7 @@ export const addUser = async (req, res) => {
       const access = await getNgoAccess(user.id);
       return res.status(201).json({
         message: 'User created successfully',
-        user: { ...safeUser, ngo_access: access.map(a => a.ngo_id), generated_password: DEFAULT_PASSWORD },
+        user: { ...safeUser, ngo_access: access.map(a => a.ngo_id), generated_password: tempPassword },
       });
     }
 
@@ -72,8 +74,9 @@ export const addUser = async (req, res) => {
       return res.status(409).json({ message: 'A user with this email already exists' });
     }
 
+    const tempPassword = generateTempPassword();
     const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(DEFAULT_PASSWORD, salt);
+    const password_hash = await bcrypt.hash(tempPassword, salt);
 
     const finalNgoId = ngo_ids && ngo_ids.length > 0 ? ngo_ids[0] : ngo_id;
 
@@ -97,7 +100,7 @@ export const addUser = async (req, res) => {
     const access = await getNgoAccess(user.id);
     return res.status(201).json({
       message: 'User created successfully',
-      user: { ...safeUser, ngo_access: access.map(a => a.ngo_id), generated_password: DEFAULT_PASSWORD },
+      user: { ...safeUser, ngo_access: access.map(a => a.ngo_id), generated_password: tempPassword },
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });

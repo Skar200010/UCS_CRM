@@ -1471,8 +1471,8 @@ export const getTransferDonors = async (req, res) => {
 
     // Fetch donor details from donors table (or new_data table as fallback)
     const { data: donors } = await supabase
-      .from('donors')
-      .select('id, name, mobile, lead_status')
+      .from('donor_profiles')
+      .select('id, name, mobile_number, pan_number')
       .in('id', donorIds);
 
     if (donors && donors.length > 0) {

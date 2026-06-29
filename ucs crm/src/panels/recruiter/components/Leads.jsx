@@ -51,7 +51,7 @@ export default function Leads() {
 
   const addNoteToForm = () => {
     if (!noteText.trim()) return;
-    const n = { text: noteText.trim(), date: new Date().toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}), by: currentUser.name };
+    const n = { text: noteText.trim(), date: new Date().toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}), by: user.name };
     setFormNotes(p => [...p, n]); setNoteText('');
   };
 
@@ -61,7 +61,7 @@ export default function Leads() {
     e.preventDefault();
     if (!name.trim() || !phone.trim()) return;
     try {
-      const payload = { name: name.trim(), phone, dob: dob || null, source, status, notes: formNotes.length ? JSON.stringify(formNotes) : null, created_by_name: currentUser.name };
+      const payload = { name: name.trim(), phone, dob: dob || null, source, status, notes: formNotes.length ? JSON.stringify(formNotes) : null, created_by_name: user.name };
       if (status === 'scheduled' && scheduledDate) payload.scheduled_date = scheduledDate;
       await addLead(payload);
       setName(''); setPhone(''); setDob(''); setSource('Walk-in'); setStatus('hold'); setScheduledDate(''); setFormNotes([]);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { apiGet } from '../api/auth';
 import { getReceipt } from '../api/receipts';
 import { PROJECTS } from '../data/projects';
@@ -175,11 +175,7 @@ export default function ReceiptHistory() {
             </div>
             <div className="modal-body" style={{ padding: 20 }}>
               <div data-receipt-preview data-receipt-print>
-                <preview.Comp
-                  donor={buildDonor(preview.receipt)}
-                  index={0}
-                  project={preview.templateId}
-                />
+                {React.createElement(preview.Comp, { donor: buildDonor(preview.receipt), index: 0, project: preview.templateId })}
               </div>
             </div>
           </div>

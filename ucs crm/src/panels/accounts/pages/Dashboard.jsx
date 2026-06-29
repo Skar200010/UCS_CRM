@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiGet } from '../api/auth';
 import LeadDetail from './LeadDetail';
 
@@ -8,13 +8,15 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState('pending');
   const [viewingId, setViewingId] = useState(null);
 
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   const load = useCallback(() => {
     setLoading(true);
     const url = statusFilter ? `/accounts/leads?status=${statusFilter}` : '/accounts/leads';
     apiGet(url)
-      .then(setLeads)
+      .then(data => { if (mountedRef.current) setLeads(data); })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (mountedRef.current) setLoading(false); });
   }, [statusFilter]);
 
   useEffect(load, [load]);

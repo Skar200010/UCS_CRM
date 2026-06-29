@@ -6,10 +6,11 @@ export default function Accounts() {
   const [err, setErr] = useState('')
 
   useEffect(() => {
-    api('/dashboard/accounts').then(setData).catch(e => {
-      // fallback — super_admin might not have accounts dashboard
-      api('/dashboard/super-admin').then(setData).catch(e2 => setErr(e2.message))
+    let mounted = true;
+    api('/dashboard/accounts').then(data => { if (mounted) setData(data); }).catch(e => {
+      api('/dashboard/super-admin').then(data => { if (mounted) setData(data); }).catch(e2 => { if (mounted) setErr(e2.message); })
     })
+    return () => { mounted = false; };
   }, [])
 
   if (err) return <div className="sa-err-card">Error: {err}</div>
