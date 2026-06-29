@@ -105,8 +105,7 @@ class ApiService {
   }) async {
     final client = await _createDohClient();
     try {
-      final h = <String, String>{...?headers, 'Host': _host};
-      return await client.get(uri, headers: h).timeout(_defaultTimeout);
+      return await client.get(uri, headers: headers).timeout(_defaultTimeout);
     } finally {
       client.close();
     }
@@ -119,9 +118,8 @@ class ApiService {
   }) async {
     final client = await _createDohClient();
     try {
-      final h = <String, String>{...?headers, 'Host': _host};
       return await client
-          .post(uri, headers: h, body: body)
+          .post(uri, headers: headers, body: body)
           .timeout(_defaultTimeout);
     } finally {
       client.close();
@@ -135,9 +133,8 @@ class ApiService {
   }) async {
     final client = await _createDohClient();
     try {
-      final h = <String, String>{...?headers, 'Host': _host};
       return await client
-          .put(uri, headers: h, body: body)
+          .put(uri, headers: headers, body: body)
           .timeout(_defaultTimeout);
     } finally {
       client.close();
@@ -150,8 +147,7 @@ class ApiService {
   }) async {
     final client = await _createDohClient();
     try {
-      final h = <String, String>{...?headers, 'Host': _host};
-      return await client.delete(uri, headers: h).timeout(_defaultTimeout);
+      return await client.delete(uri, headers: headers).timeout(_defaultTimeout);
     } finally {
       client.close();
     }
@@ -201,9 +197,13 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'identifier': identifier, 'password': password}),
     );
-    final body = jsonDecode(res.body);
-    if (res.statusCode != 200) throw Exception(body['message'] ?? 'Login failed');
-    return body;
+    try {
+      final body = jsonDecode(res.body);
+      if (res.statusCode != 200) throw Exception(body['message'] ?? 'Login failed');
+      return body;
+    } on FormatException {
+      throw Exception('Server error (${res.statusCode}). Please contact admin.');
+    }
   }
 
   static Future<Map<String, dynamic>> punchIn(String code, double lat, double lng) async {

@@ -105,7 +105,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         switch (rec['status']?.toString() ?? '') {
           case 'present': p++; break;
           case 'absent': a++; break;
-          case 'late': l++; break;
+          case 'late': l++; p++; break;
           case 'leave': lv++; break;
         }
       }
@@ -124,8 +124,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
 
     setState(() => _loading = false);
-
-    int p = 0, a = 0, l = 0, lv = 0;
 
     try {
       final res = await Future.wait([
@@ -160,6 +158,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           }
         }
       });
+      int p = 0, a = 0, l = 0, lv = 0;
       for (final rec in history) {
         final s = rec['status']?.toString() ?? '';
         if (s == 'present') {
@@ -173,6 +172,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           lv++;
         }
       }
+      setState(() {
+        _present = p;
+        _absent = a;
+        _late = l;
+        _leave = lv;
+      });
     } catch (_) {}
 
     try {
@@ -185,13 +190,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
       }
     } catch (_) {}
-
-    setState(() {
-      _present = p;
-      _absent = a;
-      _late = l;
-      _leave = lv;
-    });
   }
 
   void _applyTodayStatus(Map<String, dynamic> today) {
@@ -490,7 +488,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       case 0: return 'Within grace limit';
       case 1: return 'Half-day deduction';
       case 2: return 'One-day deduction';
-      case 3: return 'Hourly pay mode';
+      case 3: return 'Proportional deduction';
       default: return '';
     }
   }
