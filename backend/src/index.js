@@ -111,36 +111,19 @@ if (fs.existsSync(accountsDist)) {
   });
 }
 
-app.post('/api/cron/test-notify', async (req, res) => {
+app.post('/api/cron/notifications', async (req, res) => {
   try {
-    const { getAllFcmTokens } = await import('./models/notificationModel.js');
-    const { sendPushToMultiple } = await import('./services/fcmService.js');
-    const tokens = await getAllFcmTokens();
-    if (!tokens || tokens.length === 0) {
-      return res.json({ success: false, message: 'No FCM tokens registered' });
-    }
-    const notifications = tokens.map((t) => ({
-      workerId: t.worker_id,
-      title: 'UFS Attend Test',
-      body: 'This is a test push notification from UFS Attend!',
-      type: 'test',
-      referenceId: null,
-    }));
-    await sendPushToMultiple(notifications);
-    res.json({ success: true, sent: notifications.length });
+    const { runNotificationCycle, sendScheduledNotifications, sendPunchInReminders, sendPunchOutReminders } =
+      await import('./services/notificationScheduler.js');
+    await Promise.all([
+      runNotificationCycle().catch(() => {}),
+      sendScheduledNotifications().catch(() => {}),
+      sendPunchInReminders().catch(() => {}),
+      sendPunchOutReminders().catch(() => {}),
+    ]);
+    res.json({ success: true, message: 'All notification checks completed' });
   } catch (error) {
-    console.error('Test notify error:', error.message);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-app.post('/api/cron/trigger', async (req, res) => {
-  try {
-    const { runNotificationCycle } = await import('./services/notificationScheduler.js');
-    await runNotificationCycle();
-    res.json({ success: true, message: 'Notification cycle triggered' });
-  } catch (error) {
-    console.error('Cron trigger error:', error.message);
+    console.error('Notifications cron error:', error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
