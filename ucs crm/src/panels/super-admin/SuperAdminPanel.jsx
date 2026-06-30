@@ -19,6 +19,7 @@ import Reports from './pages/Reports'
 import Causes from './pages/Causes'
 import DataSources from './pages/DataSources'
 import DataImport from './pages/DataImport'
+import Tickets from './pages/Tickets'
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -38,6 +39,7 @@ const NAV = [
   { id: 'achievements', label: 'Achievements', icon: '🏆' },
   { id: 'accounts', label: 'Accounts', icon: '💼' },
   { id: 'reports', label: 'Reports', icon: '📈' },
+  { id: 'tickets', label: 'Tickets', icon: '🎫' },
 ]
 
 const navMap = {}
@@ -192,6 +194,7 @@ export default function SuperAdminPanel() {
       case 'causes': return <Causes />
       case 'data-sources': return <DataSources />
       case 'data-import': return <DataImport />
+      case 'tickets': return <Tickets />
       default: return <Dashboard />
     }
   }

@@ -390,18 +390,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (_, scrollController) => SafeArea(
-          child: Container(
-            decoration: BoxDecoration(
-              color: sc.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-            ),
-            child: LeavePage(scrollController: scrollController),
+      builder: (_) => SizedBox(
+        height: MediaQuery.of(context).size.height * 0.85,
+        child: Container(
+          decoration: BoxDecoration(
+            color: sc.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
           ),
+          child: LeavePage(),
         ),
       ),
     );
@@ -590,8 +586,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                 textAlign: TextAlign.center,
                               ),
                             ),
-                          ),
-                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                     ),
                   ],
                 ),
@@ -1052,19 +1049,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           context: context,
                           isScrollControlled: true,
                           backgroundColor: Colors.transparent,
-                          builder: (_) => DraggableScrollableSheet(
-                            initialChildSize: 0.6,
-                            minChildSize: 0.4,
-                            maxChildSize: 0.85,
-                            builder: (_, scrollController) => SafeArea(
-                              child: Container(
+                          builder: (_) => SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.85,
+                            child: Container(
                                 decoration: BoxDecoration(
                                   color: sc.surface,
                                   borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                                 ),
-                                child: AdvancePage(scrollController: scrollController),
+                                child: AdvancePage(),
                               ),
-                            ),
                           ),
                         ),
                         child: Row(
@@ -1175,17 +1168,14 @@ class _NotificationSheetState extends State<_NotificationSheet> {
   Widget build(BuildContext context) {
     final sc = Theme.of(context).colorScheme;
     final colors = Theme.of(context).extension<AppColors>()!;
-    return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      minChildSize: 0.3,
-      maxChildSize: 0.9,
-      builder: (_, scrollController) => Container(
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.85,
+      child: Container(
         decoration: BoxDecoration(
           color: sc.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: ListView(
-          controller: scrollController,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
             Center(

@@ -10,6 +10,7 @@ import '../widgets/consistency_bar.dart';
 import '../widgets/menu_item.dart';
 import '../widgets/skeleton_loader.dart';
 import 'edit_profile_page.dart';
+import 'correction_ticket_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final VoidCallback? onLogout;
@@ -276,9 +277,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 padding: const EdgeInsets.only(bottom: 24),
                 child: _dayDetailCard(colors, scheme, tt),
               ),
-            _loansCard(colors, scheme, tt),
-            const SizedBox(height: 24),
-            _accountManagement(colors, scheme, tt),
+        _loansCard(colors, scheme, tt),
+        const SizedBox(height: 24),
+        _raiseTicketCard(scheme, colors),
+        const SizedBox(height: 24),
+        _accountManagement(colors, scheme, tt),
           ],
         ),
       ),
@@ -984,6 +987,62 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _raiseTicketCard(ColorScheme scheme, AppColors colors) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outline),
+      ),
+      child: InkWell(
+        onTap: () => showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => SizedBox(
+            height: MediaQuery.of(context).size.height * 0.85,
+            child: Container(
+              decoration: BoxDecoration(
+                color: scheme.surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+              ),
+              child: const CorrectionTicketPage(),
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48, height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFfef3c7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(Icons.report_problem_outlined, size: 22, color: Color(0xFF92400e)),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Raise a Ticket', style: GoogleFonts.hankenGrotesk(
+                    fontSize: 16, fontWeight: FontWeight.w600, color: scheme.onSurface,
+                  )),
+                  Text('Report punch in/out issues', style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500,
+                    color: scheme.onSurfaceVariant,
+                  )),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 20, color: scheme.outline),
+          ],
+        ),
       ),
     );
   }

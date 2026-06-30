@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 import { useUcs } from '../../store'
-import { Grid, Users, Plane, Clock, FileTxt, Bell, Cal } from './icons'
+import { Grid, Users, Plane, Clock, FileTxt, Cal, Bell } from './icons'
 import { themes, applyTheme } from './theme'
 import Overview from './components/Overview'
 import Workers from './components/Workers'
@@ -9,12 +9,13 @@ import Offboarding from './components/Offboarding'
 import Leaves from './components/Leaves'
 import Attendance from './components/Attendance'
 import Letters from './components/Letters'
-import Notify from './components/Notify'
 import Holidays from './components/Holidays'
 import Recruiters from './components/Recruiters'
 import GenerateQR from './components/GenerateQR'
 import Loans from './components/Loans'
+import Tickets from './components/Tickets'
 import SettingsPage from './components/Settings'
+import { fetchTicketCount } from './store'
 
 const NAV = [
   { id:'overview',   label:'Overview',    icon:Grid,    eyebrow:'Dashboard',   sub:'Your team at a glance' },
@@ -23,13 +24,14 @@ const NAV = [
   { id:'leaves',     label:'Leaves',      icon:Plane,   eyebrow:'Time off',    sub:'Requests and approvals' },
   { id:'letters',    label:'Letters',     icon:FileTxt, eyebrow:'Documents',   sub:'Generate HR letters' },
   { id:'recruiters', label:'Recruiters',  icon:Users,   eyebrow:'Pipeline',    sub:'Track leads and hires' },
-  { id:'notify',     label:'Notifications',icon:Bell,   eyebrow:'Comms',       sub:'Send a message to the team' },
+
   { id:'holidays',   label:'Holidays',    icon:Cal,     eyebrow:'Calendar',    sub:'Plan the holiday chart' },
   { id:'qr',         label:'QR Codes',    icon:Grid,    eyebrow:'Attendance',  sub:'Generate and manage QR codes' },
   { id:'loans',      label:'Loans & Advances', icon:Grid, eyebrow:'Finance',  sub:'Approve and manage loans & advances' },
+  { id:'tickets',    label:'Tickets',    icon:FileTxt, eyebrow:'Corrections', sub:'Attendance correction tickets' },
 ]
 
-const PANELS = { overview:Overview, employees:Workers, attendance:Attendance, leaves:Leaves, letters:Letters, recruiters:Recruiters, notify:Notify, holidays:Holidays, qr:GenerateQR, loans:Loans }
+const PANELS = { overview:Overview, employees:Workers, attendance:Attendance, leaves:Leaves, letters:Letters, recruiters:Recruiters, holidays:Holidays, qr:GenerateQR, loans:Loans, tickets:Tickets }
 
 function Sidebar({ active, setActive, open, onClose }) {
   return (
@@ -70,6 +72,12 @@ export default function HRPanel() {
   const [themeName, setThemeName] = useState(() => localStorage.getItem('hr_theme') || 'sky')
   useEffect(() => { if (themes[themeName]) applyTheme(themes[themeName], '.panel-hr'); localStorage.setItem('hr_theme', themeName) }, [themeName])
 
+  const [ticketCount, setTicketCount] = useState(0)
+  useEffect(() => {
+    const poll = async () => { try { const r = await fetchTicketCount(); setTicketCount(r?.count ?? 0) } catch (e) { /* ignore */ } }
+    poll(); const id = setInterval(poll, 30000); return () => clearInterval(id)
+  }, [])
+
   const Panel = PANELS[active]
   const meta = NAV.find(n => n.id === active)
   const userName = user?.name || 'HR User'
@@ -107,7 +115,12 @@ export default function HRPanel() {
             <div className="eyebrow">{showSettings ? 'Configuration' : meta?.eyebrow}</div>
             <h2>{showSettings ? 'Settings' : meta?.label}</h2>
           </div>
-          <div className="topbar-user" ref={menuRef} onClick={() => setShowMenu(!showMenu)}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <button className="btn btn-icon" onClick={() => setActiveAndPersist('tickets')} style={{position:'relative'}} title="Pending Tickets">
+              <Bell size={19} />
+              {ticketCount > 0 && <span className="badge badge-pending2" style={{position:'absolute',top:-6,right:-6,fontSize:10,padding:'1px 5px',lineHeight:'16px',minWidth:18,textAlign:'center'}}>{ticketCount > 99 ? '99+' : ticketCount}</span>}
+            </button>
+            <div className="topbar-user" ref={menuRef} onClick={() => setShowMenu(!showMenu)}>
             <div className="topbar-user-text">
               <div className="topbar-name">{userName}</div>
               <div className="topbar-role">{userRole}</div>
@@ -132,6 +145,7 @@ export default function HRPanel() {
                 </button>
               </div>
             )}
+          </div>
           </div>
         </header>
         <div className="content-body">
