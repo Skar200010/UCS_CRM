@@ -357,9 +357,19 @@ export const getDashboard = async (req, res) => {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
 
+    const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
+    const achievedMap = {};
+    for (const ngoId of ngoIds) {
+      const targets = await getTargetsByNgo(ngoId, monthStr);
+      for (const t of targets) {
+        if (t.achieved_target != null) achievedMap[t.fro_worker_id] = parseFloat(t.achieved_target);
+      }
+    }
+
     let monthCollection = 0;
     for (const w of froWorkers) {
-      monthCollection += await getTotalCollectedByWorker(w.id, monthStart, monthEnd);
+      const actual = await getTotalCollectedByWorker(w.id, monthStart, monthEnd);
+      monthCollection += achievedMap[w.id] != null && achievedMap[w.id] > 0 ? achievedMap[w.id] : actual;
     }
 
     // Data used / unused (same logic as FRO dashboard)
