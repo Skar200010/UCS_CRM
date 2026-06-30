@@ -1,5 +1,4 @@
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
 import {
   createWorker,
   createWorkers,
@@ -15,8 +14,6 @@ import {
 } from '../models/workerNgoAllocationModel.js';
 import { saveWorkerEducation, getFullWorkerProfile } from '../models/onboardingModel.js';
 import { getActiveSalaryByWorker } from '../models/salaryModel.js';
-
-const generateTempPassword = () => crypto.randomBytes(4).toString('hex');
 
 const generateLoginId = async (name) => {
   const parts = name.trim().split(/\s+/);
@@ -61,7 +58,7 @@ export const addWorker = async (req, res) => {
       finalAllocations = [{ ngo_id, salary_portion: 0 }];
     }
 
-    const tempPassword = generateTempPassword();
+    const tempPassword = '123456';
     const login_id = await generateLoginId(name);
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(tempPassword, salt);
@@ -113,7 +110,7 @@ export const bulkAddWorkers = async (req, res) => {
       return res.status(400).json({ message: 'Workers array is required' });
     }
     const count = await getWorkerCount();
-    const tempPassword = generateTempPassword();
+    const tempPassword = '123456';
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(tempPassword, salt);
     const prepared = workers.map((w, i) => {
