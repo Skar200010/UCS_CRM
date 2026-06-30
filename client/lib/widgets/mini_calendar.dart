@@ -95,6 +95,9 @@ class MiniCalendar extends StatelessWidget {
 
                 if (!filled && (wd == DateTime.sunday || isFuture)) {
                   fg = const Color(0xFF74777e).withValues(alpha: 0.3);
+                } else if (!filled && !isToday && !isFuture && wd != DateTime.sunday) {
+                  bg = const Color(0xFFffdad6);
+                  fg = const Color(0xFFba1a1a);
                 }
 
                 final isSelected = selectedDate == key;

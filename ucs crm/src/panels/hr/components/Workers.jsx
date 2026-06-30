@@ -66,7 +66,7 @@ export default function Workers({ onSelect, onOffboard }) {
     if (!name.trim()) return;
     setErr('');
     try {
-      await addWorker({ name: name.trim(), dept });
+      await addWorker({ name: name.trim(), department: dept });
       setName('');
       setDept(DEPTS?.[0] || '');
       fetchWorkers().then(setWorkers).catch(() => {});

@@ -2,22 +2,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import QRCodeStyling from 'qr-code-styling';
 import { useHR } from '../store';
 
-const checkmarkSvg = 'data:image/svg+xml,' + encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-  + '<circle cx="50" cy="50" r="46" fill="#fff" stroke="#4f46e5" stroke-width="4"/>'
-  + '<path d="M30 52 L44 66 L74 34" stroke="#4f46e5" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
-  + '</svg>'
-);
+const qrLogo = '/logo/qr.png';
 
 function StyledQR({ data, size = 200 }) {
   const ref = useRef(null);
 
   useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.innerHTML = '';
     const qr = new QRCodeStyling({
       width: size,
       height: size,
       data,
-      image: checkmarkSvg,
+      image: qrLogo,
       dotsOptions: {
         type: 'rounded',
         gradient: {
@@ -34,19 +32,19 @@ function StyledQR({ data, size = 200 }) {
       backgroundOptions: { color: '#ffffff' },
       imageOptions: { crossOrigin: 'anonymous', margin: 8, imageSize: 0.35 },
     });
-    qr.append(ref.current);
-    return () => { if (ref.current) ref.current.innerHTML = ''; };
+    qr.append(el);
+    return () => { if (el) el.innerHTML = ''; };
   }, [data, size]);
 
   return <div ref={ref} />;
 }
 
-async function printStyledQR(qrData, label, latitude, longitude, radius) {
+async function printStyledQR(qrData, label) {
   const tempQR = new QRCodeStyling({
     width: 300,
     height: 300,
     data: qrData,
-    image: checkmarkSvg,
+    image: qrLogo,
     dotsOptions: {
       type: 'rounded',
       gradient: {
@@ -76,7 +74,6 @@ async function printStyledQR(qrData, label, latitude, longitude, radius) {
   win.document.write(`<!DOCTYPE html><html><head><title>QR Code</title><style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;margin:0;padding:20px}img{max-width:300px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.12)}h2{margin:16px 0 4px}p{margin:2px 0;color:#666}</style></head><body>`);
   win.document.write(`<img src="${url}" alt="QR"/>`);
   win.document.write(`<h2>${label}</h2>`);
-  win.document.write(`<p>${latitude}, ${longitude} (${radius}m radius)</p>`);
   win.document.write('</body></html>');
   win.document.close();
   setTimeout(() => { win.print(); }, 500);
@@ -92,7 +89,6 @@ export default function GenerateQR() {
   const [longitude, setLongitude] = useState('');
   const [radius, setRadius] = useState('100');
   const [busy, setBusy] = useState(false);
-  const [newQR, setNewQR] = useState(null);
   const [viewedQR, setViewedQR] = useState(null);
 
   const load = useCallback(async () => {
@@ -120,10 +116,10 @@ export default function GenerateQR() {
     if (!label || !latitude || !longitude) return alert('Label, latitude, and longitude are required');
     setBusy(true);
     try {
-      const result = await generateQR(label, parseFloat(latitude), parseFloat(longitude), parseInt(radius) || 100);
-      setNewQR(result.qr);
+      await generateQR(label, parseFloat(latitude), parseFloat(longitude), parseInt(radius) || 100);
       setLabel(''); setLatitude(''); setLongitude(''); setRadius('100');
-      load();
+      await load();
+      document.querySelector('.card-head h3')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (err) { alert(err.message); }
     finally { setBusy(false); }
   };
@@ -132,7 +128,6 @@ export default function GenerateQR() {
     if (!window.confirm('Delete this QR code?')) return;
     try {
       await removeQRCode(id);
-      if (newQR?.id === id) setNewQR(null);
       load();
     } catch (err) { alert(err.message); }
   };
@@ -169,21 +164,6 @@ export default function GenerateQR() {
         </div>
       </div>
 
-      {newQR && (
-        <div className="card" style={{ padding: '24px 28px', marginBottom: 16, textAlign: 'center' }}>
-          <div className="card-title" style={{ marginBottom: 12 }}>Generated QR Code</div>
-          <StyledQR data={qrData(newQR)} size={200} />
-          <p style={{ margin: '8px 0 2px', fontWeight: 600 }}>{newQR.label}</p>
-          <p style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{newQR.latitude}, {newQR.longitude} &middot; {newQR.radius_meters}m radius</p>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 10 }}>
-            <button className="btn btn-sm" onClick={() => { navigator.clipboard.writeText(qrData(newQR)); alert('Copied!'); }}>
-              Copy Data
-            </button>
-            <button className="btn btn-sm" onClick={() => printStyledQR(qrData(newQR), newQR.label, newQR.latitude, newQR.longitude, newQR.radius_meters)}>Print</button>
-          </div>
-        </div>
-      )}
-
       {error && <div style={{ background:'#fef2f2', color:'#991b1b', padding:'10px 14px', borderRadius:8, fontSize:13, marginBottom:12 }}>{error}</div>}
 
       <div className="card">
@@ -204,7 +184,7 @@ export default function GenerateQR() {
                 <p style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{qr.latitude}, {qr.longitude}</p>
                 <p style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{qr.radius_meters}m radius</p>
                 <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginTop: 6 }}>
-                  <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); printStyledQR(qrData(qr), qr.label, qr.latitude, qr.longitude, qr.radius_meters); }} title="Print">&#x1F5A8;</button>
+                  <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); printStyledQR(qrData(qr), qr.label); }} title="Print">&#x1F5A8;</button>
                   <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(qr.id); }} title="Delete" style={{ color: 'var(--danger)' }}>&#x1F5D1;</button>
                 </div>
               </div>
@@ -232,7 +212,7 @@ export default function GenerateQR() {
               <button className="btn btn-sm" onClick={() => { navigator.clipboard.writeText(qrData(viewedQR)); alert('Copied!'); }}>
                 Copy Data
               </button>
-              <button className="btn btn-sm" onClick={() => printStyledQR(qrData(viewedQR), viewedQR.label, viewedQR.latitude, viewedQR.longitude, viewedQR.radius_meters)}>Print</button>
+              <button className="btn btn-sm" onClick={() => printStyledQR(qrData(viewedQR), viewedQR.label)}>Print</button>
               <button className="btn btn-sm" onClick={() => { setViewedQR(null); handleDelete(viewedQR.id); }} style={{ color: 'var(--danger)' }}>Delete</button>
             </div>
           </div>
