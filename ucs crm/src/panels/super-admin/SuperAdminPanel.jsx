@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
-import { Grid, Funnel, Download, Globe, Star, Users, Brief, Clock, Plane, Cal, Dollar, Spark, Bell, FileTxt, Ticket, Mail } from '../../icons'
+import { Grid, Funnel, Download, Globe, Star, Users as UsersIcon, Brief, Clock, Plane, Cal, Dollar, Spark, Bell, FileTxt, Ticket, Mail } from '../../icons'
 import Dashboard from './pages/Dashboard'
 import NGOs from './pages/NGOs'
 import Users from './pages/Users'
@@ -28,8 +28,8 @@ const NAV = [
   { id: 'data-import', label: 'Data Import', icon: Download },
   { id: 'ngos', label: 'NGOs', icon: Globe },
   { id: 'causes', label: 'Causes', icon: Star },
-  { id: 'users', label: 'Users', icon: Users },
-  { id: 'workers', label: 'Workers', icon: Users },
+  { id: 'users', label: 'Users', icon: UsersIcon },
+  { id: 'workers', label: 'Workers', icon: UsersIcon },
   { id: 'attendance', label: 'Attendance', icon: Clock },
   { id: 'leaves', label: 'Leaves', icon: Plane },
   { id: 'holidays', label: 'Holidays', icon: Cal },

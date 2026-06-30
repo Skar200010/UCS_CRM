@@ -4,63 +4,65 @@ import { useHR } from '../store';
 
 const qrLogo = '/logo/qr.png';
 
-function StyledQR({ data, size = 200 }) {
+function StyledQR({ data, size = 200, plain = false }) {
   const ref = useRef(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.innerHTML = '';
-    const qr = new QRCodeStyling({
+    const opts = {
       width: size,
       height: size,
       data,
-      image: qrLogo,
-      dotsOptions: {
+    };
+    if (plain) {
+      opts.dotsOptions = { type: 'square', color: '#000000' };
+      opts.backgroundOptions = { color: '#ffffff' };
+      opts.cornersSquareOptions = { type: 'square', color: '#000000' };
+      opts.cornersDotOptions = { type: 'square', color: '#000000' };
+    } else {
+      opts.image = qrLogo;
+      opts.dotsOptions = {
         type: 'rounded',
-        gradient: {
-          type: 'linear',
-          rotation: 0,
-          colorStops: [
-            { offset: 0, color: '#4f46e5' },
-            { offset: 1, color: '#6366f1' },
-          ],
-        },
-      },
-      cornersSquareOptions: { type: 'extra-rounded', color: '#4f46e5' },
-      cornersDotOptions: { type: 'dot', color: '#4f46e5' },
-      backgroundOptions: { color: '#ffffff' },
-      imageOptions: { crossOrigin: 'anonymous', margin: 8, imageSize: 0.35 },
-    });
+        gradient: { type: 'linear', rotation: 0, colorStops: [{ offset: 0, color: '#4f46e5' }, { offset: 1, color: '#6366f1' }] },
+      };
+      opts.cornersSquareOptions = { type: 'extra-rounded', color: '#4f46e5' };
+      opts.cornersDotOptions = { type: 'dot', color: '#4f46e5' };
+      opts.backgroundOptions = { color: '#ffffff' };
+      opts.imageOptions = { crossOrigin: 'anonymous', margin: 8, imageSize: 0.35 };
+    }
+    const qr = new QRCodeStyling(opts);
     qr.append(el);
     return () => { if (el) el.innerHTML = ''; };
-  }, [data, size]);
+  }, [data, size, plain]);
 
   return <div ref={ref} />;
 }
 
-async function printStyledQR(qrData, label) {
-  const tempQR = new QRCodeStyling({
+async function printStyledQR(qrData, label, plain) {
+  const opts = {
     width: 300,
     height: 300,
     data: qrData,
-    image: qrLogo,
-    dotsOptions: {
+  };
+  if (plain) {
+    opts.dotsOptions = { type: 'square', color: '#000000' };
+    opts.backgroundOptions = { color: '#ffffff' };
+    opts.cornersSquareOptions = { type: 'square', color: '#000000' };
+    opts.cornersDotOptions = { type: 'square', color: '#000000' };
+  } else {
+    opts.image = qrLogo;
+    opts.dotsOptions = {
       type: 'rounded',
-      gradient: {
-        type: 'linear',
-        rotation: 0,
-        colorStops: [
-          { offset: 0, color: '#4f46e5' },
-          { offset: 1, color: '#6366f1' },
-        ],
-      },
-    },
-    cornersSquareOptions: { type: 'extra-rounded', color: '#4f46e5' },
-    cornersDotOptions: { type: 'dot', color: '#4f46e5' },
-    backgroundOptions: { color: '#ffffff' },
-    imageOptions: { crossOrigin: 'anonymous', margin: 8, imageSize: 0.35 },
-  });
+      gradient: { type: 'linear', rotation: 0, colorStops: [{ offset: 0, color: '#4f46e5' }, { offset: 1, color: '#6366f1' }] },
+    };
+    opts.cornersSquareOptions = { type: 'extra-rounded', color: '#4f46e5' };
+    opts.cornersDotOptions = { type: 'dot', color: '#4f46e5' };
+    opts.backgroundOptions = { color: '#ffffff' };
+    opts.imageOptions = { crossOrigin: 'anonymous', margin: 8, imageSize: 0.35 };
+  }
+  const tempQR = new QRCodeStyling(opts);
   const div = document.createElement('div');
   tempQR.append(div);
   document.body.appendChild(div);
@@ -90,6 +92,7 @@ export default function GenerateQR() {
   const [radius, setRadius] = useState('100');
   const [busy, setBusy] = useState(false);
   const [viewedQR, setViewedQR] = useState(null);
+  const [qrStyle, setQrStyle] = useState('beautiful');
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -138,6 +141,16 @@ export default function GenerateQR() {
     <div>
       <div className="card" style={{ padding: '24px 28px', marginBottom: 16 }}>
         <div className="card-title" style={{ marginBottom: 16 }}>Generate New QR Code</div>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+          <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, cursor:'pointer' }}>
+            <input type="radio" name="qrStyle" checked={qrStyle === 'beautiful'} onChange={() => setQrStyle('beautiful')} />
+            Beautiful QR
+          </label>
+          <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, cursor:'pointer' }}>
+            <input type="radio" name="qrStyle" checked={qrStyle === 'plain'} onChange={() => setQrStyle('plain')} />
+            Plain QR
+          </label>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <label className="field" style={{ gridColumn: '1 / -1' }}>
             Location Label
@@ -179,12 +192,12 @@ export default function GenerateQR() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, padding: 16 }}>
             {codes.map(qr => (
               <div key={qr.id} className="card" style={{ padding: 14, textAlign: 'center', boxShadow: 'none', cursor: 'pointer' }} onClick={() => setViewedQR(qr)}>
-                <StyledQR data={qrData(qr)} size={120} />
+                  <StyledQR data={qrData(qr)} size={120} plain={qrStyle === 'plain'} />
                 <p style={{ fontSize: 12, fontWeight: 600, margin: '6px 0 2px' }}>{qr.label}</p>
                 <p style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{qr.latitude}, {qr.longitude}</p>
                 <p style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{qr.radius_meters}m radius</p>
                 <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginTop: 6 }}>
-                  <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); printStyledQR(qrData(qr), qr.label); }} title="Print">&#x1F5A8;</button>
+                  <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); printStyledQR(qrData(qr), qr.label, qrStyle === 'plain'); }} title="Print">&#x1F5A8;</button>
                   <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(qr.id); }} title="Delete" style={{ color: 'var(--danger)' }}>&#x1F5D1;</button>
                 </div>
               </div>
@@ -200,7 +213,7 @@ export default function GenerateQR() {
               <button className="btn btn-sm" onClick={() => setViewedQR(null)}>&times;</button>
             </div>
             <div className="modal-body" style={{ textAlign: 'center', padding: '24px 24px 16px' }}>
-              <StyledQR data={qrData(viewedQR)} size={280} />
+              <StyledQR data={qrData(viewedQR)} size={280} plain={qrStyle === 'plain'} />
               <p style={{ margin: '12px 0 2px', fontSize: 14, color: 'var(--ink-soft)' }}>
                 {viewedQR.latitude}, {viewedQR.longitude}
               </p>
@@ -212,7 +225,7 @@ export default function GenerateQR() {
               <button className="btn btn-sm" onClick={() => { navigator.clipboard.writeText(qrData(viewedQR)); alert('Copied!'); }}>
                 Copy Data
               </button>
-              <button className="btn btn-sm" onClick={() => printStyledQR(qrData(viewedQR), viewedQR.label)}>Print</button>
+              <button className="btn btn-sm" onClick={() => printStyledQR(qrData(viewedQR), viewedQR.label, qrStyle === 'plain')}>Print</button>
               <button className="btn btn-sm" onClick={() => { setViewedQR(null); handleDelete(viewedQR.id); }} style={{ color: 'var(--danger)' }}>Delete</button>
             </div>
           </div>
