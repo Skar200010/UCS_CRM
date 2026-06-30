@@ -1,9 +1,3 @@
 {
-  "rootDirectory": "client-web",
-  "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "rootDirectory": "client-web"
 }
