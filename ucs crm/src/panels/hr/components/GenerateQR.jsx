@@ -39,7 +39,7 @@ function StyledQR({ data, size = 200 }) {
   return <div ref={ref} />;
 }
 
-async function printStyledQR(qrData, label, latitude, longitude, radius) {
+async function printStyledQR(qrData, label) {
   const tempQR = new QRCodeStyling({
     width: 300,
     height: 300,
@@ -74,7 +74,6 @@ async function printStyledQR(qrData, label, latitude, longitude, radius) {
   win.document.write(`<!DOCTYPE html><html><head><title>QR Code</title><style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;margin:0;padding:20px}img{max-width:300px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.12)}h2{margin:16px 0 4px}p{margin:2px 0;color:#666}</style></head><body>`);
   win.document.write(`<img src="${url}" alt="QR"/>`);
   win.document.write(`<h2>${label}</h2>`);
-  win.document.write(`<p>${latitude}, ${longitude} (${radius}m radius)</p>`);
   win.document.write('</body></html>');
   win.document.close();
   setTimeout(() => { win.print(); }, 500);
@@ -185,7 +184,7 @@ export default function GenerateQR() {
                 <p style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{qr.latitude}, {qr.longitude}</p>
                 <p style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{qr.radius_meters}m radius</p>
                 <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginTop: 6 }}>
-                  <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); printStyledQR(qrData(qr), qr.label, qr.latitude, qr.longitude, qr.radius_meters); }} title="Print">&#x1F5A8;</button>
+                  <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); printStyledQR(qrData(qr), qr.label); }} title="Print">&#x1F5A8;</button>
                   <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(qr.id); }} title="Delete" style={{ color: 'var(--danger)' }}>&#x1F5D1;</button>
                 </div>
               </div>
@@ -213,7 +212,7 @@ export default function GenerateQR() {
               <button className="btn btn-sm" onClick={() => { navigator.clipboard.writeText(qrData(viewedQR)); alert('Copied!'); }}>
                 Copy Data
               </button>
-              <button className="btn btn-sm" onClick={() => printStyledQR(qrData(viewedQR), viewedQR.label, viewedQR.latitude, viewedQR.longitude, viewedQR.radius_meters)}>Print</button>
+              <button className="btn btn-sm" onClick={() => printStyledQR(qrData(viewedQR), viewedQR.label)}>Print</button>
               <button className="btn btn-sm" onClick={() => { setViewedQR(null); handleDelete(viewedQR.id); }} style={{ color: 'var(--danger)' }}>Delete</button>
             </div>
           </div>
