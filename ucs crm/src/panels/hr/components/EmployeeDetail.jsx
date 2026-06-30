@@ -315,7 +315,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
     if (joinedThisMonth && i + 1 < joinDayNum) return 0;
     return new Date(yr, mo - 1, i + 1).getDay() === 0 ? 1 : 0;
   }).reduce((a, b) => a + b, 0);
-  let paidDays = noAttendanceData ? 0 : Math.max(0, presentDays + sundayCount);
+  let paidDays = noAttendanceData ? 0 : availableDays - deducted.size;
   if (paidDays < 0) paidDays = 0;
   const sundayDeductions = [...deducted].filter(d => new Date(d).getDay() === 0).length;
   const JOINING_DEDUCTION = 1.5;
@@ -1020,7 +1020,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:16, flexWrap:'wrap' }}>
                         <Box num={availableDays} label={joinedThisMonth ? 'Available\nDays' : 'Days in\nMonth'} color="#5B6B4E" />
                         <Arrow />
-                        <Box num={presentDays} label={`Present\n( + ${sundayCount} Sun )`} color="#5B6B4E" />
+                        <Box num={deducted.size} label={'Deducted\nDays'} color="#d9534f" />
                         <Equals />
                         <Box num={paidDays} label={'Paid\nDays'} color="#5B6B4E" />
                         <Times />
