@@ -312,6 +312,11 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
   const daysWorked = monthAttendance.filter(a =>
     (a.status === 'present' || a.status === 'late') && (!joinedThisMonth || a.date >= joinCutoff)
   ).length;
+  const presentDays = daysWorked;
+  const sundayCount = Array.from({ length: daysInMonth }, (_, i) => {
+    if (joinedThisMonth && i + 1 < joinDayNum) return 0;
+    return new Date(yr, mo - 1, i + 1).getDay() === 0 ? 1 : 0;
+  }).reduce((a, b) => a + b, 0);
   const sundayDeductions = [...deducted].filter(d => new Date(d).getDay() === 0).length;
   const JOINING_DEDUCTION = 1.5;
   const joiningDeduction = (joinedThisMonth && monthsEmployed <= 3) ? JOINING_DEDUCTION : 0;
@@ -901,25 +906,34 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                       {/* Stacked bar: days breakdown */}
                       {(() => {
                         const ded = deducted.size;
-                        const paid = Math.max(0, availableDays - ded);
                         const empty = Math.max(0, daysInMonth - availableDays);
                         const pct = (v) => (v / daysInMonth * 100).toFixed(1);
+                        const cats = { present: 0, sunday: 0, deducted: 0, empty: 0 };
+                        for (const md of monthDays) {
+                          if (joinedThisMonth && md.date < joinCutoff) { cats.empty++; }
+                          else if (deducted.has(md.date)) { cats.deducted++; }
+                          else if (md.status === 'present' || md.status === 'late') { cats.present++; }
+                          else if (md.dayName === 'Sun') { cats.sunday++; }
+                        }
                         return (
                           <div>
                             <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, color:'var(--ink-soft)', marginBottom:4 }}>
                               <span>Available: {availableDays}d</span>
+                              <span>Present: {presentDays}d</span>
+                              <span>Sundays: {sundayCount}d</span>
                               <span>Deducted: {ded}d</span>
-                              <span>Paid: {paid}d</span>
                             </div>
                             <div className="salary-breakdown-bar">
-                              {paid > 0 && <div className="salary-bar-paid" style={{ width:pct(paid) + '%' }} title={`${paid} days paid`} />}
-                              {ded > 0 && <div className="salary-bar-deducted" style={{ width:pct(ded) + '%' }} title={`${ded} days deducted`} />}
-                              {empty > 0 && <div className="salary-bar-empty" style={{ width:pct(empty) + '%' }} title={`${empty} days before join`} />}
+                              {cats.present > 0 && <div className="salary-bar-paid" style={{ width:pct(cats.present) + '%' }} title={`${cats.present} days present`} />}
+                              {cats.sunday > 0 && <div className="salary-bar-sunday" style={{ width:pct(cats.sunday) + '%' }} title={`${cats.sunday} Sundays`} />}
+                              {cats.deducted > 0 && <div className="salary-bar-deducted" style={{ width:pct(cats.deducted) + '%' }} title={`${cats.deducted} days deducted`} />}
+                              {cats.empty > 0 && <div className="salary-bar-empty" style={{ width:pct(cats.empty) + '%' }} title={`${cats.empty} days before join`} />}
                             </div>
                             <div className="salary-breakdown-legend">
-                              <span><span className="salary-legend-dot" style={{ background:'var(--sage)' }} />Paid ({paid}d)</span>
-                              <span><span className="salary-legend-dot" style={{ background:'var(--danger)' }} />Deducted ({ded}d)</span>
-                              {empty > 0 && <span><span className="salary-legend-dot" style={{ background:'var(--line)' }} />Before join ({empty}d)</span>}
+                              <span><span className="salary-legend-dot" style={{ background:'var(--sage)' }} />Present ({cats.present}d)</span>
+                              <span><span className="salary-legend-dot" style={{ background:'#f59e0b' }} />Sundays ({cats.sunday}d)</span>
+                              <span><span className="salary-legend-dot" style={{ background:'var(--danger)' }} />Deducted ({cats.deducted}d)</span>
+                              {cats.empty > 0 && <span><span className="salary-legend-dot" style={{ background:'var(--line)' }} />Before join ({cats.empty}d)</span>}
                             </div>
                           </div>
                         );
@@ -938,6 +952,10 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                         <div className="salary-metric">
                           <div className="salary-metric-num">{daysWorked}</div>
                           <div className="salary-metric-lbl">Days Worked</div>
+                        </div>
+                        <div className="salary-metric">
+                          <div className="salary-metric-num" style={{ color:'#f59e0b' }}>{sundayCount}</div>
+                          <div className="salary-metric-lbl">Sundays</div>
                         </div>
                         <div className="salary-metric">
                           <div className="salary-metric-num" style={{ color:'var(--danger)' }}>{totalLateMinutes}</div>
@@ -1002,7 +1020,9 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, marginBottom:16, flexWrap:'wrap' }}>
                         <Box num={availableDays} label={joinedThisMonth ? 'Available\nDays' : 'Days in\nMonth'} color="#5B6B4E" />
                         <Arrow />
-                        <Box num={deducted.size} label={'Deducted\nDays'} color="#d9534f" />
+                        <Box num={presentDays} label={'Present\nDays'} color="#5B6B4E" />
+                        <Plus />
+                        <Box num={sundayCount} label={'Sundays'} color="#f59e0b" />
                         <Equals />
                         <Box num={paidDays} label={'Paid\nDays'} color="#5B6B4E" />
                         <Times />
@@ -2062,6 +2082,9 @@ function Arrow() {
 
 function Equals() {
   return <span style={{ fontSize:20, color:'var(--ink-soft)', fontWeight:300 }}>=</span>;
+}
+function Plus() {
+  return <span style={{ fontSize:20, color:'var(--ink-soft)', fontWeight:300 }}>+</span>;
 }
 
 function Times() {

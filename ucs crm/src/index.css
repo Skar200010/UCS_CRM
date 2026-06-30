@@ -609,6 +609,7 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 .panel-hr .salary-visual-label { font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; margin-top:2px; }
 .panel-hr .salary-breakdown-bar { display:flex; height:28px; border-radius:var(--radius-sm); overflow:hidden; margin:12px 0; }
 .panel-hr .salary-bar-paid { background:var(--sage); }
+.panel-hr .salary-bar-sunday { background:#f59e0b; }
 .panel-hr .salary-bar-deducted { background:var(--danger); }
 .panel-hr .salary-bar-absent { background:#e67e22; }
 .panel-hr .salary-bar-empty { background:var(--line); }
