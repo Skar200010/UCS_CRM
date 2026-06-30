@@ -52,7 +52,7 @@ const GROUPS = [
   { id: 'comm', label: 'Communication', icon: '📢', items: ['events', 'notices'] },
 ]
 
-const standaloneIds = ['dashboard', 'salary', 'incentives', 'achievements', 'accounts', 'reports']
+const standaloneIds = ['dashboard', 'salary', 'incentives', 'achievements', 'accounts', 'reports', 'tickets']
 
 
 
