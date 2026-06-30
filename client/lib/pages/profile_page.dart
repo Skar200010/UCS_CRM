@@ -31,7 +31,7 @@ class _ProfilePageState extends State<ProfilePage> {
   List<dynamic> _tickets = [];
   bool _loadingTickets = false;
 
-  int _present = 0, _absent = 0, _late = 0, _leave = 0, _lateUsed = 0;
+  int _present = 0, _absent = 0, _late = 0, _leave = 0, _halfDay = 0, _lateUsed = 0;
   Map<String, String> _statusByDate = {};
   Map<String, String> _hoursByDate = {};
   Map<String, Map<String, dynamic>> _historyByDate = {};
@@ -151,18 +151,18 @@ class _ProfilePageState extends State<ProfilePage> {
       final dt = DateTime.tryParse(date.toString());
       if (dt != null) {
         final ym = dt.year * 100 + dt.month;
-        monthlyStats.putIfAbsent(ym, () => {'present': 0, 'absent': 0, 'late': 0, 'leave': 0, 'holiday': 0});
+        monthlyStats.putIfAbsent(ym, () => {'present': 0, 'absent': 0, 'late': 0, 'leave': 0, 'half-day': 0, 'holiday': 0});
         final st = status.toString();
         if (monthlyStats[ym]!.containsKey(st)) {
           monthlyStats[ym]![st] = monthlyStats[ym]![st]! + 1;
         }
       }
-        switch (status) { case 'present': p++; break; case 'absent': a++; break; case 'late': l++; p++; break; case 'leave': lv++; break; }
+        switch (status) { case 'present': p++; break; case 'absent': a++; break; case 'late': l++; p++; break; case 'leave': lv++; break; case 'half-day': hd++; break; }
     }
 
     setState(() {
       _history = cachedHistory;
-      _present = p; _absent = a; _late = l; _leave = lv;
+      _present = p; _absent = a; _late = l; _leave = lv; _halfDay = hd;
       _statusByDate = statusMap;
       _hoursByDate = hoursMap;
       _historyByDate = detailMap;
@@ -172,7 +172,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _refreshHistoryFromNetwork() async {
-    int p = 0, a = 0, l = 0, lv = 0;
+    int p = 0, a = 0, l = 0, lv = 0, hd = 0;
     final statusMap = <String, String>{};
     final monthlyStats = <int, Map<String, int>>{};
     final hoursMap = <String, String>{};
@@ -203,18 +203,18 @@ class _ProfilePageState extends State<ProfilePage> {
         final dt = DateTime.tryParse(date.toString());
         if (dt != null) {
           final ym = dt.year * 100 + dt.month;
-        monthlyStats.putIfAbsent(ym, () => {'present': 0, 'absent': 0, 'late': 0, 'leave': 0, 'holiday': 0});
+        monthlyStats.putIfAbsent(ym, () => {'present': 0, 'absent': 0, 'late': 0, 'leave': 0, 'half-day': 0, 'holiday': 0});
           final st = status.toString();
           if (monthlyStats[ym]!.containsKey(st)) {
             monthlyStats[ym]![st] = monthlyStats[ym]![st]! + 1;
           }
         }
-      switch (status) { case 'present': p++; break; case 'absent': a++; break; case 'late': l++; p++; break; case 'leave': lv++; break; }
+      switch (status) { case 'present': p++; break; case 'absent': a++; break; case 'late': l++; p++; break; case 'leave': lv++; break; case 'half-day': hd++; break; }
       }
 
       setState(() {
         _history = history;
-        _present = p; _absent = a; _late = l; _leave = lv;
+        _present = p; _absent = a; _late = l; _leave = lv; _halfDay = hd;
         _lateUsed = today['lateUsed'] ?? 0;
         _statusByDate = statusMap;
         _hoursByDate = hoursMap;
@@ -817,6 +817,7 @@ class _ProfilePageState extends State<ProfilePage> {
               _legendDot('Absent', const Color(0xFFffdad6)),
               _legendDot('Leave', const Color(0xFFd1e4ff)),
               _legendDot('Late', const Color(0xFFffddb8)),
+              _legendDot('Half-day', const Color(0xFFe8d5f5)),
               _legendDot('Holiday', const Color(0xFFe8d5f5)),
               _smLegendDot(Icons.circle, 'Event', const Color(0xFF2563eb)),
               _smLegendDot(Icons.cake, 'Birthday', const Color(0xFFf43f5e)),
@@ -1205,6 +1206,7 @@ class _ProfilePageState extends State<ProfilePage> {
       case 'absent': statusColor = const Color(0xFFba1a1a); statusIcon = Icons.cancel; break;
       case 'late': statusColor = const Color(0xFFc28228); statusIcon = Icons.schedule; break;
       case 'leave': statusColor = const Color(0xFF7a92b0); statusIcon = Icons.event_note; break;
+      case 'half-day': statusColor = const Color(0xFF7c3aed); statusIcon = Icons.wb_sunny; break;
       default: statusColor = const Color(0xFF74777e); statusIcon = Icons.help_outline;
     }
 

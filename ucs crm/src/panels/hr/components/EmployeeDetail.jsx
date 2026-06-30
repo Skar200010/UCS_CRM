@@ -37,6 +37,7 @@ function Badge({ status }) {
     late: { cls: 'badge-late', lbl: 'Late' },
     absent: { cls: 'badge-absent', lbl: 'Absent' },
     leave: { cls: 'badge-leave', lbl: 'Leave' },
+    'half-day': { cls: 'badge-half-day', lbl: 'Half Day' },
   };
   const { cls, lbl } = map[status] || { cls: 'badge-pending', lbl: status || '\u2014' };
   return <span className={`badge ${cls}`}>{lbl}</span>;
@@ -672,7 +673,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                     </button>
                   </div>
                   <Dropdown className="filter-select" value={attStatus} onChange={val => setAttStatus(val)}
-                    options={[{value:'',label:'All'},{value:'present',label:'Present'},{value:'late',label:'Late'},{value:'absent',label:'Absent'},{value:'leave',label:'Leave'}]} />
+                     options={[{value:'',label:'All'},{value:'present',label:'Present'},{value:'late',label:'Late'},{value:'absent',label:'Absent'},{value:'leave',label:'Leave'},{value:'half-day',label:'Half Day'}]} />
                 </div>
 
                 {(() => {
@@ -731,6 +732,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                           else if (s === 'late') { bg = '#fef3c7'; lbl = '⚠'; }
                           else if (s === 'absent') { bg = '#ffe0e0'; lbl = '✗'; }
                           else if (s === 'leave' || s === 'Leave') { bg = '#f3e8ff'; lbl = '✋'; }
+                          else if (s === 'half-day') { bg = '#e8d5f5'; lbl = 'HD'; }
                           else if (md.dayName === 'Sun') { bg = '#f0f0f0'; lbl = '—'; }
                           else { bg = '#fff'; lbl = ''; }
                           cells.push(
@@ -1297,6 +1299,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                               if (beforeJoin) { bg = '#e8e8e8'; label = '—'; title = 'Before join'; }
                               else if (isDeducted) { bg = '#ffe0e0'; label = '✗'; title = 'Deducted'; }
                               else if (md.status === 'present' || md.status === 'late') { bg = '#d4edda'; label = '✓'; title = 'Present/Late'; }
+                              else if (md.status === 'half-day') { bg = '#e8d5f5'; label = 'HD'; title = 'Half Day'; }
                               else if (isWeekend) { bg = '#f0f0f0'; label = '—'; title = 'Weekend'; }
                               else { bg = '#fff'; label = ''; title = ''; }
                               cells.push(

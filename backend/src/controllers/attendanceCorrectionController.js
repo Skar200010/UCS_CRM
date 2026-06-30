@@ -48,6 +48,28 @@ async function calculateLateMinutes(punchInTime, workerId) {
     : 0;
 }
 
+async function isHalfDayByLatePunch(punchInTime, workerId) {
+  const todayHalfDay = await getApprovedHalfDayLeave(workerId, istDateStr(new Date(punchInTime)));
+  if (todayHalfDay && todayHalfDay.half_start_time) return false;
+  const val = await getSetting('office_start_time');
+  const [h, m] = (val || '10:00').split(':').map(Number);
+  const startMin = (h || 10) * 60 + (m || 0);
+  const ist = getIstTime(new Date(punchInTime));
+  const punchMin = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  return (punchMin - startMin) >= 240;
+}
+
+async function isHalfDayByEarlyPunchOut(punchOutTime, workerId) {
+  const todayHalfDay = await getApprovedHalfDayLeave(workerId, istDateStr(new Date(punchOutTime)));
+  if (todayHalfDay && todayHalfDay.half_start_time) return false;
+  const val = await getSetting('office_end_time');
+  const [h, m] = (val || '19:00').split(':').map(Number);
+  const endMin = (h || 19) * 60 + (m || 0);
+  const ist = getIstTime(new Date(punchOutTime));
+  const punchMin = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  return (endMin - punchMin) >= 180;
+}
+
 export const raiseTicket = async (req, res) => {
   try {
     const { attendance_id, date, field, requested_time, reason } = req.body;
@@ -157,9 +179,15 @@ export const approveTicket = async (req, res) => {
     if (ticket.field === 'punch_in') {
       updates.punch_in_time = ticket.requested_time;
       updates.late_minutes = await calculateLateMinutes(ticket.requested_time, ticket.worker_id);
-      updates.status = updates.late_minutes > 0 ? 'late' : 'present';
+      let status = updates.late_minutes > 0 ? 'late' : 'present';
+      if (await isHalfDayByLatePunch(ticket.requested_time, ticket.worker_id)) status = 'half-day';
+      updates.status = status;
     } else {
       updates.punch_out_time = ticket.requested_time;
+      const isEarly = await isHalfDayByEarlyPunchOut(ticket.requested_time, ticket.worker_id);
+      if (isEarly && attendance.status !== 'half-day' && attendance.status !== 'leave' && attendance.status !== 'absent') {
+        updates.status = 'half-day';
+      }
     }
 
     await updateAttendance(ticket.attendance_id, updates);

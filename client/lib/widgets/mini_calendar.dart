@@ -79,6 +79,11 @@ class MiniCalendar extends StatelessWidget {
                       fg = const Color(0xFF011d35);
                       filled = true;
                       break;
+                    case 'half-day':
+                      bg = const Color(0xFFe8d5f5);
+                      fg = const Color(0xFF5a2a8a);
+                      filled = true;
+                      break;
                     case 'holiday':
                       bg = const Color(0xFFe8d5f5);
                       fg = const Color(0xFF5a2a8a);

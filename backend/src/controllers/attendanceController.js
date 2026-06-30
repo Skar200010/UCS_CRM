@@ -59,6 +59,26 @@ async function calculateLateMinutes(punchInTime, workerId) {
     : 0;
 }
 
+async function isHalfDayByLatePunch(punchInTime, workerId) {
+  const todayHalfDay = await getApprovedHalfDayLeave(workerId, istDateStr(new Date(punchInTime)));
+  if (todayHalfDay && todayHalfDay.half_start_time) return false;
+  const start = await getOfficeStart();
+  const startMin = start.hour * 60 + start.minute;
+  const ist = getIstTime(new Date(punchInTime));
+  const punchMin = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  return (punchMin - startMin) >= 240;
+}
+
+async function isHalfDayByEarlyPunchOut(punchOutTime, workerId) {
+  const todayHalfDay = await getApprovedHalfDayLeave(workerId, istDateStr(new Date(punchOutTime)));
+  if (todayHalfDay && todayHalfDay.half_start_time) return false;
+  const end = await getOfficeEnd();
+  const endMin = end.hour * 60 + end.minute;
+  const ist = getIstTime(new Date(punchOutTime));
+  const punchMin = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  return (endMin - punchMin) >= 180;
+}
+
 export const punchIn = async (req, res) => {
   try {
     const { code, latitude, longitude } = req.body;
@@ -85,7 +105,8 @@ export const punchIn = async (req, res) => {
 
     const now = new Date();
     const lateMinutes = await calculateLateMinutes(now, req.user.id);
-    const status = lateMinutes > 0 ? 'late' : 'present';
+    let status = lateMinutes > 0 ? 'late' : 'present';
+    if (await isHalfDayByLatePunch(now, req.user.id)) status = 'half-day';
 
     if (existing) {
       const updated = await updateAttendance(existing.id, {
@@ -130,11 +151,15 @@ export const punchOut = async (req, res) => {
     }
 
     const now = new Date();
-    const updated = await updateAttendance(existing.id, {
+    const updates = {
       punch_out_time: now.toISOString(),
       punch_out_lat: latitude,
       punch_out_lng: longitude,
-    });
+    };
+    if (existing.status !== 'half-day' && existing.status !== 'leave' && existing.status !== 'absent') {
+      if (await isHalfDayByEarlyPunchOut(now, req.user.id)) updates.status = 'half-day';
+    }
+    const updated = await updateAttendance(existing.id, updates);
 
     const punchIn = new Date(existing.punch_in_time);
     const hoursWorked = ((now - punchIn) / 3600000).toFixed(1);
