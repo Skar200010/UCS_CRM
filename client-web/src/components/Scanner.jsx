@@ -11,6 +11,8 @@ export default function Scanner() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [scanning, setScanning] = useState(true)
+  const [cameraReady, setCameraReady] = useState(false)
+  const frameSkip = useRef(0)
 
   useEffect(() => {
     let stream = null
@@ -18,8 +20,18 @@ export default function Scanner() {
 
     const start = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        setScanning(false)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+            width: { min: 640, ideal: 1920 },
+            height: { min: 480, ideal: 1080 },
+            aspectRatio: { ideal: 1.7777777778 },
+            advanced: [{ torch: false }, { focusMode: 'continuous' }],
+          }
+        })
         if (videoRef.current) videoRef.current.srcObject = stream
+        setTimeout(() => setScanning(true), 500)
         scan()
       } catch (e) {
         setError('Camera access denied. Please allow camera permissions.')
@@ -32,11 +44,20 @@ export default function Scanner() {
       const canvas = canvasRef.current
       if (video.readyState !== video.HAVE_ENOUGH_DATA) { animId = requestAnimationFrame(scan); return }
 
+      frameSkip.current = (frameSkip.current + 1) % 3
+      if (frameSkip.current !== 0) { animId = requestAnimationFrame(scan); return }
+
       canvas.width = video.videoWidth
       canvas.height = video.videoHeight
       const ctx = canvas.getContext('2d')
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const d = imageData.data
+      for (let i = 0; i < d.length; i += 4) {
+        const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
+        const adj = gray > 128 ? Math.min(255, gray * 1.3) : Math.max(0, gray * 0.7)
+        d[i] = d[i + 1] = d[i + 2] = adj
+      }
       const code = jsQR(imageData.data, imageData.width, imageData.height)
 
       if (code) {
