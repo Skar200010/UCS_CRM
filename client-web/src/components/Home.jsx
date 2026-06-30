@@ -130,7 +130,8 @@ export default function Home() {
             <button onClick={handlePunch}
               className={`w-44 h-44 rounded-full flex items-center justify-center text-white font-bold text-lg transition-all duration-300 animate-pulse-ring aspect-square shrink-0 ${
                 punched ? 'bg-gradient-to-br from-blue-600 to-blue-800' : 'bg-gradient-to-br from-slate-800 to-slate-900'
-              }`}>
+              }`}
+              style={{ borderRadius: '50%' }}>
               <div className="text-center text-xl leading-tight">{punched ? <>Punch<br />Out</> : <>Punch<br />In</>}</div>
             </button>
           </div>

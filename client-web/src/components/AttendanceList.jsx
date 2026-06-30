@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -28,6 +29,7 @@ function Badge({ status }) {
 
 export default function AttendanceList() {
   const now = new Date()
+  const navigate = useNavigate()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [records, setRecords] = useState([])
@@ -58,7 +60,12 @@ export default function AttendanceList() {
 
   return (
     <div className="p-4 max-w-lg mx-auto animate-fade-in">
-      <h2 className="text-lg font-bold text-[var(--primary)] mb-4">Attendance History</h2>
+      <div className="flex items-center gap-3 mb-4">
+        <button onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <h2 className="text-lg font-bold text-[var(--primary)]">Attendance History</h2>
+      </div>
 
       {/* Month Filter */}
       <div className="flex items-center justify-between bg-white rounded-xl p-3 shadow-sm border border-[var(--border)] mb-4">
