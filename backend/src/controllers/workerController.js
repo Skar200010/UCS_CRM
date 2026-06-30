@@ -18,10 +18,15 @@ import { getActiveSalaryByWorker } from '../models/salaryModel.js';
 
 const generateTempPassword = () => crypto.randomBytes(4).toString('hex');
 
-const generateLoginId = async () => {
-  const ts = Date.now().toString(36).toUpperCase();
-  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `UFS${ts}${rand}`;
+const generateLoginId = async (name) => {
+  const parts = name.trim().split(/\s+/);
+  const firstName = parts[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+  const surnameInitial = parts.length > 1
+    ? parts[parts.length - 1].charAt(0).toLowerCase().replace(/[^a-z0-9]/g, '')
+    : '';
+  const base = surnameInitial ? `${firstName}${surnameInitial}` : firstName;
+  const count = await getWorkerCount();
+  return `${base}_ufs_${String(count + 1).padStart(2, '0')}`;
 };
 
 function validateAllocations(allocations, salary) {
@@ -57,7 +62,7 @@ export const addWorker = async (req, res) => {
     }
 
     const tempPassword = generateTempPassword();
-    const login_id = await generateLoginId();
+    const login_id = await generateLoginId(name);
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(tempPassword, salt);
 
@@ -107,11 +112,18 @@ export const bulkAddWorkers = async (req, res) => {
     if (!workers || !Array.isArray(workers) || workers.length === 0) {
       return res.status(400).json({ message: 'Workers array is required' });
     }
+    const count = await getWorkerCount();
     const tempPassword = generateTempPassword();
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(tempPassword, salt);
     const prepared = workers.map((w, i) => {
-      const login_id = `UFS${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      const parts = (w.name || '').trim().split(/\s+/);
+      const firstName = parts[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+      const surnameInitial = parts.length > 1
+        ? parts[parts.length - 1].charAt(0).toLowerCase().replace(/[^a-z0-9]/g, '')
+        : '';
+      const base = surnameInitial ? `${firstName}${surnameInitial}` : firstName;
+      const login_id = `${base}_ufs_${String(count + i + 1).padStart(2, '0')}`;
       return {
         name: w.name,
         email: w.email,
