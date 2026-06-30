@@ -1,0 +1,29 @@
+{
+    "name":  "client-web",
+    "version":  "1.0.0",
+    "description":  "",
+    "main":  "index.js",
+    "scripts":  {
+                    "preview":  "vite preview",
+                    "build":  "vite build",
+                    "dev":  "vite"
+                },
+    "keywords":  [
+
+                 ],
+    "author":  "",
+    "license":  "ISC",
+    "type":  "module",
+    "dependencies":  {
+                         "react":  "^19.2.7",
+                         "react-dom":  "^19.2.7",
+                         "react-router-dom":  "^7.18.1"
+                     },
+    "devDependencies":  {
+                            "@tailwindcss/vite":  "^4.3.2",
+                            "@vitejs/plugin-react":  "^6.0.3",
+                            "jsqr":  "^1.4.0",
+                            "tailwindcss":  "^4.3.2",
+                            "vite":  "^8.1.2"
+                        }
+}

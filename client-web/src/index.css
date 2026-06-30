@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #00152a;
+  --primary-light: #2563eb;
+  --surface: #f6fafe;
+  --ink: #0f172a;
+  --ink-soft: #64748b;
+  --ink-muted: #94a3b8;
+  --border: #e2e8f0;
+  --green: #2a6a4b;
+  --green-bg: #d1fae5;
+  --red: #ba1a1a;
+  --red-bg: #fee2e2;
+  --orange: #c28228;
+  --orange-bg: #fef3c7;
+  --blue: #7a92b0;
+  --blue-bg: #dbeafe;
+  --purple: #7c3aed;
+  --purple-bg: #f3e8ff;
+  --sage: #5B6B4E;
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
+  background: var(--surface);
+  color: var(--ink);
+  margin: 0;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
+}
+
+* { box-sizing: border-box; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+input, select, textarea, button {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+}
+
+input[type="date"], input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+}
+
+/* iOS safe area padding for bottom tab bar */
+.ios-safe-bottom {
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+}
+
+.ios-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Push content below notch on iOS standalone */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* Disable pull-to-refresh in iOS standalone */
+body {
+  overscroll-behavior: none;
+}
+
+/* Scroll momentum */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+}
+
+/* Animations */
+.animate-fade-in { animation: fadeIn 0.3s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.animate-pulse-ring { animation: pulseRing 2s infinite; }
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(37,99,235,0.4); }
+  70% { box-shadow: 0 0 0 20px rgba(37,99,235,0); }
+  100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+}
+
+.animate-spin-slow { animation: spin 3s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.animate-slide-up { animation: slideUp 0.3s ease-out; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.animate-scan-line { animation: scanMove 2s ease-in-out infinite; }
+@keyframes scanMove { 0%, 100% { top: 10%; } 50% { top: 90%; } }
+
+/* Fix 300ms tap delay on iOS */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
