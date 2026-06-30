@@ -25,9 +25,10 @@ export const getTotalCollectedByWorker = async (workerId, monthStart, monthEnd) 
     .from('fro_donor_logs')
     .select('amount_collected, fro_assignments!inner(fro_worker_id)')
     .eq('fro_assignments.fro_worker_id', workerId)
-    .or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition,accounts_status.eq.verified)')
-    .gte('created_at', monthStart)
-    .lte('created_at', monthEnd);
+    .or(
+      `and(action.eq.donation,created_at.gte.${monthStart},created_at.lte.${monthEnd}),` +
+      `and(disposition_detail.eq.lead_done,action.eq.disposition,accounts_status.eq.verified,verified_at.gte.${monthStart},verified_at.lte.${monthEnd})`
+    );
   if (error) throw error;
 
   let total = 0;
