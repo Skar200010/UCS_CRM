@@ -22,6 +22,7 @@ export default function Workers({ onSelect, onOffboard }) {
   const [search, setSearch] = useState(load().search || '');
   const [roleFilter, setRoleFilter] = useState(load().roleFilter || '');
   const [page, setPage] = useState(load().page || 1);
+  const [created, setCreated] = useState(null);
   const [salaryMap, setSalaryMap] = useState({});
   const PAGE_SIZE = 20;
   const tableRef = useRef(null);
@@ -65,8 +66,10 @@ export default function Workers({ onSelect, onOffboard }) {
   const submit = async () => {
     if (!name.trim()) return;
     setErr('');
+    setCreated(null);
     try {
-      await addWorker({ name: name.trim(), department: dept });
+      const res = await addWorker({ name: name.trim(), department: dept });
+      setCreated(res.worker);
       setName('');
       setDept(DEPTS?.[0] || '');
       fetchWorkers().then(setWorkers).catch(() => {});
@@ -226,6 +229,13 @@ export default function Workers({ onSelect, onOffboard }) {
             <button className="btn btn-primary" onClick={submit}><Plus width={16}/> Add employee</button>
           </div>
           {err && <div style={{ color:'var(--danger)', fontSize:13, marginTop:8 }}>{err}</div>}
+          {created && (
+            <div style={{ background:'#e8f5e9', padding:'10px 14px', borderRadius:8, marginTop:8, fontSize:13, lineHeight:1.7 }}>
+              <strong>{created.name}</strong> added<br/>
+              Login ID: <code style={{ background:'#c8e6c9', padding:'1px 6px', borderRadius:4, fontWeight:600 }}>{created.login_id}</code><br/>
+              Password: <code style={{ background:'#c8e6c9', padding:'1px 6px', borderRadius:4, fontWeight:600 }}>{created.generated_password}</code>
+            </div>
+          )}
         </div>
       </div>
 
