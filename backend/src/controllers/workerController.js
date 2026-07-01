@@ -303,6 +303,30 @@ export const editWorker = async (req, res) => {
   }
 };
 
+export const bulkEditWorkers = async (req, res) => {
+  try {
+    const { workers } = req.body;
+    if (!Array.isArray(workers) || workers.length === 0) {
+      return res.status(400).json({ message: 'workers array is required' });
+    }
+    const updated = [];
+    for (const w of workers) {
+      const updates = {};
+      if (w.phone !== undefined) updates.phone = w.phone;
+      if (w.alternate_phone !== undefined) updates.alternate_phone = w.alternate_phone;
+      if (w.name !== undefined) updates.name = w.name;
+      if (w.email !== undefined) updates.email = w.email;
+      if (Object.keys(updates).length > 0) {
+        const worker = await updateWorker(w.id, updates);
+        updated.push(worker);
+      }
+    }
+    return res.json({ message: `${updated.length} workers updated`, updated });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const getBirthdays = async (req, res) => {
   try {
     const ngoId = req.user.role === 'hr' ? null : (req.user.ngo_id || req.query.ngo_id);

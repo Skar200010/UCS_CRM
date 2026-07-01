@@ -14,6 +14,7 @@ import Recruiters from './components/Recruiters'
 import GenerateQR from './components/GenerateQR'
 import Loans from './components/Loans'
 import Tickets from './components/Tickets'
+import PhoneNumbers from './components/PhoneNumbers'
 import SettingsPage from './components/Settings'
 import { fetchTicketCount } from './store'
 
@@ -29,9 +30,10 @@ const NAV = [
   { id:'qr',         label:'QR Codes',    icon:Grid,    eyebrow:'Attendance',  sub:'Generate and manage QR codes' },
   { id:'loans',      label:'Loans & Advances', icon:Grid, eyebrow:'Finance',  sub:'Approve and manage loans & advances' },
   { id:'tickets',    label:'Tickets',    icon:FileTxt, eyebrow:'Corrections', sub:'Attendance correction tickets' },
+  { id:'phone-numbers', label:'Phone Numbers', icon:Grid, eyebrow:'Contacts', sub:'Manage worker phone numbers' },
 ]
 
-const PANELS = { overview:Overview, employees:Workers, attendance:Attendance, leaves:Leaves, letters:Letters, recruiters:Recruiters, holidays:Holidays, qr:GenerateQR, loans:Loans, tickets:Tickets }
+const PANELS = { overview:Overview, employees:Workers, attendance:Attendance, leaves:Leaves, letters:Letters, recruiters:Recruiters, holidays:Holidays, qr:GenerateQR, loans:Loans, tickets:Tickets, 'phone-numbers':PhoneNumbers }
 
 function Sidebar({ active, setActive, open, onClose }) {
   return (
