@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
-import { Grid, Funnel, Download, Globe, Star, Users as UsersIcon, Clock, Plane, Cal, Ticket } from '../../icons'
+import { Grid, Globe, Star, Users as UsersIcon, Clock, Plane, Cal, Ticket } from '../../icons'
 import Dashboard from './pages/Dashboard'
 import NGOs from './pages/NGOs'
 import Users from './pages/Users'
@@ -12,13 +12,11 @@ import Leaves from './pages/Leaves'
 import Holidays from './pages/Holidays'
 import Causes from './pages/Causes'
 import DataSources from './pages/DataSources'
-import DataImport from './pages/DataImport'
 import Tickets from './pages/Tickets'
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: Grid },
-  { id: 'data-sources', label: 'Data Sources', icon: Funnel },
-  { id: 'data-import', label: 'Data Import', icon: Download },
+  { id: 'data-management', label: 'Data Management', icon: Grid },
   { id: 'ngos', label: 'NGOs', icon: Globe },
   { id: 'causes', label: 'Causes', icon: Star },
   { id: 'users', label: 'Users', icon: UsersIcon },
@@ -33,12 +31,11 @@ const navMap = {}
 NAV.forEach(n => { navMap[n.id] = n })
 
 const GROUPS = [
-  { id: 'data', label: 'Data Management', icon: Grid, items: ['data-sources', 'data-import'] },
   { id: 'org', label: 'Organization', icon: Globe, items: ['ngos', 'causes', 'users', 'workers'] },
   { id: 'time', label: 'Time & Attendance', icon: Clock, items: ['attendance', 'leaves', 'holidays'] },
 ]
 
-const standaloneIds = ['dashboard', 'tickets']
+const standaloneIds = ['dashboard', 'data-management', 'tickets']
 
 
 
@@ -176,8 +173,7 @@ export default function SuperAdminPanel() {
       case 'leaves': return <Leaves />
       case 'holidays': return <Holidays />
       case 'causes': return <Causes />
-      case 'data-sources': return <DataSources />
-      case 'data-import': return <DataImport />
+      case 'data-management': return <DataSources />
       case 'tickets': return <Tickets />
       default: return <Dashboard />
     }
