@@ -38,7 +38,7 @@ export const initials = (n) => n.trim().split(/\s+/).map(w => w[0]).slice(0,2).j
 const tint = (hex) => hex + '22';
 export const avatarTint = tint;
 
-export const DEPTS = ['FRO','Admin','HR-Recruiter','Housekeeping','CSR','Digital','Manager','Event Manager','NA'];
+export const DEPTS = ['FRO','Admin','HR-Recruiter','Housekeeping','CSR','Digital','Manager','Event Manager','NA', 'NGO Admin'];
 
 export const fetchWorkers = () => apiGet('/workers');
 export const fetchNGOs = () => apiGet('/ngos');
