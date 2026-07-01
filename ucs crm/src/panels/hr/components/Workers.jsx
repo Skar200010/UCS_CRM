@@ -24,12 +24,14 @@ export default function Workers({ onSelect, onOffboard }) {
   const [page, setPage] = useState(load().page || 1);
   const [created, setCreated] = useState(null);
   const [salaryMap, setSalaryMap] = useState({});
+  const [ngos, setNgos] = useState([]);
+  const [selectedNgos, setSelectedNgos] = useState([]);
   const PAGE_SIZE = 20;
   const tableRef = useRef(null);
 
   useEffect(() => {
     fetchWorkers().then(setWorkers).catch(() => {});
-    fetchNGOs().catch(() => {});
+    fetchNGOs().then(setNgos).catch(() => {});
     api('/salary/workers-summary', { _prefix: 'ucs' })
       .then(data => {
         const map = {};
@@ -68,10 +70,15 @@ export default function Workers({ onSelect, onOffboard }) {
     setErr('');
     setCreated(null);
     try {
-      const res = await addWorker({ name: name.trim(), department: dept });
+      const body = { name: name.trim(), department: dept };
+      if (dept === 'NGO Admin' && selectedNgos.length > 0) {
+        body.allocations = selectedNgos.map(id => ({ ngo_id: id, salary_portion: 0 }));
+      }
+      const res = await addWorker(body);
       setCreated(res.worker);
       setName('');
       setDept(DEPTS?.[0] || '');
+      setSelectedNgos([]);
       fetchWorkers().then(setWorkers).catch(() => {});
     } catch (e) {
       setErr(e.message);
@@ -222,9 +229,33 @@ export default function Workers({ onSelect, onOffboard }) {
                 onKeyDown={e=>e.key==='Enter'&&submit()} />
             </label>
             <label className="field">Team
-              <Dropdown value={dept} onChange={e=>setDept(e.target.value)} options={DEPTS} />
+              <Dropdown value={dept} onChange={e=>{ setDept(e.target.value); setSelectedNgos([]); }} options={DEPTS} />
             </label>
           </div>
+          {dept === 'NGO Admin' && ngos.length > 0 && (
+            <div className="form-row" style={{ marginTop:8 }}>
+              <label className="field">Assign NGOs
+                <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:4 }}>
+                  {ngos.map(n => {
+                    const active = selectedNgos.includes(n.id);
+                    return (
+                      <span key={n.id} onClick={() => setSelectedNgos(prev =>
+                        prev.includes(n.id) ? prev.filter(id => id !== n.id) : [...prev, n.id]
+                      )} style={{
+                        padding:'4px 12px', borderRadius:20, fontSize:13, cursor:'pointer',
+                        border:'1px solid var(--line)',
+                        background: active ? '#5B6B4E' : 'var(--paper)',
+                        color: active ? '#fff' : 'var(--ink)',
+                        fontWeight: active ? 600 : 400,
+                        userSelect:'none', transition:'all .15s',
+                      }}>{n.name}</span>
+                    );
+                  })}
+                </div>
+                {selectedNgos.length === 0 && <span style={{ fontSize:12, color:'var(--ink-soft)', marginTop:4, display:'block' }}>Select at least one NGO</span>}
+              </label>
+            </div>
+          )}
           <div style={{ display:'flex', gap:8, marginTop:8, alignItems:'center' }}>
             <button className="btn btn-primary" onClick={submit}><Plus width={16}/> Add employee</button>
           </div>
