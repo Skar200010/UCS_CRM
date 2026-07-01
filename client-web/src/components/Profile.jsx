@@ -17,6 +17,7 @@ export default function Profile() {
   const [selectedDate, setSelectedDate] = useState(null)
   const [calYear, setCalYear] = useState(new Date().getFullYear())
   const [calMonth, setCalMonth] = useState(new Date().getMonth() + 1)
+  const [locationEnabled, setLocationEnabled] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -31,6 +32,15 @@ export default function Profile() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if ('permissions' in navigator) {
+      navigator.permissions.query({ name: 'geolocation' }).then(s => {
+        setLocationEnabled(s.state === 'granted')
+        s.onchange = () => setLocationEnabled(s.state === 'granted')
+      }).catch(() => {})
+    }
+  }, [])
 
   const statusByDate = {}
   const monthRecs = history.filter(r => r.date && r.date.startsWith(`${calYear}-${String(calMonth).padStart(2, '0')}`))
@@ -192,6 +202,13 @@ export default function Profile() {
           <span className="text-sm flex-1">Edit Profile</span>
           <ChevronSvg className="w-4 h-4 text-[var(--ink-muted)]" />
         </button>
+        <div className="flex items-center gap-3 px-4 py-3.5">
+          <LocationSvg className="w-5 h-5 text-[var(--ink-soft)] shrink-0" />
+          <span className="text-sm flex-1">Location</span>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${locationEnabled ? 'bg-[var(--green-bg)] text-[var(--green)]' : 'bg-[var(--red-bg)] text-[var(--red)]'}`}>
+            {locationEnabled ? 'On' : 'Off'}
+          </span>
+        </div>
         <button onClick={() => window.open('mailto:help@ufs.com')} className="flex items-center gap-3 px-4 py-3.5 w-full text-left hover:bg-[var(--surface)] transition-colors">
           <HelpSvg className="w-5 h-5 text-[var(--ink-soft)] shrink-0" />
           <span className="text-sm flex-1">Help Centre</span>
@@ -207,6 +224,7 @@ export default function Profile() {
 }
 
 function PencilSvg({ className }) { return <svg width={20} height={20} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> }
+function LocationSvg({ className }) { return <svg width={20} height={20} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> }
 function HelpSvg({ className }) { return <svg width={20} height={20} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> }
 function LogoutSvg({ className }) { return <svg width={20} height={20} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> }
 function ChevronSvg({ className }) { return <svg width={14} height={14} className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg> }

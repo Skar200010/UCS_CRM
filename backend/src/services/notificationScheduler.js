@@ -178,6 +178,16 @@ async function sendAnniversaryNotifications(tokens) {
   const currentYear = today.getFullYear();
   const todayDateStr = getDateString(today);
 
+  const { data: todayLog } = await supabase
+    .from('notification_log')
+    .select('id')
+    .eq('type', 'anniversary')
+    .gte('sent_at', `${todayDateStr}T00:00:00+05:30`)
+    .lte('sent_at', `${todayDateStr}T23:59:59+05:30`)
+    .limit(1)
+    .maybeSingle();
+  if (todayLog) return;
+
   for (const ngoId of ngoIds) {
     const workers = await getAllWorkers(ngoId);
     const celebrants = workers.filter((w) => {
@@ -342,16 +352,14 @@ async function runNotificationCycle() {
   }
 }
 
-if (!process.env.VERCEL) {
-  cron.schedule('30 10 * * *', () => runNotificationCycle());
-  console.log('Scheduled: 10:30 AM notification check');
+cron.schedule('30 10 * * *', () => runNotificationCycle());
+console.log('Scheduled: 10:30 AM notification check');
 
-  cron.schedule('0 13 * * *', () => runNotificationCycle());
-  console.log('Scheduled: 1:00 PM notification check');
+cron.schedule('0 13 * * *', () => runNotificationCycle());
+console.log('Scheduled: 1:00 PM notification check');
 
-  cron.schedule('0 18 * * *', () => runNotificationCycle());
-  console.log('Scheduled: 6:00 PM notification check');
-}
+cron.schedule('0 18 * * *', () => runNotificationCycle());
+console.log('Scheduled: 6:00 PM notification check');
 
 async function sendScheduledNotifications() {
   try {
@@ -389,8 +397,8 @@ async function sendPunchInReminders() {
 
     const diff = shiftTotalMinutes - currentTotalMinutes;
     let window;
-    if (diff >= 20 && diff < 21) window = '20';
-    else if (diff >= 10 && diff < 11) window = '10';
+    if (diff >= 15 && diff <= 25) window = '20';
+    else if (diff >= 5 && diff <= 12) window = '10';
     else return;
 
     const todayDateStr = getDateString(ist);
@@ -451,8 +459,8 @@ async function sendPunchOutReminders() {
     const diff = endTotalMinutes - currentTotalMinutes;
     const minsAfter = -diff;
     let window;
-    if (minsAfter >= 5 && minsAfter < 6) window = '5';
-    else if (minsAfter >= 10 && minsAfter < 11) window = '10';
+    if (minsAfter >= 3 && minsAfter <= 7) window = '5';
+    else if (minsAfter >= 8 && minsAfter <= 13) window = '10';
     else return;
 
     const todayDateStr = getDateString(ist);
@@ -499,16 +507,14 @@ async function sendPunchOutReminders() {
   }
 }
 
-if (!process.env.VERCEL) {
-  cron.schedule('* * * * *', () => sendScheduledNotifications());
-  console.log('Scheduled: every-minute check for admin-scheduled notifications');
+cron.schedule('* * * * *', () => sendScheduledNotifications());
+console.log('Scheduled: every-minute check for admin-scheduled notifications');
 
-  cron.schedule('* * * * *', () => sendPunchInReminders());
-  console.log('Scheduled: every-minute check for punch-in reminders');
+cron.schedule('* * * * *', () => sendPunchInReminders());
+console.log('Scheduled: every-minute check for punch-in reminders');
 
-  cron.schedule('* * * * *', () => sendPunchOutReminders());
-  console.log('Scheduled: every-minute check for punch-out reminders');
-}
+cron.schedule('* * * * *', () => sendPunchOutReminders());
+console.log('Scheduled: every-minute check for punch-out reminders');
 
 async function autoReturnTransfers() {
   try {
@@ -629,12 +635,10 @@ async function autoReportMissedSchedules() {
   }
 }
 
-if (!process.env.VERCEL) {
-  cron.schedule('* * * * *', () => autoReportMissedSchedules());
-  console.log('Scheduled: every-minute check for missed schedules (10 min overdue)');
+cron.schedule('* * * * *', () => autoReportMissedSchedules());
+console.log('Scheduled: every-minute check for missed schedules (10 min overdue)');
 
-  cron.schedule('* * * * *', () => autoReturnTransfers());
-  console.log('Scheduled: every-minute check for expired lead transfers');
-}
+cron.schedule('* * * * *', () => autoReturnTransfers());
+console.log('Scheduled: every-minute check for expired lead transfers');
 
 export { runNotificationCycle, sendScheduledNotifications, sendPunchInReminders, sendPunchOutReminders };

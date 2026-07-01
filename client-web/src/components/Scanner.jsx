@@ -51,13 +51,17 @@ export default function Scanner() {
   }, [])
 
   const getLocation = () => new Promise((res) => {
+    if (!navigator.geolocation) {
+      res({ error: 'Geolocation not supported on this device/browser.' })
+      return
+    }
     navigator.geolocation.getCurrentPosition(
       (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
       () => {
         // Fallback to low accuracy if high accuracy fails
         navigator.geolocation.getCurrentPosition(
           (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
-          (err) => res({ error: err.message || 'Location unavailable' }),
+          () => res({ error: 'Location unavailable. Enable location in your device settings.' }),
           { enableHighAccuracy: false, timeout: 10000 }
         )
       },
@@ -93,17 +97,28 @@ export default function Scanner() {
 
   const handleCode = async (data) => {
     if (loading) return
+    if (!data || typeof data !== 'string' || data.trim() === '') {
+      setError('Could not read QR code. Try again with better lighting or a plain QR.')
+      setScanning(true)
+      return
+    }
     setScanning(false)
     setLoading(true)
     stopCamera()
     try {
       let parsed
       try { parsed = JSON.parse(data) } catch { parsed = { code: data } }
-      const code = parsed.code || data
+      const code = parsed?.code || data
+      if (!code) {
+        setError('Invalid QR code data. Try a plain QR code.')
+        setLoading(false)
+        return
+      }
       const pos = await getLocation()
       if (pos.error) {
         setError('Location access is required to punch in. Please allow location permissions in your device settings.')
-        setLoading(false); setScanning(false); return
+        setLoading(false)
+        return
       }
       const returnTo = location.state?.returnTo || '/home'
       await api.punchIn(code, pos.lat, pos.lng)
