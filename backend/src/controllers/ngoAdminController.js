@@ -260,7 +260,7 @@ export const getTargets = async (req, res) => {
   try {
     const ngoIds = await getUserNgoIds(req.user);
     const { month } = req.query;
-    const targetMonth = month || new Date().toISOString().slice(0, 7) + '-01';
+    const targetMonth = month ? month + '-01' : new Date().toISOString().slice(0, 7) + '-01';
 
     const allWorkers = [];
     for (const ngoId of ngoIds) {

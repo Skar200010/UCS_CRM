@@ -140,12 +140,20 @@ export default function StationManagement() {
   const [incentives, setIncentives] = useState([]);
   const [editIncentive, setEditIncentive] = useState(null);
   const [incentiveAmount, setIncentiveAmount] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   useEffect(() => {
     if (!msg) return;
     const t = setTimeout(() => setMsg(null), 3000);
     return () => clearTimeout(t);
   }, [msg]);
+
+  useEffect(() => {
+    loadTargets(selectedMonth);
+  }, [selectedMonth]);
 
   const computeNextName = (existingStations) => {
     const nums = existingStations
@@ -164,14 +172,15 @@ export default function StationManagement() {
     }).catch(() => {});
   };
 
-  const fetchData = (successMsg) => {
+  const fetchData = (successMsg, month) => {
+    const m = month || selectedMonth;
     apiGet('/ngo-admin/stations').then(s => {
       if (Array.isArray(s)) setStations(s);
     }).catch(err => console.error('fetchData error:', err));
     apiGet('/ngo-admin/transfers').then(t => {
       setTransfers(Array.isArray(t) ? t : []);
     }).catch(err => console.error('fetchData transfers error:', err));
-    apiGet('/ngo-admin/targets').then(t => {
+    apiGet('/ngo-admin/targets?month=' + m).then(t => {
       if (Array.isArray(t)) setTargets(t);
     }).catch(() => {});
     apiGet('/ngo-admin/incentives').then(r => {
@@ -180,8 +189,9 @@ export default function StationManagement() {
     if (successMsg) setMsg(successMsg);
   };
 
-  const loadTargets = () => {
-    apiGet('/ngo-admin/targets').then(t => {
+  const loadTargets = (month) => {
+    const m = month || selectedMonth;
+    apiGet('/ngo-admin/targets?month=' + m).then(t => {
       if (Array.isArray(t)) setTargets(t);
     }).catch(() => {});
     apiGet('/ngo-admin/incentives').then(r => {
@@ -191,11 +201,12 @@ export default function StationManagement() {
 
   useEffect(() => {
     setLoading(true);
+    const m = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     Promise.all([
       apiGet('/ngo-admin/stations'),
       apiGet('/ngo-admin/ngos'),
       apiGet('/ngo-admin/fro-workers'),
-      apiGet('/ngo-admin/targets'),
+      apiGet('/ngo-admin/targets?month=' + m),
       apiGet('/ngo-admin/incentives'),
     ]).then(([s, n, f, t, i]) => {
       const list = Array.isArray(s) ? s : [];
@@ -327,6 +338,8 @@ export default function StationManagement() {
           <h3>Stations</h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span className="count">{stations.length} stations</span>
+            <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
+              style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', width: 150 }} />
           </div>
         </div>
         <div className="card-pad">
@@ -538,8 +551,7 @@ export default function StationManagement() {
                 <button className="btn btn-primary" onClick={async () => {
                   if (!targetAmount) return;
                   try {
-                    const now = new Date();
-                    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                    const month = selectedMonth;
                     await apiPost('/ngo-admin/targets', {
                       fro_worker_id: editTarget.id,
                       month,
@@ -571,8 +583,7 @@ export default function StationManagement() {
                 <button className="btn btn-outline" onClick={() => setEditAchieved(null)}>Cancel</button>
                 <button className="btn btn-primary" onClick={async () => {
                   try {
-                    const now = new Date();
-                    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                    const month = selectedMonth;
                     await apiPost('/ngo-admin/achieved-target', {
                       fro_worker_id: editAchieved.id,
                       month,
@@ -613,8 +624,7 @@ export default function StationManagement() {
               <div className="modal-actions" style={{ marginTop: 16 }}>
                 <button className="btn btn-outline" onClick={async () => {
                   try {
-                    const now = new Date();
-                    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                    const month = selectedMonth;
                     await apiPost('/ngo-admin/incentive', {
                       fro_worker_id: editIncentive.id,
                       month,
@@ -627,8 +637,7 @@ export default function StationManagement() {
                 <button className="btn btn-outline" onClick={() => setEditIncentive(null)}>Cancel</button>
                 <button className="btn btn-primary" onClick={async () => {
                   try {
-                    const now = new Date();
-                    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                    const month = selectedMonth;
                     await apiPost('/ngo-admin/incentive', {
                       fro_worker_id: editIncentive.id,
                       month,
