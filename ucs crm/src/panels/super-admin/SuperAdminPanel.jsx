@@ -2,12 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
-import { GridFour, Buildings, Users, ClockAfternoon, Airplane, Ticket, Database } from '@phosphor-icons/react'
+import { GridFour, Buildings, Users, Airplane, Ticket, Database } from '@phosphor-icons/react'
 import Dashboard from './pages/Dashboard'
 import Organization from './pages/Organization'
 import Workers from './pages/Workers'
 import WorkerDetail from './pages/WorkerDetail'
-import Attendance from './pages/Attendance'
 import Leaves from './pages/Leaves'
 import DataManagement from './pages/DataManagement'
 import Tickets from './pages/Tickets'
@@ -17,17 +16,18 @@ const NAV = [
   { id: 'data-management', path: '/sa/data-management', label: 'Data Management', icon: Database },
   { id: 'organization', path: '/sa/organization', label: 'Organization', icon: Buildings },
   { id: 'employees', path: '/sa/employees', label: 'Employees', icon: Users },
-  { id: 'attendance', path: '/sa/attendance', label: 'Attendance', icon: ClockAfternoon },
   { id: 'leaves', path: '/sa/leaves', label: 'Leaves', icon: Airplane },
   { id: 'tickets', path: '/sa/tickets', label: 'Tickets', icon: Ticket },
 ]
 
+const navMap = {}
+NAV.forEach(n => { navMap[n.id] = n })
+
 const GROUPS = [
   { id: 'org', label: 'Organization', icon: Buildings, items: ['organization', 'employees'] },
-  { id: 'time', label: 'Time & Attendance', icon: ClockAfternoon, items: ['attendance', 'leaves'] },
 ]
 
-const standaloneIds = ['dashboard', 'data-management', 'tickets']
+const standaloneIds = ['dashboard', 'data-management', 'leaves', 'tickets']
 
 function Sidebar() {
   const location = useLocation()
@@ -213,7 +213,6 @@ export default function SuperAdminPanel() {
         <Route path="organization" element={<Organization />} />
         <Route path="employees" element={<EmployeePage />} />
         <Route path="employees/:id" element={<WorkerDetailPage />} />
-        <Route path="attendance" element={<Attendance />} />
         <Route path="leaves" element={<Leaves />} />
         <Route path="tickets" element={<Tickets />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
