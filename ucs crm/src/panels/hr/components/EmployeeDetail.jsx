@@ -361,7 +361,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
   const prevSalaryRec = sortedSalaries.find(s =>
     s.from_month.slice(0, 7) <= prevMonthKey &&
     (!s.to_month || s.to_month.slice(0, 7) >= prevMonthKey)
-  );
+  ) || (allMonthKeys.includes(prevMonthKey) ? activeSalary : null);
   let prevTotalDue = null;
   if (prevSalaryRec) {
     const pYr = parseInt(prevMonthKey.split('-')[0]);
@@ -416,6 +416,19 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
   }
 
   const fmtMonthYear = (d) => d.toLocaleDateString('en-GB', { month:'long', year:'numeric' });
+
+  // All months from join date to now
+  const allMonthKeys = [];
+  if (data?.created_at) {
+    const jd = new Date(data.created_at);
+    const jy = jd.getFullYear(), jm = jd.getMonth() + 1;
+    const ny = now.getFullYear(), nm = now.getMonth() + 1;
+    let y = jy, m = jm;
+    while (y < ny || (y === ny && m <= nm)) {
+      allMonthKeys.push(`${y}-${String(m).padStart(2, '0')}`);
+      m++; if (m > 12) { m = 1; y++; }
+    }
+  }
 
   return (
     <>
@@ -761,8 +774,9 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                     renderValue={opt => opt?.label || ''}
                     options={[
                       {value: defaultMonthKey, label: `Current Month (${fmtMonthYear(now)})`},
-                      ...[...new Set(sortedSalaries.map(s => s.from_month.slice(0, 7)))]
+                      ...allMonthKeys
                         .filter(mk => mk !== defaultMonthKey)
+                        .sort().reverse()
                         .map(mk => {
                           const d = new Date(mk + '-01');
                           const s = sortedSalaries.find(x => x.from_month.slice(0, 7) <= mk && (!x.to_month || x.to_month.slice(0, 7) >= mk));
