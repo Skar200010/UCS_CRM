@@ -6,7 +6,7 @@ export function useHR() {
   return {
     ...ctx,
     DEPTS,
-    fetchWorkers, fetchNGOs, addWorker, removeWorker, fetchWorkerById, updateWorker,
+    fetchWorkers, fetchNGOs, addWorker, removeWorker, fetchWorkerById, updateWorker, bulkUpdateWorkers,
     fetchAttendance, fetchLeaves, decideLeave,
     fetchTemplates, generateLetter, fetchWorkerLetters, sendNotif,
     fetchHolidays, addHoliday, removeHoliday,
@@ -46,6 +46,7 @@ export const addWorker = (body) => apiPost('/workers', body);
 export const removeWorker = (id) => apiDelete('/workers/' + id);
 export const fetchWorkerById = (id) => apiGet('/workers/' + id);
 export const updateWorker = (id, updates) => apiPut('/workers/' + id, updates);
+export const bulkUpdateWorkers = (workers) => apiPut('/workers/bulk', { workers });
 export const fetchAttendance = () => apiGet('/attendance/all');
 export const fetchLeaves = () => apiGet('/leaves');
 export const decideLeave = (id, status) => apiPut('/leaves/' + id + '/status', { status: status === 'Approved' ? 'approved' : 'rejected' });
