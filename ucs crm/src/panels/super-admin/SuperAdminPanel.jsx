@@ -15,7 +15,7 @@ const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: GridFour },
   { id: 'data-management', label: 'Data Management', icon: Database },
   { id: 'organization', label: 'Organization', icon: Buildings },
-  { id: 'workers', label: 'Workers', icon: Users },
+  { id: 'employees', label: 'Employees', icon: Users },
   { id: 'attendance', label: 'Attendance', icon: ClockAfternoon },
   { id: 'leaves', label: 'Leaves', icon: Airplane },
   { id: 'tickets', label: 'Tickets', icon: Ticket },
@@ -25,10 +25,11 @@ const navMap = {}
 NAV.forEach(n => { navMap[n.id] = n })
 
 const GROUPS = [
+  { id: 'org', label: 'Organization', icon: Buildings, items: ['organization', 'employees'] },
   { id: 'time', label: 'Time & Attendance', icon: ClockAfternoon, items: ['attendance', 'leaves'] },
 ]
 
-const standaloneIds = ['dashboard', 'data-management', 'organization', 'tickets']
+const standaloneIds = ['dashboard', 'data-management', 'tickets']
 
 
 
@@ -159,7 +160,7 @@ export default function SuperAdminPanel() {
     switch (active) {
       case 'dashboard': return <Dashboard />
       case 'organization': return <Organization />
-      case 'workers': return <Workers onViewWorker={handleViewWorker} />
+      case 'employees': return <Workers onViewWorker={handleViewWorker} />
       case 'worker-detail': return <WorkerDetail workerId={workerId} onBack={handleBack} />
       case 'attendance': return <Attendance />
       case 'leaves': return <Leaves />
