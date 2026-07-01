@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useUcs } from '../store'
 
-export default function Login() {
+export default function Login({ onLogin }) {
   const { login } = useUcs()
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
@@ -13,7 +13,8 @@ export default function Login() {
     setErr('')
     setBusy(true)
     try {
-      await login(email, pass)
+      const data = await login(email, pass)
+      onLogin?.(data.user?.role || data.role)
     } catch (e) {
       setErr(e.message)
     } finally {

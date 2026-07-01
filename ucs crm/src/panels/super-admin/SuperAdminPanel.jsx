@@ -1,41 +1,55 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { Routes, Route, NavLink, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
-import { GridFour, GlobeHemisphereWest, Star, Users, ClockAfternoon, Airplane, Ticket } from '@phosphor-icons/react'
+import { GridFour, Buildings, Users, ClockAfternoon, Airplane, Ticket, Database } from '@phosphor-icons/react'
 import Dashboard from './pages/Dashboard'
-import NGOs from './pages/NGOs'
+import Organization from './pages/Organization'
 import Workers from './pages/Workers'
 import WorkerDetail from './pages/WorkerDetail'
 import Attendance from './pages/Attendance'
 import Leaves from './pages/Leaves'
-import Causes from './pages/Causes'
 import DataManagement from './pages/DataManagement'
 import Tickets from './pages/Tickets'
 
 const NAV = [
-  { id: 'dashboard', label: 'Dashboard', icon: GridFour },
-  { id: 'data-management', label: 'Data Management', icon: GridFour },
-  { id: 'ngos', label: 'NGOs', icon: GlobeHemisphereWest },
-  { id: 'causes', label: 'Causes', icon: Star },
-  { id: 'workers', label: 'Workers', icon: Users },
-  { id: 'attendance', label: 'Attendance', icon: ClockAfternoon },
-  { id: 'leaves', label: 'Leaves', icon: Airplane },
-  { id: 'tickets', label: 'Tickets', icon: Ticket },
+  { id: 'dashboard', path: '/sa/dashboard', label: 'Dashboard', icon: GridFour },
+  { id: 'data-management', path: '/sa/data-management', label: 'Data Management', icon: Database },
+  { id: 'organization', path: '/sa/organization', label: 'Organization', icon: Buildings },
+  { id: 'employees', path: '/sa/employees', label: 'Employees', icon: Users },
+  { id: 'attendance', path: '/sa/attendance', label: 'Attendance', icon: ClockAfternoon },
+  { id: 'leaves', path: '/sa/leaves', label: 'Leaves', icon: Airplane },
+  { id: 'tickets', path: '/sa/tickets', label: 'Tickets', icon: Ticket },
 ]
 
-const navMap = {}
-NAV.forEach(n => { navMap[n.id] = n })
-
 const GROUPS = [
-  { id: 'org', label: 'Organization', icon: GlobeHemisphereWest, items: ['ngos', 'causes', 'workers'] },
+  { id: 'org', label: 'Organization', icon: Buildings, items: ['organization', 'employees'] },
   { id: 'time', label: 'Time & Attendance', icon: ClockAfternoon, items: ['attendance', 'leaves'] },
 ]
 
 const standaloneIds = ['dashboard', 'data-management', 'tickets']
 
+function Sidebar() {
+  const location = useLocation()
+  const [collapsedGroups, setCollapsedGroups] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sa_collapsed_groups') || '[]') } catch { return [] }
+  })
+  const navMap = {}
+  NAV.forEach(n => { navMap[n.id] = n })
 
+  const toggleGroup = (id) => {
+    setCollapsedGroups(prev => {
+      const next = prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
+      localStorage.setItem('sa_collapsed_groups', JSON.stringify(next))
+      return next
+    })
+  }
 
-function Sidebar({ active, setActive, collapsedGroups, toggleGroup }) {
+  const isActive = (path) => {
+    if (path.endsWith('/employees')) return location.pathname.startsWith('/sa/employees')
+    return location.pathname === path
+  }
+
   return (
     <aside className="sa-sidebar">
       <div className="sa-sidebar-header">
@@ -47,10 +61,10 @@ function Sidebar({ active, setActive, collapsedGroups, toggleGroup }) {
           const n = navMap[id]
           const Icon = n.icon
           return (
-            <button key={n.id} className={`sa-nav-item${active === n.id ? ' active' : ''}`} onClick={() => setActive(n.id)}>
+            <NavLink key={n.id} to={n.path} end className={`sa-nav-item${isActive(n.path) ? ' active' : ''}`}>
               <Icon className="sa-nav-icon" size={16} />
               <span className="sa-nav-label">{n.label}</span>
-            </button>
+            </NavLink>
           )
         })}
         {GROUPS.map(g => {
@@ -67,10 +81,11 @@ function Sidebar({ active, setActive, collapsedGroups, toggleGroup }) {
                 const n = navMap[id]
                 const Icon = n.icon
                 return (
-                  <button key={n.id} className={`sa-nav-item sa-nav-sub${active === n.id ? ' active' : ''}`} onClick={() => setActive(n.id)}>
+                  <NavLink key={n.id} to={n.path} end={n.id !== 'employees'}
+                    className={`sa-nav-item sa-nav-sub${isActive(n.path) ? ' active' : ''}`}>
                     <Icon className="sa-nav-icon" size={16} />
                     <span className="sa-nav-label">{n.label}</span>
-                  </button>
+                  </NavLink>
                 )
               })}
             </div>
@@ -82,23 +97,17 @@ function Sidebar({ active, setActive, collapsedGroups, toggleGroup }) {
   )
 }
 
-export default function SuperAdminPanel() {
+function PageShell({ children }) {
   const { user, logout } = useUcs()
-  const [active, setActive] = useState(() => {
-    try { return localStorage.getItem('sa_active') || 'dashboard' } catch { return 'dashboard' }
-  })
-  const [workerId, setWorkerId] = useState(null)
   const [showMenu, setShowMenu] = useState(false)
   const [themeName, setThemeName] = useState(() => {
     try { return localStorage.getItem('sa_theme') || 'sky' } catch { return 'sky' }
-  })
-  const [collapsedGroups, setCollapsedGroups] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('sa_collapsed_groups') || '[]') } catch { return [] }
   })
   const [dark, setDark] = useState(() => {
     try { return localStorage.getItem('sa_dark') === 'true' } catch { return false }
   })
   const menuRef = useRef(null)
+  const location = useLocation()
 
   useEffect(() => {
     if (themes[themeName]) {
@@ -124,18 +133,6 @@ export default function SuperAdminPanel() {
   }, [dark])
 
   useEffect(() => {
-    localStorage.setItem('sa_active', active)
-  }, [active])
-
-  const toggleGroup = (id) => {
-    setCollapsedGroups(prev => {
-      const next = prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]
-      localStorage.setItem('sa_collapsed_groups', JSON.stringify(next))
-      return next
-    })
-  }
-
-  useEffect(() => {
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false)
     }
@@ -143,39 +140,13 @@ export default function SuperAdminPanel() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showMenu])
 
-  const handleViewWorker = useCallback((id) => {
-    setWorkerId(id)
-    setActive('worker-detail')
-  }, [])
-
-  const handleBack = useCallback(() => {
-    setWorkerId(null)
-    setActive('workers')
-  }, [])
-
+  const meta = NAV.find(n => location.pathname.startsWith(n.path))
   const userName = user?.name || 'Super Admin'
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
-  const meta = NAV.find(n => n.id === active)
-
-  const renderPage = () => {
-    switch (active) {
-      case 'dashboard': return <Dashboard />
-      case 'ngos': return <NGOs />
-      case 'workers': return <Workers onViewWorker={handleViewWorker} />
-      case 'worker-detail': return <WorkerDetail workerId={workerId} onBack={handleBack} />
-      case 'attendance': return <Attendance />
-      case 'leaves': return <Leaves />
-      case 'causes': return <Causes />
-      case 'data-management': return <DataManagement />
-      case 'tickets': return <Tickets />
-      default: return <Dashboard />
-    }
-  }
-
   return (
     <div className="app">
-      <Sidebar active={active} setActive={setActive} collapsedGroups={collapsedGroups} toggleGroup={toggleGroup} />
+      <Sidebar />
       <div className="main">
         <header className="topbar">
           <div>
@@ -214,9 +185,39 @@ export default function SuperAdminPanel() {
           </div>
         </header>
         <div className="content-body" style={{maxWidth:'none'}}>
-          {renderPage()}
+          {children}
         </div>
       </div>
     </div>
+  )
+}
+
+function WorkerDetailPage() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  return <WorkerDetail workerId={id} onBack={() => navigate('/sa/employees')} />
+}
+
+function EmployeePage() {
+  const navigate = useNavigate()
+  return <Workers onViewWorker={(id) => navigate(`/sa/employees/${id}`)} />
+}
+
+export default function SuperAdminPanel() {
+  return (
+    <PageShell>
+      <Routes>
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="data-management" element={<DataManagement />} />
+        <Route path="organization" element={<Organization />} />
+        <Route path="employees" element={<EmployeePage />} />
+        <Route path="employees/:id" element={<WorkerDetailPage />} />
+        <Route path="attendance" element={<Attendance />} />
+        <Route path="leaves" element={<Leaves />} />
+        <Route path="tickets" element={<Tickets />} />
+        <Route path="*" element={<Navigate to="dashboard" replace />} />
+      </Routes>
+    </PageShell>
   )
 }

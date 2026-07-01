@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
 import { RecProvider, useRec, initials, avatarColor, avatarTint } from './store'
@@ -11,23 +12,21 @@ import Jobs from './components/Jobs'
 import Interviews from './components/Interviews'
 
 const NAV = [
-  { id:'dashboard',  label:'Dashboard',  icon:Grid,   eyebrow:'Overview',  sub:'Your hiring at a glance' },
-  { id:'leads',      label:'Leads',      icon:Spark,  eyebrow:'Leads',    sub:'Manage incoming leads and track conversions' },
-  { id:'pipeline',   label:'Pipeline',   icon:Funnel, eyebrow:'Hiring',    sub:'Drag candidates through the stages' },
-  { id:'candidates', label:'Candidates', icon:Users,  eyebrow:'People',    sub:'Search and filter every applicant' },
-  { id:'jobs',       label:'Jobs',       icon:Brief,  eyebrow:'Roles',     sub:'Open roles and applicant counts' },
-  { id:'interviews', label:'Interviews', icon:Grid,  eyebrow:'Schedule',  sub:'Upcoming interviews this week' },
+  { id:'dashboard',  path:'/recruiter/dashboard',  label:'Dashboard',  icon:Grid,   eyebrow:'Overview',  sub:'Your hiring at a glance' },
+  { id:'leads',      path:'/recruiter/leads',      label:'Leads',      icon:Spark,  eyebrow:'Leads',    sub:'Manage incoming leads and track conversions' },
+  { id:'pipeline',   path:'/recruiter/pipeline',   label:'Pipeline',   icon:Funnel, eyebrow:'Hiring',    sub:'Drag candidates through the stages' },
+  { id:'candidates', path:'/recruiter/candidates', label:'Candidates', icon:Users,  eyebrow:'People',    sub:'Search and filter every applicant' },
+  { id:'jobs',       path:'/recruiter/jobs',       label:'Jobs',       icon:Brief,  eyebrow:'Roles',     sub:'Open roles and applicant counts' },
+  { id:'interviews', path:'/recruiter/interviews', label:'Interviews', icon:Grid,  eyebrow:'Schedule',  sub:'Upcoming interviews this week' },
 ]
-const PANELS = { dashboard:Dashboard, leads:Leads, pipeline:Pipeline, candidates:Candidates, jobs:Jobs, interviews:Interviews }
 
 function AppShell() {
-  const [active, setActive] = useState('dashboard')
+  const location = useLocation()
   const { user, logout } = useUcs()
   const [themeName, setThemeName] = useState(() => localStorage.getItem('recruiter_theme') || 'sky')
   useEffect(() => { if (themes[themeName]) applyTheme(themes[themeName], '.panel-recruiter'); localStorage.setItem('recruiter_theme', themeName) }, [themeName])
   const recruiter = useRec()
-  const meta = NAV.find(n => n.id === active)
-  const Panel = PANELS[active]
+  const meta = NAV.find(n => location.pathname === n.path) || NAV[0]
   const name = user?.name || 'User'
   const init = initials(name)
   const col = avatarColor(name)
@@ -42,9 +41,10 @@ function AppShell() {
         <nav className="nav">
           <div className="nav-label">Hire</div>
           {NAV.map(n => { const Icon=n.icon; return (
-            <button key={n.id} className={`nav-item ${active===n.id?'active':''}`} onClick={()=>setActive(n.id)}>
+            <NavLink key={n.id} to={n.path}
+              className={`nav-item ${location.pathname === n.path ? 'active' : ''}`}>
               <Icon className="ico" /><span>{n.label}</span>
-            </button>
+            </NavLink>
           )})}
         </nav>
         <div className="nav-foot"><Heart width={13} style={{verticalAlign:-2,marginRight:6}} />Hire well, hire kind.</div>
@@ -66,7 +66,16 @@ function AppShell() {
         </header>
         <main className="content">
           <p style={{color:'var(--ink-soft)',marginBottom:22,marginTop:-4}}>{meta.sub}</p>
-          <Panel />
+          <Routes>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="leads" element={<Leads />} />
+            <Route path="pipeline" element={<Pipeline />} />
+            <Route path="candidates" element={<Candidates />} />
+            <Route path="jobs" element={<Jobs />} />
+            <Route path="interviews" element={<Interviews />} />
+            <Route path="*" element={<Navigate to="dashboard" replace />} />
+          </Routes>
         </main>
       </div>
     </div>

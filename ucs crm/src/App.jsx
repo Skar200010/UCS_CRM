@@ -1,3 +1,4 @@
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { UcsProvider, useUcs } from './store'
 import Login from './pages/Login'
 import SuperAdminPanel from './panels/super-admin/SuperAdminPanel'
@@ -6,6 +7,17 @@ import AccountsPanel from './panels/accounts/AccountsPanel'
 import NgoAdminPanel from './panels/ngo-admin/NgoAdminPanel'
 import FROPanel from './panels/fro/FROPanel'
 import RecruiterPanel from './panels/recruiter/RecruiterPanel'
+
+const ROLE_PATHS = {
+  super_admin: '/sa',
+  hoadmin: '/ngo-admin',
+  'ngo-admin': '/ngo-admin',
+  hr: '/hr',
+  accounts: '/accounts',
+  recruiter: '/recruiter',
+  fro: '/fro',
+  worker: '/fro',
+}
 
 const ROLE_PANELS = {
   super_admin: { panel: SuperAdminPanel, cls: 'panel-sa' },
@@ -17,26 +29,36 @@ const ROLE_PANELS = {
   recruiter: { panel: RecruiterPanel, cls: 'panel-recruiter' },
 }
 
-const DEPT_PANELS = {
-  HR: { panel: HRPanel, cls: 'panel-hr' },
-  'HR-Recruiter': { panel: RecruiterPanel, cls: 'panel-recruiter' },
-  FRO: { panel: FROPanel, cls: 'panel-fro' },
-  Admin: { panel: AccountsPanel, cls: 'panel-accounts' },
+function ProtectedRoute({ role, children }) {
+  const { user } = useUcs()
+  const allowedRoles = Array.isArray(role) ? role : [role]
+  if (!user) return <Navigate to="/login" replace />
+  if (!allowedRoles.includes(user.role) && !allowedRoles.includes(user.department)) {
+    return <AccessDenied />
+  }
+  return children
+}
+
+function PanelWrapper({ roleKey }) {
+  const mapping = ROLE_PANELS[roleKey]
+  if (!mapping) return <AccessDenied />
+  const Panel = mapping.panel
+  return <div className={mapping.cls}><Panel /></div>
 }
 
 function AccessDenied() {
   return (
     <div className="login-page">
-      <div className="login-card" style={{textAlign:'center'}}>
+      <div className="login-card" style={{ textAlign: 'center' }}>
         <div className="login-logo">!</div>
         <h2>Access Denied</h2>
-        <p style={{color:'var(--ink-soft)',fontSize:'13px',margin:'12px 0 20px'}}>
+        <p style={{ color: 'var(--ink-soft)', fontSize: '13px', margin: '12px 0 20px' }}>
           Your account does not have access to this portal.
         </p>
         <button className="btn btn-primary" onClick={() => {
           localStorage.removeItem('ucs_token')
           localStorage.removeItem('ucs_user')
-          window.location.reload()
+          window.location.href = '/login'
         }}>
           Sign Out
         </button>
@@ -45,26 +67,67 @@ function AccessDenied() {
   )
 }
 
-function AppContent() {
-  const { user, logout } = useUcs()
+function RootRedirect() {
+  const { user } = useUcs()
+  if (!user) return <Navigate to="/login" replace />
+  const path = ROLE_PATHS[user.role] || ROLE_PATHS[user.department]
+  if (path) return <Navigate to={path} replace />
+  return <AccessDenied />
+}
 
-  if (!user) return <Login />
-
-  const mapping = ROLE_PANELS[user.role] || DEPT_PANELS[user.department]
-  if (!mapping) return <AccessDenied />
-
-  const Panel = mapping.panel
-  return (
-    <div className={mapping.cls}>
-      <Panel />
-    </div>
-  )
+function LoginWrapper() {
+  const { user } = useUcs()
+  const navigate = useNavigate()
+  if (user) {
+    const path = ROLE_PATHS[user.role] || ROLE_PATHS[user.department]
+    if (path) return <Navigate to={path} replace />
+  }
+  return <Login onLogin={(role) => {
+    const path = ROLE_PATHS[role]
+    if (path) navigate(path, { replace: true })
+  }} />
 }
 
 export default function App() {
   return (
     <UcsProvider>
-      <AppContent />
+      <Routes>
+        <Route path="/login" element={<LoginWrapper />} />
+        <Route path="/" element={<RootRedirect />} />
+
+        <Route path="/sa/*" element={
+          <ProtectedRoute role="super_admin">
+            <PanelWrapper roleKey="super_admin" />
+          </ProtectedRoute>
+        } />
+        <Route path="/hr/*" element={
+          <ProtectedRoute role={['hr', 'HR']}>
+            <PanelWrapper roleKey="hr" />
+          </ProtectedRoute>
+        } />
+        <Route path="/ngo-admin/*" element={
+          <ProtectedRoute role={['hoadmin', 'ngo-admin']}>
+            <PanelWrapper roleKey="hoadmin" />
+          </ProtectedRoute>
+        } />
+        <Route path="/fro/*" element={
+          <ProtectedRoute role={['fro', 'worker', 'FRO']}>
+            <PanelWrapper roleKey="fro" />
+          </ProtectedRoute>
+        } />
+        <Route path="/accounts/*" element={
+          <ProtectedRoute role={['accounts', 'Admin']}>
+            <PanelWrapper roleKey="accounts" />
+          </ProtectedRoute>
+        } />
+        <Route path="/recruiter/*" element={
+          <ProtectedRoute role={['recruiter', 'HR-Recruiter']}>
+            <PanelWrapper roleKey="recruiter" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </UcsProvider>
   )
 }
