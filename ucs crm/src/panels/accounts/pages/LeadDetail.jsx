@@ -345,9 +345,8 @@ export default function LeadDetail({ logId, onBack }) {
       )}
 
       {confirmOpen && (
-        <>
-          <div className="modal-overlay" onClick={() => setConfirmOpen(false)} />
-          <div className="modal" style={{ maxWidth: 420, width: '90%' }}>
+        <div className="modal-overlay" onClick={() => setConfirmOpen(false)}>
+          <div className="modal" style={{ maxWidth: 420, width: '90%' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header"><h3>Confirm Verification</h3></div>
             <div className="modal-body" style={{ padding: 20 }}>
               <p style={{ margin: '0 0 6px', fontSize: 14 }}>Verify this lead and mark amount as collected?</p>
@@ -358,13 +357,12 @@ export default function LeadDetail({ logId, onBack }) {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {rejectOpen && (
-        <>
-          <div className="modal-overlay" onClick={() => setRejectOpen(false)} />
-          <div className="modal" style={{ maxWidth: 420, width: '90%' }}>
+        <div className="modal-overlay" onClick={() => setRejectOpen(false)}>
+          <div className="modal" style={{ maxWidth: 420, width: '90%' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header"><h3>Reject Lead</h3></div>
             <div className="modal-body" style={{ padding: 20 }}>
               <label className="field" style={{ display: 'block', marginBottom: 16 }}>
@@ -377,13 +375,12 @@ export default function LeadDetail({ logId, onBack }) {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {showReceipt && receipt && donor && ReceiptComp && (
-        <>
-          <div className="modal-overlay" onClick={() => setShowReceipt(false)} />
-          <div className="modal" style={{ maxWidth: 800, width: '90%', maxHeight: '90vh', overflow: 'auto' }}>
+        <div className="modal-overlay" onClick={() => setShowReceipt(false)}>
+          <div className="modal" style={{ maxWidth: 800, width: '90%', maxHeight: '90vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Receipt Preview</h3>
               <div style={{ display: 'flex', gap: 8 }}>
@@ -398,7 +395,7 @@ export default function LeadDetail({ logId, onBack }) {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       <style>{`

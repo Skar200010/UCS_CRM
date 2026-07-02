@@ -27,6 +27,7 @@ const StatCard = ({ icon, label, value, sub, color, loading: l }) => (
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([]);
+  const [allLeads, setAllLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,9 +39,13 @@ export default function Dashboard() {
 
   const load = useCallback(() => {
     setLoading(true);
-    const url = statusFilter ? `/accounts/leads?status=${statusFilter}` : '/accounts/leads';
-    apiGet(url)
-      .then(data => { if (mountedRef.current) setLeads(data); })
+    Promise.all([
+      apiGet('/accounts/leads'),
+      statusFilter ? apiGet(`/accounts/leads?status=${statusFilter}`) : apiGet('/accounts/leads'),
+    ])
+      .then(([all, filtered]) => {
+        if (mountedRef.current) { setAllLeads(all); setLeads(filtered); }
+      })
       .catch(() => {})
       .finally(() => { if (mountedRef.current) setLoading(false); });
   }, [statusFilter]);
@@ -48,12 +53,12 @@ export default function Dashboard() {
   useEffect(load, [load]);
 
   const stats = useMemo(() => {
-    const pending = leads.filter(l => l.accounts_status === 'pending');
-    const verified = leads.filter(l => l.accounts_status === 'verified');
-    const rejected = leads.filter(l => l.accounts_status === 'rejected');
+    const pending = allLeads.filter(l => l.accounts_status === 'pending');
+    const verified = allLeads.filter(l => l.accounts_status === 'verified');
+    const rejected = allLeads.filter(l => l.accounts_status === 'rejected');
     const pendingAmount = pending.reduce((s, l) => s + Number(l.amount || 0), 0);
     const verifiedAmount = verified.reduce((s, l) => s + Number(l.amount || 0), 0);
-    const totalAmount = leads.reduce((s, l) => s + Number(l.amount || 0), 0);
+    const totalAmount = allLeads.reduce((s, l) => s + Number(l.amount || 0), 0);
 
     const today = new Date().toDateString();
     const verifiedToday = verified.filter(l => l.verified_at && new Date(l.verified_at).toDateString() === today);
@@ -100,10 +105,10 @@ export default function Dashboard() {
             onChange={e => setSearchQuery(e.target.value)}
           />
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="pending">Pending ({stats.pending.length})</option>
-            <option value="verified">Verified ({stats.verified.length})</option>
-            <option value="rejected">Rejected ({stats.rejected.length})</option>
-            <option value="">All ({leads.length})</option>
+            <option value="pending">Pending ({allLeads.filter(l => l.accounts_status === 'pending').length})</option>
+            <option value="verified">Verified ({allLeads.filter(l => l.accounts_status === 'verified').length})</option>
+            <option value="rejected">Rejected ({allLeads.filter(l => l.accounts_status === 'rejected').length})</option>
+            <option value="">All ({allLeads.length})</option>
           </select>
         </div>
         <div className="table-wrap">
