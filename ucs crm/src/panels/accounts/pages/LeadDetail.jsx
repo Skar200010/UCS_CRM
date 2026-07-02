@@ -168,9 +168,6 @@ export default function LeadDetail({ logId, onBack }) {
     finally { setSendingWA(false); }
   };
 
-  const isPending = l?.accounts_status === 'pending';
-  const isVerified = l?.accounts_status === 'verified';
-
   if (loading) {
     return (
       <div style={{ paddingBottom:65 }}>
@@ -193,6 +190,8 @@ export default function LeadDetail({ logId, onBack }) {
   if (!lead) return <div className="empty-state"><p>Lead not found</p><button className="btn" onClick={onBack}>Back to Leads</button></div>;
 
   const l = lead;
+  const isPending = l.accounts_status === 'pending';
+  const isVerified = l.accounts_status === 'verified';
   const projectId = (l.donor_project||'').toLowerCase();
   const templateId = getTemplateId(projectId);
   const ReceiptComp = TEMPLATES[templateId];
