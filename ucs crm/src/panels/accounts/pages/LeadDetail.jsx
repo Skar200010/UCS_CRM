@@ -157,34 +157,37 @@ export default function LeadDetail({ logId, onBack }) {
 
   return (
     <div>
-      <div className="detail-header">
+      <div className="detail-header" style={{ marginBottom: 0, padding: '12px 16px', background: l.accounts_status === 'pending' ? '#fef2f2' : l.accounts_status === 'rejected' ? '#fef2f2' : 'transparent', borderBottom: l.accounts_status === 'pending' ? '2px solid #dc2626' : l.accounts_status === 'rejected' ? '2px solid #dc2626' : 'none', borderRadius: 'var(--radius) var(--radius) 0 0' }}>
         <button className="back-btn" onClick={onBack}>{'\u2190'}</button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginBottom: 1 }}>Lead Details</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginBottom: 1, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3 }}>Lead Details</div>
           <h2 style={{ margin: 0, fontSize: 16 }}>{l.donor_name}</h2>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {l.accounts_status === 'pending' && (
-            <>
-              <button className="btn btn-primary btn-sm" onClick={handleVerify} disabled={submitting}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ padding: '4px 14px', borderRadius: 20, background: '#dc2626', color: '#fff', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Pending</span>
+              <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', border: 'none' }} onClick={handleVerify} disabled={submitting}>
                 {submitting ? 'Verifying...' : '\u2714\uFE0F Verify'}
               </button>
-              <button className="btn btn-sm btn-danger" onClick={handleReject} disabled={submitting}>
+              <button className="btn btn-sm" style={{ background: '#dc2626', color: '#fff', border: 'none' }} onClick={handleReject} disabled={submitting}>
                 {submitting ? 'Rejecting...' : '\u2716\uFE0F Reject'}
               </button>
-            </>
+            </div>
           )}
           {l.accounts_status === 'verified' && (
-            <>
-              <span className="pill pill-green">Verified</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ padding: '4px 14px', borderRadius: 20, background: '#16a34a', color: '#fff', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Verified</span>
               {receipt && (
                 <button className="btn btn-sm btn-primary" onClick={() => setShowModal(true)}>
                   View Receipt
                 </button>
               )}
-            </>
+            </div>
           )}
-          {l.accounts_status === 'rejected' && <span className="pill pill-red" title={l.rejection_reason || ''}>Rejected</span>}
+          {l.accounts_status === 'rejected' && (
+            <span style={{ padding: '4px 14px', borderRadius: 20, background: '#dc2626', color: '#fff', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }} title={l.rejection_reason || ''}>Rejected</span>
+          )}
         </div>
       </div>
 
