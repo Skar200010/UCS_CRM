@@ -213,7 +213,7 @@ export default function MyDonors() {
         logData.pan_number = leadPan || null;
         logData.donor_dob = leadDob || null;
         logData.project_name = projectName || null;
-        logData.amount_collected = leadAmount ? Number(leadAmount) : null;
+        logData.amount_collected = leadAmount !== '' ? Number(leadAmount) : null;
       }
       await addDonorLog(donor.id, logData);
       setDonors(prev => prev.map(d =>

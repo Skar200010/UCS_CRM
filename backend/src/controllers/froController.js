@@ -657,7 +657,7 @@ export const createDonorLogHandler = async (req, res) => {
       created_by: workerId,
     };
 
-    if (action === 'disposition' && disposition_detail === 'lead_done' && amount_collected) {
+    if (action === 'disposition' && disposition_detail === 'lead_done') {
       logData.accounts_status = 'pending';
     }
 

@@ -117,7 +117,7 @@ export default function DispositionModal({ donorId, ngoId, donorName, donorMobil
         logPayload.pan_number = leadPan || null;
         logPayload.donor_dob = leadDob || null;
         logPayload.project_name = projectName || null;
-        logPayload.amount_collected = leadAmount ? Number(leadAmount) : null;
+        logPayload.amount_collected = leadAmount !== '' ? Number(leadAmount) : null;
       }
       await addDonorLog(donorId, logPayload);
       onDone();

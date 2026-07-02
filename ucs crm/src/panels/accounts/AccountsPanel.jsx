@@ -12,30 +12,34 @@ const NAV = [
   { id: 'receipts', path: '/accounts/receipts', label: 'Receipt History', icon: '\u{1F4C4}' },
 ]
 
-function Sidebar() {
+function Sidebar({ open, onClose }) {
   const location = useLocation()
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <div className="brand-mark">AP</div>
-        <div><h1>UFS</h1><span>Accounts Panel</span></div>
-      </div>
-      <nav className="sidebar-nav">
-        {NAV.map(n => (
-          <NavLink key={n.id} to={n.path}
-            className={`snav-item ${location.pathname === n.path ? 'active' : ''}`}>
-            <span className="ico">{n.icon}</span>
-            <span>{n.label}</span>
-          </NavLink>
-        ))}
-      </nav>
-    </aside>
+    <>
+      {open && <div className="sidebar-overlay" onClick={onClose} />}
+      <aside className={`sidebar${open ? ' open' : ''}`}>
+        <div className="sidebar-brand">
+          <div className="brand-mark">UFS</div>
+          <div><h1>UFS</h1><span>Accounts Panel</span></div>
+        </div>
+        <nav className="sidebar-nav">
+          {NAV.map(n => (
+            <NavLink key={n.id} to={n.path} onClick={onClose}
+              className={`snav-item ${location.pathname === n.path ? 'active' : ''}`}>
+              <span className="ico">{n.icon}</span>
+              <span>{n.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      </aside>
+    </>
   )
 }
 
 export default function AccountsPanel() {
   const { user, logout } = useUcs()
   const [showMenu, setShowMenu] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [themeName, setThemeName] = useState(() => localStorage.getItem('accounts_theme') || 'sky')
   const menuRef = useRef(null)
   const location = useLocation()
@@ -62,12 +66,17 @@ export default function AccountsPanel() {
 
   return (
     <div className="app">
-      <Sidebar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="main">
         <header className="topbar">
-          <div>
-            <div className="eyebrow">Accounts</div>
-            <h2>{meta?.label || 'Accounts'}</h2>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <button className="hamburger" onClick={() => setSidebarOpen(true)} aria-label="Toggle sidebar">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div>
+              <div className="eyebrow">Accounts</div>
+              <h2>{meta?.label || 'Accounts'}</h2>
+            </div>
           </div>
           <div className="topbar-user" ref={menuRef} onClick={() => setShowMenu(!showMenu)}>
             <div className="topbar-user-text">
