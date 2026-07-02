@@ -220,7 +220,7 @@ export default function LeadDetail({ logId, onBack }) {
   const donor = receipt ? buildDonor(receipt) : null;
 
   return (
-    <div>
+    <div style={{ paddingBottom: 80 }}>
       <div className="detail-header">
         <button className="back-btn" onClick={onBack}>{'\u2190'}</button>
         <div style={{ flex: 1 }}>
@@ -483,13 +483,16 @@ export default function LeadDetail({ logId, onBack }) {
         .field-input::placeholder { color: #9ca3af; }
 
         .action-bar {
-          position: sticky; bottom: 0; z-index: 50;
+          position: fixed; bottom: 0; left: 240px; right: 0; z-index: 50;
           background: rgba(255,255,255,0.97);
           backdrop-filter: blur(16px);
           border-top: 1px solid #e5e7eb;
-          padding: 14px 24px; margin: 16px -24px -20px;
+          padding: 14px 32px;
           display: flex; justify-content: center;
-          box-shadow: 0 -2px 10px rgba(0,0,0,0.04);
+          box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+        }
+        @media (max-width: 952px) {
+          .action-bar { left: 0; }
         }
 
         .datepicker-input {
