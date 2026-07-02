@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { apiGet, apiPost } from '../api/auth';
 import { getReceipt, generateReceipt as apiGenerateReceipt } from '../api/receipts';
 import { generateReceiptPDF } from '../services/pdfGenerator';
@@ -29,6 +31,28 @@ function buildDonor(receipt) {
 }
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u2014';
+
+function parseDatetime(iso) {
+  if (!iso) return { date: null, time: '' };
+  try {
+    const d = new Date(iso);
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    return { date: d, time: `${h}:${m}` };
+  } catch {
+    return { date: null, time: '' };
+  }
+}
+
+function combineDatetime(date, time) {
+  if (!date) return null;
+  const d = new Date(date);
+  if (time) {
+    const [h, m] = time.split(':').map(Number);
+    d.setHours(h || 0, m || 0, 0, 0);
+  }
+  return d.toISOString();
+}
 
 function ScreenshotImage({ src, onClick }) {
   const [loaded, setLoaded] = useState(false);
@@ -70,7 +94,7 @@ export default function LeadDetail({ logId, onBack }) {
 
   const [form, setForm] = useState({
     donor_name: '', donor_mobile: '', donor_city: '', donor_email: '', donor_address: '', donor_pan: '',
-    upi_transaction_id: '', transaction_datetime: '', payment_from: '',
+    upi_transaction_id: '', transaction_date: null, transaction_time: '', payment_from: '',
     pan_input: '', mode_input: '',
   });
 
@@ -84,6 +108,7 @@ export default function LeadDetail({ logId, onBack }) {
       .then(ll => { setLead(ll || null); return ll; })
       .then(ll => {
         if (ll && !hasInitRef.current) {
+          const { date, time } = parseDatetime(ll.transaction_datetime);
           setForm({
             donor_name: ll.donor_name || '',
             donor_mobile: ll.donor_mobile || '',
@@ -92,7 +117,8 @@ export default function LeadDetail({ logId, onBack }) {
             donor_address: ll.donor_address || '',
             donor_pan: ll.pan_number || ll.donor_pan || '',
             upi_transaction_id: ll.upi_transaction_id || '',
-            transaction_datetime: toDatetimeLocal(ll.transaction_datetime),
+            transaction_date: date,
+            transaction_time: time,
             payment_from: ll.payment_from || '',
             pan_input: ll.pan_number || ll.donor_pan || '',
             mode_input: '',
@@ -132,7 +158,7 @@ export default function LeadDetail({ logId, onBack }) {
         donor_pan: form.donor_pan || null,
         donor_address: form.donor_address || null,
         upi_transaction_id: form.upi_transaction_id || null,
-        transaction_datetime: form.transaction_datetime || null,
+        transaction_datetime: combineDatetime(form.transaction_date, form.transaction_time),
         payment_from: form.payment_from || null,
       });
       load();
@@ -211,7 +237,7 @@ export default function LeadDetail({ logId, onBack }) {
           {l.accounts_status === 'pending' && (
             <>
               <button className="btn btn-primary btn-sm" onClick={handleVerify} disabled={submitting} style={{ minWidth: 90 }}>
-                {submitting ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span className="spin" style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />Saving</span> : '\u2714 Verify'}
+                {submitting ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />Saving</span> : '\u2714 Verify'}
               </button>
               <button className="btn btn-sm btn-danger" onClick={handleReject} disabled={submitting} style={{ minWidth: 80 }}>
                 {submitting ? '...' : '\u2716 Reject'}
@@ -320,8 +346,24 @@ export default function LeadDetail({ logId, onBack }) {
                   <input style={inputStyle} value={form.upi_transaction_id} onChange={e => setField('upi_transaction_id', e.target.value)} placeholder="e.g. UPI123456789" />
                 </div>
                 <div>
-                  <div className="label">Transaction Date & Time</div>
-                  <input type="datetime-local" style={inputStyle} value={form.transaction_datetime} onChange={e => setField('transaction_datetime', e.target.value)} />
+                  <div className="label">Date</div>
+                  <DatePicker
+                    selected={form.transaction_date}
+                    onChange={date => setField('transaction_date', date)}
+                    dateFormat="dd/MM/yyyy"
+                    placeholderText="Select date"
+                    isClearable
+                    className="datepicker-input"
+                  />
+                </div>
+                <div>
+                  <div className="label">Time</div>
+                  <input
+                    type="time"
+                    style={inputStyle}
+                    value={form.transaction_time}
+                    onChange={e => setField('transaction_time', e.target.value)}
+                  />
                 </div>
                 <div>
                   <div className="label">From (Sender Name)</div>
@@ -400,6 +442,54 @@ export default function LeadDetail({ logId, onBack }) {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        .datepicker-input {
+          width: 100%; box-sizing: border-box;
+          padding: 6px 10px; font-size: 13px;
+          border: 1px solid #d1d5db; border-radius: 6px;
+          outline: none; background: #fff; color: #1f2937;
+        }
+        .datepicker-input:focus {
+          border-color: var(--sage, #4ade80);
+          box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.15);
+        }
+
+        .react-datepicker {
+          font-family: inherit; font-size: 13px;
+          border: 1px solid #e5e7eb; border-radius: 10px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .react-datepicker__header {
+          background: #f0fdf4; border-bottom: 1px solid #dcfce7;
+          border-radius: 10px 10px 0 0; padding-top: 10px;
+        }
+        .react-datepicker__current-month {
+          font-weight: 600; color: #166534; font-size: 14px;
+        }
+        .react-datepicker__day-name {
+          color: #6b7280; font-weight: 500; font-size: 11px; width: 32px;
+        }
+        .react-datepicker__day {
+          width: 32px; height: 32px; line-height: 32px; border-radius: 8px;
+          margin: 1px; color: #374151;
+        }
+        .react-datepicker__day:hover {
+          background: #dcfce7; border-radius: 8px;
+        }
+        .react-datepicker__day--selected, .react-datepicker__day--keyboard-selected {
+          background: #166534 !important; color: #fff !important; border-radius: 8px;
+        }
+        .react-datepicker__day--today {
+          font-weight: 700; color: #166534; background: #f0fdf4;
+        }
+        .react-datepicker__navigation {
+          top: 10px;
+        }
+        .react-datepicker__close-icon::after {
+          background: #9ca3af; font-size: 14px; height: 16px; width: 16px;
+        }
+        .react-datepicker__triangle { display: none; }
+
         .modal-overlay {
           position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999;
           display: flex; align-items: center; justify-content: center;
@@ -428,19 +518,4 @@ export default function LeadDetail({ logId, onBack }) {
       `}</style>
     </div>
   );
-}
-
-function toDatetimeLocal(iso) {
-  if (!iso) return '';
-  try {
-    const d = new Date(iso);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const h = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    return `${y}-${m}-${day}T${h}:${min}`;
-  } catch {
-    return '';
-  }
 }
