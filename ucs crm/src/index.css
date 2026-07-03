@@ -843,6 +843,7 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 .panel-accounts, .panel-ngo-admin, .panel-fro { --sage:#5B6B4E; --sage-light:#7A8F6A; --ink:#1a1a2e; --ink-soft:#6b7280; --line:#e5e7eb; --danger:#d9534f; --warning:#e67e22; --success:#16a34a; --bg:#f5f6fa; --card-bg:#ffffff; --radius:12px; --radius-sm:8px; --shadow:0 1px 3px rgba(0,0,0,0.06); --shadow-md:0 4px 12px rgba(0,0,0,0.08); background:var(--bg); color:var(--ink); }
 
 .panel-accounts .app, .panel-ngo-admin .app, .panel-fro .app { display:flex; min-height:100vh; }
+.panel-accounts .app { height:100vh; overflow:hidden; }
 .panel-accounts .sidebar, .panel-ngo-admin .sidebar, .panel-fro .sidebar { width:240px; background:var(--card-bg); border-right:1px solid var(--line); padding:20px 0; flex-shrink:0; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
 .panel-accounts .sidebar-brand, .panel-ngo-admin .sidebar-brand, .panel-fro .sidebar-brand { padding:0 20px 20px; border-bottom:1px solid var(--line); margin-bottom:12px; display:flex; align-items:center; gap:10px; }
 .panel-accounts .brand-mark, .panel-ngo-admin .brand-mark, .panel-fro .brand-mark { width:36px; height:36px; background:var(--sage); color:#fff; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; }
