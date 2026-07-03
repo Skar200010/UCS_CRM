@@ -12,7 +12,8 @@ const calcAge = (dob) => {
 
 const statusPill = (s) => {
   const m = { rejected:'pill-danger', selected:'pill-green', hold:'pill-gold', scheduled:'pill-clay', joined:'pill-gray' };
-  return <span className={`pill ${m[s] || 'pill-gray'}`}>{s}</span>;
+  const st = LEAD_STATUSES.find(st => st.value === s);
+  return <span className={`pill ${m[s] || 'pill-gray'}`}>{st ? st.label : s}</span>;
 };
 
 const formatDT = (ts) => {

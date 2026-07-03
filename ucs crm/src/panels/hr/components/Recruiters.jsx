@@ -10,6 +10,9 @@ const calcAge = (dob) => {
 };
 
 const STATUSES = [
+  { key: 'followed_up', label: 'Followed Up', color: '#06b6d4' },
+  { key: 'call_back', label: 'Call Back', color: '#06b6d4' },
+  { key: 'interested', label: 'Interested Candidate', color: '#06b6d4' },
   { key: 'hold', label: 'Hold', color: '#f59e0b' },
   { key: 'selected', label: 'Selected', color: '#22c55e' },
   { key: 'rejected', label: 'Rejected', color: '#ef4444' },
