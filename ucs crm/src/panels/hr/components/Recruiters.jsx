@@ -325,7 +325,7 @@ export default function Recruiters() {
                 </label>
                 <label className="field">DOB
                   <DatePicker value={form.dob} onChange={e => setForm(f => ({ ...f, dob: e.target.value }))} />
-                  {formAge !== null && <span style={{fontSize:11,color:'var(--ink-soft)',marginTop:2}}>Age: {formAge}</span>}
+                  <div style={{height:'1.3em',fontSize:11,color:'var(--ink-soft)',marginTop:2}}>{formAge !== null ? `Age: ${formAge}` : ''}</div>
                 </label>
               </div>
 
