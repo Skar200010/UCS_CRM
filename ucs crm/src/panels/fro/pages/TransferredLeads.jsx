@@ -509,7 +509,7 @@ export default function TransferredLeads() {
     <div className="detail-action-outer">
       <span className="counter">{index + 1} of {donors.length}</span>
       <button className="btn-next"
-        disabled={saving}
+        disabled={saving || !selected}
         onClick={handleButtonClick}>
         {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'NEXT'}
       </button>

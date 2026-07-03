@@ -361,7 +361,7 @@ export const getMyDonors = async (req, res) => {
     } else if (statusFilter) {
       query = query.eq('status', statusFilter);
     } else {
-      query = query.in('status', ['pending', ...NOT_CONNECTED_STATUSES]).order('is_new', { ascending: false });
+      // No default status filter — include all except 'reassigned'
     }
 
     let { data: assignments } = await query;
@@ -406,12 +406,13 @@ export const getMyDonors = async (req, res) => {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-    const { data: recentActivity } = await supabase
+    const { data: recentActivity, error: recentError } = await supabase
       .from('fro_donor_logs')
       .select('donor_id')
       .in('donor_id', donorIds)
       .or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition,accounts_status.eq.verified)')
       .gte('created_at', oneYearAgo.toISOString());
+    if (recentError) throw recentError;
 
     const activeDonorIds = new Set((recentActivity || []).map(l => l.donor_id));
 
@@ -458,7 +459,52 @@ export const getMyDonors = async (req, res) => {
       });
     }
 
-    return res.json(result);
+    // --- Ordering logic ---
+    // 1. New leads (is_new === true)
+    // 2. Not connected (status in NOT_CONNECTED_STATUSES or 'pending')
+    // 3. Connected (status in CONNECTED_STATUSES, excluding lead_done)
+    // 4. Lead done from previous months (hidden for rest of current month)
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+
+    const leadDoneDonorIds = result.filter(r => r.status === 'lead_done').map(r => r.donor_id);
+    let hiddenLeadDoneIds = new Set();
+    if (leadDoneDonorIds.length > 0) {
+      const { data: leadDoneLogs, error: leadError } = await supabase
+        .from('fro_donor_logs')
+        .select('donor_id')
+        .in('donor_id', leadDoneDonorIds)
+        .eq('disposition_detail', 'lead_done')
+        .eq('action', 'disposition')
+        .gte('created_at', monthStart)
+        .lte('created_at', monthEnd);
+      if (leadError) throw leadError;
+      hiddenLeadDoneIds = new Set((leadDoneLogs || []).map(l => l.donor_id));
+    }
+
+    const filtered = result.filter(r => !(r.status === 'lead_done' && hiddenLeadDoneIds.has(r.donor_id)));
+
+    const notConnectedSet = new Set(NOT_CONNECTED_STATUSES);
+    const connectedSet = new Set(CONNECTED_STATUSES);
+
+    filtered.sort((a, b) => {
+      const groupA = a.is_new ? 0
+        : (notConnectedSet.has(a.status) || a.status === 'pending') ? 1
+        : connectedSet.has(a.status) && a.status !== 'lead_done' ? 2
+        : a.status === 'lead_done' ? 3 : 4;
+      const groupB = b.is_new ? 0
+        : (notConnectedSet.has(b.status) || b.status === 'pending') ? 1
+        : connectedSet.has(b.status) && b.status !== 'lead_done' ? 2
+        : b.status === 'lead_done' ? 3 : 4;
+      if (groupA !== groupB) return groupA - groupB;
+      const dateA = a.assigned_at ? new Date(a.assigned_at) : new Date(0);
+      const dateB = b.assigned_at ? new Date(b.assigned_at) : new Date(0);
+      return dateA - dateB;
+    });
+
+    return res.json(filtered);
   } catch (error) {
     console.error('getMyDonors error for worker', req.user?.id, ':', error.message);
     return res.status(500).json({ message: error.message });

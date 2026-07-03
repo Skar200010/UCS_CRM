@@ -219,13 +219,16 @@ export default function MyDonors() {
         logData.remark = leadRemark || null;
       }
       await addDonorLog(donor.id, logData);
-      setDonors(prev => prev.map(d =>
-        d.id === donor.id && d.ngo_id === donor.ngo_id
-          ? { ...d, status: selected, notes: notes || d.notes }
-          : d
-      ));
+      const newDonors = await getMyDonors(filterStatus);
+      const stillExists = newDonors.some(d => d.id === donor.id && d.ngo_id === donor.ngo_id);
+      setDonors(newDonors);
       setSelected(null); setNotes(''); setScheduledDate(''); setScheduledTime(''); setCallbackTime(''); setLeadScreenshot(null); setScreenshotPreview(null); setLeadAddress(''); setLeadPan(''); setPanError(''); setLeadDob(''); setProjectName(''); setLeadRemark(''); setShowRemark(false);
-      if (index < donors.length - 1) setIndex(i => i + 1);
+      if (stillExists) {
+        const newIdx = newDonors.findIndex(d => d.id === donor.id && d.ngo_id === donor.ngo_id);
+        if (newIdx < newDonors.length - 1) setIndex(newIdx + 1);
+      } else {
+        if (index >= newDonors.length) setIndex(Math.max(0, newDonors.length - 1));
+      }
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
     } finally { setSaving(false); }
@@ -570,7 +573,7 @@ export default function MyDonors() {
       <button className="btn-next" disabled={index === 0} onClick={() => setIndex(i => i - 1)} style={{ background: 'transparent', color: 'var(--sage)', border: '1px solid var(--line)' }}>← Prev</button>
       <span className="counter">{index + 1} of {donors.length}</span>
       <button className="btn-next"
-        disabled={saving}
+        disabled={saving || !selected}
         onClick={handleButtonClick}>
         {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'NEXT'}
       </button>
