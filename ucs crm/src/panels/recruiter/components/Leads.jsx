@@ -42,7 +42,7 @@ export default function Leads() {
   const [dob, setDob] = useState('');
   const [source, setSource] = useState('Walk-in');
   const [customSource, setCustomSource] = useState('');
-  const [status, setStatus] = useState('followed_up');
+  const [status, setStatus] = useState('');
 
   const [notConnectedOption, setNotConnectedOption] = useState('');
   const [followUpDateTime, setFollowUpDateTime] = useState('');
@@ -70,7 +70,7 @@ export default function Leads() {
       const payload = { name: name.trim(), phone, dob: dob || null, source: finalSource, status: finalStatus, notes: formNotes.length ? JSON.stringify(formNotes) : null, created_by_name: user.name };
       if (finalStatus === 'followed_up' && followUpDateTime) payload.follow_up_date = followUpDateTime;
       await addLead(payload);
-      setName(''); setPhone(''); setDob(''); setSource('Walk-in'); setCustomSource(''); setStatus('connected'); setNotConnectedOption(''); setFollowUpDateTime(''); setScheduledDate(''); setFormNotes([]);
+      setName(''); setPhone(''); setDob(''); setSource('Walk-in'); setCustomSource(''); setStatus(''); setNotConnectedOption(''); setFollowUpDateTime(''); setScheduledDate(''); setFormNotes([]);
     } catch (err) { alert(err.message); }
   };
 

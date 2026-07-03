@@ -49,7 +49,7 @@ export default function Recruiters() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
-  const [form, setForm] = useState({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: 'connected', notConnectedOption: '', followUpDateTime: '', notes: [], recruiter_id: '' });
+  const [form, setForm] = useState({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: '', notConnectedOption: '', followUpDateTime: '', notes: [], recruiter_id: '' });
   const [newNote, setNewNote] = useState('');
   const [tab, setTab] = useState('all');
 
@@ -100,7 +100,7 @@ export default function Recruiters() {
       });
       setEditingLead(lead);
     } else {
-      setForm({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: 'connected', notConnectedOption: '', followUpDateTime: '', notes: [], recruiter_id: '' });
+      setForm({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: '', notConnectedOption: '', followUpDateTime: '', notes: [], recruiter_id: '' });
       setEditingLead(null);
     }
     setNewNote('');
