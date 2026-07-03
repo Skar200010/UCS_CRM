@@ -164,6 +164,7 @@ export const verifyLead = async (req, res) => {
         receipt_no: receiptNo,
         project_id: project,
         donor_name: donorName,
+        donor_mobile: donorProfile?.mobile_number || null,
         amount: log.amount_collected || 0,
         pan_number: pan_number || log.pan_number || donorProfile?.pan_number || null,
         address: donor_address || donorProfile?.address_1 || null,
@@ -171,6 +172,23 @@ export const verifyLead = async (req, res) => {
         purpose: 'General Donation',
         generated_by: req.user.id,
       });
+    }
+
+    // Notify FRO that their lead was verified
+    const froWorkerId = log.fro_assignments?.fro_worker_id;
+    const donorName = log.fro_assignments?.donor_profiles?.name || 'Unknown';
+    if (froWorkerId) {
+      try {
+        const notifBody = `Your lead for ${donorName} (₹${log.amount_collected || 0}) has been verified. Receipt: ${receipt?.receipt_no || ''}`;
+        await supabase.from('notification_log').insert({
+          worker_id: froWorkerId,
+          type: 'lead_verified',
+          title: 'Lead Verified',
+          body: notifBody,
+          fro_donor_log_id: String(logId),
+          sent_at: new Date().toISOString(),
+        });
+      } catch (err) { console.error('Failed to create verified notification:', err.message); }
     }
 
     return res.json({ message: 'Lead verified, receipt generated', receipt });
@@ -550,6 +568,7 @@ export const generateReceipt = async (req, res) => {
       receipt_no: receiptNo,
       project_id: project,
       donor_name: donorName,
+      donor_mobile: donorProfile?.mobile_number || null,
       amount: log.amount_collected || 0,
       pan_number: pan_number || log.pan_number || donorProfile?.pan_number || null,
       address: address || donorProfile?.address_1 || null,

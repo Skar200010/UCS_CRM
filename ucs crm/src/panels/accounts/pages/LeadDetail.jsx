@@ -71,6 +71,7 @@ export default function LeadDetail({ logId, onBack }) {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [sendingWA, setSendingWA] = useState(false);
+  const [waPhone, setWaPhone] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -111,6 +112,13 @@ export default function LeadDetail({ logId, onBack }) {
 
   useEffect(()=>{load();},[logId]);
   useEffect(()=>{if(lead&&lead.accounts_status==='verified')loadReceipt();},[lead?.accounts_status]);
+  useEffect(()=>{
+    if(lead?.donor_mobile){
+      const raw=lead.donor_mobile.replace(/\D/g,'');
+      const f=raw.length===10?'91'+raw:raw.startsWith('0')?'91'+raw.slice(1):raw;
+      setWaPhone(f);
+    }
+  },[lead?.donor_mobile]);
   const setField = (key,val) => setForm(prev=>({...prev,[key]:val}));
 
   const handleVerify = async () => {
@@ -142,22 +150,13 @@ export default function LeadDetail({ logId, onBack }) {
     catch(err) { alert('Failed: '+err.message); }
   };
 
-  const sendWA = async () => {
-    if (!l) return;
-    const rawPhone = (l.donor_mobile||'').replace(/\D/g,'');
-    const phone = rawPhone.length===10?'91'+rawPhone:rawPhone.startsWith('0')?'91'+rawPhone.slice(1):rawPhone;
-    if (!phone||phone.length<10) { alert('Donor mobile not available'); return; }
-    if (!receiptRef.current) { alert('Receipt preview not loaded. Open View Receipt first.'); return; }
-    setSendingWA(true);
-    try {
-      const pdf = await generateReceiptPDF(receiptRef.current);
-      pdf.save(`receipt_${(receipt?.receipt_no||'download').replace(/[/\\]/g,'_')}.pdf`);
-      const pid = (l.donor_project||'').toLowerCase();
-      const fname = PROJECT_LABELS[pid]||'our foundation';
-      const amt = Number(receipt?.amount||0).toLocaleString('en-IN');
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(`Thank you for your generous donation of \u20B9${amt} to ${fname}. Your receipt (No: ${receipt?.receipt_no||''}) has been generated.\n\nWith gratitude,\n${fname} Team`)}`,'_blank');
-    } catch(err) { alert('Failed: '+err.message); }
-    finally { setSendingWA(false); }
+  const sendWA = () => {
+    const phone = (waPhone || '').replace(/\D/g, '');
+    if (!phone || phone.length < 10) { alert('Please enter a valid WhatsApp number'); return; }
+    const pid = (lead?.donor_project || '').toLowerCase();
+    const fname = PROJECT_LABELS[pid] || 'our foundation';
+    const amt = Number(receipt?.amount || 0).toLocaleString('en-IN');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(`Thank you for your generous donation of \u20B9${amt} to ${fname}. Your receipt (No: ${receipt?.receipt_no || ''}) has been generated.\n\nWith gratitude,\n${fname} Team`)}`, '_blank');
   };
 
   const openReceiptAndSendWA = () => { setShowReceipt(true); };
@@ -298,7 +297,7 @@ export default function LeadDetail({ logId, onBack }) {
         )}
         {isVerified && receipt && (
           <div style={{display:'flex',gap:12,maxWidth:600,margin:'0 auto',width:'100%'}}>
-            <button className="wa-btn" onClick={sendWA} disabled={sendingWA}>{sendingWA?'Sending...':'\u2709 Send WhatsApp'}</button>
+            <button className="wa-btn" onClick={()=>setShowReceipt(true)}>{'\u2709'} Send WhatsApp</button>
             <button className="verify-btn" style={{flex:1}} onClick={()=>setShowReceipt(true)}>View Receipt</button>
           </div>
         )}
@@ -340,7 +339,15 @@ export default function LeadDetail({ logId, onBack }) {
           <div className="modal" style={{maxWidth:800,width:'90%',maxHeight:'90vh',overflow:'auto'}} onClick={e=>e.stopPropagation()}>
             <div className="modal-header">
               <h3>Receipt Preview</h3>
-              <div style={{display:'flex',gap:8}}>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <input
+                  type="tel"
+                  className="field-input"
+                  placeholder="WhatsApp number"
+                  value={waPhone}
+                  onChange={e => setWaPhone(e.target.value)}
+                  style={{ width: 200, fontSize: 12, padding: '6px 10px' }}
+                />
                 <button className="btn btn-primary btn-sm" onClick={handleDownload}>Download PDF</button>
                 <button className="btn btn-sm" style={{background:'#25D366',color:'#fff'}} onClick={sendWA}>Send via WhatsApp</button>
                 <button className="btn btn-sm" onClick={()=>setShowReceipt(false)}>Close</button>

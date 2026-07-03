@@ -54,6 +54,8 @@ export default function ReceiptHistory() {
   const [downloading, setDownloading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
+  const [waPhone, setWaPhone] = useState('');
+  const [waLoading, setWaLoading] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -93,11 +95,20 @@ export default function ReceiptHistory() {
     const Comp = TEMPLATES[templateId];
     if (!Comp) return;
     setPreview({ receipt: r, templateId, Comp, donorMobile: '' });
+    setWaPhone('');
+    setWaLoading(true);
     try {
       const leads = await apiGet('/accounts/leads');
-      const lead = leads.find(l => l.log_id === r.log_id);
-      if (lead) setPreview(p => ({ ...p, donorMobile: lead.donor_mobile || '' }));
+      const lead = leads.find(l => String(l.log_id) === String(r.log_id));
+      const mobile = lead?.donor_mobile || '';
+      setPreview(p => ({ ...p, donorMobile: mobile }));
+      if (mobile) {
+        const raw = mobile.replace(/\D/g, '');
+        const formatted = raw.length === 10 ? '91' + raw : raw.startsWith('0') ? '91' + raw.slice(1) : raw;
+        setWaPhone(formatted);
+      }
     } catch {}
+    finally { setWaLoading(false); }
   };
 
   const handleDownload = async () => {
@@ -112,22 +123,15 @@ export default function ReceiptHistory() {
     finally { setDownloading(false); }
   };
 
-  const handleWhatsApp = async () => {
+  const handleWhatsApp = () => {
     if (!preview) return;
-    const rawPhone = (preview.donorMobile || '').replace(/\D/g, '');
-    const phone = rawPhone.length === 10 ? '91' + rawPhone : rawPhone.startsWith('0') ? '91' + rawPhone.slice(1) : rawPhone;
-    if (!phone || phone.length < 10) { alert('Donor mobile number not available or invalid'); return; }
-    try {
-      const el = document.querySelector('[data-receipt-preview]');
-      if (!el) return;
-      const pdf = await generateReceiptPDF(el);
-      pdf.save(`receipt_${preview.receipt.receipt_no.replace(/[/\\]/g, '_')}.pdf`);
-      const r = preview.receipt;
-      const projectId = (r.project_id || '').toLowerCase();
-      const foundationName = PROJECT_LABELS[projectId] || 'our foundation';
-      const amt = Number(r.amount || 0).toLocaleString('en-IN');
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(`Thank you for your generous donation of \u20B9${amt} to ${foundationName}. Your receipt (No: ${r.receipt_no || ''}) has been generated.\n\nWith gratitude,\n${foundationName} Team`)}`, '_blank');
-    } catch (err) { alert('Failed to generate PDF: ' + err.message); }
+    const phone = (waPhone || '').replace(/\D/g, '');
+    if (!phone || phone.length < 10) { alert('Please enter a valid phone number'); return; }
+    const r = preview.receipt;
+    const projectId = (r.project_id || '').toLowerCase();
+    const foundationName = PROJECT_LABELS[projectId] || 'our foundation';
+    const amt = Number(r.amount || 0).toLocaleString('en-IN');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(`Thank you for your generous donation of \u20B9${amt} to ${foundationName}. Your receipt (No: ${r.receipt_no || ''}) has been generated.\n\nWith gratitude,\n${foundationName} Team`)}`, '_blank');
   };
 
   const projectOptions = useMemo(() => {
@@ -208,12 +212,20 @@ export default function ReceiptHistory() {
           <div className="modal" style={{ maxWidth: 800, width: '90%', maxHeight: '90vh', overflow: 'auto' }}>
             <div className="modal-header">
               <h3>Receipt — {preview.receipt.receipt_no}</h3>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="tel"
+                  className="field-input"
+                  placeholder="WhatsApp number (e.g. 919876543210)"
+                  value={waPhone}
+                  onChange={e => setWaPhone(e.target.value)}
+                  style={{ width: 220, fontSize: 12, padding: '6px 10px' }}
+                />
                 <button className="btn btn-primary btn-sm" onClick={handleDownload} disabled={downloading}>
                   {downloading ? 'Downloading...' : 'Download PDF'}
                 </button>
-                <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }} onClick={handleWhatsApp}>
-                  Send via WhatsApp
+                <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }} onClick={handleWhatsApp} disabled={waLoading}>
+                  {waLoading ? 'Loading...' : 'Send via WhatsApp'}
                 </button>
                 <button className="btn btn-sm" onClick={() => setPreview(null)}>Close</button>
               </div>
