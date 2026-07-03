@@ -95,6 +95,12 @@ export function RecProvider({ children }) {
     log(`Lead updated \u2014 ${id}`)
   }, [fetchLeads, log])
 
+  const deleteLead = useCallback(async (id) => {
+    await api('/leads/' + id, { method: 'DELETE', _prefix: 'ucs' })
+    setLeads(p => p.filter(l => l.id !== id))
+    log(`Lead deleted \u2014 ${id}`)
+  }, [log])
+
   const [leadStats, setLeadStats] = useState({ leads:0, today:0, onHold:0, conversion:0 })
   const fetchLeadStats = useCallback(async () => {
     if (!token) return
@@ -114,7 +120,7 @@ export function RecProvider({ children }) {
     candidates, jobs, feed, log,
     moveCandidate, addCandidate, addJob,
     leads, leadsLoading, leadFilters, setLeadFilters, leadStats,
-    fetchLeads, refreshLeads, addLead, updateLead, fetchLeadStats, updateLeadFilters,
+    fetchLeads, refreshLeads, addLead, updateLead, deleteLead, fetchLeadStats, updateLeadFilters,
     currentUser: user, user,
   }), [candidates, jobs, feed, leads, leadsLoading, leadFilters, setLeadFilters, leadStats, user])
 

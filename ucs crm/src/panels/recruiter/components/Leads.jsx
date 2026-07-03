@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRec, LEAD_SOURCES, LEAD_STATUSES, NOT_CONNECTED_OPTIONS } from '../store';
-import { Plus, Users, Search, RefreshCw } from '../icons';
+import { Plus, Users, Search, RefreshCw, Trash, X } from '../icons';
 import { Dropdown } from './ui';
 import LeadDetail from './LeadDetail';
 
@@ -36,7 +36,7 @@ const TABS = [
 ];
 
 export default function Leads() {
-  const { leads, leadsLoading, addLead, updateLead, currentUser, user, refreshLeads, leadFilters, setLeadFilters } = useRec();
+  const { leads, leadsLoading, addLead, updateLead, deleteLead, currentUser, user, refreshLeads, leadFilters, setLeadFilters } = useRec();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [dob, setDob] = useState('');
@@ -54,6 +54,20 @@ export default function Leads() {
   const [selectedLeadId, setSelectedLeadId] = useState(null);
   const [searchInput, setSearchInput] = useState(leadFilters.search || '');
   const [tab, setTab] = useState('leads');
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleteMsg, setDeleteMsg] = useState('');
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteLead(id);
+      setDeleteMsg('Lead deleted successfully.');
+      setDeleteConfirm(null);
+      setTimeout(() => setDeleteMsg(''), 3000);
+    } catch {
+      setDeleteMsg('Failed to delete lead.');
+      setTimeout(() => setDeleteMsg(''), 3000);
+    }
+  };
 
   const addNoteToForm = () => {
     if (!noteText.trim()) return;
@@ -267,14 +281,14 @@ export default function Leads() {
             </div>
           </div>
           {leadsLoading ? (
-            <table><tbody>{[1,2,3,4,5].map(i => <SkeletonRow key={i} cols={8}/>)}</tbody></table>
+            <table><tbody>{[1,2,3,4,5].map(i => <SkeletonRow key={i} cols={9}/>)}</tbody></table>
           ) : filteredLeads.length === 0 ? (
             <div className="empty">No leads found.</div>
           ) : (
             <table>
               <thead>
                 <tr>
-                  <th>Name</th><th>Phone</th><th>Age</th><th>Source</th><th>Status</th><th>Notes</th><th>Created by</th>
+                  <th>Name</th><th>Phone</th><th>Age</th><th>Source</th><th>Status</th><th>Notes</th><th>Created by</th><th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -294,6 +308,9 @@ export default function Leads() {
                       ) : statusPill(l.status)}</td>
                       <td><span className="sub">{parsed.length > 0 ? parsed.length + ' note' + (parsed.length!==1?'s':'') : '—'}</span></td>
                       <td style={{color:'var(--ink-soft)'}}>{l.created_by_name || '—'}</td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <button className="btn btn-sm" style={{color:'var(--danger)',padding:'4px 6px',lineHeight:1}} onClick={() => setDeleteConfirm(l)} title="Delete lead"><Trash width={14}/></button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -337,6 +354,24 @@ export default function Leads() {
         </div>
       )}
 
+      {deleteMsg && (
+        <div style={{position:'fixed',bottom:24,left:'50%',transform:'translateX(-50%)',background:'var(--paper)',border:'1px solid var(--line)',borderRadius:'var(--radius)',boxShadow:'var(--shadow)',padding:'10px 20px',fontSize:14,zIndex:1000,display:'flex',alignItems:'center',gap:10}}>
+          <span>{deleteMsg}</span>
+          <button className="btn btn-sm" onClick={() => setDeleteMsg('')} style={{padding:'2px 6px',lineHeight:1}}><X width={12}/></button>
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.35)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={() => setDeleteConfirm(null)}>
+          <div style={{background:'var(--paper)',borderRadius:'var(--radius)',boxShadow:'0 8px 32px rgba(0,0,0,.2)',padding:24,minWidth:320}} onClick={e => e.stopPropagation()}>
+            <p style={{margin:'0 0 16px',fontSize:14,fontWeight:500}}>Are you sure you want to delete this lead?</p>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button className="btn" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+              <button className="btn" style={{background:'var(--danger)',color:'#fff',borderColor:'var(--danger)'}} onClick={() => handleDelete(deleteConfirm.id)}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </>
   );
