@@ -69,20 +69,27 @@ export default function FROPanel() {
   const [refetch, setRefetch] = useState(0);
   const [showNotifList, setShowNotifList] = useState(false);
   const [rejectedCount, setRejectedCount] = useState(0);
+  const [rejectedItems, setRejectedItems] = useState([]);
   const notifRef = useRef(null);
 
-  const loadRejectedCount = () => {
+  const loadRejectedNotifications = () => {
     const workerId = user?.id;
     if (!workerId) return;
-    api(`/notifications/${workerId}/unread-count`, { _prefix: 'ucs' })
-      .then(count => setRejectedCount(typeof count === 'number' ? count : (count?.count || 0)))
+    api(`/notifications/${workerId}`, { _prefix: 'ucs' })
+      .then(data => {
+        const items = (data || [])
+          .filter(n => n.type === 'lead_rejected' && !n.read_at)
+          .slice(0, 20);
+        setRejectedItems(items);
+        setRejectedCount(items.length);
+      })
       .catch(() => {});
   };
-  useEffect(() => { loadRejectedCount(); }, [user?.id]);
+  useEffect(() => { loadRejectedNotifications(); }, [user?.id]);
 
   useRealtime('notification_log', {
     filter: `worker_id=eq.${user?.id}`,
-    onInsert: () => loadRejectedCount(),
+    onInsert: () => loadRejectedNotifications(),
     enabled: !!user?.id,
   });
 
@@ -144,22 +151,34 @@ export default function FROPanel() {
                 <span style={{ position:'absolute', top:-4, right:-4, background:'#dc2626', color:'#fff', borderRadius:'50%', width:16, height:16, fontSize:9, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, lineHeight:1 }}>{totalNotifCount}</span>
               )}
               {showNotifList && (
-                <div style={{ position:'absolute', top:'100%', right:0, marginTop:4, background:'#fff', border:'1px solid var(--line)', borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,.1)', width:280, maxHeight:320, overflowY:'auto', zIndex:100 }}>
-                  {dueItems.length === 0 ? <div style={{ padding:16, fontSize:11, color:'var(--ink-soft)', textAlign:'center' }}>No pending items</div> : (
-                    dueItems.map(item => (
-                      <div key={`${item.id}-${item.ngo_id || ''}`}
-                        onClick={() => { setShowNotifList(false); setModalDonor(item); }}
-                        style={{ padding:'10px 12px', borderBottom:'1px solid var(--line)', cursor:'pointer', fontSize:11 }}
-                        onMouseOver={e => e.currentTarget.style.background = '#f5f5f5'}
-                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                        <div style={{ fontWeight:600, marginBottom:2 }}>{item.donor_name}</div>
-                        <div style={{ color:'var(--ink-soft)', fontSize:10 }}>
-                          <span className="material-symbols-outlined" style={{ fontSize:10 }}>schedule</span>
-                          {item.scheduled_at ? new Date(item.scheduled_at).toLocaleString('en-GB') : 'Callback'}
-                        </div>
+                <div style={{ position:'absolute', top:'100%', right:0, marginTop:4, background:'#fff', border:'1px solid var(--line)', borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,.1)', width:320, maxHeight:380, overflowY:'auto', zIndex:100 }}>
+                  {rejectedItems.length === 0 && dueItems.length === 0 ? <div style={{ padding:16, fontSize:11, color:'var(--ink-soft)', textAlign:'center' }}>No pending items</div> : null}
+
+                  {rejectedItems.map((item, i) => (
+                    <div key={`rj-${item.id}`} style={{ padding:'10px 12px', borderBottom:'1px solid var(--line)', fontSize:11, background: i % 2 ? '#fef2f2' : '#fff' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
+                        <span style={{ background:'#dc2626', color:'#fff', fontSize:9, padding:'1px 5px', borderRadius:4, fontWeight:700 }}>REJECTED</span>
+                        <span style={{ fontWeight:600 }}>{item.body}</span>
                       </div>
-                    ))
-                  )}
+                      <div style={{ color:'var(--ink-soft)', fontSize:10 }}>
+                        {item.sent_at ? new Date(item.sent_at).toLocaleString('en-GB') : ''}
+                      </div>
+                    </div>
+                  ))}
+
+                  {dueItems.map(item => (
+                    <div key={`${item.id}-${item.ngo_id || ''}`}
+                      onClick={() => { setShowNotifList(false); setModalDonor(item); }}
+                      style={{ padding:'10px 12px', borderBottom:'1px solid var(--line)', cursor:'pointer', fontSize:11 }}
+                      onMouseOver={e => e.currentTarget.style.background = '#f5f5f5'}
+                      onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                      <div style={{ fontWeight:600, marginBottom:2 }}>{item.donor_name}</div>
+                      <div style={{ color:'var(--ink-soft)', fontSize:10 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize:10 }}>schedule</span>
+                        {item.scheduled_at ? new Date(item.scheduled_at).toLocaleString('en-GB') : 'Callback'}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
