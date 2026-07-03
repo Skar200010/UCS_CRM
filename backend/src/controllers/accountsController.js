@@ -282,7 +282,7 @@ export const rejectLead = async (req, res) => {
 
     const { data: log, error: logError } = await supabase
       .from('fro_donor_logs')
-      .select('*, fro_assignments!inner(id, fro_worker_id, donor_id, status, donor_profiles!inner(id, name, mobile_number))')
+      .select('*, fro_assignments!inner(id, fro_worker_id, donor_id, status, ngo_id, station, donor_profiles!inner(id, name, mobile_number))')
       .eq('id', logId)
       .single();
 
@@ -328,15 +328,17 @@ export const rejectLead = async (req, res) => {
     }
 
     const froWorkerId = log.fro_assignments?.fro_worker_id;
+    const assignmentNgoId = log.fro_assignments?.ngo_id;
+    const assignmentStation = log.fro_assignments?.station;
     const donorName = log.fro_assignments?.donor_profiles?.name || 'Unknown';
     let froNotified = false;
     let ticketCreated = false;
 
-    if (froWorkerId) {
-      const notifTitle = 'Lead Rejected by Accounts';
-      const notifBody = `Your lead for ${donorName} (₹${log.amount_collected || 0}) was rejected. Reason: ${reason}`;
-      const refId = /^\d+$/.test(String(logId)) ? parseInt(logId) : null;
+    const notifTitle = 'Lead Rejected by Accounts';
+    const notifBody = `Your lead for ${donorName} (₹${log.amount_collected || 0}) was rejected. Reason: ${reason}`;
+    const refId = /^\d+$/.test(String(logId)) ? parseInt(logId) : null;
 
+    if (froWorkerId) {
       let fcmLogged = false;
       try {
         const pushResult = await sendPushNotification(froWorkerId, notifTitle, notifBody, 'lead_rejected', refId);
@@ -350,45 +352,67 @@ export const rejectLead = async (req, res) => {
             type: 'lead_rejected',
             title: notifTitle,
             body: notifBody,
-            reference_id: refId,
+            fro_donor_log_id: String(logId),
             sent_at: new Date().toISOString(),
           });
         } catch (err) { console.error('Failed to create notification_log entry:', err.message); }
       }
       froNotified = true;
+    }
 
+    // Determine ngo_id (integer): worker_ngo_allocations > assignment's ngo_id > station's ngo_id
+    let ngoId = null;
+    if (froWorkerId) {
       try {
-        const { data: worker } = await supabase
-          .from('workers')
+        const { data: alloc } = await supabase
+          .from('worker_ngo_allocations')
           .select('ngo_id')
-          .eq('id', froWorkerId)
+          .eq('worker_id', froWorkerId)
+          .not('ngo_id', 'is', null)
+          .limit(1)
           .maybeSingle();
+        if (alloc?.ngo_id) ngoId = alloc.ngo_id;
+      } catch (err) { console.error('Failed to fetch worker ngo allocation:', err.message); }
+    }
+    if (!ngoId && assignmentNgoId && typeof assignmentNgoId === 'number') {
+      ngoId = assignmentNgoId;
+    }
+    if (!ngoId && assignmentStation) {
+      try {
+        const { data: stationAssign } = await supabase
+          .from('fro_station_assignments')
+          .select('ngo_id')
+          .eq('station', assignmentStation)
+          .not('ngo_id', 'is', null)
+          .limit(1)
+          .maybeSingle();
+        if (stationAssign?.ngo_id) ngoId = stationAssign.ngo_id;
+      } catch (err) { console.error('Failed to fetch station ngo:', err.message); }
+    }
 
-        await supabase.from('rejected_lead_tickets').insert({
-          fro_donor_log_id: logId,
-          fro_worker_id: froWorkerId,
-          ngo_id: worker?.ngo_id || null,
+    try {
+      await supabase.from('rejected_lead_tickets').insert({
+        fro_donor_log_id: logId,
+        fro_worker_id: froWorkerId,
+        ngo_id: ngoId,
+        donor_name: donorName,
+        amount: log.amount_collected || 0,
+        rejection_reason: reason,
+        status: 'pending_review',
+      });
+      ticketCreated = true;
+    } catch (err) { console.error('Failed to create rejected lead ticket:', err.message); }
+
+    if (ngoId) {
+      try {
+        await supabase.from('alerts').insert({
+          ngo_id: ngoId,
+          type: 'lead_rejected',
+          title: 'Lead Rejected',
+          description: `${donorName} (₹${log.amount_collected || 0}) lead rejected. Reason: ${reason}`,
           donor_name: donorName,
-          amount: log.amount_collected || 0,
-          rejection_reason: reason,
-          status: 'pending_review',
         });
-        ticketCreated = true;
-
-        if (worker?.ngo_id) {
-          try {
-            const { error: alertErr } = await supabase.from('alerts').insert({
-              ngo_id: worker.ngo_id,
-              type: 'lead_rejected',
-              title: 'Lead Rejected',
-              description: `${donorName} (₹${log.amount_collected || 0}) lead rejected. Reason: ${reason}`,
-              donor_name: donorName,
-              reference_id: refId,
-            });
-            if (alertErr) console.error('Failed to create alert:', alertErr.message, alertErr.details, alertErr.code);
-          } catch (err) { console.error('Failed to create alert:', err.message); }
-        }
-      } catch (err) { console.error('Failed to create rejected lead ticket:', err.message); }
+      } catch (err) { console.error('Failed to create alert:', err.message); }
     }
 
     return res.json({ message: 'Lead rejected', froWorkerId, froNotified, ticketCreated });  } catch (error) {

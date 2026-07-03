@@ -7,6 +7,7 @@ import { useRealtime } from '../../hooks/useRealtime'
 import { api } from '../../api/auth'
 import { requestNotifPermission, showDesktopNotification } from '../../utils/desktopNotif'
 import DispositionModal from './components/DispositionModal'
+import NotificationDrawer from '../../components/NotificationDrawer'
 import Dashboard from './pages/Dashboard'
 import MyDonors from './pages/MyDonors'
 import TransferredLeads from './pages/TransferredLeads'
@@ -26,6 +27,10 @@ const NAV = [
   { id: 'logs', path: '/fro/logs', label: 'Call Logs', icon: 'call_log' },
   { id: 'target', path: '/fro/target', label: 'My Target', icon: 'track_changes' },
 ]
+
+const MAX_DROPDOWN = 4
+
+const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u2014'
 
 function Sidebar() {
   const location = useLocation()
@@ -66,31 +71,65 @@ export default function FROPanel() {
   }, [themeName])
 
   const [modalDonor, setModalDonor] = useState(null);
+  const [modalNotifId, setModalNotifId] = useState(null);
   const [rows, setRows] = useState([]);
   const [refetch, setRefetch] = useState(0);
   const [showNotifList, setShowNotifList] = useState(false);
   const [rejectedCount, setRejectedCount] = useState(0);
   const [rejectedItems, setRejectedItems] = useState([]);
+  const [allNotifs, setAllNotifs] = useState([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const seenNotifIds = useRef(new Set());
   const notifRef = useRef(null);
   const pollRef = useRef(null);
+
+  const markRead = async (notifId) => {
+    try { await api(`/notifications/${notifId}/read`, { method: 'PUT', _prefix: 'ucs' }); }
+    catch {}
+  };
+
+  const handleRejectedClick = async (item) => {
+    setShowNotifList(false);
+    if (item.fro_donor_log_id) {
+      try {
+        const info = await api(`/notifications/${item.id}/lead-info`, { _prefix: 'ucs' });
+        setModalNotifId(item.id);
+        setModalDonor({
+          id: info.donorId,
+          ngo_id: info.ngoId,
+          assignment_id: info.assignmentId,
+          donor_name: info.donorName,
+          donor_mobile: info.donorMobile,
+        });
+      } catch { return; }
+    }
+  };
+
+  const handlePopDone = () => {
+    if (modalNotifId) markRead(modalNotifId);
+    setModalNotifId(null);
+    setModalDonor(null);
+    setRefetch(n => n + 1);
+    loadRejectedNotifications();
+    loadReminders();
+  };
 
   const loadRejectedNotifications = () => {
     const workerId = user?.id;
     if (!workerId) return;
     api(`/notifications/${workerId}`, { _prefix: 'ucs' })
       .then(data => {
-        const items = (data || [])
-          .filter(n => n.type === 'lead_rejected' && !n.read_at)
-          .slice(0, 20);
+        const all = (data || []).filter(n => n.type === 'lead_rejected' && !n.read_at);
+        const items = all.slice(0, 20);
         items.forEach(n => {
           if (!seenNotifIds.current.has(n.id)) {
             seenNotifIds.current.add(n.id);
             showDesktopNotification(n.title, n.body);
           }
         });
+        setAllNotifs(all);
         setRejectedItems(items);
-        setRejectedCount(items.length);
+        setRejectedCount(all.length);
       })
       .catch(() => {});
   };
@@ -137,16 +176,33 @@ export default function FROPanel() {
   useEffect(() => { loadReminders(); }, [refetch]);
   useEffect(() => { const interval = setInterval(() => loadReminders(), 30000); return () => clearInterval(interval); }, []);
 
-  const handlePopDone = () => { setModalDonor(null); setRefetch(n => n + 1); };
-
   const dedupedRows = rows.filter((r, i, a) => i === a.findIndex(x => x.id === r.id));
   const dueItems = dedupedRows.filter(r => r.scheduled_at && new Date(r.scheduled_at) <= new Date());
   const dueCount = dueItems.length;
-  const totalNotifCount = dueCount + rejectedCount;
+
+  const dropdownItems = [];
+  const rejectedToShow = rejectedItems.slice(0, MAX_DROPDOWN);
+  const dueToShow = dueItems.slice(0, MAX_DROPDOWN - rejectedToShow.length);
+  const totalShown = rejectedToShow.length + dueToShow.length;
+  const totalHidden = rejectedCount + dueCount - totalShown;
 
   const meta = NAV.find(n => location.pathname === n.path)
   const userName = user?.name || 'User'
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+
+  const drawerSections = [
+    { label: 'Rejected Leads', type: 'rejected', items: allNotifs },
+    { label: 'Follow Up / Callback', type: 'schedule', items: dueItems },
+  ];
+
+  const handleDrawerItemClick = (item, section) => {
+    setDrawerOpen(false);
+    if (section.type === 'rejected') {
+      handleRejectedClick(item);
+    } else {
+      setModalDonor(item);
+    }
+  };
 
   return (
     <div className="app">
@@ -159,40 +215,79 @@ export default function FROPanel() {
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:4 }}>
             <div ref={notifRef} style={{ position:'relative' }}>
-              <span className="material-symbols-outlined" style={{ fontSize:20, cursor:'pointer', color: totalNotifCount > 0 ? 'var(--sage)' : 'var(--ink-soft)' }}
-                onClick={() => setShowNotifList(!showNotifList)}>notifications</span>
-              {totalNotifCount > 0 && (
-                <span style={{ position:'absolute', top:-4, right:-4, background:'#dc2626', color:'#fff', borderRadius:'50%', width:16, height:16, fontSize:9, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, lineHeight:1 }}>{totalNotifCount}</span>
-              )}
+              <div onClick={() => setShowNotifList(!showNotifList)} style={{ cursor:'pointer', position:'relative', padding:6, borderRadius:8, transition:'background .15s', background: showNotifList ? '#f3f4f6' : 'transparent' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={rejectedCount + dueCount > 0 ? 'var(--sage)' : 'var(--ink-soft)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                {rejectedCount + dueCount > 0 && (
+                  <span style={{ position:'absolute', top:0, right:0, background:'#dc2626', color:'#fff', borderRadius:'50%', minWidth:16, height:16, fontSize:9, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, lineHeight:1, padding:'0 3px' }}>
+                    {rejectedCount + dueCount > 9 ? '9+' : rejectedCount + dueCount}
+                  </span>
+                )}
+              </div>
               {showNotifList && (
-                <div style={{ position:'absolute', top:'100%', right:0, marginTop:4, background:'#fff', border:'1px solid var(--line)', borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,.1)', width:320, maxHeight:380, overflowY:'auto', zIndex:100 }}>
-                  {rejectedItems.length === 0 && dueItems.length === 0 ? <div style={{ padding:16, fontSize:11, color:'var(--ink-soft)', textAlign:'center' }}>No pending items</div> : null}
+                <div style={{ position:'absolute', top:'100%', right:0, marginTop:6, background:'#fff', border:'1px solid #e5e7eb', borderRadius:10, boxShadow:'0 8px 30px rgba(0,0,0,.12)', width:340, maxHeight:420, overflowY:'auto', zIndex:100, padding:0 }}>
+                  {/* Header */}
+                  <div style={{ padding:'10px 14px', borderBottom:'1px solid #f3f4f6', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontSize:13, fontWeight:700 }}>Notifications</span>
+                    <span style={{ fontSize:11, color:'var(--ink-soft)' }}>{rejectedCount + dueCount} pending</span>
+                  </div>
 
-                  {rejectedItems.map((item, i) => (
-                    <div key={`rj-${item.id}`} style={{ padding:'10px 12px', borderBottom:'1px solid var(--line)', fontSize:11, background: i % 2 ? '#fef2f2' : '#fff' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
-                        <span style={{ background:'#dc2626', color:'#fff', fontSize:9, padding:'1px 5px', borderRadius:4, fontWeight:700 }}>REJECTED</span>
-                        <span style={{ fontWeight:600 }}>{item.body}</span>
-                      </div>
-                      <div style={{ color:'var(--ink-soft)', fontSize:10 }}>
-                        {item.sent_at ? new Date(item.sent_at).toLocaleString('en-GB') : ''}
+                  {rejectedCount + dueCount === 0 && (
+                    <div style={{ padding:24, fontSize:12, color:'var(--ink-soft)', textAlign:'center' }}>No pending items</div>
+                  )}
+
+                  {/* Rejected items */}
+                  {rejectedToShow.map((item, i) => (
+                    <div key={`rj-${item.id}`}
+                      onClick={() => handleRejectedClick(item)}
+                      style={{ padding:'10px 14px', borderBottom:'1px solid #f3f4f6', cursor:'pointer', fontSize:12, transition:'background .15s' }}
+                      onMouseOver={e => e.currentTarget.style.background = '#fef2f2'}
+                      onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                      <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+                        <div style={{ width:28, height:28, borderRadius:6, background:'#fef2f2', display:'flex', alignItems:'center', justifyContent:'center', color:'#dc2626', fontSize:12, flexShrink:0, marginTop:1 }}>{'\u2716'}</div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
+                            <span style={{ background:'#dc2626', color:'#fff', fontSize:9, padding:'1px 5px', borderRadius:4, fontWeight:700, lineHeight:'14px' }}>REJECTED</span>
+                            <span style={{ fontWeight:600, fontSize:12 }}>{item.body?.replace(/^Your lead for /, '').replace(/ \(.*$/, '') || 'Lead'}</span>
+                          </div>
+                          <div style={{ color:'#6b7280', fontSize:11, lineHeight:1.3 }}>{item.body?.replace(/^.*Reason: /, '')}</div>
+                          <div style={{ color:'#9ca3af', fontSize:10, marginTop:2 }}>{item.sent_at ? new Date(item.sent_at).toLocaleString('en-GB') : ''}</div>
+                        </div>
                       </div>
                     </div>
                   ))}
 
-                  {dueItems.map(item => (
+                  {/* Due items */}
+                  {dueToShow.map(item => (
                     <div key={`${item.id}-${item.ngo_id || ''}`}
                       onClick={() => { setShowNotifList(false); setModalDonor(item); }}
-                      style={{ padding:'10px 12px', borderBottom:'1px solid var(--line)', cursor:'pointer', fontSize:11 }}
+                      style={{ padding:'10px 14px', borderBottom:'1px solid #f3f4f6', cursor:'pointer', fontSize:12 }}
                       onMouseOver={e => e.currentTarget.style.background = '#f5f5f5'}
                       onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                      <div style={{ fontWeight:600, marginBottom:2 }}>{item.donor_name}</div>
-                      <div style={{ color:'var(--ink-soft)', fontSize:10 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize:10 }}>schedule</span>
-                        {item.scheduled_at ? new Date(item.scheduled_at).toLocaleString('en-GB') : 'Callback'}
+                      <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+                        <div style={{ width:28, height:28, borderRadius:6, background:'#f0fdf4', display:'flex', alignItems:'center', justifyContent:'center', color:'#16a34a', fontSize:12, flexShrink:0, marginTop:1 }}>{'\u23F0'}</div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontWeight:600, fontSize:12, marginBottom:2 }}>{item.donor_name}</div>
+                          <div style={{ color:'var(--ink-soft)', fontSize:11, display:'flex', alignItems:'center', gap:4 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize:11 }}>schedule</span>
+                            {item.scheduled_at ? new Date(item.scheduled_at).toLocaleString('en-GB') : 'Callback'}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
+
+                  {/* View All link */}
+                  {totalHidden > 0 && (
+                    <div style={{ padding:'10px 14px', textAlign:'center', borderTop:'1px solid #f3f4f6' }}>
+                      <button onClick={() => { setShowNotifList(false); setDrawerOpen(true); }}
+                        style={{ background:'none', border:'none', color:'var(--sage)', cursor:'pointer', fontSize:12, fontWeight:600, padding:'4px 12px', borderRadius:6 }}>
+                        View All ({totalHidden} more)
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -243,10 +338,16 @@ export default function FROPanel() {
           donorName={modalDonor.donor_name}
           donorMobile={modalDonor.donor_mobile}
           scheduledAt={modalDonor.scheduled_at}
-          onClose={() => setModalDonor(null)}
+          onClose={() => { setModalNotifId(null); setModalDonor(null); }}
           onDone={handlePopDone}
         />
       )}
+      <NotificationDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        sections={drawerSections}
+        onItemClick={handleDrawerItemClick}
+      />
     </div>
   )
 }

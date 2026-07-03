@@ -147,6 +147,18 @@ process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
 });
 
+app.get('/api/debug', async (req, res) => {
+  const tables = ['rejected_lead_tickets', 'alerts', 'notification_log', 'fcm_tokens'];
+  const results = {};
+  for (const t of tables) {
+    try {
+      const { error } = await supabase.from(t).select('id').limit(1);
+      results[t] = error ? `error: ${error.message}` : 'ok';
+    } catch (e) { results[t] = `exception: ${e.message}`; }
+  }
+  res.json({ version: 'd6f25bd', node: process.version, tables: results, vercel: !!process.env.VERCEL });
+});
+
 async function checkLeavesTable() {
   try {
     await supabase.from('leaves').select('id').limit(1);

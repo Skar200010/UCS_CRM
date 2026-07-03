@@ -1,3 +1,4 @@
+import supabase from '../config/supabase.js';
 import {
   upsertFcmToken,
   getWorkerNotifications,
@@ -51,6 +52,44 @@ export const deleteNotification = async (req, res) => {
   try {
     const result = await deleteNotificationModel(req.params.id);
     return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getNotificationLeadInfo = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: notif, error: notifErr } = await supabase
+      .from('notification_log')
+      .select('fro_donor_log_id')
+      .eq('id', id)
+      .maybeSingle();
+    if (notifErr || !notif?.fro_donor_log_id) {
+      return res.status(404).json({ message: 'Notification or log reference not found' });
+    }
+
+    const { data: log, error: logErr } = await supabase
+      .from('fro_donor_logs')
+      .select('id, amount_collected, fro_assignments!inner(id, fro_worker_id, donor_id, ngo_id, donor_profiles!inner(id, name, mobile_number))')
+      .eq('id', notif.fro_donor_log_id)
+      .single();
+    if (logErr || !log) {
+      return res.status(404).json({ message: 'Lead log not found' });
+    }
+
+    const asgn = log.fro_assignments;
+    const donor = asgn?.donor_profiles;
+
+    return res.json({
+      donorId: asgn?.donor_id || donor?.id,
+      ngoId: asgn?.ngo_id,
+      assignmentId: asgn?.id,
+      donorName: donor?.name || 'Unknown',
+      donorMobile: donor?.mobile_number || '',
+      logId: log.id,
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
