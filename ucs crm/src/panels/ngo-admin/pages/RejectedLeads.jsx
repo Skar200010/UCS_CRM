@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiGet, apiPut } from '../api/auth';
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u2014';
@@ -6,16 +6,21 @@ const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') :
 export default function RejectedLeads() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const intervalRef = useRef(null);
 
-  const load = () => {
-    setLoading(true);
+  const load = (showLoading = true) => {
+    if (showLoading) setLoading(true);
     apiGet('/ngo-admin/rejected-leads')
       .then(d => setTickets(d || []))
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (showLoading) setLoading(false); });
   };
 
-  useEffect(load, []);
+  useEffect(() => {
+    load(true);
+    intervalRef.current = setInterval(() => load(false), 30000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, []);
 
   const ack = async (id) => {
     try {

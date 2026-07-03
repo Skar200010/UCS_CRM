@@ -5,6 +5,7 @@ import { themes, applyTheme } from '../hr/theme'
 import { getScheduled, getCallbacks } from './api/donors'
 import { useRealtime } from '../../hooks/useRealtime'
 import { api } from '../../api/auth'
+import { requestNotifPermission, showDesktopNotification } from '../../utils/desktopNotif'
 import DispositionModal from './components/DispositionModal'
 import Dashboard from './pages/Dashboard'
 import MyDonors from './pages/MyDonors'
@@ -70,6 +71,7 @@ export default function FROPanel() {
   const [showNotifList, setShowNotifList] = useState(false);
   const [rejectedCount, setRejectedCount] = useState(0);
   const [rejectedItems, setRejectedItems] = useState([]);
+  const seenNotifIds = useRef(new Set());
   const notifRef = useRef(null);
 
   const loadRejectedNotifications = () => {
@@ -80,12 +82,18 @@ export default function FROPanel() {
         const items = (data || [])
           .filter(n => n.type === 'lead_rejected' && !n.read_at)
           .slice(0, 20);
+        items.forEach(n => {
+          if (!seenNotifIds.current.has(n.id)) {
+            seenNotifIds.current.add(n.id);
+            showDesktopNotification(n.title, n.body);
+          }
+        });
         setRejectedItems(items);
         setRejectedCount(items.length);
       })
       .catch(() => {});
   };
-  useEffect(() => { loadRejectedNotifications(); }, [user?.id]);
+  useEffect(() => { loadRejectedNotifications(); requestNotifPermission(); }, [user?.id]);
 
   useRealtime('notification_log', {
     filter: `worker_id=eq.${user?.id}`,

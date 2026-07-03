@@ -1,5 +1,6 @@
 import supabase from '../config/supabase.js';
 import { createReceipt, findReceiptByLogId, getLastReceiptNo, listAllReceipts } from '../models/receiptModel.js';
+import { sendPushNotification } from '../services/fcmService.js';
 
 export const getLeadList = async (req, res) => {
   try {
@@ -332,17 +333,23 @@ export const rejectLead = async (req, res) => {
     let ticketCreated = false;
 
     if (froWorkerId) {
-      try {
-        await supabase.from('notification_log').insert({
-          worker_id: froWorkerId,
-          type: 'lead_rejected',
-          title: 'Lead Rejected by Accounts',
-          body: `Your lead for ${donorName} (₹${log.amount_collected || 0}) was rejected. Reason: ${reason}`,
-          reference_id: parseInt(logId),
-          sent_at: new Date().toISOString(),
-        });
-        froNotified = true;
-      } catch (err) { console.error('Failed to create notification:', err.message); }
+      const notifTitle = 'Lead Rejected by Accounts';
+      const notifBody = `Your lead for ${donorName} (₹${log.amount_collected || 0}) was rejected. Reason: ${reason}`;
+
+      const pushResult = await sendPushNotification(froWorkerId, notifTitle, notifBody, 'lead_rejected', parseInt(logId));
+      if (!pushResult) {
+        try {
+          await supabase.from('notification_log').insert({
+            worker_id: froWorkerId,
+            type: 'lead_rejected',
+            title: notifTitle,
+            body: notifBody,
+            reference_id: parseInt(logId),
+            sent_at: new Date().toISOString(),
+          });
+        } catch (err) { console.error('Failed to create notification:', err.message); }
+      }
+      froNotified = true;
 
       try {
         const { data: worker } = await supabase
@@ -361,6 +368,19 @@ export const rejectLead = async (req, res) => {
           status: 'pending_review',
         });
         ticketCreated = true;
+
+        if (worker?.ngo_id) {
+          try {
+            await supabase.from('alerts').insert({
+              ngo_id: worker.ngo_id,
+              type: 'lead_rejected',
+              title: 'Lead Rejected',
+              description: `${donorName} (₹${log.amount_collected || 0}) lead rejected. Reason: ${reason}`,
+              donor_name: donorName,
+              reference_id: parseInt(logId),
+            });
+          } catch (err) { console.error('Failed to create alert:', err.message); }
+        }
       } catch (err) { console.error('Failed to create rejected lead ticket:', err.message); }
     }
 

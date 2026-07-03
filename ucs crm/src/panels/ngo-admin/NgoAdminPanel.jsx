@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
+import { useRealtime } from '../../hooks/useRealtime'
+import { api } from '../../api/auth'
+import { requestNotifPermission, showDesktopNotification } from '../../utils/desktopNotif'
 import Dashboard from './pages/Dashboard'
 import Donors from './pages/Donors'
 import DonorDetail from './pages/DonorDetail'
@@ -86,11 +89,37 @@ export default function NgoAdminPanel() {
     localStorage.setItem('ngoadmin_theme', themeName)
   }, [themeName])
 
+  const [rejectedCount, setRejectedCount] = useState(0);
+  const [showNotifList, setShowNotifList] = useState(false);
+  const notifRef = useRef(null);
+
+  const loadRejectedCount = (showDesktop = false) => {
+    api('/ngo-admin/rejected-leads', { _prefix: 'ucs' })
+      .then(data => {
+        const items = (data || []).filter(t => t.status === 'pending_review');
+        if (showDesktop && items.length > 0) {
+          showDesktopNotification('Lead Rejected', `${items[0].donor_name} (₹${items[0].amount || 0}) lead rejected. Reason: ${items[0].rejection_reason}`, '/ngo-admin/rejected-leads');
+        }
+        setRejectedCount(items.length);
+      })
+      .catch(() => {});
+  };
+  useEffect(() => { loadRejectedCount(); requestNotifPermission(); }, []);
+
+  useRealtime('rejected_lead_tickets', {
+    event: '*',
+    onInsert: () => loadRejectedCount(true),
+    enabled: true,
+  });
+
   useEffect(() => {
-    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false) }
-    if (showMenu) document.addEventListener('mousedown', handler)
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false)
+      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifList(false)
+    }
+    if (showMenu || showNotifList) document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [showMenu])
+  }, [showMenu, showNotifList])
 
   const meta = NAV.find(n => location.pathname === n.path || (n.id === 'donors' && location.pathname.startsWith('/ngo-admin/donors/')))
   const userName = user?.name || 'Admin'
@@ -108,6 +137,23 @@ export default function NgoAdminPanel() {
             </button>
             <div className="eyebrow">{meta?.label || 'Dashboard'}</div>
             <h2>{meta?.label || 'Dashboard'}</h2>
+          </div>
+          <div ref={notifRef} style={{ position:'relative', marginRight:4 }}>
+            <span className="material-symbols-outlined" style={{ fontSize:20, cursor:'pointer', color: rejectedCount > 0 ? 'var(--sage)' : 'var(--ink-soft)' }}
+              onClick={() => setShowNotifList(!showNotifList)}>notifications</span>
+            {rejectedCount > 0 && (
+              <span style={{ position:'absolute', top:-4, right:-4, background:'#dc2626', color:'#fff', borderRadius:'50%', width:16, height:16, fontSize:9, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, lineHeight:1 }}>{rejectedCount}</span>
+            )}
+            {showNotifList && (
+              <div style={{ position:'absolute', top:'100%', right:0, marginTop:4, background:'#fff', border:'1px solid var(--line)', borderRadius:8, boxShadow:'0 4px 12px rgba(0,0,0,.1)', width:280, maxHeight:300, overflowY:'auto', zIndex:100, padding:12 }}>
+                <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>Rejected Leads</div>
+                {rejectedCount === 0 ? (
+                  <div style={{ fontSize:11, color:'var(--ink-soft)', textAlign:'center', padding:8 }}>No pending rejected leads</div>
+                ) : (
+                  <div style={{ fontSize:11, color:'var(--ink-soft)' }}>{rejectedCount} lead{rejectedCount > 1 ? 's' : ''} pending review. <NavLink to="/ngo-admin/rejected-leads" onClick={() => setShowNotifList(false)} style={{ color:'var(--sage)', fontWeight:600, textDecoration:'none' }}>View all</NavLink></div>
+                )}
+              </div>
+            )}
           </div>
           <div className="topbar-user" ref={menuRef} onClick={() => setShowMenu(!showMenu)}>
             <div className="topbar-user-text">
