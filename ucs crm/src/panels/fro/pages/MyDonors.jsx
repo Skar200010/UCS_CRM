@@ -30,6 +30,9 @@ const ALL_DISPOSITIONS = [...NOT_CONNECTED, ...CONNECTED];
 const CONNECTED_IDS = new Set(CONNECTED.map(d => d.id));
 const isConnected = (id) => CONNECTED_IDS.has(id);
 const findDisp = (id) => ALL_DISPOSITIONS.find(d => d.id === id);
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 1);
+const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
 
 const STATUS_PILL_MAP = {
   pending: 'pill-yellow', contacted: 'pill-blue', scheduled: 'pill-purple',
@@ -408,7 +411,7 @@ export default function MyDonors() {
                   <div className="detail-field-row">
                     <div className="fld">
                       <label>Follow Up Date</label>
-                      <DatePicker value={scheduledDate} onChange={e => { setScheduledDate(e.target.value); setDateConfirmed(true); }} placeholder="Select date" />
+                        <DatePicker value={scheduledDate} onChange={e => { setScheduledDate(e.target.value); setDateConfirmed(true); }} placeholder="Select date" min={tomorrowStr} />
                     </div>
                   </div>
                   {dateConfirmed && (

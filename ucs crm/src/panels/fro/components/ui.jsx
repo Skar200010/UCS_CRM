@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 
-export function DatePicker({ value, onChange, placeholder }) {
+export function DatePicker({ value, onChange, placeholder, min }) {
   const [open, setOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month');
@@ -51,10 +51,11 @@ export function DatePicker({ value, onChange, placeholder }) {
   for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const cls = (dateStr === value ? ' selected' : '') + (dateStr === todayStr ? ' today' : '');
+    const disabled = min && dateStr < min;
+    const cls = (dateStr === value ? ' selected' : '') + (dateStr === todayStr ? ' today' : '') + (disabled ? ' disabled' : '');
     cells.push(
       <div key={d} className={`dp-day${cls}`}
-        onClick={() => { onChange?.({ target: { value: dateStr } }); setOpen(false); }}>
+        onClick={() => { if (!disabled) { onChange?.({ target: { value: dateStr } }); setOpen(false); } }}>
         {d}
       </div>
     );

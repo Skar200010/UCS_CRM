@@ -1199,6 +1199,7 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 .panel-fro .dp-day.today { font-weight:700; color:var(--sage); }
 .panel-fro .dp-day.selected { background:var(--sage); color:white; }
 .panel-fro .dp-day.selected:hover { background:var(--sage); }
+.panel-fro .dp-day.disabled { opacity:.3; cursor:not-allowed; pointer-events:none; }
 .panel-fro .dp-year-grid { display:grid; grid-template-columns:repeat(4,1fr); text-align:center; gap:4px; margin-top:4px; }
 .panel-fro .dp-year { padding:8px 2px; font-size:13px; cursor:pointer; border-radius:6px; }
 .panel-fro .dp-year:hover { background:var(--bg); }
