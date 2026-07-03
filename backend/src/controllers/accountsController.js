@@ -335,20 +335,22 @@ export const rejectLead = async (req, res) => {
     if (froWorkerId) {
       const notifTitle = 'Lead Rejected by Accounts';
       const notifBody = `Your lead for ${donorName} (₹${log.amount_collected || 0}) was rejected. Reason: ${reason}`;
+      const refId = /^\d+$/.test(String(logId)) ? parseInt(logId) : null;
 
-      const pushResult = await sendPushNotification(froWorkerId, notifTitle, notifBody, 'lead_rejected', parseInt(logId));
-      if (!pushResult) {
-        try {
-          await supabase.from('notification_log').insert({
-            worker_id: froWorkerId,
-            type: 'lead_rejected',
-            title: notifTitle,
-            body: notifBody,
-            reference_id: parseInt(logId),
-            sent_at: new Date().toISOString(),
-          });
-        } catch (err) { console.error('Failed to create notification:', err.message); }
-      }
+      try {
+        await sendPushNotification(froWorkerId, notifTitle, notifBody, 'lead_rejected', refId);
+      } catch (err) { console.error('FCM send error:', err.message); }
+
+      try {
+        await supabase.from('notification_log').insert({
+          worker_id: froWorkerId,
+          type: 'lead_rejected',
+          title: notifTitle,
+          body: notifBody,
+          reference_id: refId,
+          sent_at: new Date().toISOString(),
+        });
+      } catch (err) { console.error('Failed to create notification_log entry:', err.message); }
       froNotified = true;
 
       try {
@@ -377,7 +379,7 @@ export const rejectLead = async (req, res) => {
               title: 'Lead Rejected',
               description: `${donorName} (₹${log.amount_collected || 0}) lead rejected. Reason: ${reason}`,
               donor_name: donorName,
-              reference_id: parseInt(logId),
+              reference_id: refId,
             });
             if (alertErr) console.error('Failed to create alert:', alertErr.message, alertErr.details, alertErr.code);
           } catch (err) { console.error('Failed to create alert:', err.message); }
