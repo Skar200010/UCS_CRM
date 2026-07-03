@@ -6,19 +6,28 @@ const PAGE_SIZE = 15;
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u20B90';
 
-const StatCard = ({ icon, label, value, sub, color }) => (
+const SkeletonNum = () => (
+  <span className="sk-num" style={{ display:'inline-block',width:48,height:24,borderRadius:6,background:'linear-gradient(90deg,var(--bg) 25%,var(--line) 50%,var(--bg) 75%)',backgroundSize:'200% 100%',animation:'sk-shimmer 1.4s infinite'}} />
+);
+
+const SkeletonRow = ({ cols }) => (
+  <tr>{Array.from({length:cols},(_,i)=><td key={i}><span className="sk-num" style={{display:'inline-block',width:i===0?120:i===3?56:i===2?48:64,height:14,borderRadius:4,background:'linear-gradient(90deg,var(--bg) 25%,var(--line) 50%,var(--bg) 75%)',backgroundSize:'200% 100%',animation:'sk-shimmer 1.4s infinite'}} /></td>)}</tr>
+);
+
+const StatCard = ({ icon, label, value, sub, color, loading: l }) => (
   <div className="stat-card">
     <div className="stat-icon" style={{ background: color + '18', color }}>{icon}</div>
     <div className="stat-info">
-      <div className="stat-num">{value}</div>
+      {l ? <SkeletonNum /> : <div className="stat-num">{value}</div>}
       <div className="stat-lbl">{label}</div>
-      {sub && <div className="stat-sub">{sub}</div>}
+      {sub && <div className="stat-sub">{l ? <span className="sk-num" style={{display:'inline-block',width:72,height:12,borderRadius:4,background:'linear-gradient(90deg,var(--bg) 25%,var(--line) 50%,var(--bg) 75%)',backgroundSize:'200% 100%',animation:'sk-shimmer 1.4s infinite'}} /> : sub}</div>}
     </div>
   </div>
 );
 
 export default function Dashboard() {
   const [leads, setLeads] = useState([]);
+  const [allLeads, setAllLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('pending');
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,11 +36,16 @@ export default function Dashboard() {
 
   const mountedRef = useRef(true);
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
   const load = useCallback(() => {
     setLoading(true);
-    const url = statusFilter ? `/accounts/leads?status=${statusFilter}` : '/accounts/leads';
-    apiGet(url)
-      .then(data => { if (mountedRef.current) setLeads(data); })
+    Promise.all([
+      apiGet('/accounts/leads'),
+      statusFilter ? apiGet(`/accounts/leads?status=${statusFilter}`) : apiGet('/accounts/leads'),
+    ])
+      .then(([all, filtered]) => {
+        if (mountedRef.current) { setAllLeads(all); setLeads(filtered); }
+      })
       .catch(() => {})
       .finally(() => { if (mountedRef.current) setLoading(false); });
   }, [statusFilter]);
@@ -39,15 +53,15 @@ export default function Dashboard() {
   useEffect(load, [load]);
 
   const stats = useMemo(() => {
-    const pending = leads.filter(l => l.accounts_status === 'pending');
-    const verified = leads.filter(l => l.accounts_status === 'verified');
-    const rejected = leads.filter(l => l.accounts_status === 'rejected');
+    const pending = allLeads.filter(l => l.accounts_status === 'pending');
+    const verified = allLeads.filter(l => l.accounts_status === 'verified');
+    const rejected = allLeads.filter(l => l.accounts_status === 'rejected');
     const pendingAmount = pending.reduce((s, l) => s + Number(l.amount || 0), 0);
     const verifiedAmount = verified.reduce((s, l) => s + Number(l.amount || 0), 0);
-    const totalAmount = leads.reduce((s, l) => s + Number(l.amount || 0), 0);
+    const totalAmount = allLeads.reduce((s, l) => s + Number(l.amount || 0), 0);
 
     const today = new Date().toDateString();
-    const verifiedToday = verified.filter(l => new Date(l.created_at).toDateString() === today);
+    const verifiedToday = verified.filter(l => l.verified_at && new Date(l.verified_at).toDateString() === today);
     const verifiedTodayAmount = verifiedToday.reduce((s, l) => s + Number(l.amount || 0), 0);
 
     return { pending, verified, rejected, pendingAmount, verifiedAmount, totalAmount, verifiedToday, verifiedTodayAmount };
@@ -70,16 +84,16 @@ export default function Dashboard() {
   useEffect(() => { setPage(0); }, [searchQuery, statusFilter]);
 
   if (viewingId) {
-    return <LeadDetail logId={viewingId} onBack={() => setViewingId(null)} />;
+    return <LeadDetail logId={viewingId} onBack={() => { setViewingId(null); load(); }} />;
   }
 
   return (
     <div>
       <div className="stats-grid">
-        <StatCard icon={'\u23F3'} label="Pending" value={stats.pending.length} sub={`${currency(stats.pendingAmount)} total`} color="#e67e22" />
-        <StatCard icon={'\u2714\uFE0F'} label="Verified" value={stats.verified.length} sub={`${currency(stats.verifiedAmount)} total`} color="#16a34a" />
-        <StatCard icon={'\u{1F4C5}'} label="Verified Today" value={stats.verifiedToday.length} sub={`${currency(stats.verifiedTodayAmount)} collected`} color="#3b82f6" />
-        <StatCard icon={'\u{1F4B0}'} label="Total Amount" value={currency(stats.totalAmount)} sub={`Across ${leads.length} leads`} color="#5B6B4E" />
+        <StatCard icon={'\u23F3'} label="Pending" value={stats.pending.length} sub={`${currency(stats.pendingAmount)} total`} color="#e67e22" loading={loading} />
+        <StatCard icon={'\u2714\uFE0F'} label="Verified" value={stats.verified.length} sub={`${currency(stats.verifiedAmount)} total`} color="#16a34a" loading={loading} />
+        <StatCard icon={'\u{1F4C5}'} label="Verified Today" value={stats.verifiedToday.length} sub={`${currency(stats.verifiedTodayAmount)} collected`} color="#3b82f6" loading={loading} />
+        <StatCard icon={'\u{1F4B0}'} label="Total Amount" value={currency(stats.totalAmount)} sub={`Across ${leads.length} leads`} color="#5B6B4E" loading={loading} />
       </div>
 
       <div className="card">
@@ -91,10 +105,10 @@ export default function Dashboard() {
             onChange={e => setSearchQuery(e.target.value)}
           />
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="pending">Pending ({stats.pending.length})</option>
-            <option value="verified">Verified ({stats.verified.length})</option>
-            <option value="rejected">Rejected ({stats.rejected.length})</option>
-            <option value="">All ({leads.length})</option>
+            <option value="pending">Pending ({allLeads.filter(l => l.accounts_status === 'pending').length})</option>
+            <option value="verified">Verified ({allLeads.filter(l => l.accounts_status === 'verified').length})</option>
+            <option value="rejected">Rejected ({allLeads.filter(l => l.accounts_status === 'rejected').length})</option>
+            <option value="">All ({allLeads.length})</option>
           </select>
         </div>
         <div className="table-wrap">
@@ -111,7 +125,7 @@ export default function Dashboard() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>Loading leads...</td></tr>
+                Array.from({ length: 8 }, (_, i) => <SkeletonRow key={i} cols={6} />)
               ) : paged.length === 0 ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>
                   {searchQuery ? 'No leads match your search.' : 'No leads found.'}

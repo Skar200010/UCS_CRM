@@ -38,6 +38,7 @@ export function TimePicker({ value, onChange, placeholder }) {
   const [selHour12, setSelHour12] = useState(null);
   const [isPm, setIsPm] = useState(false);
   const [tempMin, setTempMin] = useState(null);
+  const [flipUp, setFlipUp] = useState(false);
   const ref = useRef(null);
   const clockRef = useRef(null);
 
@@ -61,6 +62,10 @@ export function TimePicker({ value, onChange, placeholder }) {
       setIsPm(false);
       setMode('hour');
       setTempMin(null);
+    }
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setFlipUp(window.innerHeight - rect.bottom < 260);
     }
     setOpen(true);
   };
@@ -153,7 +158,11 @@ export function TimePicker({ value, onChange, placeholder }) {
       </button>
       {open && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: '50%', transform: 'translateX(-50%)', zIndex: 300,
+          position: 'absolute', zIndex: 300,
+          ...(flipUp
+            ? { bottom: 'calc(100% + 4px)' }
+            : { top: 'calc(100% + 4px)' }),
+          left: '50%', transform: 'translateX(-50%)',
           background: '#fff', border: '1px solid var(--line)', borderRadius: 10,
           boxShadow: '0 8px 32px rgba(0,0,0,.12)', padding: 10, width: 204,
         }}>

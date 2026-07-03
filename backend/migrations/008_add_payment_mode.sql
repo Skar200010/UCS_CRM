@@ -1,0 +1,2 @@
+ALTER TABLE fro_donor_logs
+ADD COLUMN IF NOT EXISTS payment_mode TEXT DEFAULT 'UPI';
