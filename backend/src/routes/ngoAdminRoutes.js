@@ -41,6 +41,9 @@ import {
 
 const router = Router();
 
+router.get('/rejected-leads', authenticateRole('hoadmin', 'super_admin'), getRejectedLeads);
+router.put('/rejected-leads/:id/acknowledge', authenticateRole('hoadmin', 'super_admin'), acknowledgeRejectedLead);
+
 router.use(authenticateRole('hoadmin'));
 
 router.get('/dashboard', getDashboard);
@@ -78,9 +81,6 @@ router.post('/new-data/distribute', distributeNewData);
 
 router.get('/alerts', getAlerts);
 router.put('/alerts/:id/acknowledge', acknowledgeAlert);
-
-router.get('/rejected-leads', getRejectedLeads);
-router.put('/rejected-leads/:id/acknowledge', acknowledgeRejectedLead);
 
 router.get('/database-requests', getDataRequests);
 router.put('/database-requests/:id/resolve', resolveDataRequest);
