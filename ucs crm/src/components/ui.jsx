@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 
-export function Dropdown({ value, onChange, options, placeholder, renderOption, renderValue }) {
+export function Dropdown({ value, onChange, options, placeholder, renderOption, renderValue, customTrigger, customValue, onCustomChange }) {
   const [open, setOpen] = useState(false)
+  const inputRef = useRef(null)
   const ref = useRef(null)
 
   useEffect(() => {
@@ -9,6 +10,10 @@ export function Dropdown({ value, onChange, options, placeholder, renderOption, 
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  useEffect(() => {
+    if (open && value === customTrigger && inputRef.current) inputRef.current.focus()
+  }, [open, value, customTrigger])
 
   const selected = options.find(o => (typeof o === 'string' ? o : o.value) === value)
 
@@ -24,11 +29,16 @@ export function Dropdown({ value, onChange, options, placeholder, renderOption, 
             const optValue = typeof opt === 'string' ? opt : opt.value
             const optLabel = typeof opt === 'string' ? opt : opt.label
             return (
-              <div key={optValue} className={`dropdown-item ${value === optValue ? 'active' : ''}`} onClick={() => { onChange(optValue); setOpen(false) }}>
+              <div key={optValue} className={`dropdown-item ${value === optValue ? 'active' : ''}`} onClick={() => { onChange(optValue); if (optValue !== customTrigger) setOpen(false) }}>
                 {renderOption ? renderOption(opt) : optLabel}
               </div>
             )
           })}
+          {value === customTrigger && (
+            <div className="dropdown-item" style={{ padding: 4 }}>
+              <input ref={inputRef} value={customValue || ''} onChange={e => onCustomChange?.(e.target.value)} placeholder="Specify source..." style={{ width: '100%', boxSizing: 'border-box' }} onClick={e => e.stopPropagation()} />
+            </div>
+          )}
         </div>
       )}
     </div>

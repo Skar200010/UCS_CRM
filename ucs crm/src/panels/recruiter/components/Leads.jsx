@@ -119,8 +119,7 @@ export default function Leads() {
                 {age !== null && <span style={{fontSize:11,color:'var(--ink-soft)',marginTop:2}}>Age: {age}</span>}
               </label>
               <label className="field">Source
-                <Dropdown value={source} onChange={e=>{setSource(e.target.value);if(e.target.value!=='Other')setCustomSource('')}} options={LEAD_SOURCES} />
-                {source === 'Other' && <input value={customSource} onChange={e=>setCustomSource(e.target.value)} placeholder="Specify source..." style={{marginTop:6}} />}
+                <Dropdown value={source} onChange={e=>{setSource(e.target.value);if(e.target.value!=='Other')setCustomSource('')}} options={LEAD_SOURCES} customTrigger="Other" customValue={customSource} onCustomChange={setCustomSource} />
               </label>
               <label className="field">Status
                 <Dropdown value={status} onChange={e=>setStatus(e.target.value)} options={LEAD_STATUSES} />
@@ -175,8 +174,7 @@ export default function Leads() {
               {age !== null && <span style={{fontSize:11,color:'var(--ink-soft)',marginTop:2}}>Age: {age}</span>}
             </label>
             <label className="field">Source
-              <Dropdown value={source} onChange={e=>{setSource(e.target.value);if(e.target.value!=='Other')setCustomSource('')}} options={LEAD_SOURCES} />
-              {source === 'Other' && <input value={customSource} onChange={e=>setCustomSource(e.target.value)} placeholder="Specify source..." style={{marginTop:6}} />}
+              <Dropdown value={source} onChange={e=>{setSource(e.target.value);if(e.target.value!=='Other')setCustomSource('')}} options={LEAD_SOURCES} customTrigger="Other" customValue={customSource} onCustomChange={setCustomSource} />
             </label>
             <label className="field">Status
               <Dropdown value={status} onChange={e=>setStatus(e.target.value)} options={LEAD_STATUSES} />
