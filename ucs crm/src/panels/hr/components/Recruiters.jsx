@@ -10,12 +10,6 @@ const calcAge = (dob) => {
 };
 
 const STATUSES = [
-  { key: 'connection_status', label: 'Connection Status', color: '#06b6d4' },
-  { key: 'followed_up', label: 'Followed Up', color: '#06b6d4' },
-  { key: 'call_back', label: 'Call Back', color: '#06b6d4' },
-  { key: 'scheduled', label: 'Scheduled', color: '#3b82f6' },
-];
-const CONNECTION_TYPES = [
   { key: 'connected', label: 'Connected', color: '#06b6d4' },
   { key: 'not_connected', label: 'Not Connected', color: '#ef4444' },
 ];
@@ -47,7 +41,7 @@ export default function Recruiters() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
-  const [form, setForm] = useState({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: 'followed_up', connectionType: '', notConnectedOption: '', followUpDateTime: '', notes: [], recruiter_id: '' });
+  const [form, setForm] = useState({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: 'connected', notConnectedOption: '', followUpDateTime: '', notes: [], recruiter_id: '' });
   const [newNote, setNewNote] = useState('');
   const [tab, setTab] = useState('all');
 
@@ -91,7 +85,6 @@ export default function Recruiters() {
         source: lead.source || 'Walk-in',
         customSource: '',
         status: lead.status,
-        connectionType: '',
         notConnectedOption: '',
         followUpDateTime: '',
         notes,
@@ -99,7 +92,7 @@ export default function Recruiters() {
       });
       setEditingLead(lead);
     } else {
-      setForm({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: 'followed_up', connectionType: '', notConnectedOption: '', followUpDateTime: '', notes: [], recruiter_id: '' });
+      setForm({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: 'connected', notConnectedOption: '', followUpDateTime: '', notes: [], recruiter_id: '' });
       setEditingLead(null);
     }
     setNewNote('');
@@ -125,7 +118,7 @@ export default function Recruiters() {
     if (!form.name.trim()) return;
     try {
       const finalSource = form.source === 'Other' ? (form.customSource.trim() || 'Other') : form.source;
-      const finalStatus = form.connectionType === 'connected' && form.followUpDateTime ? 'followed_up' : form.notConnectedOption || form.status;
+      const finalStatus = form.status === 'connected' && form.followUpDateTime ? 'followed_up' : form.notConnectedOption || form.status;
       const payload = {
         name: form.name.trim(),
         phone: form.phone || null,
@@ -348,25 +341,15 @@ export default function Recruiters() {
                     options={SOURCES.map(s => ({value:s, label:s}))} customTrigger="Other" customValue={form.customSource} onCustomChange={v => setForm(f => ({ ...f, customSource: v }))} />
                 </label>
                 <label className="field">Connection Status
-                  <Dropdown value={form.status} onChange={v => setForm(f => ({ ...f, status: v, connectionType: '', notConnectedOption: '', followUpDateTime: '' }))}
+                  <Dropdown value={form.status} onChange={v => setForm(f => ({ ...f, status: v, notConnectedOption: '', followUpDateTime: '' }))}
                     options={STATUSES.map(s => ({value:s.key, label:s.label}))} />
-                  {form.status === 'connection_status' && (
-                    <div style={{display:'flex',gap:8,marginTop:6}}>
-                      {CONNECTION_TYPES.map(t => (
-                        <div key={t.key} onClick={()=>setForm(f => ({ ...f, connectionType: t.key, notConnectedOption: '', followUpDateTime: '' }))}
-                          style={{flex:1,padding:'10px 14px',borderRadius:8,border:'1.5px solid var(--line)',cursor:'pointer',textAlign:'center',fontSize:13,fontWeight:500,background:form.connectionType===t.key?'var(--sage-soft)':'transparent',color:form.connectionType===t.key?'var(--sage)':'var(--ink)'}}>
-                          {t.label}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {form.connectionType === 'connected' && (
+                  {form.status === 'connected' && (
                     <>
                       <div style={{marginTop:8,fontSize:13,fontWeight:500,color:'var(--ink)'}}>Follow Up</div>
                       <input type="datetime-local" value={form.followUpDateTime} onChange={e => setForm(f => ({ ...f, followUpDateTime: e.target.value }))} style={{marginTop:4}} />
                     </>
                   )}
-                  {form.connectionType === 'not_connected' && (
+                  {form.status === 'not_connected' && (
                     <Dropdown value={form.notConnectedOption} onChange={v => setForm(f => ({ ...f, notConnectedOption: v }))}
                       options={NOT_CONNECTED_OPTIONS.map(s => ({value:s.key, label:s.label}))} style={{marginTop:6}} />
                   )}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRec, LEAD_SOURCES, LEAD_STATUSES, CONNECTION_TYPES, NOT_CONNECTED_OPTIONS } from '../store';
+import { useRec, LEAD_SOURCES, LEAD_STATUSES, NOT_CONNECTED_OPTIONS } from '../store';
 import { Plus, Users, Search, RefreshCw } from '../icons';
 import { Dropdown } from './ui';
 import LeadDetail from './LeadDetail';
@@ -43,7 +43,7 @@ export default function Leads() {
   const [source, setSource] = useState('Walk-in');
   const [customSource, setCustomSource] = useState('');
   const [status, setStatus] = useState('followed_up');
-  const [connectionType, setConnectionType] = useState('');
+
   const [notConnectedOption, setNotConnectedOption] = useState('');
   const [followUpDateTime, setFollowUpDateTime] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
@@ -66,12 +66,11 @@ export default function Leads() {
     if (!name.trim() || !phone.trim()) return;
     try {
       const finalSource = source === 'Other' ? (customSource.trim() || 'Other') : source;
-      const finalStatus = connectionType === 'connected' && followUpDateTime ? 'followed_up' : notConnectedOption || status;
+      const finalStatus = status === 'connected' && followUpDateTime ? 'followed_up' : notConnectedOption || status;
       const payload = { name: name.trim(), phone, dob: dob || null, source: finalSource, status: finalStatus, notes: formNotes.length ? JSON.stringify(formNotes) : null, created_by_name: user.name };
       if (finalStatus === 'followed_up' && followUpDateTime) payload.follow_up_date = followUpDateTime;
-      if (status === 'scheduled' && scheduledDate) payload.scheduled_date = scheduledDate;
       await addLead(payload);
-      setName(''); setPhone(''); setDob(''); setSource('Walk-in'); setCustomSource(''); setStatus('followed_up'); setConnectionType(''); setNotConnectedOption(''); setFollowUpDateTime(''); setScheduledDate(''); setFormNotes([]);
+      setName(''); setPhone(''); setDob(''); setSource('Walk-in'); setCustomSource(''); setStatus('connected'); setNotConnectedOption(''); setFollowUpDateTime(''); setScheduledDate(''); setFormNotes([]);
     } catch (err) { alert(err.message); }
   };
 
@@ -124,24 +123,14 @@ export default function Leads() {
                 <Dropdown value={source} onChange={e=>{setSource(e.target.value);if(e.target.value!=='Other')setCustomSource('')}} options={LEAD_SOURCES} customTrigger="Other" customValue={customSource} onCustomChange={setCustomSource} />
               </label>
               <label className="field">Connection Status
-                <Dropdown value={status} onChange={e=>{setStatus(e.target.value);setConnectionType('');setNotConnectedOption('');setFollowUpDateTime('')}} options={LEAD_STATUSES} />
-                {status === 'connection_status' && (
-                  <div style={{display:'flex',gap:8,marginTop:6}}>
-                    {CONNECTION_TYPES.map(t => (
-                      <div key={t.value} onClick={()=>{setConnectionType(t.value);setNotConnectedOption('');setFollowUpDateTime('')}}
-                        style={{flex:1,padding:'10px 14px',borderRadius:8,border:'1.5px solid var(--line)',cursor:'pointer',textAlign:'center',fontSize:13,fontWeight:500,background:connectionType===t.value?'var(--sage-soft)':'transparent',color:connectionType===t.value?'var(--sage)':'var(--ink)'}}>
-                        {t.label}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {connectionType === 'connected' && (
+                <Dropdown value={status} onChange={e=>{setStatus(e.target.value);setNotConnectedOption('');setFollowUpDateTime('')}} options={LEAD_STATUSES} />
+                {status === 'connected' && (
                   <>
                     <div style={{marginTop:8,fontSize:13,fontWeight:500,color:'var(--ink)'}}>Follow Up</div>
                     <input type="datetime-local" value={followUpDateTime} onChange={e=>setFollowUpDateTime(e.target.value)} style={{marginTop:4}} />
                   </>
                 )}
-                {connectionType === 'not_connected' && (
+                {status === 'not_connected' && (
                   <Dropdown value={notConnectedOption} onChange={e=>setNotConnectedOption(e.target.value)} options={NOT_CONNECTED_OPTIONS} style={{marginTop:6}} />
                 )}
               </label>
@@ -198,24 +187,14 @@ export default function Leads() {
               <Dropdown value={source} onChange={e=>{setSource(e.target.value);if(e.target.value!=='Other')setCustomSource('')}} options={LEAD_SOURCES} customTrigger="Other" customValue={customSource} onCustomChange={setCustomSource} />
             </label>
             <label className="field">Connection Status
-              <Dropdown value={status} onChange={e=>{setStatus(e.target.value);setConnectionType('');setNotConnectedOption('');setFollowUpDateTime('')}} options={LEAD_STATUSES} />
-              {status === 'connection_status' && (
-                <div style={{display:'flex',gap:8,marginTop:6}}>
-                  {CONNECTION_TYPES.map(t => (
-                    <div key={t.value} onClick={()=>{setConnectionType(t.value);setNotConnectedOption('');setFollowUpDateTime('')}}
-                      style={{flex:1,padding:'10px 14px',borderRadius:8,border:'1.5px solid var(--line)',cursor:'pointer',textAlign:'center',fontSize:13,fontWeight:500,background:connectionType===t.value?'var(--sage-soft)':'transparent',color:connectionType===t.value?'var(--sage)':'var(--ink)'}}>
-                      {t.label}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {connectionType === 'connected' && (
+              <Dropdown value={status} onChange={e=>{setStatus(e.target.value);setNotConnectedOption('');setFollowUpDateTime('')}} options={LEAD_STATUSES} />
+              {status === 'connected' && (
                 <>
                   <div style={{marginTop:8,fontSize:13,fontWeight:500,color:'var(--ink)'}}>Follow Up</div>
                   <input type="datetime-local" value={followUpDateTime} onChange={e=>setFollowUpDateTime(e.target.value)} style={{marginTop:4}} />
                 </>
               )}
-              {connectionType === 'not_connected' && (
+              {status === 'not_connected' && (
                 <Dropdown value={notConnectedOption} onChange={e=>setNotConnectedOption(e.target.value)} options={NOT_CONNECTED_OPTIONS} style={{marginTop:6}} />
               )}
             </label>
