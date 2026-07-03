@@ -129,21 +129,16 @@ export default function Leads() {
                   <div onClick={()=>{setStatus('not_connected');setNotConnectedOption('');setFollowUpDateTime('')}}
                     style={{flex:1,padding:'10px 14px',borderRadius:8,border:'1.5px solid var(--line)',cursor:'pointer',textAlign:'center',fontSize:13,fontWeight:500,background:status==='not_connected'?'var(--sage-soft)':'transparent',color:status==='not_connected'?'var(--sage)':'var(--ink)'}}>Not Connected</div>
                 </div>
-                {status === 'connected' && (
-                  <>
-                    <div style={{marginTop:8,fontSize:13,fontWeight:500,color:'var(--ink)'}}>Follow Up</div>
-                    <input type="datetime-local" value={followUpDateTime} onChange={e=>setFollowUpDateTime(e.target.value)} style={{marginTop:4}} />
-                  </>
-                )}
-                {status === 'not_connected' && (
-                  <Dropdown value={notConnectedOption} onChange={e=>setNotConnectedOption(e.target.value)} options={NOT_CONNECTED_OPTIONS} style={{marginTop:6}} />
-                )}
+                <div style={{display:'inline-flex',flexWrap:'wrap',alignItems:'center',gap:8,marginTop:6}}>
+                  {status === 'connected' && (
+                    <><span style={{fontSize:13,fontWeight:500,color:'var(--ink)'}}>Follow Up</span>
+                      <input type="datetime-local" value={followUpDateTime} onChange={e=>setFollowUpDateTime(e.target.value)} style={{width:'auto'}} /></>
+                  )}
+                  {status === 'not_connected' && (
+                    <Dropdown value={notConnectedOption} onChange={e=>setNotConnectedOption(e.target.value)} options={NOT_CONNECTED_OPTIONS} style={{width:'auto'}} />
+                  )}
+                </div>
               </label>
-              {status === 'scheduled' && (
-                <label className="field">Interview date
-                  <input type="date" value={scheduledDate} onChange={e=>setScheduledDate(e.target.value)} />
-                </label>
-              )}
             </div>
             <div style={{marginTop:12}}>
               <label className="field">Notes
@@ -198,21 +193,16 @@ export default function Leads() {
                 <div onClick={()=>{setStatus('not_connected');setNotConnectedOption('');setFollowUpDateTime('')}}
                   style={{flex:1,padding:'10px 14px',borderRadius:8,border:'1.5px solid var(--line)',cursor:'pointer',textAlign:'center',fontSize:13,fontWeight:500,background:status==='not_connected'?'var(--sage-soft)':'transparent',color:status==='not_connected'?'var(--sage)':'var(--ink)'}}>Not Connected</div>
               </div>
-              {status === 'connected' && (
-                <>
-                  <div style={{marginTop:8,fontSize:13,fontWeight:500,color:'var(--ink)'}}>Follow Up</div>
-                  <input type="datetime-local" value={followUpDateTime} onChange={e=>setFollowUpDateTime(e.target.value)} style={{marginTop:4}} />
-                </>
-              )}
-              {status === 'not_connected' && (
-                <Dropdown value={notConnectedOption} onChange={e=>setNotConnectedOption(e.target.value)} options={NOT_CONNECTED_OPTIONS} style={{marginTop:6}} />
-              )}
+              <div style={{display:'inline-flex',flexWrap:'wrap',alignItems:'center',gap:8,marginTop:6}}>
+                {status === 'connected' && (
+                  <><span style={{fontSize:13,fontWeight:500,color:'var(--ink)'}}>Follow Up</span>
+                    <input type="datetime-local" value={followUpDateTime} onChange={e=>setFollowUpDateTime(e.target.value)} style={{width:'auto'}} /></>
+                )}
+                {status === 'not_connected' && (
+                  <Dropdown value={notConnectedOption} onChange={e=>setNotConnectedOption(e.target.value)} options={NOT_CONNECTED_OPTIONS} style={{width:'auto'}} />
+                )}
+              </div>
             </label>
-            {status === 'scheduled' && (
-              <label className="field">Interview date
-                <input type="date" value={scheduledDate} onChange={e=>setScheduledDate(e.target.value)} />
-              </label>
-            )}
           </div>
           <div style={{marginTop:12}}>
             <label className="field">Notes
