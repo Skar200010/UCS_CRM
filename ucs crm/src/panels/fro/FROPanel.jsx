@@ -73,6 +73,7 @@ export default function FROPanel() {
   const [rejectedItems, setRejectedItems] = useState([]);
   const seenNotifIds = useRef(new Set());
   const notifRef = useRef(null);
+  const pollRef = useRef(null);
 
   const loadRejectedNotifications = () => {
     const workerId = user?.id;
@@ -93,7 +94,12 @@ export default function FROPanel() {
       })
       .catch(() => {});
   };
-  useEffect(() => { loadRejectedNotifications(); requestNotifPermission(); }, [user?.id]);
+  useEffect(() => {
+    loadRejectedNotifications();
+    requestNotifPermission();
+    pollRef.current = setInterval(() => loadRejectedNotifications(), 30000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [user?.id]);
 
   useRealtime('notification_log', {
     filter: `worker_id=eq.${user?.id}`,

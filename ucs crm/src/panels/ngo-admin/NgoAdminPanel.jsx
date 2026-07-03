@@ -92,6 +92,7 @@ export default function NgoAdminPanel() {
   const [rejectedCount, setRejectedCount] = useState(0);
   const [showNotifList, setShowNotifList] = useState(false);
   const notifRef = useRef(null);
+  const pollRef = useRef(null);
 
   const loadRejectedCount = (showDesktop = false) => {
     api('/ngo-admin/rejected-leads', { _prefix: 'ucs' })
@@ -104,7 +105,12 @@ export default function NgoAdminPanel() {
       })
       .catch(() => {});
   };
-  useEffect(() => { loadRejectedCount(); requestNotifPermission(); }, []);
+  useEffect(() => {
+    loadRejectedCount();
+    requestNotifPermission();
+    pollRef.current = setInterval(() => loadRejectedCount(), 30000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
 
   useRealtime('rejected_lead_tickets', {
     event: '*',
