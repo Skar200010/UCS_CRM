@@ -49,7 +49,7 @@ export default function Recruiters() {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
-  const [form, setForm] = useState({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: '', notConnectedOption: '', followUpDateTime: '', notes: [], recruiter_id: '' });
+  const [form, setForm] = useState({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: '', connectedOption: '', notConnectedOption: '', followUpDateTime: '', callBackTime: '', notes: [], recruiter_id: '' });
   const [newNote, setNewNote] = useState('');
   const [tab, setTab] = useState('all');
 
@@ -93,14 +93,16 @@ export default function Recruiters() {
         source: lead.source || 'Walk-in',
         customSource: '',
         status: lead.status,
+        connectedOption: '',
         notConnectedOption: '',
         followUpDateTime: '',
+        callBackTime: '',
         notes,
         recruiter_id: lead.recruiter_id || '',
       });
       setEditingLead(lead);
     } else {
-      setForm({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: '', notConnectedOption: '', followUpDateTime: '', notes: [], recruiter_id: '' });
+      setForm({ name: '', phone: '', dob: '', source: 'Walk-in', customSource: '', status: '', connectedOption: '', notConnectedOption: '', followUpDateTime: '', callBackTime: '', notes: [], recruiter_id: '' });
       setEditingLead(null);
     }
     setNewNote('');
@@ -126,7 +128,7 @@ export default function Recruiters() {
     if (!form.name.trim()) return;
     try {
       const finalSource = form.source === 'Other' ? (form.customSource.trim() || 'Other') : form.source;
-      const finalStatus = form.status === 'connected' && form.followUpDateTime ? 'followed_up' : form.notConnectedOption || form.status;
+      const finalStatus = form.connectedOption === 'follow_up' && form.followUpDateTime ? 'followed_up' : form.connectedOption === 'call_back' && form.callBackTime ? 'call_back' : form.notConnectedOption || form.status;
       const payload = {
         name: form.name.trim(),
         phone: form.phone || null,
@@ -137,6 +139,7 @@ export default function Recruiters() {
         recruiter_id: form.recruiter_id || null,
       };
       if (finalStatus === 'followed_up' && form.followUpDateTime) payload.follow_up_date = form.followUpDateTime;
+      if (finalStatus === 'call_back' && form.callBackTime) payload.call_back_time = form.callBackTime;
       if (editingLead) {
         await updateLead(editingLead.id, payload);
       } else {
@@ -351,17 +354,28 @@ export default function Recruiters() {
                 <label className="field">Connection Status
                   <div style={{display:'flex',gap:8,marginTop:6}}>
                     <div style={{flex:1,minWidth:0}}>
-                      <div onClick={()=>setForm(f => ({ ...f, status: f.status==='connected'?'':'connected', notConnectedOption: '', followUpDateTime: '' }))}
+                      <div onClick={()=>setForm(f => ({ ...f, status: f.status==='connected'?'':'connected', connectedOption: '', notConnectedOption: '', followUpDateTime: '', callBackTime: '' }))}
                         style={{padding:'10px 14px',borderRadius:8,border:'1.5px solid var(--line)',cursor:'pointer',textAlign:'center',fontSize:13,fontWeight:500,background:form.status==='connected'?'var(--sage-soft)':'transparent',color:form.status==='connected'?'var(--sage)':'var(--ink)',whiteSpace:'nowrap'}}>Connected</div>
                       {form.status === 'connected' && (
-                        <div style={{display:'inline-flex',alignItems:'center',gap:8,marginTop:6}}>
-                          <span style={{fontSize:13,fontWeight:500,color:'var(--ink)'}}>Follow Up</span>
-                          <input type="datetime-local" value={form.followUpDateTime} onChange={e => setForm(f => ({ ...f, followUpDateTime: e.target.value }))} style={{width:'auto'}} />
+                        <div style={{marginTop:6}}>
+                          <Dropdown value={form.connectedOption} onChange={v => setForm(f => ({ ...f, connectedOption: v, followUpDateTime: '', callBackTime: '' }))} options={[{value:'',label:'- Select -'},{value:'follow_up',label:'Follow Up'},{value:'call_back',label:'Call Back'}]} style={{width:'100%'}} />
+                          {form.connectedOption === 'follow_up' && (
+                            <div style={{display:'inline-flex',alignItems:'center',gap:8,marginTop:6}}>
+                              <span style={{fontSize:13,fontWeight:500,color:'var(--ink)'}}>Follow Up</span>
+                              <input type="datetime-local" value={form.followUpDateTime} onChange={e => setForm(f => ({ ...f, followUpDateTime: e.target.value }))} style={{width:'auto'}} />
+                            </div>
+                          )}
+                          {form.connectedOption === 'call_back' && (
+                            <div style={{display:'inline-flex',alignItems:'center',gap:8,marginTop:6}}>
+                              <span style={{fontSize:13,fontWeight:500,color:'var(--ink)'}}>Call Back</span>
+                              <input type="time" value={form.callBackTime} onChange={e => setForm(f => ({ ...f, callBackTime: e.target.value }))} style={{width:'auto'}} />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div onClick={()=>setForm(f => ({ ...f, status: f.status==='not_connected'?'':'not_connected', notConnectedOption: '', followUpDateTime: '' }))}
+                      <div onClick={()=>setForm(f => ({ ...f, status: f.status==='not_connected'?'':'not_connected', connectedOption: '', notConnectedOption: '', followUpDateTime: '', callBackTime: '' }))}
                         style={{padding:'10px 14px',borderRadius:8,border:'1.5px solid var(--line)',cursor:'pointer',textAlign:'center',fontSize:13,fontWeight:500,background:form.status==='not_connected'?'var(--sage-soft)':'transparent',color:form.status==='not_connected'?'var(--sage)':'var(--ink)',whiteSpace:'nowrap'}}>Not Connected</div>
                       {form.status === 'not_connected' && (
                         <Dropdown value={form.notConnectedOption} onChange={v => setForm(f => ({ ...f, notConnectedOption: v }))}
