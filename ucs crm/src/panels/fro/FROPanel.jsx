@@ -88,6 +88,7 @@ export default function FROPanel() {
   useRealtime('notification_log', {
     filter: `worker_id=eq.${user?.id}`,
     onInsert: () => loadRejectedCount(),
+    enabled: !!user?.id,
   });
 
   useEffect(() => {

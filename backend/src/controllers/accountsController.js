@@ -330,30 +330,34 @@ export const rejectLead = async (req, res) => {
     const donorName = log.fro_assignments?.donor_profiles?.name || 'Unknown';
 
     if (froWorkerId) {
-      await supabase.from('notification_log').insert({
-        worker_id: froWorkerId,
-        type: 'lead_rejected',
-        title: 'Lead Rejected by Accounts',
-        body: `Your lead for ${donorName} (₹${log.amount_collected || 0}) was rejected. Reason: ${reason}`,
-        reference_id: parseInt(logId),
-        sent_at: new Date().toISOString(),
-      });
+      try {
+        await supabase.from('notification_log').insert({
+          worker_id: froWorkerId,
+          type: 'lead_rejected',
+          title: 'Lead Rejected by Accounts',
+          body: `Your lead for ${donorName} (₹${log.amount_collected || 0}) was rejected. Reason: ${reason}`,
+          reference_id: parseInt(logId),
+          sent_at: new Date().toISOString(),
+        });
+      } catch (err) { console.error('Failed to create notification:', err.message); }
 
-      const { data: worker } = await supabase
-        .from('workers')
-        .select('ngo_id')
-        .eq('id', froWorkerId)
-        .maybeSingle();
+      try {
+        const { data: worker } = await supabase
+          .from('workers')
+          .select('ngo_id')
+          .eq('id', froWorkerId)
+          .maybeSingle();
 
-      await supabase.from('rejected_lead_tickets').insert({
-        fro_donor_log_id: parseInt(logId),
-        fro_worker_id: froWorkerId,
-        ngo_id: worker?.ngo_id || null,
-        donor_name: donorName,
-        amount: log.amount_collected || 0,
-        rejection_reason: reason,
-        status: 'pending_review',
-      });
+        await supabase.from('rejected_lead_tickets').insert({
+          fro_donor_log_id: logId,
+          fro_worker_id: froWorkerId,
+          ngo_id: worker?.ngo_id || null,
+          donor_name: donorName,
+          amount: log.amount_collected || 0,
+          rejection_reason: reason,
+          status: 'pending_review',
+        });
+      } catch (err) { console.error('Failed to create rejected lead ticket:', err.message); }
     }
 
     return res.json({ message: 'Lead rejected' });
