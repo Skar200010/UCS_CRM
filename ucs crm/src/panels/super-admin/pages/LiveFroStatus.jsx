@@ -89,6 +89,8 @@ export default function LiveFroStatus() {
             const meta = STATUS_META[fs.status] || STATUS_META.offline
             const workerName = fs.workers?.name || 'Unknown'
             const initials = workerName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+            const totalActive = (fs.today_talk_seconds || 0) + (fs.today_idle_seconds || 0)
+            const productivity = totalActive > 0 ? Math.round(((fs.today_talk_seconds || 0) / totalActive) * 100) : null
             return (
               <div key={fs.id} className="card" style={{
                 marginBottom: 0, padding: '14px 16px',
@@ -117,9 +119,20 @@ export default function LiveFroStatus() {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 12, fontSize: 10, color: 'var(--ink-soft)' }}>
-                  <span>Today: <strong style={{ color: 'var(--ink)' }}>{fs.today_calls || 0} calls</strong></span>
-                  <span>Talk: <strong style={{ color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(fs.today_talk_seconds || 0)}</strong></span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 10, color: 'var(--ink-soft)' }}>
+                  <span>📞 <strong style={{ color: 'var(--ink)' }}>{fs.today_calls || 0}</strong></span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>Talk: <strong style={{ color: 'var(--ink)' }}>{fmt(fs.today_talk_seconds || 0)}</strong></span>
+                  {fs.today_skipped > 0 && (
+                    <>
+                      <span>⏳ <strong style={{ color: '#d97706' }}>{fs.today_skipped}</strong></span>
+                      <span style={{ fontVariantNumeric: 'tabular-nums' }}>Idle: <strong style={{ color: '#d97706' }}>{fmt(fs.today_idle_seconds || 0)}</strong></span>
+                    </>
+                  )}
+                  {productivity !== null && (
+                    <span style={{ color: productivity < 50 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
+                      {productivity}% prod.
+                    </span>
+                  )}
                 </div>
 
                 <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 6 }}>

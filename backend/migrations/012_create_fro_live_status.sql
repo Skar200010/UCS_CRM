@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS fro_live_status (
   call_started_at TIMESTAMPTZ,
   today_calls INT DEFAULT 0,
   today_talk_seconds INT DEFAULT 0,
+  today_skipped INT DEFAULT 0,
+  today_idle_seconds INT DEFAULT 0,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 

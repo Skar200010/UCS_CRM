@@ -31,14 +31,23 @@ export default function CallTimer() {
     )
   }
 
-  if (todayStats.calls === 0) return null
+  const items = []
+  if (todayStats.calls > 0) {
+    items.push({ label: `${todayStats.calls}c`, bg: '#f0fdf4', border: '#bbf7d0', color: '#166534' })
+  }
+  if (todayStats.skippedDonors > 0) {
+    items.push({ label: `⏳${todayStats.skippedDonors} ${fmt(todayStats.idleSeconds)}`, bg: '#fefce8', border: '#fde68a', color: '#92400e' })
+  }
+
+  if (items.length === 0) return null
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 10, color: '#166534', whiteSpace: 'nowrap' }}>
-      <span className="material-symbols-outlined" style={{ fontSize: 12 }}>phone_in_talk</span>
-      <span style={{ fontWeight: 600 }}>{todayStats.calls}</span>
-      <span>calls</span>
-      <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{fmt(todayStats.totalSeconds)}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      {items.map((item, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 7px', borderRadius: 6, background: item.bg, border: `1px solid ${item.border}`, fontSize: 10, color: item.color, whiteSpace: 'nowrap' }}>
+          <span style={{ fontWeight: 600 }}>{item.label}</span>
+        </div>
+      ))}
     </div>
   )
 }

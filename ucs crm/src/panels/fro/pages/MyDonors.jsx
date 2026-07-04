@@ -84,7 +84,7 @@ export default function MyDonors() {
   const [donations, setDonations] = useState([]);
   const [donationYear, setDonationYear] = useState('this_year');
   const [donationLoading, setDonationLoading] = useState(false);
-  const { isOnCall, activeCall, startCall, endCall, todayStats } = useCall();
+  const { isOnCall, activeCall, startCall, endCall, todayStats, startDonorView, endDonorView } = useCall();
 
   useEffect(() => {
     setLoading(true);
@@ -103,6 +103,13 @@ export default function MyDonors() {
       setIndex(0);
     }).catch(err => setMessage({ type: 'error', text: err.message })).finally(() => setLoading(false));
   }, [filterStatus]);
+
+  useEffect(() => {
+    if (donors[index]) {
+      endDonorView(false)
+      startDonorView(donors[index].id)
+    }
+  }, [index]);
 
   const reloadDonors = useCallback(() => {
     getMyDonors(filterStatus).then(r => { setDonors(r); }).catch(() => {});
@@ -298,12 +305,23 @@ export default function MyDonors() {
   };
 
   return (<>
-    {todayStats.calls > 0 && (
-      <div style={{ marginBottom: 10, padding: '8px 14px', borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, color: '#166534' }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>phone_in_talk</span>
-        <span><strong>{todayStats.calls}</strong> calls today</span>
-        <span style={{ fontVariantNumeric: 'tabular-nums' }}>Talk time: <strong>{fmt(todayStats.totalSeconds)}</strong></span>
-        <span style={{ fontVariantNumeric: 'tabular-nums' }}>Avg: <strong>{todayStats.calls > 0 ? fmt(Math.round(todayStats.totalSeconds / todayStats.calls)) : '00:00'}</strong></span>
+    {(todayStats.calls > 0 || todayStats.skippedDonors > 0) && (
+      <div style={{ marginBottom: 10, padding: '8px 14px', borderRadius: 8, background: todayStats.skippedDonors > 0 ? '#fefce8' : '#f0fdf4', border: `1px solid ${todayStats.skippedDonors > 0 ? '#fde68a' : '#bbf7d0'}`, display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, color: todayStats.skippedDonors > 0 ? '#92400e' : '#166534', flexWrap: 'wrap' }}>
+        {todayStats.calls > 0 && (
+          <><span className="material-symbols-outlined" style={{ fontSize: 16 }}>phone_in_talk</span>
+          <span><strong>{todayStats.calls}</strong> calls</span>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>Talk: <strong>{fmt(todayStats.totalSeconds)}</strong></span>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>Avg: <strong>{todayStats.calls > 0 ? fmt(Math.round(todayStats.totalSeconds / todayStats.calls)) : '00:00'}</strong></span></>
+        )}
+        {todayStats.skippedDonors > 0 && (
+          <><span style={{ marginLeft: todayStats.calls > 0 ? 0 : 0 }}>·</span>
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>schedule</span>
+          <span>Skipped: <strong>{todayStats.skippedDonors}</strong></span>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>Idle: <strong>{fmt(todayStats.idleSeconds)}</strong></span>
+          {todayStats.totalSeconds + todayStats.idleSeconds > 0 && (
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>Prod: <strong>{Math.round((todayStats.totalSeconds / (todayStats.totalSeconds + todayStats.idleSeconds)) * 100)}%</strong></span>
+          )}</>
+        )}
       </div>
     )}
     <div className="detail-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -634,7 +652,7 @@ export default function MyDonors() {
     </div>
 
     <div className="detail-action-outer">
-      <button className="btn-next" disabled={index === 0} onClick={() => setIndex(i => i - 1)} style={{ background: 'transparent', color: 'var(--sage)', border: '1px solid var(--line)' }}>← Prev</button>
+      <button className="btn-next" disabled={index === 0} onClick={() => { endDonorView(isOnCall && activeCall?.donorId === donor.id); setIndex(i => i - 1) }} style={{ background: 'transparent', color: 'var(--sage)', border: '1px solid var(--line)' }}>← Prev</button>
       <span className="counter">{index + 1} of {donors.length}</span>
       {isOnCall && activeCall?.donorId === donor.id ? (
         <button onClick={endCall}
@@ -651,7 +669,7 @@ export default function MyDonors() {
       )}
       <button className="btn-next"
         disabled={saving || !selected}
-        onClick={handleButtonClick}>
+        onClick={() => { endDonorView(isOnCall); handleButtonClick() }}>
         {saving ? 'Saving...' : selected ? `Log ${findDisp(selected)?.label || selected}` : 'NEXT'}
       </button>
     </div>
