@@ -1347,7 +1347,7 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 .panel-recruiter .pcol-wrap { display:flex; align-items:stretch; flex:1; min-width:180px; max-width:300px; position:relative; }
 .panel-recruiter .pcol { background:var(--paper); border:1px solid var(--line); border-top:3px solid var(--line); border-radius:var(--radius); box-shadow:0 1px 3px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.06); display:flex; flex-direction:column; min-height:200px; flex:1; transition:box-shadow .2s, border-color .2s; }
 .panel-recruiter .pcol.drag-over { border-color:var(--sage); box-shadow:0 0 0 3px var(--sage-soft), 0 4px 12px rgba(0,0,0,.08); }
-.panel-recruiter .pipeline-connector { flex-shrink:0; display:flex; align-items:center; justify-content:center; width:28px; color:var(--ink-soft); opacity:.5; }
+.panel-recruiter .pipeline-connector { flex-shrink:0; display:flex; align-items:center; justify-content:center; width:48px; color:var(--ink-soft); opacity:.5; }
 .panel-recruiter .pipeline-connector svg { transition:transform .2s; }
 .panel-recruiter .pcol-wrap:hover + .pipeline-connector svg { transform:translateX(2px); opacity:.8; }
 
