@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useHR } from '../store';
-import { Dropdown, DatePicker } from './ui';
+import { Dropdown } from './ui';
 
 const IST_OFFSET = 5.5 * 60 * 60 * 1000;
 const API_BASE = import.meta.env.VITE_API_URL || 'https://attendance-roan-zeta.vercel.app/api';
@@ -66,8 +66,8 @@ export default function Attendance() {
   const [punchStatus, setPunchStatus] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [deptFilterH, setDeptFilterH] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
+  const [dayFilter, setDayFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [searchToday, setSearchToday] = useState('');
   const [searchWorker, setSearchWorker] = useState('');
@@ -128,9 +128,8 @@ export default function Attendance() {
 
   useEffect(() => {
     const d = new Date();
-    setDateTo(getIstDateStr(d));
-    d.setDate(d.getDate() - 30);
-    setDateFrom(getIstDateStr(d));
+    const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    setMonthFilter(m);
     fetchAttendance().then(setAttendance).catch(() => {});
     fetchWorkers().then(setWorkers).catch(() => {});
   }, []);
@@ -149,16 +148,18 @@ export default function Attendance() {
     setRefreshing(false);
   };
 
-  const handleLoadHistory = () => {
-    if (!dateFrom && !dateTo) return;
+  const refreshData = () => {
     fetchAttendance().then(setAttendance).catch(() => {});
   };
 
   const historyRecords = attendance.filter(r => {
     const worker = workers.find(w => w.id === r.worker_id);
     if (worker && !r.workers?.id) r.workers = worker;
-    if (dateFrom && r.date < dateFrom) return false;
-    if (dateTo && r.date > dateTo) return false;
+    if (dayFilter) {
+      if (r.date !== dayFilter) return false;
+    } else if (monthFilter) {
+      if (!r.date.startsWith(monthFilter)) return false;
+    }
     if (statusFilter && r.status !== statusFilter) return false;
     if (deptFilterH) {
       const w = r.workers || {};
@@ -192,10 +193,29 @@ export default function Attendance() {
   const hPresent = historyRecords.filter(r => r.status === 'present').length;
   const hLate = historyRecords.filter(r => r.status === 'late').length;
   const hAbsent = historyRecords.filter(r => r.status === 'absent').length;
-  const hLeave = historyRecords.filter(r => r.status === 'leave').length;
 
   return (
     <>
+      <style>{`
+        @media print {
+          .sidebar, .mobile-top, .topbar, .hamburger, .tabs, .filters { display: none !important; }
+          .main { margin-left: 0 !important; }
+          .content-body { padding: 20px !important; }
+          .card { box-shadow: none !important; border: none !important; padding: 0 !important; }
+          .btn, .btn-sm { display: none !important; }
+          .card-title, .search-input { display: none !important; }
+          .stats { gap: 6px !important; margin-bottom: 8px !important; }
+          .stat { padding: 4px 10px !important; border: 1px solid #ccc !important; }
+          .stat-value { font-size: 14px !important; }
+          .stat-label { font-size: 9px !important; }
+          table { font-size: 10px !important; border-collapse: collapse !important; width: 100% !important; }
+          th, td { padding: 4px 8px !important; border: 1px solid #999 !important; text-align: left !important; }
+          th { background: #f0f0f0 !important; font-weight: 600 !important; }
+          td { color: #000 !important; }
+          .table-wrap { overflow: visible !important; }
+          .dim { color: #666 !important; }
+        }
+      `}</style>
       {selectedWorker ? (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -211,22 +231,18 @@ export default function Attendance() {
               </div>
             ) : (
               <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr><th>#</th><th>Date</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Late (min)</th><th>Hours Worked</th></tr>
-                  </thead>
-                  <tbody>
-                    {workerAttendance.map((r, i) => (
-                      <tr key={r.id} className={r.status === 'late' ? 'row-late' : ''}>
-                        <td>{i + 1}</td>
-                        <td>{r.date}</td>
-                        <td><Badge status={r.status} /></td>
-                        <td>{fmtTime(r.punch_in_time)}</td>
-                        <td>{fmtTime(r.punch_out_time)}</td>
-                        <td>{r.late_minutes > 0 ? <span className="late-mins">{r.late_minutes}</span> : '\u2014'}</td>
-                        <td>{r.hours_worked || '\u2014'}</td>
-                      </tr>
-                    ))}
+                    <table>
+                      <thead>
+                        <tr><th>Date</th><th>Punch In</th><th>Punch Out</th></tr>
+                      </thead>
+                      <tbody>
+                        {workerAttendance.map((r, i) => (
+                          <tr key={r.id} className={r.status === 'late' ? 'row-late' : ''}>
+                            <td>{r.date}</td>
+                            <td>{fmtTime(r.punch_in_time)}</td>
+                            <td>{fmtTime(r.punch_out_time)}</td>
+                          </tr>
+                        ))}
                   </tbody>
                 </table>
               </div>
@@ -253,6 +269,7 @@ export default function Attendance() {
                 <div className="card-title" style={{ justifyContent: 'space-between' }}>
                   <span>Workers Present Today &mdash; <span className="today-date">{todayIST}</span></span>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button className="btn btn-sm" onClick={() => window.print()}>Print</button>
                     <Dropdown className="role-filter" value={punchStatus} onChange={e => setPunchStatus(e.target.value)}
                       options={[{value:'',label:'All'},{value:'present',label:'Present'},{value:'late',label:'Late'},{value:'absent',label:'Absent'}]} />
                     <Dropdown className="role-filter" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
@@ -273,21 +290,24 @@ export default function Attendance() {
                   <div className="table-wrap">
                     <table>
                       <thead>
-                        <tr><th>#</th><th>Name</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Late (min)</th><th>Hours Worked</th></tr>
+                        <tr><th>Name</th><th>Punch In</th><th>Punch Out</th></tr>
                       </thead>
                       <tbody>
-                        {todayRecords.map((r, i) => {
+                          {todayRecords.map((r, i) => {
                           const w = r.workers || {};
                           const cls = r.status === 'absent' ? 'row-absent' : r.status === 'late' ? 'row-late' : '';
                           return (
                             <tr key={r.id} className={cls}>
-                              <td>{i + 1}</td>
-                              <td><a href="#" className="worker-link" onClick={e => { e.preventDefault(); viewWorker(w.id); }}><strong>{w.name || 'Unknown'}</strong></a></td>
-                              <td><Badge status={r.status} /></td>
+                              <td>
+                                {r.status === 'absent' && <span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:'#ef4444', marginRight:6, verticalAlign:'middle' }} />}
+                                {r.status === 'late' && <span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:'#f59e0b', marginRight:6, verticalAlign:'middle' }} />}
+                                {r.status === 'present' && <span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:'#10b981', marginRight:6, verticalAlign:'middle' }} />}
+                                <a href="#" className="worker-link" onClick={e => { e.preventDefault(); viewWorker(w.id); }}><strong>{w.name || 'Unknown'}</strong></a>
+                                {r.status === 'absent' && <span style={{ fontSize:10, color:'#ef4444', marginLeft:4 }}>(Absent)</span>}
+                                {r.status === 'late' && <span style={{ fontSize:10, color:'#f59e0b', marginLeft:4 }}>(Late)</span>}
+                              </td>
                               <td>{fmtTime(r.punch_in_time)}</td>
                               <td>{fmtTime(r.punch_out_time)}</td>
-                              <td>{r.late_minutes > 0 ? <span className="late-mins">{r.late_minutes}</span> : '\u2014'}</td>
-                              <td>{r.punch_in_time ? <LiveHours punchIn={r.punch_in_time} punchOut={r.punch_out_time} /> : '\u2014'}</td>
                             </tr>
                           );
                         })}
@@ -305,12 +325,14 @@ export default function Attendance() {
               <div className="card" style={{ padding: '20px 22px' }}>
                 <div className="filters">
                   <div className="filter-group">
-                    <label>Date From</label>
-<DatePicker value={dateFrom} onChange={v => setDateFrom(v)} placeholder="From" />
+                    <label>Month</label>
+                    <input type="month" value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+                      style={{ fontSize: 13, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)' }} />
                    </div>
                    <div className="filter-group">
-                     <label>Date To</label>
-                     <DatePicker value={dateTo} onChange={v => setDateTo(v)} placeholder="To" />
+                     <label>Single Day</label>
+                     <input type="date" value={dayFilter} onChange={e => setDayFilter(e.target.value)}
+                       style={{ fontSize: 13, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)' }} />
                   </div>
                   <div className="filter-group">
                     <label>Department</label>
@@ -328,7 +350,10 @@ export default function Attendance() {
                   </div>
                   <div className="filter-group" style={{ flex: 0 }}>
                     <label>&nbsp;</label>
-                    <button className="btn btn-primary" onClick={handleLoadHistory} style={{ whiteSpace: 'nowrap' }}>Load History</button>
+                    <button className="btn btn-primary" onClick={refreshData} style={{ whiteSpace: 'nowrap' }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.4-3.4L23 10M1 14l5.1 4.4A9 9 0 0 0 20.5 15"/></svg>
+                      Refresh
+                    </button>
                   </div>
                 </div>
               </div>
@@ -338,7 +363,6 @@ export default function Attendance() {
                 <div className="stat"><div className="stat-label">Present</div><div className="stat-value success">{hPresent}</div></div>
                 <div className="stat"><div className="stat-label">Late</div><div className="stat-value warning">{hLate}</div></div>
                 <div className="stat"><div className="stat-label">Absent</div><div className="stat-value error">{hAbsent}</div></div>
-                <div className="stat"><div className="stat-label">Leave</div><div className="stat-value leave">{hLeave}</div></div>
               </div>
 
               <div className="card" style={{ padding: '20px 22px' }}>
@@ -349,28 +373,31 @@ export default function Attendance() {
                 {historyRecords.length === 0 ? (
                   <div className="empty-state">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    <p>No records found. Select a date range and click Load History.</p>
+                    <p>No records found for the selected filters.</p>
                   </div>
                 ) : (
                   <div className="table-wrap">
                     <table>
                       <thead>
-                        <tr><th>#</th><th>Date</th><th>Name</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Late (min)</th><th>Hours Worked</th></tr>
+                        <tr><th>Date</th><th>Name</th><th>Punch In</th><th>Punch Out</th></tr>
                       </thead>
                       <tbody>
-                        {historyRecords.map((r, i) => {
+                          {historyRecords.map((r, i) => {
                           const w = r.workers || {};
                           const cls = r.status === 'absent' ? 'row-absent' : r.status === 'late' ? 'row-late' : '';
                           return (
                             <tr key={r.id} className={cls}>
-                              <td>{i + 1}</td>
                               <td>{r.date}</td>
-                              <td><a href="#" className="worker-link" onClick={e => { e.preventDefault(); viewWorker(w.id); }}><strong>{w.name || 'Unknown'}</strong></a></td>
-                              <td><Badge status={r.status} /></td>
+                              <td>
+                                {r.status === 'absent' && <span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:'#ef4444', marginRight:6, verticalAlign:'middle' }} />}
+                                {r.status === 'late' && <span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:'#f59e0b', marginRight:6, verticalAlign:'middle' }} />}
+                                {r.status === 'present' && <span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:'#10b981', marginRight:6, verticalAlign:'middle' }} />}
+                                <a href="#" className="worker-link" onClick={e => { e.preventDefault(); viewWorker(w.id); }}><strong>{w.name || 'Unknown'}</strong></a>
+                                {r.status === 'absent' && <span style={{ fontSize:10, color:'#ef4444', marginLeft:4 }}>(Absent)</span>}
+                                {r.status === 'late' && <span style={{ fontSize:10, color:'#f59e0b', marginLeft:4 }}>(Late)</span>}
+                              </td>
                               <td>{fmtTime(r.punch_in_time)}</td>
                               <td>{fmtTime(r.punch_out_time)}</td>
-                              <td>{r.late_minutes > 0 ? <span className="late-mins">{r.late_minutes}</span> : '\u2014'}</td>
-                              <td>{r.hours_worked || '\u2014'}</td>
                             </tr>
                           );
                         })}

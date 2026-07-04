@@ -1,6 +1,7 @@
 import supabase from '../config/supabase.js';
 import { createReceipt, findReceiptByLogId, getLastReceiptNo, listAllReceipts } from '../models/receiptModel.js';
 import { sendPushNotification } from '../services/fcmService.js';
+import { getEntryByPaymentId, verifyEntry } from '../models/bankAuditModel.js';
 
 export const getLeadList = async (req, res) => {
   try {
@@ -189,6 +190,16 @@ export const verifyLead = async (req, res) => {
           sent_at: new Date().toISOString(),
         });
       } catch (err) { console.error('Failed to create verified notification:', err.message); }
+    }
+
+    // Auto-verify matching bank audit entry if UPI transaction ID matches
+    if (upi_transaction_id) {
+      try {
+        const bankEntry = await getEntryByPaymentId(upi_transaction_id);
+        if (bankEntry) {
+          await verifyEntry(bankEntry.id);
+        }
+      } catch (err) { console.error('Failed to auto-verify bank audit entry:', err.message); }
     }
 
     return res.json({ message: 'Lead verified, receipt generated', receipt });
@@ -651,6 +662,83 @@ export const getDonorHistory = async (req, res) => {
     }));
 
     return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getDayEndReport = async (req, res) => {
+  try {
+    const { date, month } = req.query;
+    let dateFrom, dateTo;
+    if (month) {
+      const [y, m] = month.split('-');
+      dateFrom = `${y}-${m}-01`;
+      const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+      dateTo = `${y}-${m}-${String(lastDay).padStart(2, '0')}`;
+    } else {
+      const reportDate = date || new Date().toISOString().split('T')[0];
+      dateFrom = reportDate + 'T00:00:00Z';
+      dateTo = reportDate + 'T23:59:59Z';
+    }
+
+    const { data: froLogs, error: fErr } = await supabase
+      .from('fro_donor_logs')
+      .select(`
+        amount_collected, accounts_status, verified_at, created_at,
+        fro_assignments!inner(fro_worker_id, workers!inner(id, name, login_id))
+      `)
+      .gte('created_at', dateFrom)
+      .lte('created_at', dateTo);
+    if (fErr) throw fErr;
+
+    const froMap = {};
+    let totalCollected = 0;
+    let totalSubmitted = 0;
+    for (const log of froLogs || []) {
+      const wid = log.fro_assignments?.fro_worker_id;
+      const wName = log.fro_assignments?.workers?.name || 'Unknown';
+      const wLogin = log.fro_assignments?.workers?.login_id || '';
+      const amount = Number(log.amount_collected || 0);
+      totalSubmitted += amount;
+      if (log.accounts_status === 'verified') totalCollected += amount;
+      if (!froMap[wid]) froMap[wid] = { id: wid, name: wName, login: wLogin, submitted: 0, collected: 0 };
+      froMap[wid].submitted += amount;
+      if (log.accounts_status === 'verified') froMap[wid].collected += amount;
+    }
+
+    const { data: suspenseEntries, error: sErr } = await supabase
+      .from('bank_audit_entries')
+      .select('id, amount, payment_id, bank_audit_sources(name)')
+      .eq('status', 'unverified');
+    if (sErr) throw sErr;
+
+    const suspenseAmount = (suspenseEntries || []).reduce((s, e) => s + Number(e.amount || 0), 0);
+
+    // Source-wise breakdown from bank audit entries
+    const { data: allBankEntries, error: bErr } = await supabase
+      .from('bank_audit_entries')
+      .select('amount, bank_audit_sources(name)');
+    if (bErr) throw bErr;
+
+    const sourceMap = {};
+    for (const e of allBankEntries || []) {
+      const name = e.bank_audit_sources?.name || 'Unknown';
+      sourceMap[name] = (sourceMap[name] || 0) + Number(e.amount || 0);
+    }
+    const sourceBreakdown = Object.entries(sourceMap).map(([name, amount]) => ({ name, amount }));
+
+    return res.json({
+      date: month || (date || new Date().toISOString().split('T')[0]),
+      isMonth: !!month,
+      froWorkers: Object.values(froMap),
+      totalSubmitted,
+      totalCollected,
+      suspenseCount: (suspenseEntries || []).length,
+      suspenseAmount,
+      suspenseEntries: suspenseEntries || [],
+      sourceBreakdown,
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

@@ -6,10 +6,11 @@ import {
 } from '../models/notificationAdminModel.js';
 import { getAllFcmTokens, getFcmToken } from '../models/notificationModel.js';
 import { sendPushToMultiple, sendPushNotification } from '../services/fcmService.js';
+import supabase from '../config/supabase.js';
 
 export const sendNow = async (req, res) => {
   try {
-    const { title, body, worker_id } = req.body;
+    const { title, body, worker_id, role } = req.body;
     if (!title || !body) {
       return res.status(400).json({ message: 'Title and body are required' });
     }
@@ -17,6 +18,19 @@ export const sendNow = async (req, res) => {
     if (worker_id) {
       const result = await sendPushNotification(worker_id, title, body, 'admin');
       return res.json({ message: 'Notification sent', sent: result ? 1 : 0 });
+    }
+
+    if (role) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id')
+        .eq('role', role);
+      const workerIds = (users || []).map(u => u.id);
+      if (workerIds.length === 0) return res.json({ message: 'No users with role ' + role, sent: 0 });
+      for (const wid of workerIds) {
+        try { await sendPushNotification(wid, title, body, 'admin'); } catch {}
+      }
+      return res.json({ message: 'Notification sent to ' + role, sent: workerIds.length });
     }
 
     const tokens = await getAllFcmTokens();

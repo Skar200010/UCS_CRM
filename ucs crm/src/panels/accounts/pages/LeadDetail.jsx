@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { TimePicker } from '../../fro/components/TimePicker';
@@ -78,6 +78,31 @@ export default function LeadDetail({ logId, onBack }) {
   const [historyFilter, setHistoryFilter] = useState('all');
 
   const [form, setForm] = useState({ donor_name:'',donor_mobile:'',donor_city:'',donor_email:'',donor_address:'',donor_pan:'', upi_transaction_id:'',transaction_date:null,transaction_time:'',payment_from:'', payment_mode:'UPI' });
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestRef = useRef(null);
+  const suggestTimer = useRef(null);
+
+  const fetchSuggestions = useCallback(async (q) => {
+    if (!q || q.length < 2) { setSuggestions([]); return; }
+    try {
+      const data = await apiGet('/accounts/bank-audit/entries/suggest?q=' + encodeURIComponent(q));
+      setSuggestions(data || []);
+      setShowSuggestions(data?.length > 0);
+    } catch { setSuggestions([]); }
+  }, []);
+
+  const handleUpiChange = (value) => {
+    setField('upi_transaction_id', value);
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    suggestTimer.current = setTimeout(() => fetchSuggestions(value), 300);
+  };
+
+  const selectSuggestion = (item) => {
+    setField('upi_transaction_id', item.payment_id);
+    setShowSuggestions(false);
+    setSuggestions([]);
+  };
   const receiptRef = useRef(null);
   const hasInitRef = useRef(false);
 
@@ -238,7 +263,7 @@ export default function LeadDetail({ logId, onBack }) {
                 <div><div className="label">Agent</div><div className="value">{l.agent_name} <span style={{fontSize:10,color:'var(--ink-soft)'}}>({l.agent_login})</span></div></div>
                 <div><div className="label">Submitted</div><div className="value">{new Date(l.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div></div>
                 <div><div className="label">Payment Mode</div>{isPending?<select className="field-input" value={form.payment_mode} onChange={e=>setField('payment_mode',e.target.value)}>{PAYMENT_MODES.map(m=><option key={m} value={m}>{m}</option>)}</select>:<div className="value">{form.payment_mode||'\u2014'}</div>}</div>
-                <div><div className="label">UPI Transaction ID</div>{isPending?<input className="field-input" value={form.upi_transaction_id} onChange={e=>setField('upi_transaction_id',e.target.value)} placeholder="e.g. UPI123456789" />:<div className="value">{form.upi_transaction_id||'\u2014'}</div>}</div>
+                 <div style={{position:'relative'}} ref={suggestRef}><div className="label">UPI Transaction ID</div>{isPending?<input className="field-input" value={form.upi_transaction_id} onChange={e=>handleUpiChange(e.target.value)} placeholder="e.g. UPI123456789" onBlur={()=>setTimeout(()=>setShowSuggestions(false),200)} onFocus={()=>suggestions.length>0&&setShowSuggestions(true)} />:<div className="value">{form.upi_transaction_id||'\u2014'}</div>}{isPending&&showSuggestions?<div style={{position:'absolute',top:'100%',left:0,right:0,background:'var(--card-bg)',border:'1px solid var(--line)',borderRadius:'var(--radius-sm)',boxShadow:'var(--shadow-md)',zIndex:50,maxHeight:200,overflowY:'auto',marginTop:2}}>{suggestions.map(s=><div key={s.id} onMouseDown={()=>selectSuggestion(s)} style={{padding:'8px 10px',cursor:'pointer',fontSize:12,borderBottom:'1px solid var(--line)',display:'flex',justifyContent:'space-between',alignItems:'center'}} onMouseOver={e=>e.currentTarget.style.background='var(--bg)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}><span>{s.payment_id}</span><span className="pill pill-gray" style={{fontSize:10}}>{s.bank_audit_sources?.name}</span></div>)}</div>:null}</div>
                 <div><div className="label">Date</div>{isPending?<DatePicker selected={form.transaction_date} onChange={d=>setField('transaction_date',d)} dateFormat="dd/MM/yyyy" placeholderText="Select date" isClearable showYearDropdown scrollableYearDropdown yearDropdownItemNumber={50} className="datepicker-input" />:<div className="value">{form.transaction_date?new Date(form.transaction_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'\u2014'}</div>}</div>
                 <div><div className="label">Time</div>{isPending?<div className="field-picker"><TimePicker value={form.transaction_time} onChange={e=>setField('transaction_time',e.target.value)} placeholder="Select time" /></div>:<div className="value">{form.transaction_time||'\u2014'}</div>}</div>
                 <div><div className="label">From</div>{isPending?<input className="field-input" value={form.payment_from} onChange={e=>setField('payment_from',e.target.value)} placeholder="Sender name" />:<div className="value">{form.payment_from||'\u2014'}</div>}</div>
