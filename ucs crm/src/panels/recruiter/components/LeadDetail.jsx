@@ -21,13 +21,14 @@ export default function LeadDetail({ lead, onBack }) {
   const [noteText, setNoteText] = useState('');
   const [editScheduledDate, setEditScheduledDate] = useState(lead.scheduled_date || '');
 
-  let notes = [];
-  try { notes = JSON.parse(lead.notes || '[]'); } catch { notes = lead.notes ? [{ text: lead.notes }] : []; }
+  let allNotes = [];
+  try { allNotes = JSON.parse(lead.notes || '[]'); } catch { allNotes = lead.notes ? [{ text: lead.notes }] : []; }
+  const notes = allNotes.filter(n => !n.__meta);
 
   const addNote = async () => {
     if (!noteText.trim()) return;
     const n = { text: noteText.trim(), date: new Date().toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}), by: user?.name || 'Unknown' };
-    await updateLead(lead.id, { notes: JSON.stringify([...notes, n]) });
+    await updateLead(lead.id, { notes: JSON.stringify([...allNotes, n]) });
     setNoteText('');
   };
 

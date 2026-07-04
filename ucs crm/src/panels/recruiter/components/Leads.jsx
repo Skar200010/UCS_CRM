@@ -10,6 +10,14 @@ const calcAge = (dob) => {
   return Math.floor(diff / 31557600000);
 };
 
+const getJobRole = (lead) => {
+  if (lead.job_role) return lead.job_role;
+  let notes = [];
+  try { notes = JSON.parse(lead.notes || '[]'); } catch {}
+  const meta = notes.find(n => n.__meta === true && n.type === 'job_role');
+  return meta ? meta.value : null;
+};
+
 const statusPill = (s) => {
   const m = { scheduled:'pill-clay' };
   const st = LEAD_STATUSES.find(st => st.value === s);
@@ -90,7 +98,9 @@ export default function Leads() {
       const finalSource = source === 'Other' ? (customSource.trim() || 'Other') : source;
       const finalStatus = connectedOption === 'follow_up' && followUpDateTime ? 'followed_up' : connectedOption === 'call_back' && callBackTime ? 'call_back' : connectedOption === 'schedule' && scheduledDate ? 'scheduled' : connectedOption === 'not_interested' ? 'not_interested' : notConnectedOption || status;
       const finalJobRole = selectedJobRole === 'Other' ? (customJobRole.trim() || 'Other') : selectedJobRole;
-      const payload = { name: name.trim(), phone, dob: dob || null, source: finalSource, status: finalStatus, job_role: finalJobRole || null, notes: formNotes.length ? JSON.stringify(formNotes) : null, created_by_name: user.name };
+      const notesArr = [...formNotes];
+      if (finalJobRole) notesArr.unshift({ __meta: true, type: 'job_role', value: finalJobRole });
+      const payload = { name: name.trim(), phone, dob: dob || null, source: finalSource, status: finalStatus, notes: notesArr.length ? JSON.stringify(notesArr) : null, created_by_name: user.name };
       if (finalStatus === 'followed_up' && followUpDateTime) payload.follow_up_date = followUpDateTime;
       if (finalStatus === 'call_back' && callBackTime) payload.call_back_time = callBackTime;
       if (finalStatus === 'scheduled' && scheduledDate) payload.scheduled_date = scheduledDate;
@@ -321,7 +331,7 @@ export default function Leads() {
                       <td>{isOwner ? (
                         <Dropdown className="inline-select" value={l.status} onChange={e=>updateLeadStatus(l.id, e.target.value)} options={LEAD_STATUSES} />
                       ) : statusPill(l.status)}</td>
-                      <td style={{color:'var(--ink-soft)'}}>{l.job_role || '—'}</td>
+                      <td style={{color:'var(--ink-soft)'}}>{getJobRole(l) || '—'}</td>
                       <td onClick={e => e.stopPropagation()}>
                         <span onClick={() => setDeleteConfirm(l)} style={{cursor:'pointer',color:'var(--danger)',fontSize:13,display:'inline-flex',alignItems:'center'}}><Trash width={16}/></span>
                       </td>
