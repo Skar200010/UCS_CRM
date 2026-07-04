@@ -162,19 +162,52 @@ export default function Reports() {
             <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{report.date}</div>
           </div>
 
-          <div style={{ display: 'flex', gap: 24, marginBottom: 16, flexWrap: 'wrap' }}>
-            {[
-              { label: 'Total Submitted', value: currency(report.totalSubmitted), color: '#B5603A' },
-              { label: 'Total Collected', value: currency(report.totalCollected), color: '#5B6B4E' },
-              { label: 'Suspense', value: currency(report.suspenseAmount), color: '#dc2626', sub: report.suspenseCount + ' unverified' },
-            ].map(s => (
-              <div key={s.label} style={{ border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', padding: '10px 16px', minWidth: 140 }}>
-                <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginBottom: 2 }}>{s.label}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</div>
-                {s.sub && <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{s.sub}</div>}
-              </div>
-            ))}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ overflowX: 'auto', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#5B6B4E08' }}>
+                    <th style={{ padding: '10px 14px', borderBottom: '2px solid var(--line)', textAlign: 'center', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--ink-soft)' }}>Total Submitted</th>
+                    <th style={{ padding: '10px 14px', borderBottom: '2px solid var(--line)', textAlign: 'center', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--ink-soft)' }}>Total Collected</th>
+                    <th style={{ padding: '10px 14px', borderBottom: '2px solid var(--line)', textAlign: 'center', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--ink-soft)' }}>Suspense</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', color: '#B5603A', fontSize: 24, fontWeight: 700 }}>{currency(report.totalSubmitted)}</td>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', color: '#5B6B4E', fontSize: 24, fontWeight: 700 }}>{currency(report.totalCollected)}</td>
+                    <td style={{ padding: '12px 14px', textAlign: 'center', color: '#dc2626', fontSize: 24, fontWeight: 700 }}>{currency(report.suspenseAmount)}<br /><span style={{ fontSize: 11, fontWeight: 400, color: 'var(--ink-soft)' }}>{report.suspenseCount} unverified entries</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {report.suspenseEntries.length > 0 && (
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="card-head"><h3>Suspense Details</h3></div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Payment ID</th>
+                      <th>Source</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.suspenseEntries.map(e => (
+                      <tr key={e.id}>
+                        <td style={{ fontSize: 12 }}>{e.payment_id || '\u2014'}</td>
+                        <td><span className="pill pill-gray">{e.bank_audit_sources?.name || 'Unknown'}</span></td>
+                        <td style={{ color: '#dc2626', fontWeight: 600 }}>{currency(e.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="card-head"><h3>FRO-wise Breakdown</h3></div>
@@ -207,32 +240,6 @@ export default function Reports() {
               </table>
             </div>
           </div>
-
-          {report.suspenseEntries.length > 0 && (
-            <div className="card" style={{ marginBottom: 16 }}>
-              <div className="card-head"><h3>Suspense Details</h3></div>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Payment ID</th>
-                      <th>Source</th>
-                      <th>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.suspenseEntries.map(e => (
-                      <tr key={e.id}>
-                        <td style={{ fontSize: 12 }}>{e.payment_id || '\u2014'}</td>
-                        <td><span className="pill pill-gray">{e.bank_audit_sources?.name || 'Unknown'}</span></td>
-                        <td style={{ color: '#dc2626', fontWeight: 600 }}>{currency(e.amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-soft)' }}>No data for this period</div>
