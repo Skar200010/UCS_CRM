@@ -320,7 +320,7 @@ export default function MyDonors() {
         )}
         {todayStats.breakSeconds > 0 && (
           <><span style={{ fontSize: 16 }}>☕</span>
-          <span>Break: <strong>{fmt(todayStats.breakSeconds)}</strong></span></>
+          <span style={{ color: todayStats.breakSeconds > 3600 ? '#dc2626' : '#92400e' }}>{todayStats.breakCount || 0} breaks: <strong>{fmt(todayStats.breakSeconds)}</strong>{todayStats.breakSeconds > 3600 && ' 🔴'}</span></>
         )}
         {todayStats.totalSeconds + todayStats.idleSeconds > 0 && (
           <span style={{ fontVariantNumeric: 'tabular-nums' }}>Prod: <strong>{Math.round((todayStats.totalSeconds / (todayStats.totalSeconds + todayStats.idleSeconds)) * 100)}%</strong></span>
@@ -336,7 +336,6 @@ export default function MyDonors() {
             <div style={{ textAlign: 'center', paddingBottom: 10, borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
               <div className="detail-avatar">{initials(donor.donor_name)}</div>
               <div className="detail-name">{donor.donor_name}</div>
-              <div className="detail-phone">{donor.donor_mobile || '—'}</div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                 {donor.is_new && (
                   <span style={{ padding: '1px 6px', borderRadius: 4, background: '#16a34a', color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: .5 }}>NEW</span>

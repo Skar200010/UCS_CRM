@@ -4,11 +4,12 @@ import { api } from './api/auth'
 const CallContext = createContext()
 
 const STATS_KEY = 'fro_call_stats'
+const BREAK_LIMIT = 3600
 
 function loadStats(userId) {
   try {
     const raw = localStorage.getItem(STATS_KEY)
-    if (!raw) return { calls: 0, totalSeconds: 0, skippedDonors: 0, idleSeconds: 0, breakSeconds: 0 }
+    if (!raw) return { calls: 0, totalSeconds: 0, skippedDonors: 0, idleSeconds: 0, breakSeconds: 0, breakCount: 0 }
     const data = JSON.parse(raw)
     const today = new Date().toISOString().slice(0, 10)
     if (data.date === today && data.userId === userId) {
@@ -18,10 +19,11 @@ function loadStats(userId) {
         skippedDonors: data.skippedDonors || 0,
         idleSeconds: data.idleSeconds || 0,
         breakSeconds: data.breakSeconds || 0,
+        breakCount: data.breakCount || 0,
       }
     }
-    return { calls: 0, totalSeconds: 0, skippedDonors: 0, idleSeconds: 0, breakSeconds: 0 }
-  } catch { return { calls: 0, totalSeconds: 0, skippedDonors: 0, idleSeconds: 0, breakSeconds: 0 } }
+    return { calls: 0, totalSeconds: 0, skippedDonors: 0, idleSeconds: 0, breakSeconds: 0, breakCount: 0 }
+  } catch { return { calls: 0, totalSeconds: 0, skippedDonors: 0, idleSeconds: 0, breakSeconds: 0, breakCount: 0 } }
 }
 
 function saveStats(userId, stats) {
@@ -34,6 +36,7 @@ function saveStats(userId, stats) {
       skippedDonors: stats.skippedDonors,
       idleSeconds: stats.idleSeconds,
       breakSeconds: stats.breakSeconds,
+      breakCount: stats.breakCount,
     }))
   } catch {}
 }
@@ -55,12 +58,14 @@ export function CallProvider({ children, userId }) {
   const donorViewStartRef = useRef(null)
   const lastDonorIdRef = useRef(null)
   const [onBreak, setOnBreak] = useState(false)
-  const [breakType, setBreakType] = useState(null)
   const [breakElapsed, setBreakElapsed] = useState(0)
   const breakTimerRef = useRef(null)
 
   const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } }
   const clearBreakTimer = () => { if (breakTimerRef.current) { clearInterval(breakTimerRef.current); breakTimerRef.current = null } }
+
+  const totalBreakWithCurrent = todayStats.breakSeconds + (onBreak ? breakElapsed : 0)
+  const isBreakOvertime = totalBreakWithCurrent > BREAK_LIMIT
 
   const syncAllStats = useCallback((extra = {}) => {
     const status = onBreak ? 'break' : (activeCall ? 'on_call' : (todayStats.idleSeconds > 0 ? 'idle' : 'online'))
@@ -76,11 +81,10 @@ export function CallProvider({ children, userId }) {
         today_idle_seconds: todayStats.idleSeconds,
         today_break_seconds: todayStats.breakSeconds,
         on_break: onBreak,
-        break_type: breakType,
         ...extra,
       }),
     }).catch(() => {})
-  }, [activeCall, onBreak, breakType, todayStats])
+  }, [activeCall, onBreak, todayStats])
 
   useEffect(() => {
     syncAllStats()
@@ -135,7 +139,7 @@ export function CallProvider({ children, userId }) {
   }, [userId])
 
   const startCall = useCallback((donor) => {
-    if (onBreak) endBreak()
+    if (onBreak) toggleBreak()
     donorViewStartRef.current = null
     setActiveCall({
       donorId: donor.id || donor.donorId,
@@ -157,30 +161,26 @@ export function CallProvider({ children, userId }) {
     setActiveCall(null)
   }, [activeCall, userId])
 
-  const startBreak = useCallback((type) => {
-    setOnBreak(true)
-    setBreakType(type)
-    setBreakElapsed(0)
-  }, [])
-
-  const endBreak = useCallback(() => {
+  const toggleBreak = useCallback(() => {
     if (onBreak) {
       setTodayStats(prev => {
-        const next = { ...prev, breakSeconds: prev.breakSeconds + breakElapsed }
+        const next = { ...prev, breakSeconds: prev.breakSeconds + breakElapsed, breakCount: prev.breakCount + 1 }
         saveStats(userId, next)
         return next
       })
+      setOnBreak(false)
+      setBreakElapsed(0)
+    } else {
+      setOnBreak(true)
+      setBreakElapsed(0)
     }
-    setOnBreak(false)
-    setBreakType(null)
-    setBreakElapsed(0)
   }, [onBreak, breakElapsed, userId])
 
   return (
     <CallContext.Provider value={{
       activeCall, elapsed, todayStats, startCall, endCall, isOnCall: !!activeCall,
       startDonorView, endDonorView, syncAllStats, fmt,
-      onBreak, breakType, breakElapsed, startBreak, endBreak,
+      onBreak, breakElapsed, toggleBreak, isBreakOvertime, BREAK_LIMIT,
     }}>
       {children}
     </CallContext.Provider>

@@ -121,11 +121,13 @@ export default function LiveFroStatus() {
                 )}
 
                 {fs.status === 'break' && (
-                  <div style={{ padding: '8px 10px', borderRadius: 6, background: '#fefce8', border: '1px solid #fde68a', marginBottom: 8 }}>
+                  <div style={{ padding: '8px 10px', borderRadius: 6, background: fs.today_break_seconds > 3600 ? '#fef2f2' : '#fefce8', border: `1px solid ${fs.today_break_seconds > 3600 ? '#fecaca' : '#fde68a'}`, marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 14 }}>{fs.break_type === 'tea' ? '☕' : fs.break_type === 'lunch' ? '🍽️' : '⏱️'}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: '#92400e', flex: 1 }}>{fs.break_type ? fs.break_type.charAt(0).toUpperCase() + fs.break_type.slice(1) : 'Break'}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#d97706', fontVariantNumeric: 'tabular-nums' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 14, color: fs.today_break_seconds > 3600 ? '#dc2626' : '#d97706' }}>free_breakfast</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: fs.today_break_seconds > 3600 ? '#991b1b' : '#92400e', flex: 1 }}>
+                        On Break{fs.today_break_seconds > 3600 ? ' 🔴' : ''}
+                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: fs.today_break_seconds > 3600 ? '#dc2626' : '#d97706', fontVariantNumeric: 'tabular-nums' }}>
                         {fs.break_started_at ? fmt(Math.floor((Date.now() - new Date(fs.break_started_at).getTime()) / 1000)) : '00:00'}
                       </span>
                     </div>
@@ -143,7 +145,7 @@ export default function LiveFroStatus() {
                   )}
                   {fs.today_break_seconds > 0 && (
                     <><span style={{ fontSize: 12 }}>☕</span>
-                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>Break: <strong style={{ color: '#d97706' }}>{fmt(fs.today_break_seconds || 0)}</strong></span></>
+                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>Break: <strong style={{ color: fs.today_break_seconds > 3600 ? '#dc2626' : '#d97706' }}>{fmt(fs.today_break_seconds || 0)}</strong>{fs.today_break_seconds > 3600 && ' 🔴'}</span></>
                   )}
                   {productivity !== null && (
                     <span style={{ color: productivity < 50 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>

@@ -116,45 +116,47 @@ export default function Dashboard() {
             </div>
             <div style={{ flex: 1 }}>
               <span style={{ fontSize: 10, color: 'var(--ink-soft)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3 }}>Today's Activity</span>
-              <div style={{ display: 'flex', gap: 16, marginTop: 4, flexWrap: 'wrap' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(85px, 1fr))', gap: 6, marginTop: 6 }}>
                 {todayStats?.calls > 0 && (
-                  <>
-                    <div>
-                      <span style={{ fontSize: 20, fontWeight: 800, color: '#16a34a' }}>{todayStats.calls}</span>
-                      <span style={{ fontSize: 11, color: 'var(--ink-soft)', marginLeft: 4 }}>calls</span>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: 20, fontWeight: 800, color: '#16a34a', fontVariantNumeric: 'tabular-nums' }}>{callFmt(todayStats.totalSeconds)}</span>
-                      <span style={{ fontSize: 11, color: 'var(--ink-soft)', marginLeft: 4 }}>talk</span>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: 20, fontWeight: 800, color: '#16a34a', fontVariantNumeric: 'tabular-nums' }}>{callFmt(Math.round(todayStats.totalSeconds / todayStats.calls))}</span>
-                      <span style={{ fontSize: 11, color: 'var(--ink-soft)', marginLeft: 4 }}>avg</span>
-                    </div>
-                  </>
+                  <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{todayStats.calls}</div>
+                    <div style={{ fontSize: 9, color: '#166534' }}>calls</div>
+                  </div>
+                )}
+                {todayStats?.calls > 0 && (
+                  <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a', fontVariantNumeric: 'tabular-nums' }}>{callFmt(todayStats.totalSeconds)}</div>
+                    <div style={{ fontSize: 9, color: '#166534' }}>talk</div>
+                  </div>
+                )}
+                {todayStats?.calls > 0 && (
+                  <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a', fontVariantNumeric: 'tabular-nums' }}>{callFmt(Math.round(todayStats.totalSeconds / todayStats.calls))}</div>
+                    <div style={{ fontSize: 9, color: '#166534' }}>avg</div>
+                  </div>
                 )}
                 {todayStats?.skippedDonors > 0 && (
-                  <>
-                    <div>
-                      <span style={{ fontSize: 20, fontWeight: 800, color: '#d97706', fontVariantNumeric: 'tabular-nums' }}>{todayStats.skippedDonors}</span>
-                      <span style={{ fontSize: 11, color: 'var(--ink-soft)', marginLeft: 4 }}>skipped</span>
-                    </div>
-                    <div>
-                      <span style={{ fontSize: 20, fontWeight: 800, color: '#d97706', fontVariantNumeric: 'tabular-nums' }}>{callFmt(todayStats.idleSeconds)}</span>
-                      <span style={{ fontSize: 11, color: 'var(--ink-soft)', marginLeft: 4 }}>idle</span>
-                    </div>
-                  </>
+                  <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 6, background: '#fefce8', border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#d97706', fontVariantNumeric: 'tabular-nums' }}>{todayStats.skippedDonors}</div>
+                    <div style={{ fontSize: 9, color: '#92400e' }}>skipped</div>
+                  </div>
+                )}
+                {todayStats?.idleSeconds > 0 && (
+                  <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 6, background: '#fefce8', border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#d97706', fontVariantNumeric: 'tabular-nums' }}>{callFmt(todayStats.idleSeconds)}</div>
+                    <div style={{ fontSize: 9, color: '#92400e' }}>idle</div>
+                  </div>
                 )}
                 {todayStats?.breakSeconds > 0 && (
-                  <div>
-                    <span style={{ fontSize: 20, fontWeight: 800, color: '#d97706', fontVariantNumeric: 'tabular-nums' }}>{callFmt(todayStats.breakSeconds)}</span>
-                    <span style={{ fontSize: 11, color: 'var(--ink-soft)', marginLeft: 4 }}>break</span>
+                  <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 6, background: todayStats.breakSeconds > 3600 ? '#fef2f2' : '#fefce8', border: `1px solid ${todayStats.breakSeconds > 3600 ? '#fecaca' : '#fde68a'}` }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: todayStats.breakSeconds > 3600 ? '#dc2626' : '#d97706', fontVariantNumeric: 'tabular-nums' }}>{callFmt(todayStats.breakSeconds)}</div>
+                    <div style={{ fontSize: 9, color: todayStats.breakSeconds > 3600 ? '#dc2626' : '#92400e' }}>{todayStats.breakCount || 0} breaks{todayStats.breakSeconds > 3600 ? ' 🔴' : ''}</div>
                   </div>
                 )}
                 {todayStats?.totalSeconds + todayStats?.idleSeconds > 0 && (
-                  <div>
-                    <span style={{ fontSize: 20, fontWeight: 800, color: '#d97706', fontVariantNumeric: 'tabular-nums' }}>{Math.round((todayStats.totalSeconds / (todayStats.totalSeconds + todayStats.idleSeconds)) * 100)}%</span>
-                    <span style={{ fontSize: 11, color: 'var(--ink-soft)', marginLeft: 4 }}>productive</span>
+                  <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a', fontVariantNumeric: 'tabular-nums' }}>{Math.round((todayStats.totalSeconds / (todayStats.totalSeconds + todayStats.idleSeconds)) * 100)}%</div>
+                    <div style={{ fontSize: 9, color: '#166534' }}>productive</div>
                   </div>
                 )}
               </div>
