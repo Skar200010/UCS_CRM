@@ -2,9 +2,9 @@
 
 
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getDashboard, getFroLiveStatus, getAccountsLeads, getRecruiterLeads } from '../api/endpoints'
+import { getDashboard, getFroLiveStatus, getAccountsLeads, getRecruiterLeads, getWorkers, getAttendance } from '../api/endpoints'
 
 const MINT = '#3EB489'
 const CORAL = '#FF7F50'
@@ -364,6 +364,225 @@ function RecruiterDetailModal({ type, onClose }) {
   )
 }
 
+/* ================= PANEL SUMMARY MODAL ================= */
+function PanelSummaryModal({ panel, onClose, dashboardData }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const timer = useRef(null)
+
+  const fetchData = useCallback(() => {
+    setLoading(true)
+
+    const fetchers = {
+      accounts: () => getAccountsLeads()
+        .then(d => {
+          const list = d?.data || d || []
+          const pending = list.filter(l => l.accounts_status === 'pending')
+          const verified = list.filter(l => l.accounts_status === 'verified')
+          const today = new Date().toDateString()
+          const verifiedToday = verified.filter(l => l.verified_at && new Date(l.verified_at).toDateString() === today)
+          return {
+            pending: { count: pending.length, amount: pending.reduce((s, l) => s + Number(l.amount || 0), 0) },
+            verified: { count: verified.length, amount: verified.reduce((s, l) => s + Number(l.amount || 0), 0) },
+            verifiedToday: { count: verifiedToday.length, amount: verifiedToday.reduce((s, l) => s + Number(l.amount || 0), 0) },
+            total: { count: list.length, amount: list.reduce((s, l) => s + Number(l.amount || 0), 0) },
+          }
+        }),
+      fro: () => getFroLiveStatus()
+        .then(list => {
+          const arr = Array.isArray(list) ? list : []
+          const active = arr.filter(f => f.is_active)
+          const punchedIn = arr.filter(f => f.is_punched_in)
+          const totalCollection = arr.reduce((s, f) => s + Number(f.today_collection || 0), 0)
+          const totalData = arr.reduce((s, f) => s + Number(f.data_used || 0), 0)
+          return { total: arr.length, active: active.length, inactive: arr.length - active.length, punchedIn: punchedIn.length, totalCollection, totalData }
+        }),
+      hr: () => Promise.all([getWorkers(), getAttendance()])
+        .then(([workers, attendance]) => {
+          const wList = Array.isArray(workers) ? workers : workers?.data || []
+          const totalWorkers = wList.length
+          const activeWorkers = wList.filter(w => w.is_active).length
+          const today = new Date().toDateString()
+          const attList = Array.isArray(attendance) ? attendance : attendance?.data || []
+          const todayAtt = attList.filter(a => a.date && new Date(a.date).toDateString() === today)
+          const presentToday = todayAtt.filter(a => a.status === 'present' || a.punched_in).length
+          const totalAtt = todayAtt.length
+          return { totalWorkers, activeWorkers, presentToday, totalAtt, attendancePercent: totalAtt > 0 ? Math.round((presentToday / totalAtt) * 100) : 0 }
+        }),
+      'ngo-admin': () => {
+        const dd = dashboardData
+        if (dd?.stats?.totalNgos != null) {
+          return Promise.resolve({ totalNgos: dd.stats.totalNgos, ngoTotals: dd.ngoTotals || [] })
+        }
+        return Promise.resolve({ totalNgos: 0, ngoTotals: [] })
+      },
+      recruiter: () => getRecruiterLeads()
+        .then(d => {
+          const list = d?.data || d || []
+          const today = new Date().toDateString()
+          const newToday = list.filter(l => l.created_at && new Date(l.created_at).toDateString() === today)
+          const statusGroups = {}
+          list.forEach(l => { const s = l.status || 'unknown'; statusGroups[s] = (statusGroups[s] || 0) + 1 })
+          const selected = list.filter(l => l.status === 'selected' || l.status === 'verified').length
+          const rejected = list.filter(l => l.status === 'rejected').length
+          const conversionRate = rejected + selected > 0 ? (selected / (selected + rejected)) * 100 : 0
+          return { total: list.length, newToday: newToday.length, conversionRate, statusGroups }
+        }),
+    }
+
+    const fetcher = fetchers[panel]
+    if (fetcher) fetcher().then(setData).catch(() => setData({})) .finally(() => setLoading(false))
+  }, [panel])
+
+  useEffect(() => {
+    fetchData()
+    timer.current = setInterval(fetchData, 30000)
+    return () => clearInterval(timer.current)
+  }, [fetchData])
+
+  const labels = {
+    accounts: { title: 'Accounts — Lead Verification', icon: 'receipt_long', color: '#8b5cf6' },
+    fro: { title: 'FRO — Field Operations', icon: 'groups', color: MINT },
+    hr: { title: 'HR — Employee Management', icon: 'badge', color: '#3b82f6' },
+    'ngo-admin': { title: 'NGO Admin — NGO Management', icon: 'corporate_fare', color: '#f59e0b' },
+    recruiter: { title: 'Recruiter — Lead Pipeline', icon: 'person_search', color: '#f5b301' },
+  }
+  const meta = labels[panel] || {}
+
+  return (
+    <div className="nd-modal-overlay" onClick={onClose}>
+      <div className="nd-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+        <div className="nd-modal-head" style={{ borderColor: `${meta.color}30` }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 20, color: meta.color }}>{meta.icon}</span>
+          <h3 className="nd-modal-title">{meta.title}</h3>
+          <button className="nd-modal-close" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div className="nd-modal-body">
+          {loading && !data ? (
+            <p className="nd-muted">Loading...</p>
+          ) : (
+            <div className="ps-grid">
+              {panel === 'accounts' && data && (
+                <>
+                  <div className="ps-card" style={{ borderTop: '3px solid #f59e0b' }}>
+                    <span className="ps-label">⏳ Pending</span>
+                    <span className="ps-value">{data.pending?.count ?? 0}</span>
+                    <span className="ps-sub">₹{(data.pending?.amount || 0).toLocaleString('en-IN')} total</span>
+                  </div>
+                  <div className="ps-card" style={{ borderTop: `3px solid ${MINT}` }}>
+                    <span className="ps-label">✔️ Verified</span>
+                    <span className="ps-value">{data.verified?.count ?? 0}</span>
+                    <span className="ps-sub">₹{(data.verified?.amount || 0).toLocaleString('en-IN')} total</span>
+                  </div>
+                  <div className="ps-card" style={{ borderTop: '3px solid #3b82f6' }}>
+                    <span className="ps-label">📅 Verified Today</span>
+                    <span className="ps-value">{data.verifiedToday?.count ?? 0}</span>
+                    <span className="ps-sub">₹{(data.verifiedToday?.amount || 0).toLocaleString('en-IN')} collected</span>
+                  </div>
+                  <div className="ps-card" style={{ borderTop: `3px solid ${GOLD}` }}>
+                    <span className="ps-label">💰 Total Amount</span>
+                    <span className="ps-value">₹{(data.total?.amount || 0).toLocaleString('en-IN')}</span>
+                    <span className="ps-sub">Across {data.total?.count || 0} leads</span>
+                  </div>
+                </>
+              )}
+              {panel === 'fro' && data && (
+                <>
+                  <div className="ps-card" style={{ borderTop: '3px solid #8b5cf6' }}>
+                    <span className="ps-label">📋 Total FROs</span>
+                    <span className="ps-value">{data.total ?? 0}</span>
+                    <span className="ps-sub">Registered workers</span>
+                  </div>
+                  <div className="ps-card" style={{ borderTop: `3px solid ${MINT}` }}>
+                    <span className="ps-label">🟢 Active</span>
+                    <span className="ps-value">{data.active ?? 0}</span>
+                    <span className="ps-sub">{data.inactive ?? 0} inactive</span>
+                  </div>
+                  <div className="ps-card" style={{ borderTop: '3px solid #06b6d4' }}>
+                    <span className="ps-label">✅ Punched In</span>
+                    <span className="ps-value">{data.punchedIn ?? 0}</span>
+                    <span className="ps-sub">Today</span>
+                  </div>
+                  <div className="ps-card" style={{ borderTop: `3px solid ${GOLD}` }}>
+                    <span className="ps-label">💰 Today's Collection</span>
+                    <span className="ps-value">₹{(data.totalCollection || 0).toLocaleString('en-IN')}</span>
+                    <span className="ps-sub">Data used: {data.totalData || 0}</span>
+                  </div>
+                </>
+              )}
+              {panel === 'hr' && data && (
+                <>
+                  <div className="ps-card" style={{ borderTop: '3px solid #3b82f6' }}>
+                    <span className="ps-label">👷 Total Workers</span>
+                    <span className="ps-value">{data.totalWorkers ?? 0}</span>
+                    <span className="ps-sub">All time</span>
+                  </div>
+                  <div className="ps-card" style={{ borderTop: `3px solid ${MINT}` }}>
+                    <span className="ps-label">✅ Active Workers</span>
+                    <span className="ps-value">{data.activeWorkers ?? 0}</span>
+                    <span className="ps-sub">Currently active</span>
+                  </div>
+                  <div className="ps-card" style={{ borderTop: '3px solid #f59e0b' }}>
+                    <span className="ps-label">📊 Attendance</span>
+                    <span className="ps-value">{data.attendancePercent ?? 0}%</span>
+                    <span className="ps-sub">{data.presentToday ?? 0} of {data.totalAtt ?? 0} today</span>
+                  </div>
+                </>
+              )}
+              {panel === 'ngo-admin' && data && (
+                <>
+                  <div className="ps-card" style={{ borderTop: '3px solid #f59e0b' }}>
+                    <span className="ps-label">🏢 Total NGOs</span>
+                    <span className="ps-value">{data.totalNgos ?? 0}</span>
+                    <span className="ps-sub">Registered NGOs</span>
+                  </div>
+                  {data.ngoTotals?.length > 0 && (
+                    <div className="ps-card" style={{ gridColumn: '1 / -1', borderTop: '3px solid #3b82f6' }}>
+                      <span className="ps-label">📊 NGO Breakdown</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: 8 }}>
+                        {data.ngoTotals.map(t => (
+                          <span key={t.name} style={{
+                            background: `${t.color || '#3b82f6'}14`, color: t.color || '#3b82f6',
+                            borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 600
+                          }}>
+                            {t.name} — {t.count}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              {panel === 'recruiter' && data && (
+                <>
+                  <div className="ps-card" style={{ borderTop: '3px solid #8b5cf6' }}>
+                    <span className="ps-label">📋 Total Leads</span>
+                    <span className="ps-value">{data.total ?? 0}</span>
+                    <span className="ps-sub">All time</span>
+                  </div>
+                  <div className="ps-card" style={{ borderTop: `3px solid ${MINT}` }}>
+                    <span className="ps-label">🆕 New Today</span>
+                    <span className="ps-value">{data.newToday ?? 0}</span>
+                    <span className="ps-sub">Added today</span>
+                  </div>
+                  <div className="ps-card" style={{ borderTop: `3px solid ${GOLD}` }}>
+                    <span className="ps-label">📈 Conversion</span>
+                    <span className="ps-value">{(data.conversionRate ?? 0).toFixed(1)}%</span>
+                    <span className="ps-sub">Selected vs Rejected</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <div className="fro-live-footer">
+            <span style={{ fontSize: 11, color: '#94a3b8' }}>Auto-refreshes every 30s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ================= NAME LIST MODAL ================= */
 function NameListModal({ title, color, names, onClose }) {
   const [q, setQ] = useState('')
@@ -436,6 +655,7 @@ export default function Dashboard() {
   const [showFroModal, setShowFroModal] = useState(false)
   const [accountsModalStatus, setAccountsModalStatus] = useState(null)
   const [recruiterModalType, setRecruiterModalType] = useState(null)
+  const [panelModal, setPanelModal] = useState(null)
   const froTimer = useRef(null)
   const navigate = useNavigate()
 
@@ -752,6 +972,15 @@ export default function Dashboard() {
         .mini-card-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
         .mini-card-value { font-size: 26px; font-weight: 800; color: ${PRIMARY}; line-height: 1.2; }
         .mini-card-sub { font-size: 12px; color: #64748b; font-weight: 600; }
+        .ps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .ps-card {
+          background: #fafbfd; border-radius: 14px; padding: 14px 16px;
+          display: flex; flex-direction: column; gap: 2px;
+          border: 1px solid #f1f4f8;
+        }
+        .ps-label { font-size: 12px; font-weight: 700; color: #94a3b8; }
+        .ps-value { font-size: 24px; font-weight: 800; color: ${PRIMARY}; line-height: 1.2; }
+        .ps-sub { font-size: 11px; color: #64748b; font-weight: 600; }
         .mini-card-clickable { cursor: pointer; transition: box-shadow 0.2s, transform 0.15s; }
         .mini-card-clickable:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
         .lead-status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
@@ -972,27 +1201,27 @@ export default function Dashboard() {
 
       {/* ============ PANEL LINKS ============ */}
       <div className="panel-link-grid">
-        <div className="panel-link-card" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }} onClick={() => navigate('/accounts/leads')}>
+        <div className="panel-link-card" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }} onClick={() => setPanelModal('accounts')}>
           <span className="material-symbols-outlined">receipt_long</span>
           <span className="panel-link-label">Accounts</span>
           <span className="panel-link-sub">Verify & manage leads</span>
         </div>
-        <div className="panel-link-card" style={{ background: 'linear-gradient(135deg, #3EB489, #2d8f6e)' }} onClick={() => navigate('/fro/dashboard')}>
+        <div className="panel-link-card" style={{ background: 'linear-gradient(135deg, #3EB489, #2d8f6e)' }} onClick={() => setPanelModal('fro')}>
           <span className="material-symbols-outlined">groups</span>
           <span className="panel-link-label">FRO</span>
           <span className="panel-link-sub">Field operations & donors</span>
         </div>
-        <div className="panel-link-card" style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }} onClick={() => navigate('/hr/overview')}>
+        <div className="panel-link-card" style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }} onClick={() => setPanelModal('hr')}>
           <span className="material-symbols-outlined">badge</span>
           <span className="panel-link-label">HR</span>
           <span className="panel-link-sub">Employees & attendance</span>
         </div>
-        <div className="panel-link-card" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }} onClick={() => navigate('/ngo-admin/dashboard')}>
+        <div className="panel-link-card" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }} onClick={() => setPanelModal('ngo-admin')}>
           <span className="material-symbols-outlined">corporate_fare</span>
           <span className="panel-link-label">NGO Admin</span>
           <span className="panel-link-sub">NGO management & donors</span>
         </div>
-        <div className="panel-link-card" style={{ background: 'linear-gradient(135deg, #f5b301, #d49500)' }} onClick={() => navigate('/recruiter/dashboard')}>
+        <div className="panel-link-card" style={{ background: 'linear-gradient(135deg, #f5b301, #d49500)' }} onClick={() => setPanelModal('recruiter')}>
           <span className="material-symbols-outlined">person_search</span>
           <span className="panel-link-label">Recruiter</span>
           <span className="panel-link-sub">Lead pipeline & candidates</span>
@@ -1316,6 +1545,15 @@ export default function Dashboard() {
         <RecruiterDetailModal
           type={recruiterModalType}
           onClose={() => setRecruiterModalType(null)}
+        />
+      )}
+
+      {/* ============ PANEL SUMMARY MODAL ============ */}
+      {panelModal && (
+        <PanelSummaryModal
+          panel={panelModal}
+          dashboardData={data}
+          onClose={() => setPanelModal(null)}
         />
       )}
     </div>
