@@ -323,6 +323,7 @@ export default function Dashboard() {
     // NEW data (backend can provide; safe defaults otherwise)
     attendanceDetails = {}, todayAttendanceDetails = {},
     froAssignments = [],      // [{ name: 'Ramesh', ngos: ['MAN', 'AFLF'] }]
+    accountsSummary = {}, recruiterSummary = {},
   } = data
 
   const today = new Date()
@@ -573,6 +574,17 @@ export default function Dashboard() {
         }
         .nd-modal-search-clear:hover { color: #64748b; }
 
+        /* mini cards for accounts / recruiter */
+        .mini-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+        .mini-card {
+          background: #fafbfd; border-radius: 14px; padding: 14px 16px;
+          display: flex; flex-direction: column; gap: 2px;
+          border: 1px solid #f1f4f8;
+        }
+        .mini-card-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+        .mini-card-value { font-size: 26px; font-weight: 800; color: ${PRIMARY}; line-height: 1.2; }
+        .mini-card-sub { font-size: 12px; color: #64748b; font-weight: 600; }
+
         /* ALL FRO card */
         .nd-fro-card { border: 1px solid rgba(139,92,246,0.15); transition: border-color 0.2s, box-shadow 0.2s; cursor: pointer; }
         .nd-fro-card:hover { border-color: rgba(139,92,246,0.4); box-shadow: 0 2px 4px rgba(139,92,246,0.08), 0 8px 24px -12px rgba(139,92,246,0.15); }
@@ -754,6 +766,61 @@ export default function Dashboard() {
             </div>
           )
         })}
+      </div>
+
+      {/* ============ ACCOUNTS SUMMARY ============ */}
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.2s', marginTop: 20, padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#8b5cf6' }}>receipt_long</span>
+          <h3 className="nd-section-title" style={{ margin: 0 }}>Accounts — Lead Verification</h3>
+        </div>
+        <div className="mini-card-grid">
+          <div className="mini-card" style={{ borderTop: `3px solid #f59e0b` }}>
+            <span className="mini-card-label">Pending</span>
+            <span className="mini-card-value">{accountsSummary.pending ?? 0}</span>
+            <span className="mini-card-sub">₹{(accountsSummary.pendingAmount || 0).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="mini-card" style={{ borderTop: `3px solid ${MINT}` }}>
+            <span className="mini-card-label">Verified</span>
+            <span className="mini-card-value">{accountsSummary.verified ?? 0}</span>
+            <span className="mini-card-sub">₹{(accountsSummary.verifiedAmount || 0).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="mini-card" style={{ borderTop: `3px solid #f43f5e` }}>
+            <span className="mini-card-label">Rejected</span>
+            <span className="mini-card-value">{accountsSummary.rejected ?? 0}</span>
+            <span className="mini-card-sub">₹{(accountsSummary.rejectedAmount || 0).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="mini-card" style={{ borderTop: `3px solid #3b82f6` }}>
+            <span className="mini-card-label">Verified Today</span>
+            <span className="mini-card-value">{accountsSummary.verifiedToday ?? 0}</span>
+            <span className="mini-card-sub">₹{(accountsSummary.verifiedTodayAmount || 0).toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ============ RECRUITER SUMMARY ============ */}
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.25s', marginTop: 16, padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#f5b301' }}>person_search</span>
+          <h3 className="nd-section-title" style={{ margin: 0 }}>Recruiter — Lead Pipeline</h3>
+        </div>
+        <div className="mini-card-grid">
+          <div className="mini-card" style={{ borderTop: `3px solid #8b5cf6` }}>
+            <span className="mini-card-label">Total Leads</span>
+            <span className="mini-card-value">{(recruiterSummary.totalLeads || 0).toLocaleString()}</span>
+            <span className="mini-card-sub">All time</span>
+          </div>
+          <div className="mini-card" style={{ borderTop: `3px solid ${MINT}` }}>
+            <span className="mini-card-label">New Today</span>
+            <span className="mini-card-value">{recruiterSummary.newToday ?? 0}</span>
+            <span className="mini-card-sub">Added today</span>
+          </div>
+          <div className="mini-card" style={{ borderTop: `3px solid #f5b301` }}>
+            <span className="mini-card-label">Conversion Rate</span>
+            <span className="mini-card-value">{(recruiterSummary.conversionRate ?? 0).toFixed(1)}%</span>
+            <span className="mini-card-sub">Selected vs Rejected</span>
+          </div>
+        </div>
       </div>
 
       {/* ============ MAIN GRID ============ */}

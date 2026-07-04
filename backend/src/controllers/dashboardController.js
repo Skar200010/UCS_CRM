@@ -320,6 +320,41 @@ export const getSuperAdminDashboard = async (req, res) => {
       .order('event_date', { ascending: true })
       .limit(5);
 
+    /* ── Accounts Summary (lead verification) ── */
+    const { data: leadLogs } = await supabase
+      .from('fro_donor_logs')
+      .select('accounts_status, amount_collected, verified_at')
+      .eq('disposition_detail', 'lead_done');
+    const accountsSummary = { pending: 0, pendingAmount: 0, verified: 0, verifiedAmount: 0, rejected: 0, rejectedAmount: 0, verifiedToday: 0, verifiedTodayAmount: 0 };
+    const todayStr = new Date().toISOString().slice(0, 10);
+    for (const log of leadLogs || []) {
+      const amt = parseFloat(log.amount_collected || 0);
+      if (log.accounts_status === 'pending') { accountsSummary.pending++; accountsSummary.pendingAmount += amt; }
+      else if (log.accounts_status === 'verified') {
+        accountsSummary.verified++; accountsSummary.verifiedAmount += amt;
+        if (log.verified_at && log.verified_at.slice(0, 10) === todayStr) {
+          accountsSummary.verifiedToday++; accountsSummary.verifiedTodayAmount += amt;
+        }
+      }
+      else if (log.accounts_status === 'rejected') { accountsSummary.rejected++; accountsSummary.rejectedAmount += amt; }
+    }
+
+    /* ── Recruiter Summary ── */
+    let recruiterSummary = { totalLeads: 0, newToday: 0, conversionRate: 0 };
+    try {
+      const { data: allLeads } = await supabase
+        .from('leads')
+        .select('id, status, created_at');
+      const totalLeads = allLeads?.length || 0;
+      const newToday = (allLeads || []).filter(l => l.created_at?.slice(0, 10) === todayStr).length;
+      const byStatus = {};
+      for (const l of allLeads || []) byStatus[l.status] = (byStatus[l.status] || 0) + 1;
+      const selected = byStatus['selected'] || 0;
+      const rejected = byStatus['rejected'] || 0;
+      const conversionRate = (selected + rejected) > 0 ? Math.round((selected / (selected + rejected)) * 1000) / 10 : 0;
+      recruiterSummary = { totalLeads, newToday, conversionRate };
+    } catch (_) { /* table may not exist */ }
+
     return res.json({
       stats,
       kpiChanges,
@@ -339,6 +374,8 @@ export const getSuperAdminDashboard = async (req, res) => {
       totalSalaryPayable,
       recentNotices: recentNotices || [],
       upcomingEvents: upcomingEvents || [],
+      accountsSummary,
+      recruiterSummary,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
