@@ -6,6 +6,7 @@ import {
   getMonthlyLateMinutes,
   getAttendanceHistory,
   deleteAttendance,
+  getMonthlyAttendance,
 } from '../models/attendanceModel.js';
 import { getQRByCode } from '../models/qrModel.js';
 import { getSetting } from '../models/settingsModel.js';
@@ -301,6 +302,47 @@ export const listAll = async (req, res) => {
         r.hours_worked = null;
       }
     }
+    return res.json(records);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getWorkerMonthlyAttendance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { month } = req.query;
+    if (!month) {
+      return res.status(400).json({ message: 'month query parameter is required (YYYY-MM)' });
+    }
+    const startDate = month + '-01';
+    const [y, m] = month.split('-').map(Number);
+    const endDate = new Date(y, m, 0).toISOString().slice(0, 10);
+    const records = await getMonthlyAttendance(id, startDate, endDate);
+
+    const allLeaves = await getApprovedLeaves(id);
+    const approvedLeaves = allLeaves.filter(l => {
+      const leaveStart = l.leave_date || l.start_date;
+      const leaveEnd = l.leave_date || l.end_date;
+      return leaveStart && leaveStart <= endDate && (!leaveEnd || leaveEnd >= startDate);
+    });
+    const leaveByDate = {};
+    for (const leave of approvedLeaves) {
+      for (const date of expandLeaveDates(leave)) {
+        if (date >= startDate && date <= endDate) {
+          leaveByDate[date] = true;
+        }
+      }
+    }
+
+    const recordDates = new Set(records.map((r) => r.date));
+    for (const [date] of Object.entries(leaveByDate)) {
+      if (!recordDates.has(date)) {
+        records.push({ date, status: 'leave', late_minutes: 0, hours_worked: null });
+      }
+    }
+
+    records.sort((a, b) => a.date.localeCompare(b.date));
     return res.json(records);
   } catch (error) {
     return res.status(500).json({ message: error.message });

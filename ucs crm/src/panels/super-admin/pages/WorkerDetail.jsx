@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/auth'
+import AttendanceCalendar from './AttendanceCalendar'
 
 export default function WorkerDetail({ workerId, onBack }) {
   const [worker, setWorker] = useState(null)
@@ -74,6 +75,8 @@ export default function WorkerDetail({ workerId, onBack }) {
           </tbody>
         </table>
       </div>
+
+      <AttendanceCalendar workerId={workerId} worker={worker} />
 
       {salary && (
         <div className="sa-card">
