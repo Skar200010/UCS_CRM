@@ -11,7 +11,7 @@ export const initials = (n) => n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).joi
 export const avatarTint = (hex) => hex + '22'
 
 const now = () => new Date().toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
-export const STAGES = ['1st Contacted','Screening','Interview Scheduled','Selected','Offer Sent','Rejected']
+export const STAGES = ['Contacted','Screening','Interview Scheduled','Selected','Offer Sent','Rejected']
 export const LEAD_SOURCES = ['Walk-in','LinkedIn','Referral','Job Portal','Other']
 export const LEAD_STATUSES = [
   { value:'followed_up', label:'Followed Up' },
@@ -42,8 +42,8 @@ export function RecProvider({ children }) {
   const { token, user } = useUcs()
 
   const [candidates, setCandidates] = useState([
-    { id:1, name:'Ananya Sharma', role:'Frontend Developer', stage:'1st Contacted', score:82, source:'LinkedIn', skills:['React','CSS','JS'], exp:'3 yr' },
-    { id:2, name:'Rohit Verma', role:'Backend Engineer', stage:'1st Contacted', score:78, source:'Referral', skills:['Node','Python','SQL'], exp:'4 yr' },
+    { id:1, name:'Ananya Sharma', role:'Frontend Developer', stage:'Contacted', score:82, source:'LinkedIn', skills:['React','CSS','JS'], exp:'3 yr' },
+    { id:2, name:'Rohit Verma', role:'Backend Engineer', stage:'Contacted', score:78, source:'Referral', skills:['Node','Python','SQL'], exp:'4 yr' },
     { id:3, name:'Priya Patel', role:'UX Designer', stage:'Screening', score:91, source:'Portal', skills:['Figma','UI','Research'], exp:'5 yr' },
     { id:4, name:'Amit Kumar', role:'Full Stack Dev', stage:'Screening', score:74, source:'Walk-in', skills:['React','Node','Mongo'], exp:'2 yr' },
     { id:5, name:'Sneha Reddy', role:'DevOps Engineer', stage:'Interview Scheduled', score:88, source:'LinkedIn', skills:['Docker','AWS','CI/CD'], exp:'6 yr' },

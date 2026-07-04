@@ -18,7 +18,7 @@ export default function Candidates() {
         <h3>All candidates</h3>
         <div style={{display:'flex',gap:10}}>
           <Dropdown className="filter-select" value={stage} onChange={e=>setStage(e.target.value)}
-            options={['All','1st Contacted','Screening','Interview Scheduled','Selected','Offer Sent','Rejected']} />
+            options={['All','Contacted','Screening','Interview Scheduled','Selected','Offer Sent','Rejected']} />
           <div style={{position:'relative'}}>
             <Search width={15} style={{position:'absolute',left:10,top:9,color:'var(--ink-soft)'}} />
             <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search…"
