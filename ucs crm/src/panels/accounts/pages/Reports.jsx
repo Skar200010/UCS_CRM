@@ -48,13 +48,18 @@ export default function Reports() {
       const data = await apiGet('/accounts/day-end-report' + params);
 
       // Compute source breakdown from bank audit entries (always works, no backend deploy needed)
-      const allEntries = await apiGet('/accounts/bank-audit/entries').catch(() => []);
+      const [allEntries, allSources] = await Promise.all([
+        apiGet('/accounts/bank-audit/entries').catch(() => []),
+        apiGet('/accounts/bank-audit/sources').catch(() => []),
+      ]);
       const srcMap = {};
       for (const e of allEntries) {
         const name = e.bank_audit_sources?.name || 'Unknown';
         srcMap[name] = (srcMap[name] || 0) + Number(e.amount || 0);
       }
-      data.sourceBreakdown = Object.entries(srcMap).map(([name, amount]) => ({ name, amount }));
+      data.sourceBreakdown = (allSources || [])
+        .filter(s => s.is_active !== false)
+        .map(s => ({ name: s.name, amount: srcMap[s.name] || 0 }));
 
       setReport(data);
     } catch (err) { alert(err.message); }
