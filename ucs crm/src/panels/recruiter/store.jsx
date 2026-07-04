@@ -98,11 +98,17 @@ export function RecProvider({ children }) {
     setLeads(p => [temp, ...p])
     try {
       const res = await api('/leads', { method: 'POST', body: JSON.stringify(data), _prefix: 'ucs' })
-      setLeads(p => p.map(l => l.id === temp.id ? { ...res, ...data, id: res.id || l.id } : l))
+      const realLead = res.lead || res
+      const realId = realLead.id || res.id
+      const merged = { ...realLead, ...data, id: realId }
+      setLeads(p => {
+        const withoutTemp = p.filter(l => l.id !== temp.id && l.id !== realId)
+        return [merged, ...withoutTemp]
+      })
     } catch {
       setLeads(p => p.filter(l => l.id !== temp.id))
     }
-    log(`Lead created \u2014 ${data.name}`)
+    log(`Lead created — ${data.name}`)
   }, [log])
 
   const updateLead = useCallback(async (id, data) => {
