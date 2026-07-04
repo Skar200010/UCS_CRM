@@ -41,7 +41,18 @@ const nid = () => ++_id
 export function RecProvider({ children }) {
   const { token, user } = useUcs()
 
-  const [candidates, setCandidates] = useState([])
+  const [candidates, setCandidates] = useState([
+    { id:1, name:'Ananya Sharma', role:'Frontend Developer', stage:'New', score:82, source:'LinkedIn', skills:['React','CSS','JS'], exp:'3 yr' },
+    { id:2, name:'Rohit Verma', role:'Backend Engineer', stage:'New', score:78, source:'Referral', skills:['Node','Python','SQL'], exp:'4 yr' },
+    { id:3, name:'Priya Patel', role:'UX Designer', stage:'Screening', score:91, source:'Portal', skills:['Figma','UI','Research'], exp:'5 yr' },
+    { id:4, name:'Amit Kumar', role:'Full Stack Dev', stage:'Screening', score:74, source:'Walk-in', skills:['React','Node','Mongo'], exp:'2 yr' },
+    { id:5, name:'Sneha Reddy', role:'DevOps Engineer', stage:'Interview', score:88, source:'LinkedIn', skills:['Docker','AWS','CI/CD'], exp:'6 yr' },
+    { id:6, name:'Vikram Singh', role:'Data Analyst', stage:'Interview', score:85, source:'Referral', skills:['Python','SQL','Excel'], exp:'3 yr' },
+    { id:7, name:'Neha Joshi', role:'Product Manager', stage:'Offer', score:79, source:'Portal', skills:['Strategy','Agile','Analytics'], exp:'7 yr' },
+    { id:8, name:'Arun Gupta', role:'QA Engineer', stage:'Offer', score:72, source:'Walk-in', skills:['Selenium','JS','Testing'], exp:'4 yr' },
+    { id:9, name:'Divya Nair', role:'Marketing Lead', stage:'Hired', score:90, source:'LinkedIn', skills:['SEO','Content','Brand'], exp:'6 yr' },
+    { id:10, name:'Karan Mehta', role:'iOS Developer', stage:'Hired', score:83, source:'Referral', skills:['Swift','UIKit','Xcode'], exp:'5 yr' },
+  ])
   const [jobs, setJobs] = useState([])
   const [feed, setFeed] = useState([{ id:0, msg:'Recruiter workspace ready', time: now() }])
   const log = useCallback((msg)=>setFeed(f=>[{id:nid(),msg,time:now()},...f].slice(0,8)),[])
