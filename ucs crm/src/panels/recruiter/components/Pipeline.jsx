@@ -1,12 +1,10 @@
 const STEPS = [
-  'Talent Sourcing',
-  'Candidate Data Centralization',
-  'Candidate Search',
-  'Candidate Engagement',
-  'Workflow Automation',
-  'Hiring Team Collaboration',
-  'Analytics and Reporting',
-  'Ongoing Nurturing',
+  'Contacted',
+  'Screening',
+  'Interview Scheduled',
+  'Selected',
+  'Offer Sent',
+  'Rejected',
 ];
 
 function ArrowRight() {
@@ -45,8 +43,8 @@ function StepCard({ text }) {
 }
 
 export default function Pipeline() {
-  const row1 = STEPS.slice(0, 4);
-  const row2 = STEPS.slice(4).reverse();
+  const row1 = STEPS.slice(0, 3);
+  const row2 = STEPS.slice(3).reverse();
 
   return (
     <div className="infographic">
