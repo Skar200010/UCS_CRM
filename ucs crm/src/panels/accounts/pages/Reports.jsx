@@ -60,13 +60,13 @@ export default function Reports() {
     try {
       const label = report.isMonth ? 'Month End Report' : 'Day End Report';
       const lines = [label + ' - ' + report.date, '',
-        'FRO-wise Breakdown:'];
-      report.froWorkers.forEach(w => {
-        lines.push('  ' + w.name + ' (' + w.login + '): Submitted ' + currency(w.submitted) + ' | Collected ' + currency(w.collected));
-      });
-      lines.push('', 'Total Submitted: ' + currency(report.totalSubmitted));
-      lines.push('Total Collected: ' + currency(report.totalCollected));
-      lines.push('', 'Suspense: ' + currency(report.suspenseAmount) + ' (' + report.suspenseCount + ' entries)');
+        'Total Submitted: ' + currency(report.totalSubmitted),
+        'Total Collected: ' + currency(report.totalCollected),
+        'Suspense: ' + currency(report.suspenseAmount) + ' (' + report.suspenseCount + ' entries)'];
+      if (report.sourceBreakdown?.length > 0) {
+        lines.push('', 'Source-wise Collection:');
+        report.sourceBreakdown.forEach(s => lines.push('  ' + s.name + ': ' + currency(s.amount)));
+      }
       if (report.suspenseEntries.length > 0) {
         lines.push('', 'Suspense Details:');
         report.suspenseEntries.forEach(e => {
@@ -91,14 +91,9 @@ export default function Reports() {
       rows.push(report.sourceBreakdown.map(s => s.amount).concat(report.sourceBreakdown.reduce((t, s) => t + s.amount, 0)));
       rows.push([]);
     }
-    rows.push(['FRO Name', 'Login ID', 'Submitted', 'Collected', 'Pending']);
-    report.froWorkers.forEach(w => {
-      rows.push([w.name, w.login, w.submitted, w.collected, Math.max(0, w.submitted - w.collected)]);
-    });
+    rows.push(['Total Submitted', 'Total Collected', 'Suspense']);
+    rows.push([report.totalSubmitted, report.totalCollected, report.suspenseAmount]);
     rows.push([]);
-    rows.push(['Total Submitted', '', report.totalSubmitted, '', '']);
-    rows.push(['Total Collected', '', report.totalCollected, '', '']);
-    rows.push(['Suspense Amount', '', report.suspenseAmount, '', '']);
     if (report.suspenseEntries.length > 0) {
       rows.push([]);
       rows.push(['Suspense Details', '', '', '', '']);
@@ -236,38 +231,6 @@ export default function Reports() {
               </div>
             </div>
           )}
-
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-head"><h3>FRO-wise Breakdown</h3></div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>FRO Name</th>
-                    <th>Login ID</th>
-                    <th>Submitted</th>
-                    <th>Collected</th>
-                    <th>Pending</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.froWorkers.length === 0 ? (
-                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>No activity</td></tr>
-                  ) : (
-                    report.froWorkers.map(w => (
-                      <tr key={w.id}>
-                        <td><strong>{w.name}</strong></td>
-                        <td style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{w.login}</td>
-                        <td style={{ color: '#B5603A', fontWeight: 600 }}>{currency(w.submitted)}</td>
-                        <td style={{ color: 'var(--sage)', fontWeight: 600 }}>{currency(w.collected)}</td>
-                        <td style={{ color: '#dc2626', fontWeight: 600 }}>{currency(Math.max(0, w.submitted - w.collected))}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-soft)' }}>No data for this period</div>
