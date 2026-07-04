@@ -586,14 +586,19 @@ export default function Dashboard() {
           display: flex; justify-content: space-between; align-items: center;
           padding-bottom: 14px; border-bottom: 1px solid #f1f4f8; margin-bottom: 4px;
         }
-        .fro-live-table-wrap { overflow-x: auto; }
-        .fro-live-table {
-          width: 100%; border-collapse: collapse; font-size: 13px;
+        .fro-live-table-wrap {
+          overflow: auto; max-height: 60vh;
         }
+        .fro-live-table {
+          width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px;
+        }
+        .fro-live-table thead { position: sticky; top: 0; z-index: 2; }
         .fro-live-table th {
-          text-align: left; padding: 12px 10px 8px; font-size: 11px; font-weight: 700;
+          position: sticky; top: 0; z-index: 2;
+          text-align: left; padding: 12px 10px; font-size: 11px; font-weight: 700;
           color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px;
           border-bottom: 1px solid #f1f4f8; white-space: nowrap;
+          background: #fff;
         }
         .fro-live-table td {
           padding: 10px; border-bottom: 1px solid #f8f9fc; vertical-align: middle;
