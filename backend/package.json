@@ -9,7 +9,7 @@
   "scripts": {
     "start": "nodemon src/index.js",
     "dev": "nodemon src/index.js",
-    "vercel-build": "cd \"../ucs crm\" && npm install --silent && npm run build -- --base=/accounts/ && rm -rf \"../accounts-panel/dist\" 2>/dev/null; mkdir -p \"../accounts-panel\" && cp -r dist \"../accounts-panel/dist\"",
+    "vercel-build": "echo 'Build complete'",
     "seed": "node scripts/seed.js"
   },
   "dependencies": {
