@@ -159,6 +159,29 @@ export default function Dashboard() {
         gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         gap: 14, marginBottom: 20,
       }}>
+        <div className="card" style={{ marginBottom: 0, padding: '16px 18px', border: `1.5px solid ${ds.is_punched_in ? 'var(--sage)' : '#f87171'}`, background: ds.is_punched_in ? 'linear-gradient(135deg, #f0fdf4 0%, #fff 100%)' : 'linear-gradient(135deg, #fef2f2 0%, #fff 100%)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: ds.is_active ? (ds.is_punched_in ? '#16a34a' : '#f87171') : '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{ds.is_punched_in ? 'check_circle' : ds.is_active ? 'schedule' : 'cancel'}</span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontSize: 11, color: 'var(--ink-soft)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3 }}>Live Status</span>
+              <div style={{ display: 'flex', gap: 12, marginTop: 2, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: ds.is_active ? (ds.is_punched_in ? 'var(--sage)' : '#f87171') : '#94a3b8' }}>
+                  <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: ds.is_active ? (ds.is_punched_in ? 'var(--sage)' : '#f87171') : '#e2e8f0', marginRight: 4, verticalAlign: 'middle' }} />
+                  {ds.is_active ? (ds.is_punched_in ? 'Punched In' : 'Not Punched') : 'Inactive'}
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 600 }}>
+                  Data: {ds.data_used ?? 0}/{stats.total ?? 0}
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--sage)' }}>
+                  Today: {currency(ds.daily_donations ?? 0)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="card" style={{ marginBottom: 0, padding: '16px 18px', border: '1.5px solid #8b5cf6', background: 'linear-gradient(135deg, #faf5ff 0%, #fff 100%)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
             <Icon color="#8b5cf6">

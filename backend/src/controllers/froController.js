@@ -298,6 +298,14 @@ export const getDashboard = async (req, res) => {
       }
     }
 
+    const { data: myAtt } = await supabase
+      .from('attendance')
+      .select('status')
+      .eq('worker_id', workerId)
+      .eq('date', todayStart.toISOString().slice(0, 10))
+      .maybeSingle();
+    const is_punched_in = myAtt && (myAtt.status === 'present' || myAtt.status === 'late');
+
     return res.json({
       stats,
       target,
@@ -328,6 +336,8 @@ export const getDashboard = async (req, res) => {
       verified_today_count: verifiedToday.count,
       unverified_today_amount: unverifiedToday.amount,
       unverified_today_count: unverifiedToday.count,
+      is_active: worker.is_active !== false,
+      is_punched_in,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
