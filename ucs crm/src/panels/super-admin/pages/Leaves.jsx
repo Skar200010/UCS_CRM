@@ -42,7 +42,7 @@ export default function Leaves() {
         </select>
       </div>
 
-      <div className="sa-card">
+      <div className="sa-card" style={{overflowX:'auto'}}>
         <table className="sa-table">
           <thead><tr><th>Worker</th><th>Type</th><th>From</th><th>To</th><th>Reason</th><th>Status</th><th></th></tr></thead>
           <tbody>

@@ -53,7 +53,7 @@ export default function Workers({ onViewWorker }) {
         </select>
       </div>
 
-      <div className="sa-card">
+      <div className="sa-card" style={{overflowX:'auto'}}>
         <table className="sa-table">
           <thead><tr><th>Name</th><th>Login ID</th><th>Department</th><th>NGO</th><th>Salary</th><th>Status</th><th style={{width:120}}></th></tr></thead>
           <tbody>

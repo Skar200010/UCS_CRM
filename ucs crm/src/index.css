@@ -215,6 +215,67 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 .panel-sa [data-theme="dark"] .sa-menu-item:hover { background:#334155; color:var(--text); }
 .panel-sa [data-theme="dark"] .btn:hover { background:#0f172a; }
 
+/* ── SA Mobile ── */
+.panel-sa .sa-mobile-top { display:none; align-items:center; gap:10px; padding:12px 16px; background:var(--bg-sidebar); color:var(--text-light); position:sticky; top:0; z-index:20; }
+.panel-sa .sa-mtop-brand { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:600; color:var(--text-light); }
+.panel-sa .sa-hamburger { background:none; border:none; color:var(--text-light); padding:4px; cursor:pointer; }
+.panel-sa .sa-hamburger span { display:block; width:20px; height:2px; background:rgba(255,255,255,0.6); margin:4px 0; border-radius:2px; }
+.panel-sa .sa-sidebar-overlay { display:none; }
+
+@media (max-width:820px) {
+  .panel-sa .sa-sidebar { position:fixed; top:0; left:0; bottom:0; z-index:100; transform:translateX(-100%); transition:transform .25s; }
+  .panel-sa .sa-sidebar.open { transform:translateX(0); }
+  .panel-sa .sa-sidebar-overlay { display:block; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:99; }
+  .panel-sa .sa-sidebar-overlay.open { display:block; }
+  .panel-sa .sa-mobile-top { display:flex; }
+  .panel-sa .topbar { padding:0 16px; height:56px; }
+  .panel-sa .topbar-user-text { display:none; }
+  .panel-sa .content-body { padding:12px 16px 40px; }
+  .panel-sa .sa-card { padding:16px; }
+  .panel-sa .sa-card-title { font-size:12px; }
+  .panel-sa .sa-page-header h3 { font-size:16px; }
+  .panel-sa .sa-table { font-size:12px; }
+  .panel-sa .sa-table th, .panel-sa .sa-table td { padding:8px 10px; }
+  .panel-sa .sa-filters input, .panel-sa .sa-filters select { min-width:0; width:100%; }
+  .panel-sa .sa-filters { flex-direction:column; }
+  .panel-sa .sa-info-table td:first-child { width:100px; font-size:12px; }
+  .panel-sa .sa-info-table td { padding:6px 8px; font-size:12px; }
+  .panel-sa .sa-stat-value { font-size:20px; }
+  .panel-sa .sa-stat-label { font-size:11px; }
+  .panel-sa .dash-header-title { font-size:24px; }
+  .panel-sa .dash-header-sub { font-size:13px; }
+  .panel-sa .clay-card { padding:16px; }
+  .panel-sa .clay-card-value { font-size:24px; }
+}
+@media (max-width:480px) {
+  .panel-sa .sa-card { padding:12px; border-radius:6px; }
+  .panel-sa .sa-card-title { font-size:11px; }
+  .panel-sa .content-body { padding:8px 12px 40px; }
+  .panel-sa .topbar { height:48px; padding:0 12px; }
+  .panel-sa .topbar h2 { font-size:15px; }
+  .panel-sa .eyebrow { font-size:10px; }
+  .panel-sa .dash-header-title { font-size:20px; }
+  .panel-sa .clay-card { padding:12px; border-radius:16px; }
+  .panel-sa .clay-card-value { font-size:20px; }
+  .panel-sa .clay-card-label { font-size:10px; }
+  .panel-sa .metrics-grid { gap:12px; }
+  .panel-sa .sa-stat-value { font-size:18px; }
+  .panel-sa .sa-stat-card { padding:12px; }
+  .panel-sa .sa-table th, .panel-sa .sa-table td { padding:6px 8px; font-size:11px; }
+  .panel-sa .sa-info-table td:first-child { width:80px; font-size:11px; }
+  .panel-sa .sa-info-table td { padding:4px 6px; font-size:11px; }
+  .panel-sa .sa-page-header { flex-direction:column; align-items:flex-start; gap:4px; }
+  .panel-sa .sa-filters { flex-direction:column; }
+  .panel-sa .sa-filters input, .panel-sa .sa-filters select { width:100%; }
+  .panel-sa .sa-att-table th, .panel-sa .sa-att-table td { min-width:20px; padding:3px 2px; font-size:9px; }
+  .panel-sa .sa-org-grid { grid-template-columns:1fr !important; }
+}
+@media (min-width:821px) {
+  .panel-sa .sa-sidebar { transform:none !important; }
+  .panel-sa .sa-sidebar-overlay { display:none !important; }
+  .panel-sa .sa-mobile-top { display:none !important; }
+}
+
 .panel-sa .dash-page { --dash-mint:#3EB489; --dash-coral:#FF7F50; --dash-primary:#091426; --clay-shadow:8px 8px 16px rgba(0,0,0,0.05),-8px -8px 16px rgba(255,255,255,0.8); --clay-shadow-hover:12px 12px 20px rgba(0,0,0,0.08),-12px -12px 20px rgba(255,255,255,1); --bounce:cubic-bezier(0.34,1.56,0.64,1); max-width:1400px; }
 .panel-sa .dash-kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:14px; margin-bottom:20px; }
 .panel-sa .dash-kpi-card { background:var(--bg-card); border:1px solid var(--border); border-left:4px solid var(--primary); border-radius:var(--radius); padding:18px 16px; box-shadow:var(--shadow); }

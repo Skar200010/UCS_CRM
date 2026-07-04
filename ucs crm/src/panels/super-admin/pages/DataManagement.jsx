@@ -192,7 +192,7 @@ export default function DataManagement() {
       </div>
 
       {tab === 'sources' && (
-        <div className="sa-card">
+        <div className="sa-card" style={{overflowX:'auto'}}>
           <div className="sa-page-header" style={{marginBottom:12}}>
             <h3 className="sa-card-title">Data Source Management</h3>
             <button className="btn btn-primary btn-sm" onClick={openNew}>+ New Data Source</button>
@@ -281,7 +281,7 @@ export default function DataManagement() {
       )}
 
       {tab === 'history' && (
-        <div className="sa-card">
+        <div className="sa-card" style={{overflowX:'auto'}}>
           <table className="sa-table">
             <thead><tr><th>Date</th><th>Source</th><th>Records</th><th>Imported At</th><th style={{width:120}}></th></tr></thead>
             <tbody>

@@ -110,7 +110,7 @@ export default function Organization() {
       )}
 
       {/* Side by side: NGOs + Causes */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+      <div className="sa-org-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
 
         {/* --- NGOs Column --- */}
         <div className="sa-card" style={{ margin: 0 }}>
