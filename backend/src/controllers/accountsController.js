@@ -666,3 +666,55 @@ export const getDonorHistory = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
+export const getDayEndReport = async (req, res) => {
+  try {
+    const { date } = req.query;
+    const reportDate = date || new Date().toISOString().split('T')[0];
+
+    const { data: froLogs, error: fErr } = await supabase
+      .from('fro_donor_logs')
+      .select(`
+        amount_collected, accounts_status, verified_at, created_at,
+        fro_assignments!inner(fro_worker_id, workers!inner(id, name, login_id))
+      `)
+      .gte('created_at', reportDate + 'T00:00:00Z')
+      .lte('created_at', reportDate + 'T23:59:59Z');
+    if (fErr) throw fErr;
+
+    const froMap = {};
+    let totalCollected = 0;
+    let totalSubmitted = 0;
+    for (const log of froLogs || []) {
+      const wid = log.fro_assignments?.fro_worker_id;
+      const wName = log.fro_assignments?.workers?.name || 'Unknown';
+      const wLogin = log.fro_assignments?.workers?.login_id || '';
+      const amount = Number(log.amount_collected || 0);
+      totalSubmitted += amount;
+      if (log.accounts_status === 'verified') totalCollected += amount;
+      if (!froMap[wid]) froMap[wid] = { id: wid, name: wName, login: wLogin, submitted: 0, collected: 0 };
+      froMap[wid].submitted += amount;
+      if (log.accounts_status === 'verified') froMap[wid].collected += amount;
+    }
+
+    const { data: suspenseEntries, error: sErr } = await supabase
+      .from('bank_audit_entries')
+      .select('id, amount, payment_id, bank_audit_sources(name)')
+      .eq('status', 'unverified');
+    if (sErr) throw sErr;
+
+    const suspenseAmount = (suspenseEntries || []).reduce((s, e) => s + Number(e.amount || 0), 0);
+
+    return res.json({
+      date: reportDate,
+      froWorkers: Object.values(froMap),
+      totalSubmitted,
+      totalCollected,
+      suspenseCount: (suspenseEntries || []).length,
+      suspenseAmount,
+      suspenseEntries: suspenseEntries || [],
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
