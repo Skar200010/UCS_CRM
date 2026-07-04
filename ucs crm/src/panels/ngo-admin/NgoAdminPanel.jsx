@@ -162,85 +162,89 @@ export default function NgoAdminPanel() {
             <button className="hamburger" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
             </button>
-            <div className="eyebrow">{meta?.label || 'Dashboard'}</div>
-            <h2>{meta?.label || 'Dashboard'}</h2>
-          </div>
-          <div ref={notifRef} style={{ position:'relative', marginRight:4 }}>
-            <div onClick={() => setShowNotifList(!showNotifList)} style={{ cursor:'pointer', position:'relative', padding:6, borderRadius:8, transition:'background .15s', background: showNotifList ? '#f3f4f6' : 'transparent' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={rejectedCount > 0 ? 'var(--sage)' : 'var(--ink-soft)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              {rejectedCount > 0 && (
-                <span style={{ position:'absolute', top:0, right:0, background:'#dc2626', color:'#fff', borderRadius:'50%', minWidth:16, height:16, fontSize:9, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, lineHeight:1, padding:'0 3px' }}>
-                  {rejectedCount > 9 ? '9+' : rejectedCount}
-                </span>
-              )}
+            <div>
+              <div className="eyebrow">NGO Admin</div>
+              <h2>{meta?.label || 'Dashboard'}</h2>
             </div>
-            {showNotifList && (
-              <div style={{ position:'absolute', top:'100%', right:0, marginTop:6, background:'#fff', border:'1px solid #e5e7eb', borderRadius:10, boxShadow:'0 8px 30px rgba(0,0,0,.12)', width:340, maxHeight:420, overflowY:'auto', zIndex:100, padding:0 }}>
-                <div style={{ padding:'10px 14px', borderBottom:'1px solid #f3f4f6', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <span style={{ fontSize:13, fontWeight:700 }}>Rejected Leads</span>
-                  <span style={{ fontSize:11, color:'var(--ink-soft)' }}>{rejectedCount} pending</span>
-                </div>
-
-                {rejectedCount === 0 && (
-                  <div style={{ padding:24, fontSize:12, color:'var(--ink-soft)', textAlign:'center' }}>No pending rejected leads</div>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+            <div ref={notifRef} style={{ position:'relative' }}>
+              <div onClick={() => setShowNotifList(!showNotifList)} style={{ cursor:'pointer', position:'relative', padding:6, borderRadius:8, transition:'background .15s', background: showNotifList ? '#f3f4f6' : 'transparent' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={rejectedCount > 0 ? 'var(--sage)' : 'var(--ink-soft)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                {rejectedCount > 0 && (
+                  <span style={{ position:'absolute', top:0, right:0, background:'#dc2626', color:'#fff', borderRadius:'50%', minWidth:16, height:16, fontSize:9, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, lineHeight:1, padding:'0 3px' }}>
+                    {rejectedCount > 9 ? '9+' : rejectedCount}
+                  </span>
                 )}
+              </div>
+              {showNotifList && (
+                <div style={{ position:'absolute', top:'100%', right:0, marginTop:6, background:'#fff', border:'1px solid #e5e7eb', borderRadius:10, boxShadow:'0 8px 30px rgba(0,0,0,.12)', width:340, maxHeight:420, overflowY:'auto', zIndex:100, padding:0 }}>
+                  <div style={{ padding:'10px 14px', borderBottom:'1px solid #f3f4f6', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontSize:13, fontWeight:700 }}>Rejected Leads</span>
+                    <span style={{ fontSize:11, color:'var(--ink-soft)' }}>{rejectedCount} pending</span>
+                  </div>
 
-                {dropdownItems.map((item, i) => (
-                  <div key={item.id}
-                    onClick={() => { setShowNotifList(false); navigate('/ngo-admin/rejected-leads'); }}
-                    style={{ padding:'10px 14px', borderBottom:'1px solid #f3f4f6', cursor:'pointer', fontSize:12, transition:'background .15s' }}
-                    onMouseOver={e => e.currentTarget.style.background = '#f9fafb'}
-                    onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
-                      <div style={{ width:28, height:28, borderRadius:6, background:'#fef2f2', display:'flex', alignItems:'center', justifyContent:'center', color:'#dc2626', flexShrink:0, marginTop:1 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                      </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
-                          <span style={{ fontWeight:600, fontSize:12 }}>{item.donor_name}</span>
-                          <span style={{ color:'var(--sage)', fontWeight:600 }}>{currency(item.amount)}</span>
+                  {rejectedCount === 0 && (
+                    <div style={{ padding:24, fontSize:12, color:'var(--ink-soft)', textAlign:'center' }}>No pending rejected leads</div>
+                  )}
+
+                  {dropdownItems.map((item, i) => (
+                    <div key={item.id}
+                      onClick={() => { setShowNotifList(false); navigate('/ngo-admin/rejected-leads'); }}
+                      style={{ padding:'10px 14px', borderBottom:'1px solid #f3f4f6', cursor:'pointer', fontSize:12, transition:'background .15s' }}
+                      onMouseOver={e => e.currentTarget.style.background = '#f9fafb'}
+                      onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                      <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+                        <div style={{ width:28, height:28, borderRadius:6, background:'#fef2f2', display:'flex', alignItems:'center', justifyContent:'center', color:'#dc2626', flexShrink:0, marginTop:1 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                         </div>
-                        <div style={{ color:'#6b7280', fontSize:11, lineHeight:1.3, marginBottom:2 }}>{item.rejection_reason}</div>
-                        <div style={{ color:'#9ca3af', fontSize:10 }}>{item.created_at ? new Date(item.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : ''}</div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
+                            <span style={{ fontWeight:600, fontSize:12 }}>{item.donor_name}</span>
+                            <span style={{ color:'var(--sage)', fontWeight:600 }}>{currency(item.amount)}</span>
+                          </div>
+                          <div style={{ color:'#6b7280', fontSize:11, lineHeight:1.3, marginBottom:2 }}>{item.rejection_reason}</div>
+                          <div style={{ color:'#9ca3af', fontSize:10 }}>{item.created_at ? new Date(item.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : ''}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {totalHidden > 0 && (
-                  <div style={{ padding:'10px 14px', textAlign:'center', borderTop:'1px solid #f3f4f6' }}>
-                    <button onClick={() => { setShowNotifList(false); setDrawerOpen(true); }}
-                      style={{ background:'none', border:'none', color:'var(--sage)', cursor:'pointer', fontSize:12, fontWeight:600, padding:'4px 12px', borderRadius:6 }}>
-                      View All ({totalHidden} more)
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="topbar-user" ref={menuRef} onClick={() => setShowMenu(!showMenu)}>
-            <div className="topbar-user-text">
-              <div className="topbar-name">{userName}</div>
-              <div className="topbar-role">NGO Admin</div>
-            </div>
-            <div className="avatar">{initials}</div>
-            {showMenu && (
-              <div className="user-menu">
-                <div className="user-menu-item" style={{cursor:'default', fontSize:13, color:'#666'}}>
-                  Theme: <select value={themeName} onClick={e=>e.stopPropagation()} onChange={e=>setThemeName(e.target.value)} style={{marginLeft:8, border:'1px solid #ddd', borderRadius:6, padding:'2px 8px'}}>
-                    {Object.keys(themes).map(k => <option key={k} value={k}>{themes[k].name}</option>)}
-                  </select>
+                  {totalHidden > 0 && (
+                    <div style={{ padding:'10px 14px', textAlign:'center', borderTop:'1px solid #f3f4f6' }}>
+                      <button onClick={() => { setShowNotifList(false); setDrawerOpen(true); }}
+                        style={{ background:'none', border:'none', color:'var(--sage)', cursor:'pointer', fontSize:12, fontWeight:600, padding:'4px 12px', borderRadius:6 }}>
+                        View All ({totalHidden} more)
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="user-menu-divider" />
-                <button className="user-menu-item" onClick={() => { setShowMenu(false); logout() }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                  Sign out
-                </button>
+              )}
+            </div>
+            <div className="topbar-user" ref={menuRef} onClick={() => setShowMenu(!showMenu)}>
+              <div className="topbar-user-text">
+                <div className="topbar-name">{userName}</div>
+                <div className="topbar-role">NGO Admin</div>
               </div>
-            )}
+              <div className="avatar">{initials}</div>
+              {showMenu && (
+                <div className="user-menu">
+                  <div className="user-menu-item" style={{cursor:'default', fontSize:13, color:'#666'}}>
+                    Theme: <select value={themeName} onClick={e=>e.stopPropagation()} onChange={e=>setThemeName(e.target.value)} style={{marginLeft:8, border:'1px solid #ddd', borderRadius:6, padding:'2px 8px'}}>
+                      {Object.keys(themes).map(k => <option key={k} value={k}>{themes[k].name}</option>)}
+                    </select>
+                  </div>
+                  <div className="user-menu-divider" />
+                  <button className="user-menu-item" onClick={() => { setShowMenu(false); logout() }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
         <div className="content-body">
