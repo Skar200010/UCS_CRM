@@ -89,7 +89,8 @@ export default function Leads() {
     try {
       const finalSource = source === 'Other' ? (customSource.trim() || 'Other') : source;
       const finalStatus = connectedOption === 'follow_up' && followUpDateTime ? 'followed_up' : connectedOption === 'call_back' && callBackTime ? 'call_back' : connectedOption === 'schedule' && scheduledDate ? 'scheduled' : connectedOption === 'not_interested' ? 'not_interested' : notConnectedOption || status;
-      const payload = { name: name.trim(), phone, dob: dob || null, source: finalSource, status: finalStatus, notes: formNotes.length ? JSON.stringify(formNotes) : null, created_by_name: user.name };
+      const finalJobRole = selectedJobRole === 'Other' ? (customJobRole.trim() || 'Other') : selectedJobRole;
+      const payload = { name: name.trim(), phone, dob: dob || null, source: finalSource, status: finalStatus, job_role: finalJobRole || null, notes: formNotes.length ? JSON.stringify(formNotes) : null, created_by_name: user.name };
       if (finalStatus === 'followed_up' && followUpDateTime) payload.follow_up_date = followUpDateTime;
       if (finalStatus === 'call_back' && callBackTime) payload.call_back_time = callBackTime;
       if (finalStatus === 'scheduled' && scheduledDate) payload.scheduled_date = scheduledDate;
@@ -295,7 +296,7 @@ export default function Leads() {
             </div>
           </div>
           {leadsLoading ? (
-            <div style={{overflowX:'auto'}}><table><tbody>{[1,2,3,4,5].map(i => <SkeletonRow key={i} cols={5}/>)}</tbody></table></div>
+            <div style={{overflowX:'auto'}}><table><tbody>{[1,2,3,4,5].map(i => <SkeletonRow key={i} cols={6}/>)}</tbody></table></div>
           ) : filteredLeads.length === 0 ? (
             <div className="empty">No leads found.</div>
           ) : (
@@ -303,7 +304,7 @@ export default function Leads() {
             <table>
               <thead>
                 <tr>
-                  <th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th>Action</th>
+                  <th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th>Job Description</th><th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -320,6 +321,7 @@ export default function Leads() {
                       <td>{isOwner ? (
                         <Dropdown className="inline-select" value={l.status} onChange={e=>updateLeadStatus(l.id, e.target.value)} options={LEAD_STATUSES} />
                       ) : statusPill(l.status)}</td>
+                      <td style={{color:'var(--ink-soft)'}}>{l.job_role || '—'}</td>
                       <td onClick={e => e.stopPropagation()}>
                         <span onClick={() => setDeleteConfirm(l)} style={{cursor:'pointer',color:'var(--danger)',fontSize:13,display:'inline-flex',alignItems:'center'}}><Trash width={16}/></span>
                       </td>
