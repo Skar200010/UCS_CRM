@@ -52,6 +52,7 @@ export default function Leads() {
   const [formNotes, setFormNotes] = useState([]);
   const [noteText, setNoteText] = useState('');
   const [selectedJobRole, setSelectedJobRole] = useState('');
+  const [customJobRole, setCustomJobRole] = useState('');
   const [selectedLeadId, setSelectedLeadId] = useState(null);
   const [searchInput, setSearchInput] = useState(leadFilters.search || '');
   const [tab, setTab] = useState('leads');
@@ -93,7 +94,7 @@ export default function Leads() {
       if (finalStatus === 'call_back' && callBackTime) payload.call_back_time = callBackTime;
       if (finalStatus === 'scheduled' && scheduledDate) payload.scheduled_date = scheduledDate;
       await addLead(payload);
-      setName(''); setPhone(''); setDob(''); setSource('Walk-in'); setCustomSource(''); setStatus(''); setConnectedOption(''); setNotConnectedOption(''); setFollowUpDateTime(''); setCallBackTime(''); setScheduledDate(''); setFormNotes([]); setSelectedJobRole('');
+      setName(''); setPhone(''); setDob(''); setSource('Walk-in'); setCustomSource(''); setStatus(''); setConnectedOption(''); setNotConnectedOption(''); setFollowUpDateTime(''); setCallBackTime(''); setScheduledDate(''); setFormNotes([]); setSelectedJobRole(''); setCustomJobRole('');
     } catch (err) { alert(err.message); }
   };
 
@@ -179,7 +180,7 @@ export default function Leads() {
                 </div>
                 <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--line)'}}>
                   <div style={{fontSize:12,fontWeight:600,color:'var(--ink)',marginBottom:6}}>JOB DESCRIPTION *</div>
-                  <Dropdown menuInset value={selectedJobRole} onChange={e=>setSelectedJobRole(e.target.value)} options={[{value:'',label:'Select a role'},{value:'Web Developer',label:'Web Developer'},{value:'Calling',label:'Calling'},{value:'Digital Marketing',label:'Digital Marketing'},{value:'HR',label:'HR'},{value:'Graphic Designer',label:'Graphic Designer'},{value:'Content Writer',label:'Content Writer'},{value:'SEO Specialist',label:'SEO Specialist'},{value:'Sales Executive',label:'Sales Executive'},{value:'Business Analyst',label:'Business Analyst'},{value:'Data Entry',label:'Data Entry'},{value:'Accountant',label:'Accountant'},{value:'Social Media Manager',label:'Social Media Manager'},{value:'Video Editor',label:'Video Editor'},{value:'Other',label:'Other'}]} style={{width:'100%'}} />
+                  <Dropdown menuInset value={selectedJobRole} onChange={e=>{setSelectedJobRole(e.target.value);if(e.target.value!=='Other')setCustomJobRole('')}} options={[{value:'',label:'Select a role'},{value:'Web Developer',label:'Web Developer'},{value:'Calling',label:'Calling'},{value:'Digital Marketing',label:'Digital Marketing'},{value:'HR',label:'HR'},{value:'Graphic Designer',label:'Graphic Designer'},{value:'Content Writer',label:'Content Writer'},{value:'SEO Specialist',label:'SEO Specialist'},{value:'Sales Executive',label:'Sales Executive'},{value:'Business Analyst',label:'Business Analyst'},{value:'Data Entry',label:'Data Entry'},{value:'Accountant',label:'Accountant'},{value:'Social Media Manager',label:'Social Media Manager'},{value:'Video Editor',label:'Video Editor'},{value:'Other',label:'Other'}]} customTrigger="Other" customValue={customJobRole} onCustomChange={setCustomJobRole} style={{width:'100%'}} />
                 </div>
                 <div style={{display:'flex',gap:8,marginTop:16,justifyContent:'flex-end'}}>
                   <button type="button" className="btn" onClick={()=>setSelectedLeadId(null)}>Cancel</button>
@@ -248,7 +249,7 @@ export default function Leads() {
               </div>
               <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid var(--line)'}}>
                 <div style={{fontSize:12,fontWeight:600,color:'var(--ink)',marginBottom:6}}>JOB DESCRIPTION *</div>
-                <Dropdown menuInset value={selectedJobRole} onChange={e=>setSelectedJobRole(e.target.value)} options={[{value:'',label:'Select a role'},{value:'Web Developer',label:'Web Developer'},{value:'Calling',label:'Calling'},{value:'Digital Marketing',label:'Digital Marketing'},{value:'HR',label:'HR'},{value:'Graphic Designer',label:'Graphic Designer'},{value:'Content Writer',label:'Content Writer'},{value:'SEO Specialist',label:'SEO Specialist'},{value:'Sales Executive',label:'Sales Executive'},{value:'Business Analyst',label:'Business Analyst'},{value:'Data Entry',label:'Data Entry'},{value:'Accountant',label:'Accountant'},{value:'Social Media Manager',label:'Social Media Manager'},{value:'Video Editor',label:'Video Editor'},{value:'Other',label:'Other'}]} style={{width:'100%'}} />
+                <Dropdown menuInset value={selectedJobRole} onChange={e=>{setSelectedJobRole(e.target.value);if(e.target.value!=='Other')setCustomJobRole('')}} options={[{value:'',label:'Select a role'},{value:'Web Developer',label:'Web Developer'},{value:'Calling',label:'Calling'},{value:'Digital Marketing',label:'Digital Marketing'},{value:'HR',label:'HR'},{value:'Graphic Designer',label:'Graphic Designer'},{value:'Content Writer',label:'Content Writer'},{value:'SEO Specialist',label:'SEO Specialist'},{value:'Sales Executive',label:'Sales Executive'},{value:'Business Analyst',label:'Business Analyst'},{value:'Data Entry',label:'Data Entry'},{value:'Accountant',label:'Accountant'},{value:'Social Media Manager',label:'Social Media Manager'},{value:'Video Editor',label:'Video Editor'},{value:'Other',label:'Other'}]} customTrigger="Other" customValue={customJobRole} onCustomChange={setCustomJobRole} style={{width:'100%'}} />
               </div>
               <div style={{display:'flex',gap:8,marginTop:16,justifyContent:'flex-end'}}>
                 <button type="submit" className="btn btn-primary"><Plus width={15}/> Create lead</button>
