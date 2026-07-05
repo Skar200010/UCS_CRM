@@ -272,13 +272,11 @@ export default function NgoAdminPanel() {
               )}
             </div>
             <div className="topbar-user" ref={menuRef} onClick={() => setShowMenu(!showMenu)}>
-              <div className="topbar-user-text">
-                <div className="topbar-name">{userName}</div>
-                <div className="topbar-role">Admin</div>
-              </div>
               <div className="avatar">{initials}</div>
               {showMenu && (
                 <div className="user-menu">
+                  <div className="user-menu-item" style={{fontWeight:600, fontSize:13, cursor:'default'}}>{userName} <span style={{fontWeight:400, color:'var(--ink-soft)'}}>Admin</span></div>
+                  <div className="user-menu-divider" />
                   <div className="user-menu-item" style={{cursor:'default', fontSize:13, color:'#666'}}>
                     Theme: <select value={themeName} onClick={e=>e.stopPropagation()} onChange={e=>setThemeName(e.target.value)} style={{marginLeft:8, border:'1px solid #ddd', borderRadius:6, padding:'2px 8px'}}>
                       {Object.keys(themes).map(k => <option key={k} value={k}>{themes[k].name}</option>)}

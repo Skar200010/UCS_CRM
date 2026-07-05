@@ -158,10 +158,6 @@ function PageShell({ children }) {
             <h2>{meta?.label || 'Dashboard'}</h2>
           </div>
           <div className="topbar-user" ref={menuRef} onClick={() => setShowMenu(!showMenu)}>
-            <div className="topbar-user-text">
-              <div className="topbar-name">{userName}</div>
-              <div className="topbar-role">Super Admin</div>
-            </div>
             <div className="avatar">{initials}</div>
             {showMenu && (
               <div className="user-menu">

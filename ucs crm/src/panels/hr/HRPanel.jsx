@@ -107,13 +107,11 @@ function HRPageShell({ children }) {
               {ticketCount > 0 && <span className="badge badge-pending2" style={{position:'absolute',top:-6,right:-6,fontSize:10,padding:'1px 5px',lineHeight:'16px',minWidth:18,textAlign:'center'}}>{ticketCount > 99 ? '99+' : ticketCount}</span>}
             </NavLink>
             <div className="topbar-user" ref={menuRef} onClick={() => setShowMenu(!showMenu)}>
-            <div className="topbar-user-text">
-              <div className="topbar-name">{userName}</div>
-              <div className="topbar-role">{userRole}</div>
-            </div>
             <div className="avatar" style={{ background:'#5B6B4E22', color:'#5B6B4E', width:36, height:36, cursor:'pointer' }}>{userInitials}</div>
             {showMenu && (
               <div className="user-menu">
+                <div className="user-menu-item" style={{fontWeight:600, fontSize:13, cursor:'default'}}>{userName} <span style={{fontWeight:400, color:'var(--ink-soft)'}}>{userRole}</span></div>
+                <div className="user-menu-divider" />
                 <div className="user-menu-item" style={{cursor:'default', fontSize:13, color:'#666'}}>
                   Theme: <select value={themeName} onClick={e=>e.stopPropagation()} onChange={e=>setThemeName(e.target.value)} style={{marginLeft:8, border:'1px solid #ddd', borderRadius:6, padding:'2px 8px'}}>
                     {Object.keys(themes).map(k => <option key={k} value={k}>{themes[k].name}</option>)}
