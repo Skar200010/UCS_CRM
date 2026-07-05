@@ -1,10 +1,10 @@
-const blocks = [
+﻿const blocks = [
   {
     title: 'Monthly Target',
     icon: 'trackpad_target',
     color: '#5B6B4E',
     items: [
-      'Set by NGO Admin after your first 3 months',
+      'Set by Admin after your first 3 months',
       'First 3 months: auto-calculated from salary & joining date',
       'Target must be met for any incentive payouts',
     ],

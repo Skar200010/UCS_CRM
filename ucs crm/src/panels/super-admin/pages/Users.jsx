@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { api } from '../api/auth'
 
 export default function Users() {
@@ -165,7 +165,7 @@ export default function Users() {
             )}
             {form.role === 'admin' && !editingUser && (
               <p style={{fontSize:13,color:'var(--ink-soft)',marginTop:4}}>
-                NGO Admin has access to all NGOs automatically.
+                Admin has access to all NGOs automatically.
               </p>
             )}
             <div className="sa-modal-actions">

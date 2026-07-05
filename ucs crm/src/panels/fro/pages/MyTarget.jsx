@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { getMyTarget } from '../api/target';
 import { SkeletonRow } from '../../../components/Skeleton';
 
@@ -22,8 +22,8 @@ export default function MyTarget() {
 
   const sourceLabel = {
     auto: 'Auto-calculated (based on salary & joining date)',
-    manual: 'Set by NGO Admin',
-    not_set: 'Not set by NGO Admin yet',
+    manual: 'Set by Admin',
+    not_set: 'Not set by Admin yet',
   };
 
   return (

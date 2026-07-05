@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
@@ -53,7 +53,7 @@ function Sidebar({ open, onClose }) {
       <aside className={`sidebar${open ? ' open' : ''}`}>
         <div className="sidebar-brand">
           <div className="brand-mark">NA</div>
-          <div><h1>UFS</h1><span>NGO Admin Panel</span></div>
+          <div><h1>UFS</h1><span>Admin Panel</span></div>
         </div>
         <nav className="sidebar-nav">
           {NAV.map(n => {
@@ -103,10 +103,12 @@ export default function NgoAdminPanel() {
 
   const [rejectedCount, setRejectedCount] = useState(0);
   const [rejectedItems, setRejectedItems] = useState([]);
+  const [allNotifs, setAllNotifs] = useState([]);
   const [showNotifList, setShowNotifList] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const notifRef = useRef(null);
   const pollRef = useRef(null);
+  const seenNotifIds = useRef(new Set());
 
   const loadRejectedCount = (showDesktop = false) => {
     api('/ngo-admin/rejected-leads', { _prefix: 'ucs' })
@@ -120,17 +122,43 @@ export default function NgoAdminPanel() {
       })
       .catch(() => {});
   };
+
+  const loadNotifications = () => {
+    const uid = user?.id;
+    if (!uid) return;
+    api(`/notifications/${uid}`, { _prefix: 'ucs' })
+      .then(data => {
+        const all = data || [];
+        const unread = all.filter(n => !n.read_at);
+        setAllNotifs(unread);
+        unread.forEach(n => {
+          if (!seenNotifIds.current.has(n.id)) {
+            seenNotifIds.current.add(n.id);
+            showDesktopNotification(n.title, n.body);
+          }
+        });
+      })
+      .catch(() => {});
+  };
+
   useEffect(() => {
     loadRejectedCount();
+    loadNotifications();
     requestNotifPermission();
-    pollRef.current = setInterval(() => loadRejectedCount(), 30000);
+    pollRef.current = setInterval(() => { loadRejectedCount(); loadNotifications(); }, 30000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, []);
+  }, [user?.id]);
 
   useRealtime('rejected_lead_tickets', {
     event: '*',
     onInsert: () => loadRejectedCount(true),
     enabled: true,
+  });
+
+  useRealtime('notification_log', {
+    filter: `worker_id=eq.${user?.id}`,
+    onInsert: () => loadNotifications(),
+    enabled: !!user?.id,
   });
 
   useEffect(() => {
@@ -146,16 +174,22 @@ export default function NgoAdminPanel() {
   const userName = user?.name || 'Admin'
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
+  const notifCount = rejectedCount + allNotifs.length;
   const dropdownItems = rejectedItems.slice(0, MAX_DROPDOWN);
   const totalHidden = rejectedCount - dropdownItems.length;
 
   const drawerSections = [
     { label: 'Rejected Leads', type: 'rejected', items: rejectedItems },
+    { label: 'Notifications', type: 'notifications', items: allNotifs },
   ];
 
   const handleDrawerItemClick = (item) => {
     setDrawerOpen(false);
-    navigate('/ngo-admin/rejected-leads');
+    if (item.type === 'suspense_assigned' || item.fro_donor_log_id) {
+      navigate('/ngo-admin/suspense');
+    } else {
+      navigate('/ngo-admin/rejected-leads');
+    }
   };
 
   return (
@@ -169,55 +203,61 @@ export default function NgoAdminPanel() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
             </button>
             <div>
-              <div className="eyebrow">NGO Admin</div>
+              <div className="eyebrow">Admin</div>
               <h2>{meta?.label || 'Dashboard'}</h2>
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:4 }}>
             <div ref={notifRef} style={{ position:'relative' }}>
               <div onClick={() => setShowNotifList(!showNotifList)} style={{ cursor:'pointer', position:'relative', padding:6, borderRadius:8, transition:'background .15s', background: showNotifList ? '#f3f4f6' : 'transparent' }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={rejectedCount > 0 ? 'var(--sage)' : 'var(--ink-soft)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={notifCount > 0 ? 'var(--sage)' : 'var(--ink-soft)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
                   <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                 </svg>
-                {rejectedCount > 0 && (
+                {notifCount > 0 && (
                   <span style={{ position:'absolute', top:0, right:0, background:'#dc2626', color:'#fff', borderRadius:'50%', minWidth:16, height:16, fontSize:9, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, lineHeight:1, padding:'0 3px' }}>
-                    {rejectedCount > 9 ? '9+' : rejectedCount}
+                    {notifCount > 9 ? '9+' : notifCount}
                   </span>
                 )}
               </div>
               {showNotifList && (
-                <div style={{ position:'absolute', top:'100%', right:0, marginTop:6, background:'#fff', border:'1px solid #e5e7eb', borderRadius:10, boxShadow:'0 8px 30px rgba(0,0,0,.12)', width:340, maxHeight:420, overflowY:'auto', zIndex:100, padding:0 }}>
+                <div style={{ position:'absolute', top:'100%', right:0, marginTop:6, background:'#fff', border:'1px solid #e5e7eb', borderRadius:10, boxShadow:'0 8px 30px rgba(0,0,0,.12)', width:380, maxHeight:420, overflowY:'auto', zIndex:100, padding:0 }}>
                   <div style={{ padding:'10px 14px', borderBottom:'1px solid #f3f4f6', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:13, fontWeight:700 }}>Rejected Leads</span>
-                    <span style={{ fontSize:11, color:'var(--ink-soft)' }}>{rejectedCount} pending</span>
+                    <span style={{ fontSize:13, fontWeight:700 }}>Notifications</span>
+                    <span style={{ fontSize:11, color:'var(--ink-soft)' }}>{notifCount} pending</span>
                   </div>
 
-                  {rejectedCount === 0 && (
-                    <div style={{ padding:24, fontSize:12, color:'var(--ink-soft)', textAlign:'center' }}>No pending rejected leads</div>
+                  {rejectedCount > 0 && (
+                    <div style={{ padding:'8px 14px', background:'#f9fafb', fontSize:11, fontWeight:600, color:'var(--ink-soft)' }}>Rejected Leads</div>
                   )}
-
-                  {dropdownItems.map((item, i) => (
+                  {rejectedItems.slice(0, 3).map(item => (
                     <div key={item.id}
                       onClick={() => { setShowNotifList(false); navigate('/ngo-admin/rejected-leads'); }}
-                      style={{ padding:'10px 14px', borderBottom:'1px solid #f3f4f6', cursor:'pointer', fontSize:12, transition:'background .15s' }}
+                      style={{ padding:'8px 14px', borderBottom:'1px solid #f3f4f6', cursor:'pointer', fontSize:12 }}
                       onMouseOver={e => e.currentTarget.style.background = '#f9fafb'}
                       onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                      <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
-                        <div style={{ width:28, height:28, borderRadius:6, background:'#fef2f2', display:'flex', alignItems:'center', justifyContent:'center', color:'#dc2626', flexShrink:0, marginTop:1 }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                        </div>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
-                            <span style={{ fontWeight:600, fontSize:12 }}>{item.donor_name}</span>
-                            <span style={{ color:'var(--sage)', fontWeight:600 }}>{currency(item.amount)}</span>
-                          </div>
-                          <div style={{ color:'#6b7280', fontSize:11, lineHeight:1.3, marginBottom:2 }}>{item.rejection_reason}</div>
-                          <div style={{ color:'#9ca3af', fontSize:10 }}>{item.created_at ? new Date(item.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : ''}</div>
-                        </div>
-                      </div>
+                      <strong>{item.donor_name}</strong> - {currency(item.amount)}<br/>
+                      <span style={{ color:'#6b7280', fontSize:11 }}>{item.rejection_reason}</span>
                     </div>
                   ))}
+
+                  {allNotifs.length > 0 && (
+                    <div style={{ padding:'8px 14px', background:'#f9fafb', fontSize:11, fontWeight:600, color:'var(--ink-soft)', borderTop:'1px solid #f3f4f6' }}>Other Notifications</div>
+                  )}
+                  {allNotifs.slice(0, 5).map(n => (
+                    <div key={n.id}
+                      onClick={() => { setShowNotifList(false); handleDrawerItemClick(n); }}
+                      style={{ padding:'8px 14px', borderBottom:'1px solid #f3f4f6', cursor:'pointer', fontSize:12 }}
+                      onMouseOver={e => e.currentTarget.style.background = '#f9fafb'}
+                      onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                      <strong>{n.title}</strong><br/>
+                      <span style={{ color:'#6b7280', fontSize:11 }}>{n.body}</span>
+                    </div>
+                  ))}
+
+                  {rejectedCount === 0 && allNotifs.length === 0 && (
+                    <div style={{ padding:24, fontSize:12, color:'var(--ink-soft)', textAlign:'center' }}>No notifications</div>
+                  )}
 
                   {totalHidden > 0 && (
                     <div style={{ padding:'10px 14px', textAlign:'center', borderTop:'1px solid #f3f4f6' }}>
@@ -233,7 +273,7 @@ export default function NgoAdminPanel() {
             <div className="topbar-user" ref={menuRef} onClick={() => setShowMenu(!showMenu)}>
               <div className="topbar-user-text">
                 <div className="topbar-name">{userName}</div>
-                <div className="topbar-role">NGO Admin</div>
+                <div className="topbar-role">Admin</div>
               </div>
               <div className="avatar">{initials}</div>
               {showMenu && (
