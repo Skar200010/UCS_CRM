@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate, authenticateRole } from '../middleware/authMiddleware.js';
 import supabase from '../config/supabase.js';
 import {
-  listFroSuspense, resolveSuspenseEntry,
+  listFroSuspense, resolveSuspenseEntry, searchFroDispositions,
 } from '../controllers/bankAuditController.js';
 import {
   getDashboard,
@@ -88,6 +88,7 @@ router.get('/donors/:id/history', getDonorHistory);
 router.get('/donors/:id/full-history', getFullDonorHistory);
 
 router.get('/suspense', listFroSuspense);
+router.get('/suspense/search-dispositions', searchFroDispositions);
 router.put('/suspense/:id/resolve', resolveSuspenseEntry);
 
 export default router;

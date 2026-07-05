@@ -200,3 +200,33 @@ export const resolveSuspense = async (id, screenshotUrl, donorDetails) => {
   if (error) throw error;
   return data;
 };
+
+export const searchFroDispositions = async (froId, searchTerm) => {
+  const { data, error } = await supabase
+    .from('fro_donor_logs')
+    .select(`
+      id, amount_collected, action, disposition_category, disposition_detail,
+      accounts_status, rejection_reason, created_at,
+      fro_assignments!inner(fro_worker_id, donor_profiles!inner(id, name, mobile_number, city))
+    `)
+    .eq('fro_assignments.fro_worker_id', froId)
+    .ilike('fro_assignments.donor_profiles.name', `%${searchTerm}%`)
+    .or('accounts_status.neq.verified,and,disposition_detail.neq.lead_done')
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return (data || []).map(r => ({
+    id: r.id,
+    amount: r.amount_collected,
+    action: r.action,
+    disposition_category: r.disposition_category,
+    disposition_detail: r.disposition_detail,
+    accounts_status: r.accounts_status,
+    rejection_reason: r.rejection_reason,
+    created_at: r.created_at,
+    donor_id: r.fro_assignments?.donor_profiles?.id,
+    donor_name: r.fro_assignments?.donor_profiles?.name || 'Unknown',
+    donor_mobile: r.fro_assignments?.donor_profiles?.mobile_number || '',
+    donor_city: r.fro_assignments?.donor_profiles?.city || '',
+  }));
+};
