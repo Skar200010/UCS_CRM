@@ -109,6 +109,7 @@ function Sidebar({ mobileOpen }) {
 function PageShell({ children }) {
   const { user, logout } = useUcs()
   const [showMenu, setShowMenu] = useState(false)
+  const [mobileSidebar, setMobileSidebar] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [allNotifs, setAllNotifs] = useState([])
   const [drawerOpen, setDrawerOpen] = useState(false)
