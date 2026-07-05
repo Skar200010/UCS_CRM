@@ -29,7 +29,6 @@ import {
   updateLiveStatus,
   getLiveStatuses,
 } from '../controllers/froController.js';
-import { authenticateRole } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
