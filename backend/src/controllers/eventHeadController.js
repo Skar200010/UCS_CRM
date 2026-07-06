@@ -6,6 +6,7 @@ export const createEventHandler = async (req, res) => {
     const event = await EventHead.createEventHeadEvent({ ...req.body, created_by: req.user.id });
     return res.status(201).json(event);
   } catch (error) {
+    console.error('createEventHandler error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -15,6 +16,7 @@ export const listEventHeadEvents = async (req, res) => {
     const events = await EventHead.getAllEventHeadEvents();
     return res.json(events);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -25,6 +27,7 @@ export const getEventHeadEvent = async (req, res) => {
     if (!event) return res.status(404).json({ message: 'Event not found' });
     return res.json(event);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -34,6 +37,7 @@ export const updateEventHeadEvent = async (req, res) => {
     const event = await EventHead.updateEventHeadEvent(req.params.id, req.body);
     return res.json(event);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -43,6 +47,7 @@ export const deleteEventHeadEvent = async (req, res) => {
     const result = await EventHead.deleteEventHeadEvent(req.params.id);
     return res.json(result);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -52,6 +57,7 @@ export const updateEventHeadStatus = async (req, res) => {
     const event = await EventHead.updateEventHeadEvent(req.params.id, { status: req.body.status });
     return res.json(event);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -61,6 +67,7 @@ export const getEventHeadDashboard = async (req, res) => {
     const dash = await EventHead.getEventHeadDashboard();
     return res.json(dash);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -70,6 +77,7 @@ export const getEventHeadEventsByMonth = async (req, res) => {
     const events = await EventHead.getEventHeadEventsByMonth(req.params.month, req.params.year);
     return res.json(events);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -79,6 +87,7 @@ export const getEventHeadEventsByNgo = async (req, res) => {
     const events = await EventHead.getEventHeadEventsByNgo(req.params.ngoId);
     return res.json(events);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -88,6 +97,7 @@ export const getEventHeadEventsByState = async (req, res) => {
     const events = await EventHead.getEventHeadEventsByState(req.params.state);
     return res.json(events);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -97,6 +107,7 @@ export const submitEventHeadApproval = async (req, res) => {
     const event = await EventHead.updateEventHeadEvent(req.params.id, { status: 'Submitted', approval_status: 'Submitted' });
     return res.json(event);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -106,6 +117,7 @@ export const approveEventHeadEvent = async (req, res) => {
     const event = await EventHead.updateEventHeadEvent(req.params.id, { status: 'Approved', approval_status: 'Approved' });
     return res.json(event);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -125,6 +137,7 @@ export const createAsset = async (req, res) => {
     const asset = await EventHead.createAsset(req.body);
     return res.status(201).json(asset);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -134,6 +147,7 @@ export const listAssets = async (req, res) => {
     const assets = await EventHead.getAllAssets();
     return res.json(assets);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -144,6 +158,7 @@ export const getAsset = async (req, res) => {
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
     return res.json(asset);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -153,6 +168,7 @@ export const editAsset = async (req, res) => {
     const asset = await EventHead.updateAsset(req.params.id, req.body);
     return res.json(asset);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -162,6 +178,7 @@ export const removeAsset = async (req, res) => {
     const result = await EventHead.deleteAsset(req.params.id);
     return res.json(result);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -171,6 +188,7 @@ export const issueAssetItem = async (req, res) => {
     const asset = await EventHead.issueAsset(req.params.id, req.body.quantity);
     return res.json(asset);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -180,6 +198,7 @@ export const returnAssetItem = async (req, res) => {
     const asset = await EventHead.returnAsset(req.params.id);
     return res.json(asset);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -199,6 +218,7 @@ export const createMaterial = async (req, res) => {
     const material = await EventHead.createMaterial(req.body);
     return res.status(201).json(material);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -208,6 +228,7 @@ export const listMaterials = async (req, res) => {
     const materials = await EventHead.getAllMaterials();
     return res.json(materials);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -217,6 +238,7 @@ export const editMaterial = async (req, res) => {
     const material = await EventHead.updateMaterial(req.params.id, req.body);
     return res.json(material);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -226,6 +248,7 @@ export const removeMaterial = async (req, res) => {
     const result = await EventHead.deleteMaterial(req.params.id);
     return res.json(result);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -235,6 +258,7 @@ export const getMaterialStock = async (req, res) => {
     const stock = await EventHead.getMaterialStock();
     return res.json(stock);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -254,6 +278,7 @@ export const createDistribution = async (req, res) => {
     const dist = await EventHead.createDistribution(req.params.eventId, req.body);
     return res.status(201).json(dist);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -273,6 +298,7 @@ export const listBeneficiaries = async (req, res) => {
     const beneficiaries = await EventHead.getAllDistributions();
     return res.json(beneficiaries);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -291,6 +317,7 @@ export const createVolunteer = async (req, res) => {
     const volunteer = await EventHead.createVolunteer(req.body);
     return res.status(201).json(volunteer);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -300,6 +327,7 @@ export const listVolunteers = async (req, res) => {
     const volunteers = await EventHead.getAllVolunteers();
     return res.json(volunteers);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -319,6 +347,7 @@ export const createExpense = async (req, res) => {
     const expense = await EventHead.createExpense(req.params.eventId, req.body);
     return res.status(201).json(expense);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -328,6 +357,7 @@ export const listExpenses = async (req, res) => {
     const expenses = await EventHead.getExpensesByEvent(req.params.eventId);
     return res.json(expenses);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -347,6 +377,7 @@ export const createVehicle = async (req, res) => {
     const vehicle = await EventHead.createVehicle(req.body);
     return res.status(201).json(vehicle);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -356,6 +387,7 @@ export const listVehicles = async (req, res) => {
     const vehicles = await EventHead.getAllVehicles();
     return res.json(vehicles);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -375,6 +407,7 @@ export const uploadMedia = async (req, res) => {
     const media = await EventHead.createMedia(req.params.eventId, { name: req.file?.originalname || req.body.name, url: req.body.url || `/uploads/${req.file?.filename}`, type: req.file?.mimetype || req.body.type });
     return res.status(201).json(media);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -384,6 +417,7 @@ export const listMedia = async (req, res) => {
     const media = await EventHead.getMediaByEvent(req.params.eventId);
     return res.json(media);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -403,6 +437,7 @@ export const createAttendance = async (req, res) => {
     const att = await EventHead.createAttendance(req.params.eventId, req.body);
     return res.status(201).json(att);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };
@@ -422,6 +457,7 @@ export const getChecklist = async (req, res) => {
     const items = await EventHead.getChecklistByEvent(req.params.eventId);
     return res.json(items);
   } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
     return res.status(500).json({ message: error.message });
   }
 };

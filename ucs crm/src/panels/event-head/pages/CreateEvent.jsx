@@ -26,7 +26,7 @@ export default function CreateEvent() {
     try {
       await createEvent(form)
       navigate('/event-head/events')
-    } catch (err) { alert('Failed to create event') }
+    } catch (err) { alert('Failed to create event: ' + (err.message || 'Unknown error')); console.error('Create event error:', err) }
     finally { setSaving(false) }
   }
 
