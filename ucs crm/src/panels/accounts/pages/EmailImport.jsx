@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost } from '../api/auth';
+import EmailAccountsManager from './EmailAccountsManager';
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u20B90';
 
@@ -75,6 +76,7 @@ export default function EmailImport() {
 
   return (
     <div>
+      <EmailAccountsManager onAccountsChange={loadData} />
       <div className="stats-grid" style={{ marginBottom: 16 }}>
         <div className="stat-card" style={{ gridColumn: '1 / -1', border: '2px solid #5B6B4E', background: 'linear-gradient(135deg, #5B6B4E08 0%, #5B6B4E18 100%)', padding: '18px 22px' }}>
           <div className="stat-icon" style={{ background: '#5B6B4E20', color: '#5B6B4E', width: 48, height: 48, borderRadius: 14 }}>

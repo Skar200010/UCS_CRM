@@ -6,6 +6,7 @@ import supabase from '../config/supabase.js';
 import { isEmailProcessed, logImport } from '../models/emailImportLogModel.js';
 import { getSources } from '../models/bankAuditModel.js';
 import { createEntry } from '../models/bankAuditModel.js';
+import { getActiveAccounts, updateLastPolled } from '../models/emailAccountModel.js';
 
 let lastPollResult = { success: null, message: 'Not run yet', count: 0, timestamp: null, error: null };
 
@@ -165,25 +166,23 @@ Rules:
   }
 }
 
-export async function pollEmailInbox(fromDate) {
-  if (!emailConfig.enabled) {
-    lastPollResult = { success: null, message: 'Email import disabled (IMAP_ENABLED=false)', count: 0, timestamp: new Date().toISOString(), error: null };
-    return lastPollResult;
-  }
+async function pollSingleAccount(account, sources, fromDate) {
+  const config = {
+    host: account.imap_host || 'imap.gmail.com',
+    port: account.imap_port || 993,
+    secure: true,
+    auth: { user: account.email, pass: account.app_password },
+    tls: true,
+    tlsOptions: { rejectUnauthorized: false },
+  };
 
-  if (!emailConfig.imap.auth.user || !emailConfig.imap.auth.pass) {
-    lastPollResult = { success: null, message: 'IMAP credentials not configured', count: 0, timestamp: new Date().toISOString(), error: null };
-    return lastPollResult;
-  }
-
-  const client = new ImapFlow(emailConfig.imap);
+  const client = new ImapFlow(config);
   let processed = 0;
-  let errors = 0;
   let skipped = 0;
 
   try {
     await client.connect();
-    await client.mailboxOpen(emailConfig.imapMailbox);
+    await client.mailboxOpen('INBOX');
 
     const searchQuery = { seen: false };
     if (fromDate) {
@@ -194,30 +193,17 @@ export async function pollEmailInbox(fromDate) {
     const messages = await client.search(searchQuery);
     if (!messages || messages.length === 0) {
       await client.logout();
-      lastPollResult = { success: true, message: 'No new emails', count: 0, timestamp: new Date().toISOString(), error: null };
-      return lastPollResult;
-    }
-
-    const sources = await getSources();
-    if (!sources || sources.length === 0) {
-      console.warn('[emailImporter] No bank audit sources found, creating default ones...');
+      return { processed: 0, skipped: 0, error: null, message: 'No new emails' };
     }
 
     for await (const msg of client.fetch(messages, { source: true })) {
       try {
         const parsed = await simpleParser(msg.source);
         const messageId = parsed.messageId || msg.uid?.toString();
-
-        if (!messageId) {
-          skipped++;
-          continue;
-        }
+        if (!messageId) { skipped++; continue; }
 
         const existing = await isEmailProcessed(messageId);
-        if (existing) {
-          skipped++;
-          continue;
-        }
+        if (existing) { skipped++; continue; }
 
         const emailSubject = parsed.subject || '';
         const emailFrom = parsed.from?.text || '';
@@ -243,7 +229,7 @@ export async function pollEmailInbox(fromDate) {
             amount: details.amount,
             payment_id: details.payment_id || null,
             transaction_date: transactionDate,
-            remarks: `Auto-imported from email: ${emailSubject}`,
+            remarks: `[${account.name}] Auto-imported from email: ${emailSubject}`,
             created_by: null,
           });
 
@@ -263,7 +249,6 @@ export async function pollEmailInbox(fromDate) {
           });
 
           processed++;
-          console.log(`[emailImporter] Imported: ${emailSubject} -> \u20B9${details.amount} (${paymentSource})`);
         } else {
           await logImport({
             email_message_id: messageId,
@@ -277,25 +262,65 @@ export async function pollEmailInbox(fromDate) {
           skipped++;
         }
       } catch (msgError) {
-        console.error('[emailImporter] Error processing message:', msgError.message);
-        errors++;
+        console.error(`[emailImporter] ${account.name}: message error:`, msgError.message);
+        skipped++;
       }
     }
 
     await client.logout();
+    await updateLastPolled(account.id);
+    return { processed, skipped, error: null, message: `${processed} imported, ${skipped} skipped` };
   } catch (error) {
-    console.error('[emailImporter] IMAP error:', error.message);
     try { await client.logout(); } catch {}
-    lastPollResult = { success: false, message: `IMAP error: ${error.message}`, count: processed, timestamp: new Date().toISOString(), error: error.message };
-    return lastPollResult;
+    return { processed, skipped, error: error.message, message: `IMAP error: ${error.message}` };
+  }
+}
+
+export async function pollEmailInbox(fromDate) {
+  const accounts = await getActiveAccounts();
+
+  if (!accounts || accounts.length === 0) {
+    if (emailConfig.enabled && emailConfig.imap.auth.user && emailConfig.imap.auth.pass) {
+      accounts.push({
+        id: null,
+        name: 'Default',
+        email: emailConfig.imap.auth.user,
+        app_password: emailConfig.imap.auth.pass,
+        imap_host: emailConfig.imap.host,
+        imap_port: emailConfig.imap.port,
+      });
+    } else {
+      lastPollResult = { success: null, message: 'No email accounts configured. Add one in Email Import settings.', count: 0, timestamp: new Date().toISOString(), error: null };
+      return lastPollResult;
+    }
+  }
+
+  const sources = await getSources();
+  if (!sources || sources.length === 0) {
+    console.warn('[emailImporter] No bank audit sources found');
+  }
+
+  let totalProcessed = 0;
+  let totalSkipped = 0;
+  let totalErrors = 0;
+  const details = [];
+
+  for (const account of accounts) {
+    console.log(`[emailImporter] Polling ${account.name} (${account.email})...`);
+    const result = await pollSingleAccount(account, sources, fromDate);
+    totalProcessed += result.processed;
+    totalSkipped += result.skipped;
+    if (result.error) totalErrors++;
+    details.push({ name: account.email, result });
   }
 
   lastPollResult = {
-    success: true,
-    message: `Processed: ${processed} imported, ${skipped} skipped, ${errors} errors`,
-    count: processed,
+    success: totalErrors === 0,
+    message: `Accounts: ${accounts.length} | Imported: ${totalProcessed} | Skipped: ${totalSkipped} | Errors: ${totalErrors}`,
+    count: totalProcessed,
     timestamp: new Date().toISOString(),
-    error: null,
+    error: totalErrors > 0 ? `${totalErrors} account(s) had errors` : null,
+    details,
   };
   return lastPollResult;
 }

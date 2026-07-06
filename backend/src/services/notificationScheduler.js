@@ -643,7 +643,7 @@ console.log('Scheduled: every-minute check for missed schedules (10 min overdue)
 cron.schedule('* * * * *', () => autoReturnTransfers());
 console.log('Scheduled: every-minute check for expired lead transfers');
 
-if (!process.env.VERCEL && emailConfig.enabled) {
+if (!process.env.VERCEL) {
   const pollInterval = `*/${Math.max(1, emailConfig.pollIntervalMinutes)} * * * *`;
   cron.schedule(pollInterval, () => {
     pollEmailInbox().catch(err => console.error('[emailImporter] Cron error:', err.message));
