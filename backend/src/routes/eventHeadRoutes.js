@@ -5,7 +5,6 @@ import * as ctrl from '../controllers/eventHeadController.js';
 const router = Router();
 
 const eh = authenticate;
-
 // Events (static paths BEFORE :id)
 router.get('/events/dashboard', eh, ctrl.getEventHeadDashboard);
 router.get('/events/calendar', eh, (req, res) => {
