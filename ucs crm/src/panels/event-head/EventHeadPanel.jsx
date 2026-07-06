@@ -17,9 +17,7 @@ import AssetRegister from './pages/AssetRegister'
 import MaterialRegister from './pages/MaterialRegister'
 import BeneficiaryDistribution from './pages/BeneficiaryDistribution'
 import VolunteerManagement from './pages/VolunteerManagement'
-import ExpenseManagement from './pages/ExpenseManagement'
-import VehicleManagement from './pages/VehicleManagement'
-import MediaManagement from './pages/MediaManagement'
+
 import AttendanceManagement from './pages/AttendanceManagement'
 import EventReports from './pages/EventReports'
 import ApprovalWorkflow from './pages/ApprovalWorkflow'
@@ -36,9 +34,7 @@ const NAV = [
   { id:'distribution',   path:'/event-head/distribution',    label:'Beneficiary Distribution', icon:Users, section:'Execution' },
   { id:'volunteers',     path:'/event-head/volunteers',      label:'Volunteer Management',  icon:Star,    section:'Execution' },
   { id:'attendance',     path:'/event-head/attendance',      label:'Attendance',            icon:Users,   section:'Execution' },
-  { id:'expenses',       path:'/event-head/expenses',        label:'Expense Management',    icon:Plane,   section:'Operations' },
-  { id:'vehicles',       path:'/event-head/vehicles',        label:'Vehicle Management',    icon:Brief,   section:'Operations' },
-  { id:'media',          path:'/event-head/media',           label:'Media Management',      icon:Eye,     section:'Operations' },
+
   { id:'events',         path:'/event-head/events',          label:'All Events',            icon:Cal,     section:'Reports' },
   { id:'reports',        path:'/event-head/reports',         label:'Event Reports',         icon:FileTxt, section:'Reports' },
   { id:'approvals',      path:'/event-head/approvals',       label:'Approval Workflow',     icon:SettingsIcon, section:'Reports' },
@@ -50,7 +46,7 @@ const SECTIONS = [
   { id:'Planning', label:'Planning' },
   { id:'Resources', label:'Resources' },
   { id:'Execution', label:'Execution' },
-  { id:'Operations', label:'Operations' },
+
   { id:'Reports', label:'Reports & Approvals' },
 ]
 
@@ -232,9 +228,7 @@ export default function EventHeadPanel() {
             <Route path="distribution" element={<BeneficiaryDistribution />} />
             <Route path="volunteers" element={<VolunteerManagement />} />
             <Route path="attendance" element={<AttendanceManagement />} />
-            <Route path="expenses" element={<ExpenseManagement />} />
-            <Route path="vehicles" element={<VehicleManagement />} />
-            <Route path="media" element={<MediaManagement />} />
+
             <Route path="events" element={<EventsPage />} />
             <Route path="reports" element={<EventReports />} />
             <Route path="approvals" element={<ApprovalWorkflow />} />
