@@ -20,7 +20,6 @@ export default function LeadDetail({ lead, onBack }) {
   const myId = user?.id;
   const isOwner = myId && lead.created_by === myId;
   const [noteText, setNoteText] = useState('');
-  const [editScheduledDate, setEditScheduledDate] = useState(lead.scheduled_date || '');
 
   let allNotes = [];
   try { allNotes = JSON.parse(lead.notes || '[]'); } catch { allNotes = lead.notes ? [{ text: lead.notes }] : []; }
@@ -31,10 +30,6 @@ export default function LeadDetail({ lead, onBack }) {
     const n = { text: noteText.trim(), date: new Date().toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}), by: user?.name || 'Unknown' };
     await updateLead(lead.id, { notes: JSON.stringify([...allNotes, n]) });
     setNoteText('');
-  };
-
-  const updateScheduledDate = async () => {
-    await updateLead(lead.id, { scheduled_date: editScheduledDate || null });
   };
 
   const age = lead.dob ? calcAge(lead.dob) : lead.age;
@@ -73,20 +68,6 @@ export default function LeadDetail({ lead, onBack }) {
 
       {lead.status === 'scheduled' && (
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,padding:'16px 22px'}}>
-          <div><strong>Interview date</strong>
-            <p style={{marginTop:4}}>
-              {isOwner ? (
-                <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                  <input type="date" value={editScheduledDate} onChange={e=>setEditScheduledDate(e.target.value)}
-                    style={{flex:1,border:'1px solid var(--line)',borderRadius:'var(--radius-sm)',padding:'4px 8px',fontSize:13,background:'transparent',color:'var(--ink)',outline:'none'}} />
-                  <button className="btn btn-sm" onClick={updateScheduledDate}>Save</button>
-                </div>
-              ) : (
-                lead.scheduled_date ? new Date(lead.scheduled_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—'
-              )}
-            </p>
-          </div>
-          <div><strong>Scheduled by</strong><p>{lead.scheduled_by_name || '—'}</p></div>
           <div><strong>Scheduled at</strong><p style={{color:'var(--ink-soft)'}}>{formatDT(lead.scheduled_at)}</p></div>
         </div>
       )}
