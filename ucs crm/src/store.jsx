@@ -10,6 +10,9 @@ const ALLOWED_ROLES = {
   telecaller: 'telecaller',
   fro: 'fro',
   worker: 'worker',
+  event_head: 'event_head',
+  'Event Manager': 'Event Manager',
+  'Event Head': 'Event Head',
 }
 
 export const UcsContext = createContext(null)
