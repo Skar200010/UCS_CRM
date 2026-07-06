@@ -18,6 +18,7 @@ const ROLE_PATHS = {
   fro: '/fro',
   worker: '/fro',
   event_head: '/event-head',
+  'Event Manager': '/event-head',
 }
 
 const ROLE_PANELS = {
@@ -73,7 +74,7 @@ function AccessDenied() {
 function RootRedirect() {
   const { user } = useUcs()
   if (!user) return <Navigate to="/login" replace />
-  const path = ROLE_PATHS[user.role] || ROLE_PATHS[user.department]
+  const path = ROLE_PATHS[user.department] || ROLE_PATHS[user.role]
   if (path) return <Navigate to={path} replace />
   return <AccessDenied />
 }
@@ -82,7 +83,7 @@ function LoginWrapper() {
   const { user } = useUcs()
   const navigate = useNavigate()
   if (user) {
-    const path = ROLE_PATHS[user.role] || ROLE_PATHS[user.department]
+    const path = ROLE_PATHS[user.department] || ROLE_PATHS[user.role]
     if (path) return <Navigate to={path} replace />
   }
   return <Login onLogin={(role) => {
