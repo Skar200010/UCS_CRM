@@ -1327,31 +1327,23 @@ export default function Dashboard() {
               const total = segments.reduce((s, seg) => s + seg.value, 0)
               if (segments.length === 0 || total === 0) return <p className="nd-muted">No role data</p>
               const maxVal = Math.max(...segments.map(s => s.value), 1)
-              const barMaxH = 120
               return (
-                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: barMaxH + 20, gap: 6, flex: 1 }}>
-                    {segments.map(s => {
-                      const h = (s.value / maxVal) * barMaxH
-                      return (
-                        <div key={s.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: s.color, marginBottom: 3 }}>
-                            {s.value}
-                          </span>
-                          <div style={{
-                            width: '100%', maxWidth: 48, height: h || 2, minHeight: 2,
-                            background: s.color, borderRadius: '4px 4px 0 0',
-                            transition: 'height 0.6s ease',
-                          }} />
-                          <span style={{ fontSize: 9, fontWeight: 600, color: '#64748b', marginTop: 4, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                            {s.label}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, textAlign: 'center', marginTop: 8, borderTop: '1px solid #DEE9E1', paddingTop: 6 }}>
-                    {total} total users
+                <div style={{ display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'center', flex: 1 }}>
+                  <DonutChart
+                    segments={segments}
+                    size={150}
+                    centerValue={total}
+                    centerLabel="Users"
+                    animated={animated}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
+                    {segments.map(s => (
+                      <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: 11, fontWeight: 600, color: '#1F332B', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: s.color }}>{s.value}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )
