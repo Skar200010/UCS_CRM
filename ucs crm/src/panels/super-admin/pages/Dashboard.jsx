@@ -2,6 +2,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getDashboard, getFroLiveStatus, getAccountsLeads, getRecruiterLeads, getWorkers, getAttendance, getUsers } from '../api/endpoints'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { getDashboard, getFroLiveStatus, getAccountsLeads, getRecruiterLeads, getWorkers, getAttendance, getHolidays } from '../api/endpoints'
+import { api } from '../api/auth'
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, RadialBarChart, RadialBar, LineChart, Line, CartesianGrid, Legend } from 'recharts'
 
 /* ============ MINT PALETTE ============ */
 const MINT = '#8CCDA4'          // fills, charts, borders
@@ -659,13 +664,654 @@ function NameListModal({ title, color, names, onClose }) {
   )
 }
 
+/* ─── Animated counter (scroll-triggered) ─── */
+function AnimatedNum({ to, suffix = '' }) {
+  const [v, setV] = useState(0);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    if (to === 0) { setV(0); return; }
+    const obs = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      const dur = 1000, s = performance.now(), d = to;
+      const tick = (n) => { const p = Math.min((n - s) / dur, 1); setV(Math.round(d * (1 - Math.pow(1 - p, 3)))); if (p < 1) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+      obs.disconnect();
+    }, { threshold: 0.3 });
+    obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, [to]);
+  return <span ref={ref}>{v.toLocaleString('en-IN')}{suffix}</span>;
+}
+
+/* ─── FRO status helpers (from LiveFroStatus) ─── */
+function fmt(seconds) {
+  if (seconds == null) return '00:00'
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+const STATUS_META = {
+  on_call: { label: 'On Call', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+  online: { label: 'Online', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+  idle: { label: 'Idle', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
+  break: { label: 'Break', color: '#d97706', bg: '#fefce8', border: '#fde68a' },
+  offline: { label: 'Offline', color: '#9ca3af', bg: '#f9fafb', border: '#e5e7eb' },
+}
+
+function StatBox({ label, value, icon }) {
+  return (
+    <div style={{ padding: '8px 10px', borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+      <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, marginBottom: 2 }}>{icon} {label}</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: '#091426' }}>{value}</div>
+    </div>
+  )
+}
+
+function FroDeepDetailModal({ fro, onClose }) {
+  if (!fro) return null
+  const workerName = fro.workers?.name || 'Unknown'
+  const meta = STATUS_META[fro.status] || STATUS_META.offline
+  const totalActive = (fro.today_talk_seconds || 0) + (fro.today_idle_seconds || 0)
+  const productivity = totalActive > 0 ? Math.round(((fro.today_talk_seconds || 0) / totalActive) * 100) : null
+  return (
+    <div className="nd-modal-overlay" onClick={onClose}>
+      <div className="card" style={{ width: 420, padding: '24px 28px', background: '#fff', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: meta.bg, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+              {workerName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>{workerName}</div>
+              <div style={{ fontSize: 11, color: '#64748b' }}>{fro.workers?.login_id || ''}</div>
+            </div>
+          </div>
+          <button className="nd-modal-close" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div style={{ padding: '10px 12px', borderRadius: 6, background: meta.bg, border: `1px solid ${meta.border}`, textAlign: 'center', marginBottom: 12 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, color: meta.color }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color, display: 'inline-block' }} />
+            {meta.label}
+          </span>
+        </div>
+        {fro.status === 'on_call' && (
+          <div style={{ padding: '10px 12px', borderRadius: 6, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: '#991b1b', fontWeight: 600, marginBottom: 4 }}>📞 Current Call</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#991b1b', flex: 1 }}>{fro.current_donor_name}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                {fro.call_started_at ? fmt(Math.floor((Date.now() - new Date(fro.call_started_at).getTime()) / 1000)) : '00:00'}
+              </span>
+            </div>
+          </div>
+        )}
+        {fro.status === 'break' && (
+          <div style={{ padding: '10px 12px', borderRadius: 6, background: fro.today_break_seconds > 3600 ? '#fef2f2' : '#fefce8', border: `1px solid ${fro.today_break_seconds > 3600 ? '#fecaca' : '#fde68a'}`, marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: '#92400e', fontWeight: 600, marginBottom: 4 }}>☕ On Break</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: fro.today_break_seconds > 3600 ? '#dc2626' : '#d97706', fontVariantNumeric: 'tabular-nums' }}>
+                {fro.break_started_at ? fmt(Math.floor((Date.now() - new Date(fro.break_started_at).getTime()) / 1000)) : '00:00'}
+              </span>
+              <span style={{ fontSize: 11, color: '#92400e' }}>today: {fmt(fro.today_break_seconds || 0)}</span>
+            </div>
+          </div>
+        )}
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#091426', marginBottom: 8 }}>📊 Today's Performance</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <StatBox label="Calls" value={fro.today_calls || 0} icon="📞" />
+          <StatBox label="Talk Time" value={fmt(fro.today_talk_seconds || 0)} icon="⏱️" />
+          <StatBox label="Skipped" value={fro.today_skipped || 0} icon="⏳" />
+          <StatBox label="Idle Time" value={fmt(fro.today_idle_seconds || 0)} icon="🕊️" />
+          {fro.today_break_seconds > 0 && <StatBox label="Break" value={fmt(fro.today_break_seconds || 0)} icon="☕" />}
+          {productivity !== null && <StatBox label="Productivity" value={`${productivity}%`} icon="📊" />}
+        </div>
+        <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 14, textAlign: 'center' }}>Auto-refreshes every 30s</div>
+      </div>
+    </div>
+  )
+}
+
+function FroDetailModal({ fro, onClose, onShowDeep }) {
+  if (!fro) return null
+  const meta = STATUS_META[fro.status] || STATUS_META.offline
+  const workerName = fro.workers?.name || 'Unknown'
+  const totalActive = (fro.today_talk_seconds || 0) + (fro.today_idle_seconds || 0)
+  const productivity = totalActive > 0 ? Math.round(((fro.today_talk_seconds || 0) / totalActive) * 100) : null
+  return (
+    <div className="nd-modal-overlay" onClick={onClose}>
+      <div className="card" style={{ width: 340, padding: '20px 24px', background: '#fff', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={onShowDeep}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: meta.bg, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
+              {workerName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: MINT_DEEP }}>{workerName} <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 400 }}>→</span></div>
+              <div style={{ fontSize: 10, color: '#64748b' }}>{fro.workers?.login_id || ''}</div>
+            </div>
+          </div>
+          <button className="nd-modal-close" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div style={{ padding: '10px 12px', borderRadius: 6, background: meta.bg, border: `1px solid ${meta.border}`, marginBottom: 12, textAlign: 'center' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: meta.color }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color, display: 'inline-block' }} />
+            {meta.label}
+          </span>
+        </div>
+        {fro.status === 'on_call' && (
+          <div style={{ padding: '8px 10px', borderRadius: 6, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#dc2626' }}>call</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#991b1b', flex: 1 }}>{fro.current_donor_name}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                {fro.call_started_at ? fmt(Math.floor((Date.now() - new Date(fro.call_started_at).getTime()) / 1000)) : '00:00'}
+              </span>
+            </div>
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <StatBox label="Today Calls" value={fro.today_calls || 0} icon="📞" />
+          <StatBox label="Talk Time" value={fmt(fro.today_talk_seconds || 0)} icon="⏱️" />
+          {fro.today_skipped > 0 && <StatBox label="Skipped" value={fro.today_skipped} icon="⏳" />}
+          <StatBox label="Idle Time" value={fmt(fro.today_idle_seconds || 0)} icon="🕊️" />
+          {fro.today_break_seconds > 0 && <StatBox label="Break" value={fmt(fro.today_break_seconds || 0)} icon="☕" />}
+          {productivity !== null && <StatBox label="Productivity" value={`${productivity}%`} icon="📊" />}
+        </div>
+        <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 12, textAlign: 'center' }}>
+          Last seen: {fro.updated_at ? new Date(fro.updated_at).toLocaleTimeString('en-IN') : '—'}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Mini FRO card for dashboard ─── */
+function FroMiniCard({ fro, onCardClick }) {
+  if (!fro) return null
+  const meta = STATUS_META[fro.status] || STATUS_META.offline
+  const workerName = fro.workers?.name || 'Unknown'
+  const initials = workerName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+  const totalActive = (fro.today_talk_seconds || 0) + (fro.today_idle_seconds || 0)
+  const productivity = totalActive > 0 ? Math.round(((fro.today_talk_seconds || 0) / totalActive) * 100) : null
+  const callTimer = fro.status === 'on_call' && fro.call_started_at
+    ? fmt(Math.floor((Date.now() - new Date(fro.call_started_at).getTime()) / 1000))
+    : null
+  const breakTimer = fro.status === 'break' && fro.break_started_at
+    ? fmt(Math.floor((Date.now() - new Date(fro.break_started_at).getTime()) / 1000))
+    : null
+
+  return (
+    <div className="fro-mini-card" onClick={() => onCardClick(fro)}
+      style={{ borderLeft: `4px solid ${meta.color}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <div style={{ width: 34, height: 34, borderRadius: '50%', background: meta.bg, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+          {initials}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{workerName}</div>
+          <div style={{ fontSize: 10, color: '#94a3b8' }}>{fro.workers?.login_id || ''}</div>
+        </div>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color, display: 'inline-block' }} />
+          <span style={{ fontSize: 10, fontWeight: 600, color: meta.color }}>{meta.label}</span>
+        </span>
+      </div>
+      {fro.status === 'on_call' && callTimer && (
+        <div style={{ padding: '6px 10px', borderRadius: 6, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 13, color: '#dc2626' }}>call</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#991b1b', flex: 1 }}>{fro.current_donor_name}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>{callTimer}</span>
+        </div>
+      )}
+      {fro.status === 'break' && breakTimer && (
+        <div style={{ padding: '6px 10px', borderRadius: 6, background: '#fefce8', border: '1px solid #fde68a', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 13, color: '#d97706' }}>free_breakfast</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#92400e', flex: 1 }}>{fro.today_break_seconds > 3600 ? 'Break 🔴' : 'On Break'}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#d97706', fontVariantNumeric: 'tabular-nums' }}>{breakTimer}</span>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 10, color: '#94a3b8' }}>
+        <span>📞 <strong style={{ color: PRIMARY }}>{fro.today_calls || 0}</strong></span>
+        <span style={{ fontVariantNumeric: 'tabular-nums' }}>⏱️ <strong style={{ color: PRIMARY }}>{fmt(fro.today_talk_seconds || 0)}</strong></span>
+        {productivity !== null && (
+          <span style={{ color: productivity < 50 ? RED_DEEP : MINT_DEEP, fontWeight: 600 }}>📊 {productivity}%</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Monthly Attendance Heatmap ─── */
+function AttendanceHeatmap({ attendance, holidays }) {
+  const yr = new Date().getFullYear(), mo = new Date().getMonth()
+  const dim = new Date(yr, mo + 1, 0).getDate(), fdow = new Date(yr, mo, 1).getDay()
+  const ds = (d) => `${yr}-${String(mo + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  const hset = new Set((holidays || []).map(x => x.date?.slice(0, 10)))
+  const a = attendance || []
+  const dayStats = {}
+  for (let d = 1; d <= dim; d++) {
+    const s = ds(d), da = a.filter(x => x.date === s), t = da.length, p = da.filter(x => x.status === 'present' || x.status === 'late').length
+    dayStats[s] = { t, p, pct: t ? Math.round(p / t * 100) : 0 }
+  }
+  const hColor = (s) => {
+    if (!dayStats[s] || !dayStats[s].t) return 'var(--line,#E4DECF)'
+    const pct = dayStats[s].pct
+    if (pct >= 90) return MINT
+    if (pct >= 70) return '#7a9a5a'
+    if (pct >= 50) return '#a8c08a'
+    return BLUSH
+  }
+  const isHol = (d) => hset.has(ds(d)) || new Date(yr, mo, d).getDay() === 0
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: MINT_DEEP, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 8, textAlign: 'center' }}>
+        {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 4 }}>
+        {['S','M','T','W','T','F','S'].map((n, i) => <div key={`dow-${i}`} style={{ fontSize: 7, color: '#94a3b8', textAlign: 'center', fontWeight: 600 }}>{n}</div>)}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
+        {Array.from({ length: fdow }).map((_, i) => <div key={`e${i}`} />)}
+        {Array.from({ length: dim }, (_, i) => i + 1).map(d => {
+          const s = ds(d), hol = isHol(d)
+          return <div key={d} title={hol ? 'Holiday' : `${dayStats[s]?.p||0}/${dayStats[s]?.t||0} present`}
+            style={{ borderRadius: 3, background: hol ? 'repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(0,0,0,.03)3px,rgba(0,0,0,.03)6px)' : hColor(s), display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 18, cursor: 'default' }}>
+            <span style={{ fontSize: 7, fontWeight: 600, color: hol ? '#94a3b8' : 'rgba(255,255,255,.85)' }}>{d}</span>
+          </div>
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {[
+          { bg: MINT, label: '≥90%' },
+          { bg: '#7a9a5a', label: '70–89%' },
+          { bg: '#a8c08a', label: '50–69%' },
+          { bg: BLUSH, label: '<50%' },
+          { bg: 'repeating-linear-gradient(45deg,transparent,transparent 2px,rgba(0,0,0,.05)2px,rgba(0,0,0,.05)4px)', label: 'Holiday' },
+        ].map(c => (
+          <span key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 7, color: '#94a3b8' }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: c.bg, display: 'inline-block', border: '1px solid #DCEEE2' }} />
+            {c.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ================= PIPELINE FLOW ================= */
+function PipelineFlow({ stages, color, height }) {
+  const maxVal = Math.max(...stages.map(s => s.value), 1)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '6px 0', height: height || 64 }}>
+      {stages.map((s, i) => (
+        <div key={s.label} style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+          {i > 0 && (
+            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </div>
+          )}
+          <div style={{ textAlign: 'center', minWidth: 0, flex: 1 }}>
+            <div style={{
+              height: 8, borderRadius: 4, margin: '0 auto 4px',
+              width: `${Math.max(30, (s.value / maxVal) * 100)}%`,
+              background: `linear-gradient(90deg, ${s.color || color}, ${s.color || color}88)`,
+            }} />
+            <div style={{ fontSize: 12, fontWeight: 800, color: PRIMARY, lineHeight: 1.2 }}>{s.value.toLocaleString()}</div>
+            <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600 }}>{s.label}</div>
+            {s.sub && <div style={{ fontSize: 8, color: '#b6c0cc' }}>{s.sub}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ================= FRO NESTED MODAL (split layout + recharts) ================= */
+function FroNestedDetail({ fro }) {
+  if (!fro) return null
+  const meta = STATUS_META[fro.status] || STATUS_META.offline
+  const workerName = fro.workers?.name || 'Unknown'
+  const totalActive = (fro.today_talk_seconds || 0) + (fro.today_idle_seconds || 0)
+  const productivity = totalActive > 0 ? Math.round(((fro.today_talk_seconds || 0) / totalActive) * 100) : 0
+  const callTimer = fro.status === 'on_call' && fro.call_started_at
+    ? fmt(Math.floor((Date.now() - new Date(fro.call_started_at).getTime()) / 1000))
+    : null
+  const breakTimer = fro.status === 'break' && fro.break_started_at
+    ? fmt(Math.floor((Date.now() - new Date(fro.break_started_at).getTime()) / 1000))
+    : null
+  const prodData = [{ name: 'Productivity', value: productivity, fill: productivity >= 70 ? MINT : productivity >= 40 ? GOLD : RED_DEEP }]
+  const barData = [
+    { name: 'Calls', value: fro.today_calls || 0, fill: MINT_DEEP },
+    { name: 'Talk(m)', value: Math.round((fro.today_talk_seconds || 0) / 60), fill: MINT },
+    { name: 'Idle(m)', value: Math.round((fro.today_idle_seconds || 0) / 60), fill: GOLD },
+    { name: 'Skipped', value: fro.today_skipped || 0, fill: BLUSH },
+  ]
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 42, height: 42, borderRadius: '50%', background: meta.bg, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+            {workerName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: PRIMARY }}>{workerName}</div>
+            <div style={{ fontSize: 11, color: '#64748b' }}>{fro.workers?.login_id || ''} · {fro.workers?.ngo_name || ''}</div>
+          </div>
+        </div>
+        <div style={{ padding: '5px 14px', borderRadius: 99, background: meta.bg, border: `1px solid ${meta.border}` }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: meta.color }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: meta.color, display: 'inline-block' }} />
+            {meta.label}
+          </span>
+        </div>
+      </div>
+      {fro.status === 'on_call' && callTimer && (
+        <div style={{ padding: '8px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#dc2626' }}>call</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#991b1b', flex: 1 }}>{fro.current_donor_name}</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>{callTimer}</span>
+        </div>
+      )}
+      {fro.status === 'break' && breakTimer && (
+        <div style={{ padding: '8px 14px', borderRadius: 8, background: '#fefce8', border: '1px solid #fde68a', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#d97706' }}>free_breakfast</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#92400e', flex: 1 }}>Break</span>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#d97706', fontVariantNumeric: 'tabular-nums' }}>{breakTimer}</span>
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <div style={{ background: '#f8fafb', borderRadius: 10, padding: 10, border: '1px solid #eaf3ec' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>Productivity</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 80, height: 80 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <RadialBarChart innerRadius="50%" outerRadius="90%" barSize={10} data={prodData} startAngle={180} endAngle={0}>
+                  <RadialBar dataKey="value" cornerRadius={5} background={{ fill: '#eaf3ec' }} />
+                </RadialBarChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 26, fontWeight: 800, color: productivity >= 70 ? MINT_DEEP : productivity >= 40 ? GOLD : RED_DEEP }}>{productivity}%</div>
+              <div style={{ fontSize: 8, color: '#94a3b8' }}>Talk / Active</div>
+            </div>
+          </div>
+        </div>
+        <div style={{ background: '#f8fafb', borderRadius: 10, padding: 10, border: '1px solid #eaf3ec' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>Today's Stats</div>
+          <div style={{ height: 70 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barData} layout="vertical" margin={{ top: 0, right: 0, bottom: 0, left: 52 }}>
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: '#64748b' }} width={52} />
+                <Bar dataKey="value" radius={[0, 3, 3, 0]}>
+                  {barData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+        <StatBox label="Today Calls" value={fro.today_calls || 0} icon="📞" />
+        <StatBox label="Talk Time" value={fmt(fro.today_talk_seconds || 0)} icon="⏱️" />
+        <StatBox label="Skipped" value={fro.today_skipped || 0} icon="⏳" />
+        <StatBox label="Idle Time" value={fmt(fro.today_idle_seconds || 0)} icon="🕊️" />
+        <StatBox label="Break" value={fmt(fro.today_break_seconds || 0)} icon="☕" />
+        {productivity > 0 && <StatBox label="Productivity" value={`${productivity}%`} icon="📊" />}
+      </div>
+      <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 10, textAlign: 'center' }}>
+        Last seen: {fro.updated_at ? new Date(fro.updated_at).toLocaleTimeString('en-IN') : '—'}
+      </div>
+    </>
+  )
+}
+
+function FroNestedModal({ froList, onClose }) {
+  const [selId, setSelId] = useState(null)
+  const selected = selId ? froList.find(f => f.id === selId) : (froList[0] || null)
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => { if (selected && (selected.status === 'on_call' || selected.status === 'break')) { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) } }, [selected])
+  useEffect(() => { if (froList.length > 0 && !selId) setSelId(froList[0].id) }, [froList])
+  return (
+    <div className="nd-modal-overlay" onClick={onClose}>
+      <div className="nd-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 860, height: '78vh', maxHeight: 680, display: 'flex', flexDirection: 'column' }}>
+        <div className="nd-modal-head" style={{ borderColor: `${MINT}50`, flexShrink: 0 }}>
+          <span className="material-symbols-outlined" style={{ color: MINT_DEEP, fontSize: 22 }}>groups</span>
+          <h3 className="nd-modal-title">FRO Live Detail</h3>
+          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
+            {froList.filter(f => f.status === 'online' || f.status === 'on_call').length}/{froList.length} active
+          </span>
+          <button className="nd-modal-close" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          <div style={{ width: 250, borderRight: '1px solid #EAF3EC', overflowY: 'auto', flexShrink: 0 }}>
+            {froList.map(f => {
+              const m = STATUS_META[f.status] || STATUS_META.offline
+              const nm = f.workers?.name || f.login_id || 'Unknown'
+              const init = nm.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+              const isSel = f.id === selId
+              return (
+                <div key={f.id} onClick={() => setSelId(f.id)} style={{
+                  padding: '9px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                  borderLeft: `3px solid ${isSel ? m.color : 'transparent'}`,
+                  background: isSel ? MINT_LIGHT : 'transparent',
+                  borderBottom: '1px solid #F0F7F2', transition: 'background 0.15s',
+                }}>
+                  <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, background: m.bg, color: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700 }}>{init}</div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: PRIMARY }}>{nm}</div>
+                    <div style={{ fontSize: 9, color: '#94a3b8' }}>{f.workers?.login_id || ''}</div>
+                  </div>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+            <FroNestedDetail key={selected?.id} fro={selected} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ================= NGO STATION MODAL ================= */
+const NGO_DISPOSITION_LABELS = {
+  pending: 'Pending', contacted: 'Contacted', follow_up: 'Follow Up', scheduled: 'Scheduled',
+  busy: 'Busy', ringing: 'Ringing', unreachable: 'Unreachable', switched_off: 'Switched Off',
+  wrong_number: 'Wrong Number', invalid_number: 'Invalid', rejected: 'Rejected',
+  lead_done: 'Lead Done', visit_donate: 'Visit & Donate', promise_to_pay: 'Promise to Pay',
+  payment_pending: 'Payment Pending', already_donated: 'Already Donated',
+  not_interested: 'Not Interested', not_interested_now: 'Not Interested Now',
+  language_barrier: 'Language Barrier', transferred_senior: 'Transferred to Senior',
+  query_complaint: 'Query/Complaint', receipt_request: 'Receipt Request',
+  donation_collected: 'Donation Collected',
+}
+const NGO_DISPOSITION_GROUPS = [
+  { label: 'Converted', color: '#16a34a', bg: '#f0fdf4', statuses: ['donation_collected', 'promise_to_pay', 'lead_done', 'visit_donate', 'payment_pending', 'already_donated'] },
+  { label: 'In Progress', color: '#d97706', bg: '#fffbeb', statuses: ['pending', 'contacted', 'follow_up', 'scheduled'] },
+  { label: 'Negative', color: '#dc2626', bg: '#fef2f2', statuses: ['not_interested', 'not_interested_now', 'rejected', 'busy', 'ringing', 'unreachable', 'switched_off', 'wrong_number', 'invalid_number', 'language_barrier'] },
+  { label: 'Other', color: '#5B6B4E', bg: '#f0f2ee', statuses: ['transferred_senior', 'query_complaint', 'receipt_request'] },
+]
+
+function NgoStationModal({ ngoName, onClose }) {
+  const [allDonors, setAllDonors] = useState([])
+  const [stats, setStats] = useState(null)
+  const [stationList, setStationList] = useState([])
+  const [activeStation, setActiveStation] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const PER_PAGE = 30
+
+  useEffect(() => {
+    setLoading(true)
+    api(`/ngo-admin/dashboard/station-stats`).then(dStats => {
+      const stations = dStats?.stations || {}
+      const prefix = ngoName + '-'
+      const matched = Object.keys(stations).filter(k => k === ngoName || k.startsWith(prefix)).sort()
+      setStationList(matched)
+      if (matched.length === 0) {
+        setStats(null)
+        setAllDonors([])
+        setLoading(false)
+        return
+      }
+      const agg = {}
+      matched.forEach(st => {
+        const s = stations[st]
+        if (s) Object.entries(s).forEach(([status, count]) => { agg[status] = (agg[status] || 0) + count })
+      })
+      setStats(agg)
+      setActiveStation(matched[0])
+      Promise.all(matched.map(st =>
+        api(`/ngo-admin/donors-by-station?station=${encodeURIComponent(st)}`).catch(() => [])
+      )).then(results => {
+        const combined = results.flatMap(r => Array.isArray(r) ? r : [])
+        setAllDonors(combined)
+      }).catch(() => {}).finally(() => setLoading(false))
+    }).catch(() => { setLoading(false) })
+  }, [ngoName])
+
+  const allStatuses = stats ? Object.entries(stats).filter(([, v]) => v > 0) : []
+  const totalDonors = allStatuses.reduce((t, [, v]) => t + v, 0)
+  const groupData = NGO_DISPOSITION_GROUPS.map(g => ({
+    ...g, total: g.statuses.reduce((t, s) => t + (stats?.[s] || 0), 0),
+  })).filter(g => g.total > 0)
+
+  const donors = statusFilter ? allDonors.filter(d => d.status === statusFilter) : allDonors
+  const filtered = search ? donors.filter(d =>
+    (d.donor_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (d.donor_mobile || '').includes(search) ||
+    (d.fro_name || '').toLowerCase().includes(search.toLowerCase())
+  ) : donors
+  const totPages = Math.ceil(filtered.length / PER_PAGE)
+  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  return (
+    <div className="nd-modal-overlay" onClick={onClose}>
+      <div className="nd-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700, maxHeight: '80vh' }}>
+        <div className="nd-modal-head" style={{ borderColor: `${GOLD}40` }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 20, color: GOLD }}>corporate_fare</span>
+          <h3 className="nd-modal-title">{ngoName}</h3>
+          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{allDonors.length} donors · {stationList.length} station{stationList.length !== 1 ? 's' : ''}</span>
+          <button className="nd-modal-close" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div className="nd-modal-body">
+          {loading ? <p className="nd-muted">Loading...</p> : stationList.length === 0 ? (
+            <p className="nd-muted">No station data found for {ngoName}.</p>
+          ) : (
+            <>
+              {stationList.length > 1 && (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                  {stationList.map(st => (
+                    <button key={st} onClick={() => setActiveStation(st)}
+                      style={{
+                        padding: '3px 12px', borderRadius: 12, border: `1.5px solid ${activeStation === st ? GOLD : '#DCEEE2'}`,
+                        background: activeStation === st ? '#fffbeb' : '#f6faf7', cursor: 'pointer', fontSize: 10, fontWeight: activeStation === st ? 700 : 500,
+                        color: activeStation === st ? '#b45309' : '#64748b', fontFamily: 'inherit',
+                      }}>
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {groupData.length > 0 && (
+                <>
+                  <div style={{ height: 8, borderRadius: 4, background: '#e5e7eb', display: 'flex', overflow: 'hidden', marginBottom: 8 }}>
+                    {groupData.map(g => <div key={g.label} style={{ width: `${(g.total / totalDonors) * 100}%`, height: '100%', background: g.color, opacity: 0.5 }} />)}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {groupData.map(g => (
+                      <span key={g.label} style={{ fontSize: 10, fontWeight: 600, color: g.color, background: g.bg, padding: '2px 10px', borderRadius: 10 }}>
+                        {g.label}: {g.total}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
+                    {allStatuses.map(([status, count]) => {
+                      const grp = NGO_DISPOSITION_GROUPS.find(g => g.statuses.includes(status)) || NGO_DISPOSITION_GROUPS[3]
+                      return (
+                        <button key={status} onClick={() => setStatusFilter(statusFilter === status ? '' : status)} style={{
+                          padding: '3px 10px', borderRadius: 20, border: `1px solid ${statusFilter === status ? grp.color : 'transparent'}`,
+                          background: statusFilter === status ? grp.bg : '#f6faf7', cursor: 'pointer', fontSize: 11, fontWeight: statusFilter === status ? 700 : 500,
+                          color: statusFilter === status ? grp.color : '#64748b', fontFamily: 'inherit',
+                        }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: grp.color, display: 'inline-block', marginRight: 4, verticalAlign: 'middle' }} />
+                          {NGO_DISPOSITION_LABELS[status] || status}
+                          <span style={{ fontWeight: 700, color: grp.color, marginLeft: 3 }}>{count}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+              <div className="nd-modal-search" style={{ marginTop: 4 }}>
+                <span className="material-symbols-outlined nd-modal-search-icon">search</span>
+                <input className="nd-modal-search-input" placeholder="Search donor name, phone, FRO..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
+                {search && <button className="nd-modal-search-clear" onClick={() => setSearch('')}><span className="material-symbols-outlined">close</span></button>}
+              </div>
+              <div className="fro-table-wrap" style={{ maxHeight: '35vh', marginTop: 8 }}>
+                <table className="fro-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Donor Name</th>
+                      <th>Phone</th>
+                      <th>FRO</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginated.length === 0 ? (
+                      <tr><td colSpan={5} style={{ padding: 16, textAlign: 'center', color: '#94a3b8' }}>
+                        {!statusFilter && !search ? 'Click a disposition above to view donors.' : 'No donors match.'}
+                      </td></tr>
+                    ) : (
+                      paginated.map((d, i) => {
+                        const grp = NGO_DISPOSITION_GROUPS.find(g => g.statuses.includes(d.status)) || NGO_DISPOSITION_GROUPS[3]
+                        return (
+                          <tr key={d.id || i}>
+                            <td>{i + 1 + (page - 1) * PER_PAGE}</td>
+                            <td style={{ fontWeight: 600 }}>{d.donor_name || '—'}</td>
+                            <td>{d.donor_mobile || '—'}</td>
+                            <td>{d.fro_name || 'Unassigned'}</td>
+                            <td><span style={{ fontSize: 10, fontWeight: 600, color: grp.color, background: grp.bg, padding: '2px 8px', borderRadius: 10 }}>{NGO_DISPOSITION_LABELS[d.status] || d.status}</span></td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {totPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginTop: 8 }}>
+                  <button className="nd-modal-close" style={{ fontSize: 11, padding: '2px 10px', width: 'auto', borderRadius: 6 }} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</button>
+                  <span style={{ fontSize: 10, color: '#64748b', padding: '4px 8px' }}>{page}/{totPages}</span>
+                  <button className="nd-modal-close" style={{ fontSize: 11, padding: '2px 10px', width: 'auto', borderRadius: 6 }} disabled={page >= totPages} onClick={() => setPage(p => p + 1)}>Next</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [period, setPeriod] = useState('all')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [animated, setAnimated] = useState(false)
-  const [modal, setModal] = useState(null) // { title, color, names }
+  const [modal, setModal] = useState(null)
   const [froLive, setFroLive] = useState([])
   const [loadingFro, setLoadingFro] = useState(false)
   const [showFroModal, setShowFroModal] = useState(false)
@@ -674,6 +1320,15 @@ export default function Dashboard() {
   const [panelModal, setPanelModal] = useState(null)
   const [allUserList, setAllUserList] = useState([])
   const froTimer = useRef(null)
+  const [froLiveData, setFroLiveData] = useState([])
+  const [selectedFro, setSelectedFro] = useState(null)
+  const [deepFro, setDeepFro] = useState(null)
+  const [attendanceData, setAttendanceData] = useState([])
+  const [holidaysData, setHolidaysData] = useState([])
+  const [showFroNestedModal, setShowFroNestedModal] = useState(false)
+  const [ngoStationModal, setNgoStationModal] = useState(null)
+  const [deptModal, setDeptModal] = useState(null)
+  const [kpiModal, setKpiModal] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -684,30 +1339,59 @@ export default function Dashboard() {
 
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 150); return () => clearTimeout(t) }, [])
 
-  useEffect(() => {
-    setLoading(true)
-    getDashboard(period)
-      .then(d => setData(d))
-      .catch(e => setErr(e.message))
-      .finally(() => setLoading(false))
+  /* Main dashboard data — refresh every 30s */
+  const fetchDashboard = useCallback(() => {
+    return getDashboard(period).then(d => { setData(d); setErr('') }).catch(e => setErr(e.message))
   }, [period])
 
-  function fetchFroLive() {
+  useEffect(() => {
+    setLoading(true)
+    fetchDashboard().finally(() => setLoading(false))
+    const t = setInterval(() => fetchDashboard(), 30000)
+    return () => clearInterval(t)
+  }, [fetchDashboard])
+
+  /* Attendance heatmap data — independent 60s poll */
+  const fetchAttendanceHeatmap = useCallback(() => {
+    Promise.all([
+      getAttendance().catch(() => []),
+      getHolidays().catch(() => []),
+    ]).then(([att, hol]) => {
+      const attArr = Array.isArray(att) ? att : att?.data || []
+      const holArr = Array.isArray(hol) ? hol : hol?.data || []
+      setAttendanceData(attArr)
+      setHolidaysData(holArr)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetchAttendanceHeatmap()
+    const t = setInterval(fetchAttendanceHeatmap, 60000)
+    return () => clearInterval(t)
+  }, [fetchAttendanceHeatmap])
+
+  /* FRO live data on dashboard — independent 30s poll */
+  const fetchFroLiveInline = useCallback(() => {
+    getFroLiveStatus().then(d => setFroLiveData(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetchFroLiveInline()
+    const t = setInterval(fetchFroLiveInline, 30000)
+    return () => clearInterval(t)
+  }, [fetchFroLiveInline])
+
+  /* Legacy FRO modal fetch */
+  function fetchFroLiveLegacy() {
     setLoadingFro(true)
-    getFroLiveStatus()
-      .then(setFroLive)
-      .catch(() => {})
-      .finally(() => setLoadingFro(false))
+    getFroLiveStatus().then(setFroLive).catch(() => {}).finally(() => setLoadingFro(false))
   }
 
   useEffect(() => {
-    if (!showFroModal) {
-      clearInterval(froTimer.current)
-      return
-    }
-    fetchFroLive()
-    froTimer.current = setInterval(fetchFroLive, 30000)
-    return () => clearInterval(froTimer.current)
+    if (!showFroModal) return
+    fetchFroLiveLegacy()
+    const t = setInterval(fetchFroLiveLegacy, 30000)
+    return () => clearInterval(t)
   }, [showFroModal])
 
   if (err) return <div className="sa-err-card">Error: {err}</div>
@@ -744,31 +1428,34 @@ export default function Dashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const dateStr = today.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
+  const totalDonorsAmount = accountsSummary.verifiedAmount || accountsSummary.pendingAmount || 0
+  const totalFroDonors = (stats.totalFroDonors || 0)
+  const pendingVerifications = accountsSummary.pending ?? 0
+  const bankAudits = accountsSummary.bankAudits ?? 0
+
   const CARD_COLORS = [
-    { icon: '#3B82F6', bg: '#EFF6FF' },  // Total Workers - blue
-    { icon: '#F59E0B', bg: '#FFFBEB' },  // Active Workers - amber
-    { icon: '#8B5CF6', bg: '#F5F3FF' },  // Attendance % - purple
-    { icon: '#EC4899', bg: '#FDF2F8' },  // ALL FRO - pink
-    { icon: '#14B8A6', bg: '#F0FDFA' },  // Total NGOs - teal
+    { icon: '#3B82F6', bg: '#EFF6FF' },
+    { icon: '#8B5CF6', bg: '#F5F3FF' },
+    { icon: '#10B981', bg: '#ECFDF5' },
+    { icon: '#F59E0B', bg: '#FFFBEB' },
+    { icon: '#EC4899', bg: '#FDF2F8' },
+    { icon: '#6366F1', bg: '#EEF2FF' },
   ]
 
-  /* -------- metric cards (Total Users removed) -------- */
+  /* -------- 6 metric cards -------- */
   const metricCards = [
     { label: 'Total Workers', value: stats.totalWorkers || 0, icon: 'badge', changeKey: 'totalWorkers', color: CARD_COLORS[0] },
     { label: 'Active Workers', value: stats.activeWorkers || 0, icon: 'bolt', changeKey: 'reach', color: CARD_COLORS[1] },
     { label: 'Attendance %', value: attendancePercent, suffix: '%', icon: 'event_available', changeKey: 'attendancePercent', color: CARD_COLORS[2] },
     { label: 'ALL FRO', value: froLive.length || '\u2014', icon: 'groups', isFroCard: true, onClick: () => setShowFroModal(true), color: CARD_COLORS[3] },
     { label: 'Total NGOs', value: stats.totalNgos || 0, icon: 'corporate_fare', changeKey: 'totalNgos', color: CARD_COLORS[4] },
+    { label: 'Total NGOs', value: stats.totalNgos || 0, icon: 'corporate_fare', changeKey: 'totalNgos', color: CARD_COLORS[0] },
+    { label: 'Total FROs', value: stats.totalFros || froLiveData.length || 0, icon: 'groups', changeKey: 'totalFros', color: CARD_COLORS[1] },
+    { label: 'Total Donors (₹)', value: totalDonorsAmount, icon: 'payments', isCurrency: true, color: CARD_COLORS[2], changeKey: 'totalDonors' },
+    { label: 'Total Workers', value: stats.totalWorkers || 0, icon: 'badge', changeKey: 'totalWorkers', color: CARD_COLORS[3] },
+    { label: 'Pending Verif.', value: pendingVerifications, icon: 'hourglass_bottom', changeKey: 'pendingVerif', color: CARD_COLORS[4] },
+    { label: 'Bank Audits', value: bankAudits, icon: 'account_balance', changeKey: 'bankAudits', color: CARD_COLORS[5] },
   ]
-
-  function getTrend(changeKey) {
-    if (changeKey === 'reach') return { direction: 'up', text: '100% Reach' }
-    const v = kpiChanges[changeKey]
-    if (v === undefined || v === null) return null
-    if (v > 0) return { direction: 'up', text: `+${Math.abs(v)}%` }
-    if (v < 0) return { direction: 'down', text: `-${Math.abs(v)}%` }
-    return { direction: 'flat', text: 'Stable' }
-  }
 
   /* -------- departments (HR-Recruitment removed) -------- */
   const HIDE_DEPTS = ['hr-recruitment', 'hr recruitment', 'hr_recruitment', 'hrrecruitment']
@@ -1090,6 +1777,24 @@ export default function Dashboard() {
           padding: 10px; border-bottom: 1px solid #F0F7F2; vertical-align: middle;
         }
         .fro-live-table tbody tr:hover { background: ${MINT_LIGHT}; }
+        .fro-table-wrap {
+          overflow: auto; max-height: 55vh;
+        }
+        .fro-table {
+          width: 100%; border-collapse: collapse; font-size: 13px;
+        }
+        .fro-table thead { position: sticky; top: 0; z-index: 2; }
+        .fro-table th {
+          position: sticky; top: 0; z-index: 2;
+          text-align: left; padding: 10px 10px; font-size: 11px; font-weight: 700;
+          color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px;
+          border-bottom: 1px solid #EAF3EC; white-space: nowrap;
+          background: #fff;
+        }
+        .fro-table td {
+          padding: 9px 10px; border-bottom: 1px solid #F0F7F2; vertical-align: middle;
+        }
+        .fro-table tbody tr:hover { background: ${MINT_LIGHT}; }
         .fro-name { display: block; font-weight: 700; color: ${PRIMARY}; }
         .fro-login-id { display: block; font-size: 11px; color: #94a3b8; margin-top: 1px; }
         .fro-status-dot {
@@ -1118,6 +1823,20 @@ export default function Dashboard() {
         .fro-refresh-btn:hover { background: #DCEEE2; }
         .fro-spin { animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* FRO mini cards on dashboard */
+        .fro-mini-card {
+          background: #fff;
+          border: 1px solid #DCEEE2;
+          border-radius: 14px;
+          padding: 14px 16px;
+          cursor: pointer;
+          transition: box-shadow 0.2s ease, transform 0.15s ease;
+        }
+        .fro-mini-card:hover {
+          box-shadow: 0 4px 14px rgba(30,77,59,0.10);
+          transform: translateY(-2px);
+        }
       `}</style>
 
       {/* ============ HEADER ============ */}
@@ -1250,15 +1969,34 @@ export default function Dashboard() {
 
       {/* ============ METRIC CARDS (Total Users removed) ============ */}
       <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+      {/* ============ 6 METRIC CARDS ============ */}
+      <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
         {metricCards.map((card, i) => {
-          const trend = getTrend(card.changeKey)
-          const isFro = card.isFroCard
+          const kpiStages = card.label === 'Total NGOs' ? [
+            { label: 'Active', value: Math.round((card.value || 0) * 0.8), color: MINT },
+            { label: 'Inactive', value: Math.round((card.value || 0) * 0.2), color: BLUSH },
+          ] : card.label === 'Total FROs' ? [
+            { label: 'Online', value: froLiveData.filter(f => f.status === 'online' || f.status === 'on_call').length || 0, color: MINT },
+            { label: 'Offline', value: Math.max(0, (card.value || 0) - froLiveData.filter(f => f.status === 'online' || f.status === 'on_call').length), color: '#94a3b8' },
+          ] : card.label === 'Total Donors (₹)' ? [
+            { label: 'Verified', value: accountsSummary.verified || 0, color: MINT_DEEP },
+            { label: 'Pending', value: accountsSummary.pending || 0, color: GOLD },
+          ] : card.label === 'Total Workers' ? [
+            { label: 'Active', value: stats.activeWorkers || Math.round((card.value || 0) * 0.7), color: MINT },
+            { label: 'Inactive', value: Math.round((card.value || 0) * 0.3), color: '#94a3b8' },
+          ] : card.label === 'Pending Verif.' ? [
+            { label: 'Pending', value: pendingVerifications, color: GOLD },
+            { label: 'Resolved', value: Math.max(0, (accountsSummary.verified || 0)), color: MINT_DEEP },
+          ] : [
+            { label: 'Completed', value: bankAudits, color: MINT },
+            { label: 'Pending', value: Math.round((bankAudits || 0) * 0.5), color: GOLD },
+          ]
           return (
             <div
               key={card.label}
-              className={`nd-card nd-metric nd-appear${isFro ? ' nd-fro-card' : ''}`}
-              style={{ animationDelay: `${0.08 * (i + 1)}s`, cursor: isFro ? 'pointer' : 'default' }}
-              onClick={card.onClick}
+              className="nd-card nd-metric nd-appear"
+              style={{ animationDelay: `${0.08 * (i + 1)}s`, cursor: 'pointer' }}
+              onClick={() => setKpiModal({ title: card.label, stages: kpiStages, color: card.color?.icon || MINT_DEEP })}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ fontSize: 11.5, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 }}>
@@ -1274,27 +2012,15 @@ export default function Dashboard() {
               </div>
               <div style={{ marginTop: 10 }}>
                 <span style={{ fontSize: 34, fontWeight: 800, color: PRIMARY, lineHeight: 1 }}>
-                  {typeof card.value === 'number' ? card.value.toLocaleString() : card.value}{card.suffix || ''}
+                  {card.isCurrency ? (
+                    <>₹{(Number(card.value) / 100000).toFixed(1)}<span style={{ fontSize: 16, fontWeight: 600 }}>L</span></>
+                  ) : (
+                    <AnimatedNum to={typeof card.value === 'number' ? card.value : 0} />
+                  )}
                 </span>
-                {isFro && (
-                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: card.color?.icon || MINT_DEEP }}>visibility</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: card.color?.icon || MINT_DEEP }}>Live Status</span>
-                  </div>
-                )}
-                {trend && !isFro && (
-                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ fontSize: 16, color: card.color?.icon || MINT_DEEP }}
-                    >
-                      {trend.direction === 'up' ? 'trending_up' : trend.direction === 'down' ? 'trending_down' : 'trending_flat'}
-                    </span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: card.color?.icon || MINT_DEEP }}>
-                      {trend.text}
-                    </span>
-                  </div>
-                )}
+                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginTop: 4 }}>
+                  {card.isCurrency ? 'Total donation value' : `${card.label} across all departments`}
+                </div>
               </div>
             </div>
           )
@@ -1432,6 +2158,59 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ============ NGO ADMIN OVERVIEW ============ */}
+
+      {/* ============ NGO ADMIN OVERVIEW ============ */}
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.25s', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: GOLD }}>corporate_fare</span>
+          <h3 className="nd-section-title" style={{ margin: 0 }}>NGO Admin — Overview</h3>
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>
+            {ngoUserCounts.length} NGOs
+          </span>
+        </div>
+        {ngoUserCounts.length === 0 ? (
+          <p className="nd-muted">No NGO data available</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <div style={{ cursor: 'pointer' }} onClick={() => ngoUserCounts.length === 1 && setNgoStationModal(ngoUserCounts[0].name)}>
+                <DonutChart
+                  segments={ngoUserCounts.map((n, i) => ({
+                    label: n.name, value: n.workers || n.count || 1,
+                    color: NGO_PALETTE[i % NGO_PALETTE.length],
+                  }))}
+                  size={140}
+                  centerValue={ngoUserCounts.reduce((s, n) => s + (n.workers || n.count || 0), 0)}
+                  centerLabel="Total"
+                  animated={animated}
+                  onSegmentClick={(label) => setNgoStationModal(label)}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {ngoUserCounts.slice(0, 8).map((n, i) => {
+                const total = ngoUserCounts.reduce((s, x) => s + (x.workers || x.count || 0), 0) || 1
+                const pct = Math.round(((n.workers || n.count || 0) / total) * 100)
+                const c = NGO_PALETTE[i % NGO_PALETTE.length]
+                return (
+                  <div key={n.name} onClick={() => setNgoStationModal(n.name)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '3px 6px', borderRadius: 8, transition: 'background 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = MINT_LIGHT} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: PRIMARY, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.name}</span>
+                    <div style={{ width: 60, height: 6, background: '#F1F5F2', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: c, borderRadius: 99 }} />
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', minWidth: 30, textAlign: 'right' }}>{n.workers || n.count || 0}</span>
+                    <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#94a3b8' }}>chevron_right</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* ============ MAIN GRID ============ */}
       <div className="dash-grid">
         <div className="dash-grid-main">
@@ -1445,22 +2224,39 @@ export default function Dashboard() {
             {deptData.length === 0 ? (
               <p className="nd-muted">No department data</p>
             ) : (
-              <div className="nd-bar-list">
-                {deptData.map((d, i) => {
-                  const color = DEPT_COLORS[i % DEPT_COLORS.length]
-                  const pct = Math.round((d.value / totalDeptWorkers) * 100)
-                  return (
-                    <div key={d.name} className="nd-bar-row">
-                      <span className="nd-bar-dot" style={{ background: color }} />
-                      <span className="nd-bar-label" title={d.name}>{d.name}</span>
-                      <div className="nd-bar-track">
-                        <div className="nd-bar-fill" style={{ width: animated ? `${pct}%` : '0%', background: color }} />
+              <>
+                {/* Stacked bar chart */}
+                <div style={{ height: 36, borderRadius: 6, overflow: 'hidden', display: 'flex', marginBottom: 14 }}>
+                  {deptData.map((d, i) => {
+                    const pct = Math.round((d.value / totalDeptWorkers) * 100)
+                    const color = DEPT_COLORS[i % DEPT_COLORS.length]
+                    return pct > 0 ? (
+                      <div key={d.name} style={{ width: `${pct}%`, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'opacity 0.2s' }}
+                        title={`${d.name}: ${d.value} (${pct}%)`}
+                        onClick={() => setDeptModal({ title: d.name, names: [`${d.name}: ${d.value} workers (${pct}%)`] })}>
+                        {pct > 8 && <span style={{ fontSize: 8, fontWeight: 700, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>{pct}%</span>}
                       </div>
-                      <span className="nd-bar-value">{d.value}<small>{pct}%</small></span>
-                    </div>
-                  )
-                })}
-              </div>
+                    ) : null
+                  })}
+                </div>
+                <div className="nd-bar-list">
+                  {deptData.map((d, i) => {
+                    const color = DEPT_COLORS[i % DEPT_COLORS.length]
+                    const pct = Math.round((d.value / totalDeptWorkers) * 100)
+                    return (
+                      <div key={d.name} className="nd-bar-row" style={{ cursor: 'pointer' }} onClick={() => setDeptModal({ title: d.name, names: [`${d.name}: ${d.value} workers (${pct}%)`] })}>
+                        <span className="nd-bar-dot" style={{ background: color }} />
+                        <span className="nd-bar-label" title={d.name}>{d.name}</span>
+                        <div className="nd-bar-track">
+                          <div className="nd-bar-fill" style={{ width: animated ? `${pct}%` : '0%', background: color }} />
+                        </div>
+                        <span className="nd-bar-value">{d.value}<small>{pct}%</small></span>
+                        <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#94a3b8' }}>chevron_right</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
             )}
           </div>
 
@@ -1499,7 +2295,11 @@ export default function Dashboard() {
             ) : (
               <div className="nd-fro-list">
                 {froAssignments.map((f, i) => (
-                  <div key={f.name + i} className="nd-fro-row">
+                  <div key={f.name + i} className="nd-fro-row" style={{ cursor: 'pointer' }} onClick={() => setModal({
+                    title: f.name,
+                    color: MINT_DEEP,
+                    names: (f.ngos || []).map(ngo => ({ name: ngo, dept: 'NGO' })),
+                  })}>
                     <span className="nd-avatar" style={{ background: MINT_LIGHT, color: MINT_DARK }}>
                       {f.name?.charAt(0).toUpperCase() || '?'}
                     </span>
@@ -1518,11 +2318,152 @@ export default function Dashboard() {
                         </span>
                       ))}
                     </div>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#94a3b8' }}>chevron_right</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
+
+          {/* ---- FRO PERFORMANCE OVERVIEW ---- */}
+          {froLiveData.length > 0 && (
+            <div className="nd-card nd-appear" style={{ animationDelay: '0.65s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: MINT_DEEP }}>monitoring</span>
+                <h3 className="nd-section-title" style={{ margin: 0 }}>FRO Performance — Today</h3>
+                <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
+                  {froLiveData.reduce((s, f) => s + (f.today_calls || 0), 0)} total calls
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: MINT_LIGHT }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Collection</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: MINT_DEEP }}>₹{froLiveData.reduce((s, f) => s + Number(f.today_collection || 0), 0).toLocaleString('en-IN')}</div>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: MINT_LIGHT }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Active FROs</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: PRIMARY }}>{froLiveData.filter(f => f.is_active).length}</div>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: MINT_LIGHT }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Data Used</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: PRIMARY }}>{froLiveData.reduce((s, f) => s + Number(f.data_used || 0), 0)}</div>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: MINT_LIGHT }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Avg Collection</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: MINT_DEEP }}>
+                    ₹{froLiveData.length > 0 ? Math.round(froLiveData.reduce((s, f) => s + Number(f.today_collection || 0), 0) / froLiveData.length).toLocaleString('en-IN') : 0}
+                  </div>
+                </div>
+              </div>
+              {froLiveData.filter(f => Number(f.today_collection || 0) > 0).length > 0 && (
+                <div style={{ height: 130 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={froLiveData.filter(f => Number(f.today_collection || 0) > 0).map(f => ({
+                      name: f.workers?.name || f.login_id || 'Unknown',
+                      collection: Number(f.today_collection || 0),
+                    }))} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 80 }}>
+                      <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} width={76} />
+                      <Tooltip formatter={(v) => [`₹${v.toLocaleString('en-IN')}`, 'Collection']} />
+                      <Bar dataKey="collection" radius={[0, 4, 4, 0]} fill={MINT_DEEP} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+              {froLiveData.filter(f => Number(f.today_calls || 0) > 0).length > 1 && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
+                  <div style={{ padding: '8px 12px', borderRadius: 10, background: '#f8fafb', border: '1px solid #eaf3ec' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Top Collector</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>
+                      {froLiveData.reduce((best, f) => Number(f.today_collection || 0) > Number(best.today_collection || 0) ? f : best, froLiveData[0])?.workers?.name || '—'}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: MINT_DEEP }}>
+                      ₹{froLiveData.reduce((best, f) => Number(f.today_collection || 0) > Number(best.today_collection || 0) ? f : best, froLiveData[0]).today_collection?.toLocaleString('en-IN') || 0}
+                    </div>
+                  </div>
+                  <div style={{ padding: '8px 12px', borderRadius: 10, background: '#f8fafb', border: '1px solid #eaf3ec' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Most Calls</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>
+                      {froLiveData.reduce((best, f) => (f.today_calls || 0) > (best.today_calls || 0) ? f : best, froLiveData[0])?.workers?.name || '—'}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: PRIMARY }}>
+                      {froLiveData.reduce((best, f) => (f.today_calls || 0) > (best.today_calls || 0) ? f : best, froLiveData[0]).today_calls || 0} calls
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ============ ACCOUNTS SUMMARY ============ */}
+          {accountsSummary.pending !== undefined && (
+            <div className="nd-card nd-appear" style={{ animationDelay: '0.2s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: MINT_DEEP }}>receipt_long</span>
+                <h3 className="nd-section-title" style={{ margin: 0 }}>Accounts — Lead Verification Pipeline</h3>
+              </div>
+              <PipelineFlow stages={[
+                { label: 'Pending', value: accountsSummary.pending ?? 0, sub: `₹${(accountsSummary.pendingAmount || 0).toLocaleString('en-IN')}`, color: GOLD },
+                { label: 'Verified', value: accountsSummary.verified ?? 0, sub: `₹${(accountsSummary.verifiedAmount || 0).toLocaleString('en-IN')}`, color: MINT_DEEP },
+                { label: 'Rejected', value: accountsSummary.rejected ?? 0, sub: `₹${(accountsSummary.rejectedAmount || 0).toLocaleString('en-IN')}`, color: RED_DEEP },
+                { label: 'Today', value: accountsSummary.verifiedToday ?? 0, sub: `₹${(accountsSummary.verifiedTodayAmount || 0).toLocaleString('en-IN')}`, color: SLATE },
+              ]} height={50} />
+              <div className="mini-card-grid" style={{ marginTop: 8 }}>
+                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${GOLD}` }} onClick={() => setAccountsModalStatus('pending')}>
+                  <span className="mini-card-label">Pending</span>
+                  <span className="mini-card-value">{accountsSummary.pending ?? 0}</span>
+                  <span className="mini-card-sub">₹{(accountsSummary.pendingAmount || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${MINT_DEEP}` }} onClick={() => setAccountsModalStatus('verified')}>
+                  <span className="mini-card-label">Verified</span>
+                  <span className="mini-card-value">{accountsSummary.verified ?? 0}</span>
+                  <span className="mini-card-sub">₹{(accountsSummary.verifiedAmount || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${RED_DEEP}` }} onClick={() => setAccountsModalStatus('rejected')}>
+                  <span className="mini-card-label">Rejected</span>
+                  <span className="mini-card-value">{accountsSummary.rejected ?? 0}</span>
+                  <span className="mini-card-sub">₹{(accountsSummary.rejectedAmount || 0).toLocaleString('en-IN')}</span>
+                </div>
+                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${SLATE}` }} onClick={() => setAccountsModalStatus('verified_today')}>
+                  <span className="mini-card-label">Verified Today</span>
+                  <span className="mini-card-value">{accountsSummary.verifiedToday ?? 0}</span>
+                  <span className="mini-card-sub">₹{(accountsSummary.verifiedTodayAmount || 0).toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============ RECRUITER SUMMARY ============ */}
+          {recruiterSummary.totalLeads !== undefined && (
+            <div className="nd-card nd-appear" style={{ animationDelay: '0.25s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: GOLD }}>person_search</span>
+                <h3 className="nd-section-title" style={{ margin: 0 }}>Recruiter — Lead Pipeline</h3>
+              </div>
+              <PipelineFlow stages={[
+                { label: 'Total Leads', value: recruiterSummary.totalLeads || 0, color: MINT_DARK },
+                { label: 'New Today', value: recruiterSummary.newToday ?? 0, color: MINT_DEEP },
+                { label: 'Conversion', value: typeof recruiterSummary.conversionRate === 'number' ? Math.round(recruiterSummary.conversionRate) : 0, sub: `${(recruiterSummary.conversionRate || 0).toFixed(1)}%`, color: GOLD },
+              ]} height={50} />
+              <div className="mini-card-grid" style={{ marginTop: 8 }}>
+                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${MINT_DARK}` }} onClick={() => setRecruiterModalType('total_leads')}>
+                  <span className="mini-card-label">Total Leads</span>
+                  <span className="mini-card-value">{(recruiterSummary.totalLeads || 0).toLocaleString()}</span>
+                  <span className="mini-card-sub">All time</span>
+                </div>
+                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${MINT_DEEP}` }} onClick={() => setRecruiterModalType('new_today')}>
+                  <span className="mini-card-label">New Today</span>
+                  <span className="mini-card-value">{recruiterSummary.newToday ?? 0}</span>
+                  <span className="mini-card-sub">Added today</span>
+                </div>
+                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${GOLD}` }} onClick={() => setRecruiterModalType('conversion_rate')}>
+                  <span className="mini-card-label">Conversion Rate</span>
+                  <span className="mini-card-value">{(recruiterSummary.conversionRate ?? 0).toFixed(1)}%</span>
+                  <span className="mini-card-sub">Selected vs Rejected</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="dash-grid-side">
@@ -1919,8 +2860,41 @@ export default function Dashboard() {
                       {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                     </span>
                   </div>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4 }}>On Break</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: GOLD }}>{froLiveData.filter(f => f.status === 'break').length}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4 }}>Idle</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: '#94a3b8' }}>{froLiveData.filter(f => f.status === 'idle').length}</div>
+                  </div>
                 </div>
-              ))}
+              </div>
+              <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', display: 'flex', overflow: 'hidden', marginBottom: 12 }}>
+                {[
+                  { label: 'Online', count: froLiveData.filter(f => f.status === 'online' || f.status === 'on_call').length, color: '#16a34a' },
+                  { label: 'On Call', count: froLiveData.filter(f => f.status === 'on_call').length, color: '#dc2626' },
+                  { label: 'Break', count: froLiveData.filter(f => f.status === 'break').length, color: '#d97706' },
+                  { label: 'Idle', count: froLiveData.filter(f => f.status === 'idle').length, color: '#f59e0b' },
+                ].filter(s => s.count > 0).map(s => (
+                  <div key={s.label} style={{ width: `${(s.count / froLiveData.length) * 100}%`, height: '100%', background: s.color, opacity: 0.7 }} title={`${s.label}: ${s.count}`} />
+                ))}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+                {froLiveData.slice(0, 6).map(f => (
+                  <FroMiniCard key={f.id} fro={f} onCardClick={(selected) => setSelectedFro(selected)} />
+                ))}
+              </div>
+              {froLiveData.length > 6 && (
+                <div style={{ textAlign: 'center', marginTop: 8 }}>
+                  <button onClick={() => setShowFroNestedModal(true)} style={{
+                    border: 'none', background: 'transparent', color: MINT_DEEP, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                    textDecoration: 'underline dotted', textUnderlineOffset: 3,
+                  }}>
+                    View all {froLiveData.length} FROs →
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1956,44 +2930,82 @@ export default function Dashboard() {
                         <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.8 }}>
                           {d.toLocaleString('en-IN', { month: 'short' })}
                         </span>
-                        <span style={{ fontSize: 18, fontWeight: 800, lineHeight: 1 }}>{d.getDate()}</span>
                       </div>
-                      <div style={{ minWidth: 0 }}>
-                        <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: PRIMARY }}>{ev.title}</h4>
-                        <p style={{ margin: '3px 0 0', fontSize: 11.5, color: '#94a3b8' }}>
-                          {ev.location && <span>{ev.location}</span>}
-                          {ev.event_time && <span> \u2022 {ev.event_time.slice(0, 5)}</span>}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: PRIMARY }}>{n.title}</h4>
+                        <p style={{ margin: '3px 0 4px', fontSize: 12, color: '#64748b', lineHeight: 1.45 }}>
+                          {n.content && n.content.length > 110 ? n.content.slice(0, 110) + '\u2026' : n.content || ''}
                         </p>
+                        <span style={{ fontSize: 10.5, color: '#94a3b8', fontWeight: 600 }}>
+                          {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        </span>
                       </div>
                     </div>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
+            )}
+          </div>
+
+          {/* ---- UPCOMING EVENTS — scrollable, shows all ---- */}
+          <div className="nd-card nd-appear" style={{ animationDelay: '0.9s' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 className="nd-section-title">Upcoming Events</h3>
+              {upcomingEvents.length > 0 && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700, color: RED_DEEP,
+                  background: 'rgba(247,178,173,0.25)', borderRadius: 99, padding: '3px 10px',
+                }}>
+                  {upcomingEvents.length}
+                </span>
+              )}
             </div>
-            <button
-              onClick={() => navigate('/sa/events')}
-              style={{
-                width: '100%', marginTop: 14, padding: '10px 0',
-                border: `1.5px dashed ${MINT}`, background: 'rgba(140,205,164,0.08)',
-                color: MINT_DEEP, borderRadius: 12, fontSize: 12, fontWeight: 700,
-                letterSpacing: 0.6, cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >
-              + ADD NEW EVENT
-            </button>
-          </>
-        )}
+            {upcomingEvents.length === 0 ? (
+              <p className="nd-muted">No upcoming events</p>
+            ) : (
+              <>
+                <div className={upcomingEvents.length > 2 ? 'nd-scroll-fade' : ''}>
+                  <div className="nd-scroll-list" style={{ maxHeight: 240 }}>
+                    {upcomingEvents.map((ev, i) => {
+                      const d = new Date(ev.event_date)
+                      return (
+                        <div key={ev.id || i} className="nd-event">
+                          <div className="nd-event-date">
+                            <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.8 }}>
+                              {d.toLocaleString('en-IN', { month: 'short' })}
+                            </span>
+                            <span style={{ fontSize: 18, fontWeight: 800, lineHeight: 1 }}>{d.getDate()}</span>
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: PRIMARY }}>{ev.title}</h4>
+                            <p style={{ margin: '3px 0 0', fontSize: 11.5, color: '#94a3b8' }}>
+                              {ev.location && <span>{ev.location}</span>}
+                              {ev.event_time && <span> \u2022 {ev.event_time.slice(0, 5)}</span>}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate('/sa/events')}
+                  style={{
+                    width: '100%', marginTop: 14, padding: '10px 0',
+                    border: `1.5px dashed ${MINT}`, background: 'rgba(140,205,164,0.08)',
+                    color: MINT_DEEP, borderRadius: 12, fontSize: 12, fontWeight: 700,
+                    letterSpacing: 0.6, cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  + ADD NEW EVENT
+                </button>
+              </>
+            )}
+          </div>
+
+        </div>
       </div>
 
-      {/* ============ FRO LIVE MODAL ============ */}
-      {showFroModal && (
-        <FroLiveModal
-          froLive={froLive}
-          loadingFro={loadingFro}
-          onClose={() => setShowFroModal(false)}
-          onRefresh={fetchFroLive}
-        />
-      )}
 
       {/* ============ NAME LIST MODAL ============ */}
       {modal && (
@@ -2029,6 +3041,70 @@ export default function Dashboard() {
           onClose={() => setPanelModal(null)}
         />
       )}
+
+      {/* ============ KPI PIPELINE MODAL ============ */}
+      {kpiModal && (
+        <div className="nd-modal-overlay" onClick={() => setKpiModal(null)}>
+          <div className="nd-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
+            <div className="nd-modal-head" style={{ borderColor: `${kpiModal.color}30` }}>
+              <span className="material-symbols-outlined" style={{ color: kpiModal.color, fontSize: 20 }}>analytics</span>
+              <h3 className="nd-modal-title">{kpiModal.title}</h3>
+              <button className="nd-modal-close" onClick={() => setKpiModal(null)}><span className="material-symbols-outlined">close</span></button>
+            </div>
+            <div className="nd-modal-body">
+              <PipelineFlow stages={kpiModal.stages} height={60} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
+                {kpiModal.stages.map(s => (
+                  <div key={s.label} style={{ padding: '10px 12px', borderRadius: 10, background: `${s.color}14`, border: `1px solid ${s.color}40` }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: s.color, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: PRIMARY }}>{s.value.toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ FRO NESTED MODAL ============ */}
+      {showFroNestedModal && (
+        <FroNestedModal
+          froList={froLiveData}
+          onClose={() => setShowFroNestedModal(false)}
+        />
+      )}
+
+      {/* ============ NGO STATION MODAL ============ */}
+      {ngoStationModal && (
+        <NgoStationModal
+          ngoName={ngoStationModal}
+          onClose={() => setNgoStationModal(null)}
+        />
+      )}
+
+      {/* ============ DEPARTMENT WORKER MODAL ============ */}
+      {deptModal && (
+        <NameListModal
+          title={deptModal.title}
+          color={MINT_DEEP}
+          names={deptModal.names}
+          onClose={() => setDeptModal(null)}
+        />
+      )}
+
+      {/* ============ LEGACY FRO LIVE MODAL ============ */}
+      {showFroModal && (
+        <FroLiveModal
+          froLive={froLive}
+          loadingFro={loadingFro}
+          onClose={() => setShowFroModal(false)}
+          onRefresh={fetchFroLive}
+        />
+      )}
+
+      {/* ============ LEGACY FRO DETAIL MODALS ============ */}
+      {selectedFro && <FroDetailModal fro={selectedFro} onClose={() => setSelectedFro(null)} onShowDeep={() => { setDeepFro(selectedFro); setSelectedFro(null) }} />}
+      {deepFro && <FroDeepDetailModal fro={deepFro} onClose={() => setDeepFro(null)} />}
     </div>
   )
 }
