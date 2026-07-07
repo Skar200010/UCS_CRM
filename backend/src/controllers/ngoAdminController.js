@@ -63,18 +63,16 @@ export const getDonors = async (req, res) => {
     const offset = (page - 1) * limit;
     const access = await getUserNgoAccess(req.user.id);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
-    const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
     if (ngoNames.length === 0 && req.user.ngo_id) {
       const { data: ngo } = await supabase.from('ngos').select('name').eq('id', req.user.ngo_id).single();
       if (ngo) ngoNames.push(ngo.name);
-      if (req.user.ngo_id) ngoIds.push(req.user.ngo_id);
     }
 
-    if (ngoIds.length === 0) return res.json({ data: [], pagination: { page, pageSize: limit, total: 0, totalPages: 0 } });
+    if (ngoNames.length === 0) return res.json({ data: [], pagination: { page, pageSize: limit, total: 0, totalPages: 0 } });
 
-    let countQuery = supabase.from('donor_profiles').select('id', { count: 'exact', head: true }).in('ngo_id', ngoIds);
-    let dataQuery = supabase.from('donor_profiles').select('*').in('ngo_id', ngoIds).order('last_donation_date', { ascending: false, nullsLast: true }).range(offset, offset + limit - 1);
+    let countQuery = supabase.from('donor_profiles').select('id', { count: 'exact', head: true }).in('ngo', ngoNames);
+    let dataQuery = supabase.from('donor_profiles').select('*').in('ngo', ngoNames).order('last_donation_date', { ascending: false, nullsLast: true }).range(offset, offset + limit - 1);
 
     if (from_date) { countQuery = countQuery.gte('last_donation_date', from_date); dataQuery = dataQuery.gte('last_donation_date', from_date); }
     if (to_date) { countQuery = countQuery.lte('last_donation_date', to_date); dataQuery = dataQuery.lte('last_donation_date', to_date); }
@@ -1980,11 +1978,9 @@ export const listLeads = async (req, res) => {
     const page = Math.max(1, parseInt(pageStr) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(page_size) || 50));
     const offset = (page - 1) * limit;
-    const ngoIds = await getUserNgoIds(req.user);
-    if (ngoIds.length === 0) return res.json({ data: [], pagination: { page, pageSize: limit, total: 0, totalPages: 0 } });
 
-    let countQuery = supabase.from('leads').select('id', { count: 'exact', head: true }).in('ngo_id', ngoIds);
-    let dataQuery = supabase.from('leads').select('*, users(name)').in('ngo_id', ngoIds).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+    let countQuery = supabase.from('leads').select('id', { count: 'exact', head: true });
+    let dataQuery = supabase.from('leads').select('*, users(name)').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
 
     if (status) { countQuery = countQuery.eq('status', status); dataQuery = dataQuery.eq('status', status); }
     if (from_date) { countQuery = countQuery.gte('created_at', from_date + 'T00:00:00'); dataQuery = dataQuery.gte('created_at', from_date + 'T00:00:00'); }
@@ -2016,25 +2012,13 @@ export const createLead = async (req, res) => {
       return res.status(400).json({ message: 'Name and mobile are required' });
     }
 
-    const ngoIds = await getUserNgoIds(req.user);
-    const ngoId = ngoIds[0] || req.user.ngo_id;
-
     const { data, error } = await supabase
       .from('leads')
       .insert({
         name,
         phone: mobile,
         email: email || null,
-        address: address || null,
-        city: city || null,
-        state: state || null,
-        pan_number: pan || null,
-        aadhaar: aadhaar || null,
-        birth_date: birthday || null,
-        anniversary: anniversary || null,
-        preferred_language: language || null,
-        notes: notes || null,
-        ngo_id: ngoId,
+        notes: [address, city, state, pan, aadhaar, birthday, anniversary, language].filter(Boolean).join(' | ') || null,
         created_by: req.user.id,
         source: 'admin',
         status: 'pending',
@@ -2055,8 +2039,6 @@ export const importLeads = async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
     const file = req.files.file;
-    const ngoIds = await getUserNgoIds(req.user);
-    const ngoId = ngoIds[0] || req.user.ngo_id;
 
     const XLSX = await import('xlsx');
     const workbook = XLSX.read(file.data, { type: 'buffer' });
@@ -2067,11 +2049,6 @@ export const importLeads = async (req, res) => {
       name: row.name || row.Name || '',
       phone: String(row.mobile || row.Mobile || row.phone || row.Phone || ''),
       email: row.email || row.Email || null,
-      address: row.address || row.Address || null,
-      city: row.city || row.City || null,
-      state: row.state || row.State || null,
-      pan_number: row.pan || row.PAN || row.pan_number || null,
-      ngo_id: ngoId,
       created_by: req.user.id,
       source: 'import',
       status: 'pending',
@@ -2097,9 +2074,6 @@ export const assignLeads = async (req, res) => {
       return res.status(400).json({ message: 'lead_ids array and fro_worker_id are required' });
     }
 
-    const ngoIds = await getUserNgoIds(req.user);
-    const ngoId = ngoIds[0] || req.user.ngo_id;
-
     const { data: leads, error: lErr } = await supabase
       .from('leads')
       .select('id, phone, name')
@@ -2110,7 +2084,6 @@ export const assignLeads = async (req, res) => {
     const assignments = leads.map(lead => ({
       lead_id: lead.id,
       fro_worker_id: parseInt(fro_worker_id),
-      ngo_id: ngoId,
       assigned_by: req.user.id,
       assigned_at: now,
       status: 'assigned',
