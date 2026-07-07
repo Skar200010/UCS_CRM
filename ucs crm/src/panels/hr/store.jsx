@@ -51,7 +51,7 @@ export const fetchAttendance = () => apiGet('/attendance/all');
 export const fetchLeaves = () => apiGet('/leaves');
 export const decideLeave = (id, status) => apiPut('/leaves/' + id + '/status', { status: status === 'Approved' ? 'approved' : 'rejected' });
 export const fetchTemplates = () => apiGet('/letters/templates');
-export const generateLetter = (template_id, worker_id) => apiPost('/letters/generate', { template_id, worker_id });
+export const generateLetter = (template_id, worker_id, variables = {}) => apiPost('/letters/generate', { template_id, worker_id, variables });
 export const fetchWorkerLetters = (workerId) => apiGet('/letters/generated/worker/' + workerId);
 export const sendNotif = (title, body, worker_id) => apiPost('/admin/notifications/send-now', { title, body, worker_id: worker_id || undefined });
 export const fetchHolidays = () => apiGet('/holidays');

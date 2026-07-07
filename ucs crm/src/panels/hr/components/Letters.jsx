@@ -1,67 +1,101 @@
 import { useState, useEffect } from 'react';
 import { useHR } from '../store';
 import { Dropdown } from './ui';
-import { FileTxt } from '../icons';
+import { FileTxt, Download } from '../icons';
+const BASE = import.meta.env.VITE_API_URL || 'https://ucs-crm-backend.vercel.app/api';
 
-const TYPES = ['Offer letter','Experience letter','Promotion letter','Warning letter','Relieving letter'];
-
-function build(type, w) {
-  const today = new Date().toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' });
-  const r = w.role || w.department || 'Team Member';
-  const d = w.dept || w.department || 'General';
-  const body = {
-    'Offer letter': `Dear ${w.name},\n\nWe are delighted to offer you the position of ${r} on our ${d} team. We were impressed by your experience and believe you will be a wonderful addition. We look forward to welcoming you aboard.\n\nWarm regards,\nThe People Team`,
-    'Experience letter': `To Whom It May Concern,\n\nThis is to certify that ${w.name} served as ${r} in our ${d} team. Throughout their time with us they were dependable, collaborative and consistently professional. We wish them every success ahead.\n\nWarm regards,\nThe People Team`,
-    'Promotion letter': `Dear ${w.name},\n\nCongratulations. In recognition of your strong contribution to the ${d} team, we are pleased to confirm your promotion, effective immediately. Thank you for the energy you bring to your work.\n\nWarm regards,\nThe People Team`,
-    'Warning letter': `Dear ${w.name},\n\nThis letter is a formal note regarding recent conduct in your role as ${r}. We value your contribution and trust this can be resolved. Please treat this as an opportunity to realign with our shared expectations.\n\nRegards,\nThe People Team`,
-    'Relieving letter': `Dear ${w.name},\n\nThis confirms that you have been relieved of your duties as ${r}, ${d}, with all responsibilities duly handed over. Thank you for your contributions — we wish you the very best in what comes next.\n\nWarm regards,\nThe People Team`,
-  }[type];
-  return { today, body };
-}
+const HIDDEN_VARS = ['employee_name', 'candidate_name', 'company_name'];
 
 export default function Letters() {
-  const { fetchWorkers } = useHR();
+  const { fetchWorkers, fetchTemplates, generateLetter } = useHR();
   const [workers, setWorkers] = useState([]);
-  const [name, setName] = useState('');
-  const [type, setType] = useState(TYPES[0]);
-  const [out, setOut] = useState(null);
-
-  useEffect(() => { fetchWorkers().then(setWorkers).catch(() => {}); }, []);
-
-  const generate = () => {
-    const w = workers.find(x => x.name === name);
-    if (!w) return;
-    setOut({ ...build(type, w), type });
-  };
-
-  const copy = () => out && navigator.clipboard?.writeText(`${out.body}`);
+  const [templates, setTemplates] = useState([]);
+  const [workerId, setWorkerId] = useState('');
+  const [templateId, setTemplateId] = useState('');
+  const [variables, setVariables] = useState({});
+  const [generatedId, setGeneratedId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (workers.length && !name) setName(workers[0].name);
-  }, [workers, name]);
+    fetchWorkers().then(setWorkers).catch(() => {});
+    fetchTemplates().then(setTemplates).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const w = workers.find(x => x.id === workerId);
+    if (!w) return;
+    setVariables(prev => ({ ...prev, employee_name: w.name, candidate_name: w.name }));
+  }, [workerId, workers]);
+
+  const selectedTemplate = templates.find(t => t.id === templateId);
+  const editableVars = (selectedTemplate?.variables || []).filter(v => !HIDDEN_VARS.includes(v));
+
+  const generate = async () => {
+    if (!templateId || !workerId) return;
+    setLoading(true);
+    setError('');
+    setGeneratedId(null);
+    try {
+      const res = await generateLetter(templateId, workerId, variables);
+      setGeneratedId(res.letter.id);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadUrl = generatedId ? `${BASE}/letters/generated/${generatedId}/download` : null;
 
   return (
     <div className="card">
-      <div className="card-head"><h3>Generate a letter</h3><span className="sub">auto-fills name, role &amp; date</span></div>
+      <div className="card-head"><h3>Generate Professional Letter</h3><span className="sub">select template &amp; fill details</span></div>
       <div className="card-pad">
         <div className="form-row">
           <label className="field">Worker
-            <Dropdown value={name} onChange={e=>setName(e.target.value)}
-              options={workers.map(w => ({value: w.name, label: w.name}))} />
+            <Dropdown value={workerId} onChange={e => setWorkerId(e.target.value)}
+              options={workers.map(w => ({ value: w.id, label: w.name }))} />
           </label>
           <label className="field">Letter type
-            <Dropdown value={type} onChange={e=>setType(e.target.value)} options={TYPES} />
+            <Dropdown value={templateId} onChange={e => { setTemplateId(e.target.value); setGeneratedId(null); }}
+              options={templates.map(t => ({ value: t.id, label: t.title }))} />
           </label>
-          <button className="btn btn-primary" onClick={generate}><FileTxt width={16}/> Generate</button>
         </div>
 
-        {out && (
-          <div className="letter">
-            <div className="lh" style={{ fontSize:18, marginBottom:4 }}>{out.type}</div>
-            <div style={{ color:'var(--ink-soft)', fontSize:12, marginBottom:18 }}>{out.today}</div>
-            {out.body}
-            <div style={{ marginTop:18 }}>
-              <button className="btn btn-sm" onClick={copy}>Copy text</button>
+        {editableVars.length > 0 && (
+          <div className="form-row" style={{ flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+            {editableVars.map(v => (
+              <label key={v} className="field" style={{ minWidth: 160, flex: '1 0 auto' }}>
+                {v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                <input type="text" value={variables[v] || ''}
+                  onChange={e => setVariables(prev => ({ ...prev, [v]: e.target.value }))}
+                  placeholder={'Enter ' + v.replace(/_/g, ' ')} />
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button className="btn btn-primary" onClick={generate} disabled={loading}>
+            <FileTxt width={16} /> {loading ? 'Generating...' : 'Generate Letter'}
+          </button>
+          {downloadUrl && (
+            <a className="btn btn-success" href={downloadUrl} target="_blank" rel="noopener noreferrer">
+              <Download width={16} /> Download PDF
+            </a>
+          )}
+        </div>
+
+        {error && <div className="err" style={{ marginTop: 12 }}>{error}</div>}
+
+        {generatedId && (
+          <div className="letter" style={{ marginTop: 16 }}>
+            <div style={{ color: 'var(--green)', fontWeight: 600, marginBottom: 8 }}>
+              Letter generated successfully!
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
+              The letter has been saved and is ready to download. You can also view it later from the employee's profile.
             </div>
           </div>
         )}
