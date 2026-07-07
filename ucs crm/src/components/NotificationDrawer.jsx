@@ -18,9 +18,10 @@ export default function NotificationDrawer({ open, onClose, sections, onItemClic
 
   return (
     <>
+      {open && <div className="notif-overlay" onClick={onClose} />}
       <div ref={drawerRef} className="notif-drawer" style={{
         position: 'fixed', top: 0, right: open ? 0 : '-340px', width: 320, maxWidth: '100vw',
-        height: '100vh', background: '#fff', zIndex: 1000,
+        height: '100vh', background: '#fff', zIndex: 1001,
         boxShadow: '-4px 0 24px rgba(0,0,0,.12)',
         transition: 'right .25s ease',
         display: 'flex', flexDirection: 'column',
