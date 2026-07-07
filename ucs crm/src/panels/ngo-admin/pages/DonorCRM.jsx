@@ -412,7 +412,7 @@ function DonorDetailModal({ donorId, onClose }) {
   )
 }
 
-function Pagination({ page, totalPages, total, onChange }) {
+function Pagination({ page, totalPages, total, onChange, pageSize, onPageSizeChange }) {
   if (totalPages <= 1) return null
   const start = Math.max(1, Math.min(page - 2, totalPages - 4))
   const pages = Array.from({ length: Math.min(5, totalPages) }, (_, i) => start + i)
@@ -427,6 +427,15 @@ function Pagination({ page, totalPages, total, onChange }) {
       {start + 4 < totalPages && <><span style={{ color: 'var(--ink-soft)', fontSize: 12 }}>…</span><button className="btn btn-sm" onClick={() => onChange(totalPages)}>{totalPages}</button></>}
       <button className="btn btn-sm" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>Next ›</button>
       <span style={{ fontSize: 12, color: 'var(--ink-soft)', marginLeft: 8 }}>{total} total</span>
+      {onPageSizeChange && (
+        <select value={pageSize} onChange={e => onPageSizeChange(Number(e.target.value))}
+          style={{ marginLeft: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--line)', fontSize: 12, fontFamily: 'inherit' }}>
+          <option value={15}>15 / page</option>
+          <option value={25}>25 / page</option>
+          <option value={50}>50 / page</option>
+          <option value={100}>100 / page</option>
+        </select>
+      )}
     </div>
   )
 }
@@ -442,9 +451,11 @@ export default function DonorCRM() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(15)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [donorPage, setDonorPage] = useState(1)
+  const [donorPageSize, setDonorPageSize] = useState(15)
   const [donorTotalPages, setDonorTotalPages] = useState(1)
   const [donorTotal, setDonorTotal] = useState(0)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -459,7 +470,7 @@ export default function DonorCRM() {
   const loadLeads = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams({ page, page_size: 50 })
+      const params = new URLSearchParams({ page, page_size: pageSize })
       if (search) params.set('search', search)
       if (statusFilter) params.set('status', statusFilter)
       if (dateFrom) params.set('from_date', dateFrom)
@@ -470,11 +481,11 @@ export default function DonorCRM() {
       setTotalPages(res.pagination?.totalPages || 1)
     } catch (e) { setErr(e.message) }
     finally { setLoading(false) }
-  }, [page, search, statusFilter, dateFrom, dateTo])
+  }, [page, pageSize, search, statusFilter, dateFrom, dateTo])
 
   const loadDonors = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ page: donorPage, page_size: 50 })
+      const params = new URLSearchParams({ page: donorPage, page_size: donorPageSize })
       if (search) params.set('search', search)
       if (dateFrom) params.set('from_date', dateFrom)
       if (dateTo) params.set('to_date', dateTo)
@@ -483,15 +494,15 @@ export default function DonorCRM() {
       setDonorTotal(res.pagination?.total || 0)
       setDonorTotalPages(res.pagination?.totalPages || 1)
     } catch (e) { /* ignore */ }
-  }, [donorPage, search, dateFrom, dateTo])
+  }, [donorPage, donorPageSize, search, dateFrom, dateTo])
 
   useEffect(() => {
     if (tab === 'leads') loadLeads()
     else if (tab === 'donors') loadDonors()
   }, [tab, loadLeads, loadDonors])
 
-  useEffect(() => { setPage(1) }, [search, statusFilter, dateFrom, dateTo])
-  useEffect(() => { setDonorPage(1) }, [search, dateFrom, dateTo])
+  useEffect(() => { setPage(1) }, [search, statusFilter, dateFrom, dateTo, pageSize])
+  useEffect(() => { setDonorPage(1) }, [search, dateFrom, dateTo, donorPageSize])
 
   const loadDuplicates = async () => {
     try {
@@ -585,7 +596,7 @@ export default function DonorCRM() {
               ))}
             </tbody>
           </table>
-          <Pagination page={page} totalPages={totalPages} total={total} onChange={setPage} />
+          <Pagination page={page} totalPages={totalPages} total={total} onChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} />
         </div>
       ) : tab === 'donors' ? (
         <div className="card" style={{ overflow: 'auto' }}>
@@ -608,7 +619,7 @@ export default function DonorCRM() {
               ))}
             </tbody>
           </table>
-          <Pagination page={donorPage} totalPages={donorTotalPages} total={donorTotal} onChange={setDonorPage} />
+          <Pagination page={donorPage} totalPages={donorTotalPages} total={donorTotal} onChange={setDonorPage} pageSize={donorPageSize} onPageSizeChange={setDonorPageSize} />
         </div>
       ) : (
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>
