@@ -289,15 +289,20 @@ export default function Receipts() {
           pdfBase64 = pdf.output('datauristring').split(',')[1]
         }
 
-        await apiPost('/whatsapp/send-receipt/' + (donor.log_id || '0'), {
-          number: phone,
-          pdfBase64,
-          receiptNo,
-          donorName: donor['Donor Name'],
-          amount: donor['Amount'],
-          templateName,
-        })
-        try { await apiPost('/accounts/receipts/mark-sent', { receiptNo }) } catch {}
+        try {
+          await apiPost('/whatsapp/send-receipt/' + (donor.log_id || '0'), {
+            number: phone,
+            pdfBase64,
+            receiptNo,
+            donorName: donor['Donor Name'],
+            amount: donor['Amount'],
+            templateName,
+          })
+          try { await apiPost('/accounts/receipts/mark-sent', { receiptNo }) } catch {}
+        } catch (e) {
+          console.error('WhatsApp send failed for', donor['Donor Name'], ':', e.message)
+          throw e
+        }
       }))
 
       const batchSent = batchResults.filter(r => r.status === 'fulfilled').length

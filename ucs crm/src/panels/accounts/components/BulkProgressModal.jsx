@@ -39,7 +39,7 @@ export default function BulkProgressModal({ visible, total, sent, failed, curren
                     <span style={{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.name}</span>
                     {r.status === 'sent' && <span style={{ color:'#059669', fontSize:12 }}>Sent</span>}
                     {r.status === 'sending' && <span style={{ color:'#9ca3af', fontSize:12 }}>Sending...</span>}
-                    {r.status === 'failed' && <span style={{ color:'#dc2626', fontSize:12, maxWidth:120, overflow:'hidden', textOverflow:'ellipsis' }} title={r.error}>{r.error || 'Failed'}</span>}
+                    {r.status === 'failed' && <span style={{ color:'#dc2626', fontSize:12 }} title={r.error}>{r.error || 'Failed'}</span>}
                   </div>
                 ))}
               </div>
