@@ -131,7 +131,19 @@ export default function ReceiptHistory() {
     setWaLoading(true);
     setWaResult(null);
     try {
-      const data = await apiPost(`/whatsapp/send-receipt/${preview.receipt.log_id}`, { number: phone });
+      const el = document.querySelector('[data-receipt-preview]');
+      let pdfBase64 = null;
+      if (el) {
+        const pdf = await generateReceiptPDF(el);
+        pdfBase64 = pdf.output('datauristring').split(',')[1];
+      }
+      await apiPost(`/whatsapp/send-receipt/${preview.receipt.log_id}`, {
+        number: phone,
+        pdfBase64,
+        receiptNo: preview.receipt.receipt_no,
+        donorName: preview.receipt.donor_name,
+        amount: preview.receipt.amount,
+      });
       setWaResult({ success: true, message: 'Receipt sent via WhatsApp!' });
     } catch (err) {
       setWaResult({ success: false, message: 'Failed: ' + err.message });

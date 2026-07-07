@@ -181,12 +181,24 @@ export default function LeadDetail({ logId, onBack }) {
     if (!phone || phone.length < 10) { alert('Please enter a valid WhatsApp number'); return; }
     if (!lead?.log_id) { alert('No donation log linked to this lead. Receipt cannot be sent.'); return; }
     setWaResult(null);
+    setSendingWA(true);
     try {
-      await apiPost(`/whatsapp/send-receipt/${lead.log_id}`, { number: phone });
-      setWaResult({ success: true, message: 'Sent!' });
+      let pdfBase64 = null;
+      if (receiptRef.current) {
+        const pdf = await generateReceiptPDF(receiptRef.current);
+        pdfBase64 = pdf.output('datauristring').split(',')[1];
+      }
+      await apiPost(`/whatsapp/send-receipt/${lead.log_id}`, {
+        number: phone,
+        pdfBase64,
+        receiptNo: receipt?.receipt_no,
+        donorName: donor?.name,
+        amount: receipt?.amount,
+      });
+      setWaResult({ success: true, message: 'Receipt sent!' });
     } catch (err) {
       setWaResult({ success: false, message: 'Failed: ' + err.message });
-    }
+    } finally { setSendingWA(false); }
   };
 
   const openReceiptAndSendWA = () => { setShowReceipt(true); };
@@ -382,7 +394,7 @@ export default function LeadDetail({ logId, onBack }) {
                 {waResult && (
                   <span style={{fontSize:11,color:waResult.success?'#059669':'#dc2626',marginRight:4}}>{waResult.message}</span>
                 )}
-                <button className="btn btn-sm" style={{background:'#25D366',color:'#fff'}} onClick={sendWA}>Send via WhatsApp</button>
+                <button className="btn btn-sm" style={{background:'#25D366',color:'#fff'}} onClick={sendWA} disabled={sendingWA}>{sendingWA ? 'Sending...' : 'Send via WhatsApp'}</button>
                 <button className="btn btn-sm" onClick={()=>setShowReceipt(false)}>Close</button>
               </div>
             </div>

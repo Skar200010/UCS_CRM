@@ -71,6 +71,34 @@ export async function sendReceiptMessage(to, donorName, amount, receiptNo, date)
   );
 }
 
+export async function sendDocumentMessage(to, documentUrl, caption, filename) {
+  if (!config.enabled) throw new Error('WhatsApp not configured');
+
+  const body = {
+    messaging_product: 'whatsapp',
+    to: String(to).replace(/[^0-9]/g, ''),
+    type: 'document',
+    document: {
+      link: documentUrl,
+      caption: caption || '',
+      filename: filename || 'receipt.pdf',
+    },
+  };
+
+  const res = await fetch(API_BASE, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data));
+  return data;
+}
+
 export async function testConnection() {
   if (!config.enabled) return { success: false, message: 'WhatsApp not configured' };
 
