@@ -1218,6 +1218,71 @@ function NgoStationModal({ ngoName, onClose }) {
   )
 }
 
+/* ================= NGO QUICK MODAL ================= */
+function NgoQuickModal({ ngoName, onClose, froLiveData, froAssignments, ngoUserCounts, accountsSummary }) {
+  const ngoFros = froLiveData.filter(f => f.workers?.ngo_name === ngoName)
+  const totalCollection = ngoFros.reduce((s, f) => s + Number(f.today_collection || 0), 0)
+  const totalCalls = ngoFros.reduce((s, f) => s + Number(f.today_calls || 0), 0)
+  const totalDataUsed = ngoFros.reduce((s, f) => s + Number(f.data_used || 0), 0)
+  const assignedFros = froAssignments.filter(f => (f.ngos || []).includes(ngoName))
+  const workerCount = ngoUserCounts.find(n => n.name === ngoName)
+  const nc = ngoColor(ngoName)
+
+  return (
+    <div className="nd-modal-overlay" onClick={onClose}>
+      <div className="nd-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420, maxHeight: '70vh' }}>
+        <div className="nd-modal-head" style={{ borderColor: `${nc}40` }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: nc, flexShrink: 0 }} />
+          <h3 className="nd-modal-title" style={{ color: nc }}>{ngoName}</h3>
+          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{workerCount?.workers || workerCount?.count || 0} workers</span>
+          <button className="nd-modal-close" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div className="nd-modal-body">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#E8F5E9' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Collection</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: MINT_DEEP }}>₹{totalCollection.toLocaleString('en-IN')}</div>
+            </div>
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#E3F2FD' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Calls</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#1E88E5' }}>{totalCalls}</div>
+            </div>
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#F3E5F5' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Data Used</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#8E24AA' }}>{totalDataUsed}</div>
+            </div>
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#FFF8E1' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>FROs</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#F57C00' }}>{assignedFros.length} assigned</div>
+            </div>
+          </div>
+          {assignedFros.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Assigned FROs</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {assignedFros.map((f, i) => {
+                  const live = ngoFros.find(l => l.workers?.name === f.name || l.login_id === f.name)
+                  return (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#f8fafb', border: '1px solid #eaf3ec' }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: live ? '#10b981' : '#94a3b8', flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: PRIMARY, flex: 1, minWidth: 0 }}>{f.name}</span>
+                      {live ? (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: MINT_DEEP }}>₹{Number(live.today_collection || 0).toLocaleString('en-IN')}</span>
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#94a3b8' }}>Offline</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [period, setPeriod] = useState('all')
   const [loading, setLoading] = useState(false)
@@ -1239,6 +1304,7 @@ export default function Dashboard() {
   const [ngoStationModal, setNgoStationModal] = useState(null)
   const [deptModal, setDeptModal] = useState(null)
   const [kpiModal, setKpiModal] = useState(null)
+  const [selectedNgoBtn, setSelectedNgoBtn] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -1764,6 +1830,34 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ============ NGO QUICK FILTER BUTTONS ============ */}
+      {ngoUserCounts.length > 0 && (
+        <div className="nd-appear" style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', animationDelay: '0.5s' }}>
+          {['bsct', 'aflf', 'man'].map(prefix => ngoUserCounts.find(n => n.name.toLowerCase().startsWith(prefix))).filter(Boolean).map((n, i) => {
+            const nc = ngoColor(n.name)
+            const isActive = selectedNgoBtn === n.name
+            return (
+              <button
+                key={n.name}
+                onClick={() => setSelectedNgoBtn(isActive ? null : n.name)}
+                style={{
+                  padding: '12px 28px', borderRadius: 28, border: `2px solid ${nc}`,
+                  background: nc, cursor: 'pointer', fontSize: 16, fontWeight: 700,
+                  color: '#fff', fontFamily: 'inherit', transition: 'all 0.15s', lineHeight: 1.4,
+                  display: 'flex', alignItems: 'center', gap: 8, opacity: isActive ? 1 : 0.75,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+                onMouseLeave={e => { if (!isActive) e.currentTarget.style.opacity = '0.75' }}
+              >
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: nc, flexShrink: 0 }} />
+                {n.name}
+                <span style={{ fontSize: 10, fontWeight: 500, opacity: 0.6 }}>{n.workers || n.count || 0}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* ============ QUICK ACTION BUTTONS ============ */}
       <div className="nd-appear" style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', animationDelay: '0.05s' }}>
         <button
@@ -2118,22 +2212,22 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          {froLiveData.filter(f => Number(f.today_collection || 0) > 0).length > 0 && (
-            <div style={{ height: 150 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={froLiveData.filter(f => Number(f.today_collection || 0) > 0).map(f => ({
-                  name: f.workers?.name || f.login_id || 'Unknown',
-                  collection: Number(f.today_collection || 0),
-                }))} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <Tooltip formatter={(v) => [`₹${v.toLocaleString('en-IN')}`, 'Collection']} />
-                  <Line type="monotone" dataKey="collection" stroke="#64B5F6" strokeWidth={2} dot={{ fill: '#64B5F6', r: 4 }} animationDuration={800} animationBegin={200} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+          <div style={{ height: Math.max(160, Math.min(froLiveData.length * 20, 300)) }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={froLiveData.map(f => ({
+                name: (f.workers?.name || f.login_id || 'Unknown').replace(/_.*$/, ''),
+                collection: Number(f.today_collection || 0),
+              })).sort((a, b) => a.name.localeCompare(b.name))} margin={{ top: 10, right: 16, bottom: 40, left: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#64748b', angle: -45, textAnchor: 'end' }} interval={0} height={60} />
+                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickFormatter={(v) => v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v >= 1000 ? `₹${(v / 1000).toFixed(0)}K` : `₹${v}`}
+                />
+                <Tooltip formatter={(v) => [`₹${v.toLocaleString('en-IN')}`, 'Collection']} />
+                <Bar dataKey="collection" fill="#64B5F6" radius={[4, 4, 0, 0]} animationDuration={800} animationBegin={200} maxBarSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
           {froLiveData.filter(f => Number(f.today_calls || 0) > 0).length > 1 && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
               <div style={{ padding: '8px 12px', borderRadius: 10, background: '#f8fafb', border: '1px solid #eaf3ec' }}>
@@ -2747,6 +2841,18 @@ export default function Dashboard() {
         <NgoStationModal
           ngoName={ngoStationModal}
           onClose={() => setNgoStationModal(null)}
+        />
+      )}
+
+      {/* ============ NGO QUICK MODAL ============ */}
+      {selectedNgoBtn && (
+        <NgoQuickModal
+          ngoName={selectedNgoBtn}
+          froLiveData={froLiveData}
+          froAssignments={froAssignments}
+          ngoUserCounts={ngoUserCounts}
+          accountsSummary={accountsSummary}
+          onClose={() => setSelectedNgoBtn(null)}
         />
       )}
 
