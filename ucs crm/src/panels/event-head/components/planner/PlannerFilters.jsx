@@ -27,12 +27,7 @@ export default function PlannerFilters({
   filterCategory, onCategoryChange,
   filterStatus, onStatusChange,
   filterPriority, onPriorityChange,
-  filterCoordinator, onCoordinatorChange,
-  filterDistrict, onDistrictChange,
-  filterState, onStateChange,
-  filterCsr, onCsrChange,
-  filterManager, onManagerChange,
-  ngos, coordinators, districts, states, csrPartners, managers,
+  ngos,
   hasActiveFilters, onClear,
 }) {
   return (
@@ -105,40 +100,7 @@ export default function PlannerFilters({
             ))}
           </select>
 
-          <select value={filterCoordinator} onChange={e => onCoordinatorChange(e.target.value)} style={selectStyle}
-            onFocus={e => { e.target.style.borderColor = 'var(--sage)' }}
-            onBlur={e => { e.target.style.borderColor = 'var(--line)' }}>
-            <option value="">All Coordinators</option>
-            {coordinators.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
 
-          <select value={filterDistrict} onChange={e => onDistrictChange(e.target.value)} style={selectStyle}
-            onFocus={e => { e.target.style.borderColor = 'var(--sage)' }}
-            onBlur={e => { e.target.style.borderColor = 'var(--line)' }}>
-            <option value="">All Districts</option>
-            {districts.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-
-          <select value={filterState} onChange={e => onStateChange(e.target.value)} style={selectStyle}
-            onFocus={e => { e.target.style.borderColor = 'var(--sage)' }}
-            onBlur={e => { e.target.style.borderColor = 'var(--line)' }}>
-            <option value="">All States</option>
-            {states.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-
-          <select value={filterCsr} onChange={e => onCsrChange(e.target.value)} style={selectStyle}
-            onFocus={e => { e.target.style.borderColor = 'var(--sage)' }}
-            onBlur={e => { e.target.style.borderColor = 'var(--line)' }}>
-            <option value="">All CSR Partners</option>
-            {csrPartners.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-
-          <select value={filterManager} onChange={e => onManagerChange(e.target.value)} style={selectStyle}
-            onFocus={e => { e.target.style.borderColor = 'var(--sage)' }}
-            onBlur={e => { e.target.style.borderColor = 'var(--line)' }}>
-            <option value="">All Managers</option>
-            {managers.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
 
           {hasActiveFilters && (
             <button

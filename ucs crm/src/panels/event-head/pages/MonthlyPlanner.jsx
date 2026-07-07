@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { fetchEventsByMonth, fetchNGOs, fetchCSRPartners, fetchDonors } from '../store'
+import { fetchEventsByMonth, fetchNGOs } from '../store'
 import SummaryCards from '../components/planner/SummaryCards'
 import PlannerFilters from '../components/planner/PlannerFilters'
 import CalendarToolbar from '../components/planner/CalendarToolbar'
@@ -16,8 +16,6 @@ export default function MonthlyPlanner() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [ngos, setNgos] = useState([])
-  const [csrPartners, setCsrPartners] = useState([])
-  const [donors, setDonors] = useState([])
 
   /* ── Filters ── */
   const [search, setSearch] = useState('')
@@ -25,11 +23,6 @@ export default function MonthlyPlanner() {
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterPriority, setFilterPriority] = useState('')
-  const [filterCoordinator, setFilterCoordinator] = useState('')
-  const [filterDistrict, setFilterDistrict] = useState('')
-  const [filterState, setFilterState] = useState('')
-  const [filterCsr, setFilterCsr] = useState('')
-  const [filterManager, setFilterManager] = useState('')
 
   /* ── UI state ── */
   const [selectedEvent, setSelectedEvent] = useState(null)
@@ -43,13 +36,9 @@ export default function MonthlyPlanner() {
     Promise.all([
       fetchEventsByMonth(month + 1, year).catch(() => []),
       fetchNGOs().catch(() => []),
-      fetchCSRPartners().catch(() => []),
-      fetchDonors().catch(() => []),
-    ]).then(([evts, n, c, d]) => {
+    ]).then(([evts, n]) => {
       setEvents(Array.isArray(evts) ? evts : [])
       setNgos(Array.isArray(n) ? n : [])
-      setCsrPartners(Array.isArray(c) ? c : [])
-      setDonors(Array.isArray(d) ? d : [])
     }).catch(e => {
       console.error('MonthlyPlanner fetch:', e)
       setEvents([])
@@ -71,12 +60,6 @@ export default function MonthlyPlanner() {
     return w
   }, [firstDay, daysInMonth])
 
-  /* ── Dynamic filter values ── */
-  const coordinators = useMemo(() => [...new Set(events.map(e => e.coordinator).filter(Boolean))], [events])
-  const districts = useMemo(() => [...new Set(events.map(e => e.district).filter(Boolean))], [events])
-  const states = useMemo(() => [...new Set(events.map(e => e.state).filter(Boolean))], [events])
-  const managers = useMemo(() => [...new Set(events.map(e => e.event_manager || e.organizer).filter(Boolean))], [events])
-
   /* ── Filtering ── */
   const filtered = useMemo(() => {
     return events.filter(e => {
@@ -84,11 +67,6 @@ export default function MonthlyPlanner() {
       if (filterCategory && e.category !== filterCategory) return false
       if (filterStatus && e.status !== filterStatus) return false
       if (filterPriority && e.priority !== filterPriority) return false
-      if (filterCoordinator && e.coordinator !== filterCoordinator) return false
-      if (filterDistrict && e.district !== filterDistrict) return false
-      if (filterState && e.state !== filterState) return false
-      if (filterCsr && e.csr_partner !== filterCsr) return false
-      if (filterManager && (e.event_manager || e.organizer) !== filterManager) return false
       if (search) {
         const q = search.toLowerCase()
         const match = [e.name, e.venue, ngoMap[e.ngo_id], e.category, e.coordinator, e.district]
@@ -97,7 +75,7 @@ export default function MonthlyPlanner() {
       }
       return true
     })
-  }, [events, filterNgo, filterCategory, filterStatus, filterPriority, filterCoordinator, filterDistrict, filterState, filterCsr, filterManager, search, ngoMap])
+  }, [events, filterNgo, filterCategory, filterStatus, filterPriority, search, ngoMap])
 
   const getEventsForDay = useCallback((day) => {
     if (!day) return []
@@ -126,12 +104,10 @@ export default function MonthlyPlanner() {
   /* ── Actions ── */
   const clearFilters = useCallback(() => {
     setSearch(''); setFilterNgo(''); setFilterCategory(''); setFilterStatus('')
-    setFilterPriority(''); setFilterCoordinator(''); setFilterDistrict('')
-    setFilterState(''); setFilterCsr(''); setFilterManager('')
+    setFilterPriority('')
   }, [])
 
-  const hasActiveFilters = search || filterNgo || filterCategory || filterStatus || filterPriority ||
-    filterCoordinator || filterDistrict || filterState || filterCsr || filterManager
+  const hasActiveFilters = search || filterNgo || filterCategory || filterStatus || filterPriority
 
   const navigateMonth = useCallback((delta) => {
     let m = month + delta
@@ -156,13 +132,7 @@ export default function MonthlyPlanner() {
         filterCategory={filterCategory} onCategoryChange={setFilterCategory}
         filterStatus={filterStatus} onStatusChange={setFilterStatus}
         filterPriority={filterPriority} onPriorityChange={setFilterPriority}
-        filterCoordinator={filterCoordinator} onCoordinatorChange={setFilterCoordinator}
-        filterDistrict={filterDistrict} onDistrictChange={setFilterDistrict}
-        filterState={filterState} onStateChange={setFilterState}
-        filterCsr={filterCsr} onCsrChange={setFilterCsr}
-        filterManager={filterManager} onManagerChange={setFilterManager}
-        ngos={ngos} coordinators={coordinators} districts={districts}
-        states={states} csrPartners={csrPartners} managers={managers}
+        ngos={ngos}
         hasActiveFilters={hasActiveFilters} onClear={clearFilters}
       />
 
