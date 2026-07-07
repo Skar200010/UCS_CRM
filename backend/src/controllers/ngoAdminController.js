@@ -1979,8 +1979,18 @@ export const listLeads = async (req, res) => {
     const limit = Math.min(200, Math.max(1, parseInt(page_size) || 50));
     const offset = (page - 1) * limit;
 
-    let countQuery = supabase.from('leads').select('id', { count: 'exact', head: true });
-    let dataQuery = supabase.from('leads').select('*, users(name)').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+    // Only show telecaller-created leads (not recruiter leads)
+    const { data: telecallerUsers } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'telecaller');
+    const telecallerIds = (telecallerUsers || []).map(u => u.id);
+    if (telecallerIds.length === 0) {
+      return res.json({ data: [], pagination: { page, pageSize: limit, total: 0, totalPages: 0 } });
+    }
+
+    let countQuery = supabase.from('leads').select('id', { count: 'exact', head: true }).in('created_by', telecallerIds);
+    let dataQuery = supabase.from('leads').select('*, users(name)').in('created_by', telecallerIds).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
 
     if (status) { countQuery = countQuery.eq('status', status); dataQuery = dataQuery.eq('status', status); }
     if (from_date) { countQuery = countQuery.gte('created_at', from_date + 'T00:00:00'); dataQuery = dataQuery.gte('created_at', from_date + 'T00:00:00'); }
