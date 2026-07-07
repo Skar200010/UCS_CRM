@@ -101,7 +101,7 @@ export default function Letters() {
             <div style={{ marginTop:18, display:'flex', gap:8 }}>
               <button className="btn btn-sm" onClick={copy}>Copy text</button>
               {showPdfBtn && (
-                <button className="btn btn-sm" onClick={() => generatePdf(out.body)} style={{ background:'var(--primary)', color:'#fff' }}>Generate PDF</button>
+                <button className="btn btn-sm" onClick={() => generatePdf(out.body)} style={{ background:'#dc2626', color:'#fff', fontWeight:600, border:'1px solid #b91c1c' }}>Generate PDF</button>
               )}
             </div>
           </div>
