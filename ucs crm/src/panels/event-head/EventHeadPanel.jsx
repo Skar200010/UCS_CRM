@@ -6,6 +6,7 @@ import { themes, applyTheme } from './theme'
 import SettingsDrawer from '../../components/SettingsDrawer'
 import NotificationDrawer from '../../components/NotificationDrawer'
 import { api } from '../../api/auth'
+import { markNotifRead, deleteNotif } from './store'
 import { requestNotifPermission, showDesktopNotification } from '../../utils/desktopNotif'
 import { useRealtime } from '../../hooks/useRealtime'
 import Overview from './components/Overview'
@@ -146,6 +147,20 @@ export default function EventHeadPanel() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showMenu])
 
+  const handleMarkRead = async (id) => {
+    try {
+      await markNotifRead(id)
+      loadNotifications()
+    } catch (e) { console.error('markNotifRead:', e) }
+  }
+
+  const handleClear = async (id) => {
+    try {
+      await deleteNotif(id)
+      loadNotifications()
+    } catch (e) { console.error('deleteNotif:', e) }
+  }
+
   const meta = NAV.find(n => location.pathname === n.path)
   const userName = user?.name || 'Event Manager'
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -208,7 +223,9 @@ export default function EventHeadPanel() {
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
             sections={drawerSections}
-            onItemClick={() => setDrawerOpen(false)}
+            onItemClick={(item) => { if (!item.read_at) handleMarkRead(item.id); setDrawerOpen(false) }}
+            onMarkRead={handleMarkRead}
+            onClear={handleClear}
           />
           <SettingsDrawer
             open={showSettings}

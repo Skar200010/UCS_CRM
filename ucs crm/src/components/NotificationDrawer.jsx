@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u2014'
 
-export default function NotificationDrawer({ open, onClose, sections, onItemClick }) {
+export default function NotificationDrawer({ open, onClose, sections, onItemClick, onMarkRead, onClear }) {
   const drawerRef = useRef(null)
 
   useEffect(() => {
@@ -92,7 +92,23 @@ export default function NotificationDrawer({ open, onClose, sections, onItemClic
                       <span>{item.created_at || item.sent_at ? new Date(item.created_at || item.sent_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
                     </div>
                   </div>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0, marginTop: 6 }}><polyline points="9 18 15 12 9 6"/></svg>
+                  <div style={{ display:'flex', flexDirection:'column', gap:3, flexShrink:0, marginTop:4 }}>
+                    {!item.read_at && onMarkRead && (
+                      <button onClick={e => { e.stopPropagation(); onMarkRead(item.id) }}
+                        style={{ fontSize:10, padding:'1px 6px', border:'1px solid #16a34a', borderRadius:3, background:'transparent', color:'#16a34a', cursor:'pointer', lineHeight:'16px' }}>
+                        Read
+                      </button>
+                    )}
+                    {item.read_at && onClear && (
+                      <button onClick={e => { e.stopPropagation(); onClear(item.id) }}
+                        style={{ fontSize:10, padding:'1px 6px', border:'1px solid #dc2626', borderRadius:3, background:'transparent', color:'#dc2626', cursor:'pointer', lineHeight:'16px' }}>
+                        Clear
+                      </button>
+                    )}
+                    {!onMarkRead && !onClear && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0, marginTop: 6 }}><polyline points="9 18 15 12 9 6"/></svg>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

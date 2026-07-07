@@ -18,6 +18,6 @@ router.get('/:worker_id', authenticate, getNotifications);
 router.get('/:worker_id/unread-count', authenticate, getUnreadCount);
 router.get('/:id/lead-info', authenticate, getNotificationLeadInfo);
 router.put('/:id/read', authenticate, markRead);
-router.delete('/:id', authenticateRole('super_admin', 'admin', 'hr'), deleteNotification);
+router.delete('/:id', authenticateRole('super_admin', 'admin', 'hr', 'event_head', 'event_manager'), deleteNotification);
 
 export default router;

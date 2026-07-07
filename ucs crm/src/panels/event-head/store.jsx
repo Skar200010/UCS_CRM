@@ -96,6 +96,8 @@ export const fetchDonors = () => apiGet('/event-head/donors')
 
 /* ── Notifications ── */
 export const fetchNotifs = (userId) => apiGet('/notifications/' + userId)
+export const markNotifRead = (id) => apiPut('/notifications/' + id + '/read', {})
+export const deleteNotif = (id) => apiDelete('/notifications/' + id)
 
 export const CATEGORIES = [
   'Education','Health','Food Distribution','Women Empowerment',
