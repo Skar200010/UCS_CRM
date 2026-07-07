@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
-import { apiGet } from '../api/auth'
 import { formatIndianCurrency, formatReceiptDate, generateReceiptPDF, downloadSinglePDF, downloadAllPDFs } from '../services/pdfGenerator'
 import ReceiptTemplateManncar from '../components/ReceiptTemplateManncar'
 import ReceiptTemplateAshray from '../components/ReceiptTemplateAshray'
@@ -196,7 +195,6 @@ export default function Receipts() {
   const [bulkState, setBulkState] = useState({ active:false, total:0, sent:0, failed:0, currentBatch:0, totalBatches:0, results:[], previousBatches:[] })
   const cancelBulkRef = useRef(false)
   const [confirmBulk, setConfirmBulk] = useState({ visible:false, donorCount:0 })
-  const [loadingVerified, setLoadingVerified] = useState(false)
 
   const currentProject = PROJECTS.find(p => p.value === project)
 
@@ -212,34 +210,6 @@ export default function Receipts() {
         showToast('success', `Loaded ${data.length} verified leads`)
       } catch { localStorage.removeItem('receipts_verified_data') }
     }
-  }, [showToast])
-
-  const loadVerifiedLeads = useCallback(async () => {
-    setLoadingVerified(true)
-    try {
-      const data = await apiGet('/accounts/leads?status=verified')
-      const rows = data.map(l => ({
-        'Donor Name': l.donor_name || '',
-        'Address 1': l.donor_address || '',
-        'PAN No.': l.donor_pan || '',
-        'Email ID': l.donor_email || '',
-        'Mode of Payment (MOP)': l.payment_mode || '',
-        'Payment ID No.': l.upi_transaction_id || '',
-        'Donor Bank Name': '',
-        'Amount': String(l.amount || 0),
-        'Receipt No.': l.receipt_no || '',
-        'Receipt Date': l.verified_at || l.transaction_date || '',
-        'Account Of': 'Corpus',
-        'Mobile No.': l.donor_mobile || '',
-        'City': l.donor_city || '',
-      }))
-      setDonors(rows)
-      setSelectedIndex(null)
-      showToast('success', `Loaded ${rows.length} verified leads`)
-    } catch (e) {
-      showToast('error', 'Failed to load verified leads: ' + e.message)
-    }
-    setLoadingVerified(false)
   }, [showToast])
 
   const getValidDonors = useCallback(() => {
@@ -348,17 +318,12 @@ export default function Receipts() {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-pad" style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-          <button className="btn btn-sm" style={{ background:'#1d6f42', color:'#fff', border:'none', display:'flex', alignItems:'center', gap:4 }}
-            onClick={loadVerifiedLeads} disabled={loadingVerified}>
-            {loadingVerified ? <span style={{width:14,height:14,border:'2px solid #fff',borderTopColor:'transparent',borderRadius:'50%',animation:'spin .6s linear infinite',display:'inline-block'}} /> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}
-            Load Verified Leads
-          </button>
-          <button className="btn btn-sm" style={{ background:'#5B6B4E', color:'#fff', border:'none', display:'flex', alignItems:'center', gap:4 }}
+      <div className="card" style={{ marginBottom: 16, display: localStorage.getItem('receipts_verified_data') ? 'block' : 'none' }}>
+        <div className="card-pad">
+          <button className="btn btn-sm" style={{ background:'#5B6B4E', color:'#fff', border:'none', display:'inline-flex', alignItems:'center', gap:4 }}
             onClick={loadFromStorage}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
-            Load from Saved
+            Load from Saved ({localStorage.getItem('receipts_verified_count') || ''})
           </button>
         </div>
       </div>
