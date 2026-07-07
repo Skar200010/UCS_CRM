@@ -14,7 +14,7 @@ function save(v) {
 }
 
 export default function Workers({ onSelect, onOffboard }) {
-  const { addWorker, DEPTS, fetchWorkers, fetchNGOs, removeWorker } = useHR();
+  const { addWorker, DEPTS, fetchWorkers, fetchNGOs } = useHR();
   const [workers, setWorkers] = useState([]);
   const [name, setName] = useState('');
   const [dept, setDept] = useState(DEPTS?.[0] || '');
@@ -177,14 +177,9 @@ export default function Workers({ onSelect, onOffboard }) {
     } catch (e) { alert(e.message); }
   };
 
-  const handleOffboard = async (e, worker) => {
+  const handleOffboard = (e, worker) => {
     e.stopPropagation();
-    try {
-      await removeWorker(worker.id);
-      setWorkers(prev => prev.filter(w => w.id !== worker.id));
-    } catch (err) {
-      alert('Failed to delete: ' + (err.message || err));
-    }
+    if (onOffboard) onOffboard(worker);
   };
 
   const handlePayExport = async () => {

@@ -28,7 +28,7 @@ function Badge({ status }) {
 }
 
 export default function EmployeeDetail({ worker, onBack, onOffboard }) {
-  const { fetchWorkerById, fetchAttendance, fetchLeaves, fetchWorkerLetters, updateWorker, removeWorker, fetchWorkerSalaries, addWorkerSalary, updateWorkerSalary, fetchWorkerTargetForMonth, setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchWorkerAllocations, fetchWorkerSalaryAllocations, setWorkerAllocations, DEPTS, fetchNGOs, fetchHolidays, fetchWorkerLoans } = useHR();
+  const { fetchWorkerById, fetchAttendance, fetchLeaves, fetchWorkerLetters, updateWorker, fetchWorkerSalaries, addWorkerSalary, updateWorkerSalary, fetchWorkerTargetForMonth, setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchWorkerAllocations, fetchWorkerSalaryAllocations, setWorkerAllocations, DEPTS, fetchNGOs, fetchHolidays, fetchWorkerLoans } = useHR();
   const [attendance, setAttendance] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [ngos, setNgos] = useState([]);
@@ -178,13 +178,9 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
     finally { setSaving(false); }
   };
 
-  const handleDelete = async () => {
-    try {
-      await removeWorker(worker.id);
-      onBack();
-    } catch (err) {
-      alert('Failed to delete: ' + (err.message || err));
-    }
+  const handleDelete = () => {
+    onBack();
+    if (onOffboard) onOffboard(worker);
   };
 
   const setField = (key) => (e) => setForm(f => ({ ...f, [key]: e?.target?.value ?? e }));
