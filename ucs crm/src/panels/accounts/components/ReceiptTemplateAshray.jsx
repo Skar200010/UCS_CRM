@@ -1,6 +1,6 @@
 import { formatIndianCurrency, amountInWords, formatReceiptDate } from '../services/pdfGenerator'
-import ashrayLogo from '../../../../feereceiptapp/ahsraylogo.png'
-import ashrayStamp from '../../../../feereceiptapp/ashraystamp.PNG'
+import ashrayLogo from '../assets/ahsraylogo.png'
+import ashrayStamp from '../assets/ashraystamp.PNG'
 
 const ORG = {
   ashray: {

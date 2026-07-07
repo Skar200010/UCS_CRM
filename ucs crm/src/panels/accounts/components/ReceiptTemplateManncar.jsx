@@ -1,6 +1,6 @@
 import { formatIndianCurrency, amountInWords, formatReceiptDate } from '../services/pdfGenerator'
-import defaultSignature from '../../../../feereceiptapp/stamp.png'
-import MancareLogo from '../../../../feereceiptapp/MAANCareLogo.jpeg'
+import defaultSignature from '../assets/stamp.png'
+import MancareLogo from '../assets/MAANCareLogo.jpeg'
 
 export default function ReceiptTemplateManncar({ donor, index }) {
   const formattedDate = formatReceiptDate(donor['Receipt Date'])

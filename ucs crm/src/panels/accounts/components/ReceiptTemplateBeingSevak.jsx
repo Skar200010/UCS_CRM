@@ -1,6 +1,6 @@
 import { formatIndianCurrency, amountInWords, formatReceiptDate } from '../services/pdfGenerator'
-import beingSevakLogo from '../../../../feereceiptapp/beingsevaklogo.jpeg'
-import beingSevakStamp from '../../../../feereceiptapp/beingsevakstamp.png'
+import beingSevakLogo from '../assets/beingsevaklogo.jpeg'
+import beingSevakStamp from '../assets/beingsevakstamp.png'
 
 const ACCENT = '#0082ad'
 
