@@ -42,7 +42,8 @@ const NGO_CHIP_COLORS = {}
 const NGO_PALETTE = [MINT_DEEP, RED_DEEP, SLATE, GOLD, '#3F8760', '#7A5C8C', MINT_DARK, '#B07D4F']
 function ngoColor(name) {
   if (name && name.toLowerCase().startsWith('man')) return '#e91e9a'
-  if (name && name.toLowerCase().startsWith('bsct')) return '#60a5fa'
+  if (name && name.toLowerCase().startsWith('aflf')) return '#3b82f6'
+  if (name && name.toLowerCase().startsWith('bsct')) return '#38bdf8'
   if (!NGO_CHIP_COLORS[name]) {
     NGO_CHIP_COLORS[name] = NGO_PALETTE[Object.keys(NGO_CHIP_COLORS).length % NGO_PALETTE.length]
   }
@@ -143,75 +144,6 @@ function DonutChart({ segments, size, centerValue, centerLabel, animated, onSegm
           {centerLabel && <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1 }}>{centerLabel}</span>}
         </div>
       )}
-    </div>
-  )
-}
-
-/* ================= FRO LIVE MODAL ================= */
-function FroLiveModal({ froLive, loadingFro, onClose, onRefresh }) {
-  return (
-    <div className="nd-modal-overlay" onClick={onClose}>
-      <div className="nd-modal fro-modal" onClick={e => e.stopPropagation()}>
-        <div className="nd-modal-head" style={{ borderColor: `${MINT}50` }}>
-          <span className="material-symbols-outlined" style={{ color: MINT_DEEP, fontSize: 22 }}>groups</span>
-          <h3 className="nd-modal-title">FRO Live Status</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginRight: 4 }}>
-            {loadingFro && <span className="material-symbols-outlined fro-spin" style={{ fontSize: 18, color: '#94a3b8' }}>refresh</span>}
-            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
-              {froLive.filter(f => f.is_punched_in).length}/{froLive.length} active
-            </span>
-            <button className="fro-refresh-btn" onClick={onRefresh} title="Refresh">
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
-            </button>
-          </div>
-          <button className="nd-modal-close" onClick={onClose}>
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-        <div className="nd-modal-body" style={{ padding: 0 }}>
-          <div className="fro-live-table-wrap">
-            {froLive.length === 0 && !loadingFro ? (
-              <p className="nd-muted" style={{ padding: 24, textAlign: 'center' }}>No FRO workers found.</p>
-            ) : (
-              <table className="fro-live-table">
-                <thead>
-                  <tr>
-                    <th>FRO Name</th>
-                    <th>Status</th>
-                    <th>Punch In</th>
-                    <th>Total Data</th>
-                    <th>Used</th>
-                    <th>Unused</th>
-                    <th>Today Collection</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {froLive.map(f => (
-                    <tr key={f.id}>
-                      <td>
-                        <span className="fro-name">{f.name || f.login_id || 'Unknown'}</span>
-                        {f.login_id && <span className="fro-login-id">{f.login_id}</span>}
-                      </td>
-                      <td>
-                        <span className={`fro-status-dot ${f.is_active ? 'active' : 'inactive'}`} />
-                        {f.is_active ? 'Active' : 'Inactive'}
-                      </td>
-                      <td>{f.is_punched_in ? <span className="fro-badge fro-badge-green">Punched</span> : <span className="fro-badge fro-badge-red">Not yet</span>}</td>
-                      <td className="fro-num">{f.total_data}</td>
-                      <td className="fro-num">{f.data_used}</td>
-                      <td className="fro-num">{f.data_unused}</td>
-                      <td className="fro-num fro-amt">₹{(f.today_collection || 0).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-          <div className="fro-live-footer" style={{ padding: '10px 16px' }}>
-            <span style={{ fontSize: 11, color: '#94a3b8' }}>Auto-refreshes every 30s</span>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
@@ -555,7 +487,7 @@ function PanelSummaryModal({ panel, onClose, dashboardData }) {
                     <span className="ps-sub">Registered NGOs</span>
                   </div>
                   {data.ngoTotals?.length > 0 && (
-                    <div className="ps-card" style={{ gridColumn: '1 / -1', borderTop: `3px solid ${SLATE}` }}>
+                    <div className="ps-card" style={{ borderTop: `3px solid ${SLATE}` }}>
                       <span className="ps-label">📊 NGO Breakdown</span>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: 8 }}>
                         {data.ngoTotals.map(t => (
@@ -980,13 +912,7 @@ function FroNestedDetail({ fro }) {
   const breakTimer = fro.status === 'break' && fro.break_started_at
     ? fmt(Math.floor((Date.now() - new Date(fro.break_started_at).getTime()) / 1000))
     : null
-  const prodData = [{ name: 'Productivity', value: productivity, fill: productivity >= 70 ? MINT : productivity >= 40 ? GOLD : RED_DEEP }]
-  const barData = [
-    { name: 'Calls', value: fro.today_calls || 0, fill: MINT_DEEP },
-    { name: 'Talk(m)', value: Math.round((fro.today_talk_seconds || 0) / 60), fill: MINT },
-    { name: 'Idle(m)', value: Math.round((fro.today_idle_seconds || 0) / 60), fill: GOLD },
-    { name: 'Skipped', value: fro.today_skipped || 0, fill: BLUSH },
-  ]
+  const statColor = (v) => v > 0 ? '#059669' : '#94a3b8'
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -1009,7 +935,7 @@ function FroNestedDetail({ fro }) {
       {fro.status === 'on_call' && callTimer && (
         <div style={{ padding: '8px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#dc2626' }}>call</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#991b1b', flex: 1 }}>{fro.current_donor_name}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#991b1b', flex: 1 }}>{fro.current_donor_name || 'On Call'}</span>
           <span style={{ fontSize: 18, fontWeight: 800, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>{callTimer}</span>
         </div>
       )}
@@ -1020,45 +946,29 @@ function FroNestedDetail({ fro }) {
           <span style={{ fontSize: 18, fontWeight: 800, color: '#d97706', fontVariantNumeric: 'tabular-nums' }}>{breakTimer}</span>
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-        <div style={{ background: '#f8fafb', borderRadius: 10, padding: 10, border: '1px solid #eaf3ec' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>Productivity</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 80, height: 80 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <RadialBarChart innerRadius="50%" outerRadius="90%" barSize={10} data={prodData} startAngle={180} endAngle={0}>
-                  <RadialBar dataKey="value" cornerRadius={5} background={{ fill: '#eaf3ec' }} />
-                </RadialBarChart>
-              </ResponsiveContainer>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 26, fontWeight: 800, color: productivity >= 70 ? MINT_DEEP : productivity >= 40 ? GOLD : RED_DEEP }}>{productivity}%</div>
-              <div style={{ fontSize: 8, color: '#94a3b8' }}>Talk / Active</div>
-            </div>
-          </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '12px 14px', border: '1px solid #bbf7d0' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Today Collection</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#059669', lineHeight: 1.2 }}>₹{Number(fro.today_collection || 0).toLocaleString('en-IN')}</div>
         </div>
-        <div style={{ background: '#f8fafb', borderRadius: 10, padding: 10, border: '1px solid #eaf3ec' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>Today's Stats</div>
-          <div style={{ height: 70 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} layout="vertical" margin={{ top: 0, right: 0, bottom: 0, left: 52 }}>
-                <XAxis type="number" hide />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 9, fill: '#64748b' }} width={52} />
-                <Bar dataKey="value" radius={[0, 3, 3, 0]}>
-                  {barData.map((d, i) => <Cell key={i} fill={d.fill} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        <div style={{ background: '#fefce8', borderRadius: 10, padding: '12px 14px', border: '1px solid #fde68a' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Data Used</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#d97706', lineHeight: 1.2 }}>{fro.data_used || 0} <span style={{ fontSize: 12, fontWeight: 600 }}>MB</span></div>
+        </div>
+        <div style={{ background: '#eff6ff', borderRadius: 10, padding: '12px 14px', border: '1px solid #bfdbfe' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Today Calls</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#2563eb', lineHeight: 1.2 }}>{fro.today_calls || 0}</div>
+        </div>
+        <div style={{ background: '#faf5ff', borderRadius: 10, padding: '12px 14px', border: '1px solid #e9d5ff' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Leads</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: '#7c3aed', lineHeight: 1.2 }}>{fro.today_skipped || 0}</div>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-        <StatBox label="Today Calls" value={fro.today_calls || 0} icon="📞" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
         <StatBox label="Talk Time" value={fmt(fro.today_talk_seconds || 0)} icon="⏱️" />
-        <StatBox label="Skipped" value={fro.today_skipped || 0} icon="⏳" />
-        <StatBox label="Idle Time" value={fmt(fro.today_idle_seconds || 0)} icon="🕊️" />
+        <StatBox label="Idle" value={fmt(fro.today_idle_seconds || 0)} icon="🕊️" />
         <StatBox label="Break" value={fmt(fro.today_break_seconds || 0)} icon="☕" />
-        {productivity > 0 && <StatBox label="Productivity" value={`${productivity}%`} icon="📊" />}
+        <StatBox label="Productivity" value={`${productivity}%`} icon="📊" />
       </div>
       <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 10, textAlign: 'center' }}>
         Last seen: {fro.updated_at ? new Date(fro.updated_at).toLocaleTimeString('en-IN') : '—'}
@@ -1069,41 +979,48 @@ function FroNestedDetail({ fro }) {
 
 function FroNestedModal({ froList, onClose }) {
   const [selId, setSelId] = useState(null)
-  const selected = selId ? froList.find(f => f.id === selId) : (froList[0] || null)
-  const [now, setNow] = useState(Date.now())
-  useEffect(() => { if (selected && (selected.status === 'on_call' || selected.status === 'break')) { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) } }, [selected])
-  useEffect(() => { if (froList.length > 0 && !selId) setSelId(froList[0].id) }, [froList])
+  const validList = Array.isArray(froList) ? froList : []
+  const selected = selId ? validList.find(f => f && f.id === selId) : (validList[0] || null)
+  useEffect(() => { if (validList.length > 0 && !selId) setSelId(validList[0].id) }, [validList])
   return (
     <div className="nd-modal-overlay" onClick={onClose}>
-      <div className="nd-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 860, height: '78vh', maxHeight: 680, display: 'flex', flexDirection: 'column' }}>
+      <div className="nd-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 880, height: '80vh', maxHeight: 700, display: 'flex', flexDirection: 'column' }}>
         <div className="nd-modal-head" style={{ borderColor: `${MINT}50`, flexShrink: 0 }}>
           <span className="material-symbols-outlined" style={{ color: MINT_DEEP, fontSize: 22 }}>groups</span>
           <h3 className="nd-modal-title">FRO Live Detail</h3>
           <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
-            {froList.filter(f => f.status === 'online' || f.status === 'on_call').length}/{froList.length} active
+            {validList.filter(f => f && (f.status === 'online' || f.status === 'on_call')).length}/{validList.length} active
           </span>
           <button className="nd-modal-close" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
         </div>
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          <div style={{ width: 250, borderRight: '1px solid #EAF3EC', overflowY: 'auto', flexShrink: 0 }}>
-            {froList.map(f => {
+          <div style={{ width: 280, borderRight: '1px solid #EAF3EC', overflowY: 'auto', flexShrink: 0 }}>
+            {validList.map(f => {
+              if (!f) return null
               const m = STATUS_META[f.status] || STATUS_META.offline
               const nm = f.workers?.name || f.login_id || 'Unknown'
               const init = nm.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
               const isSel = f.id === selId
               return (
                 <div key={f.id} onClick={() => setSelId(f.id)} style={{
-                  padding: '9px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 12px', cursor: 'pointer',
                   borderLeft: `3px solid ${isSel ? m.color : 'transparent'}`,
                   background: isSel ? MINT_LIGHT : 'transparent',
                   borderBottom: '1px solid #F0F7F2', transition: 'background 0.15s',
                 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, background: m.bg, color: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700 }}>{init}</div>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: PRIMARY }}>{nm}</div>
-                    <div style={{ fontSize: 9, color: '#94a3b8' }}>{f.workers?.login_id || ''}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, background: m.bg, color: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700 }}>{init}</div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: PRIMARY }}>{nm}</div>
+                      <div style={{ fontSize: 9, color: '#94a3b8' }}>{f.workers?.login_id || ''}</div>
+                    </div>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
                   </div>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: m.color, flexShrink: 0 }} />
+                  <div style={{ display: 'flex', gap: 6, fontSize: 9, color: '#64748b', paddingLeft: 38 }}>
+                    <span>₹{Number(f.today_collection || 0).toLocaleString('en-IN')}</span>
+                    <span>📞{f.today_calls || 0}</span>
+                    <span>📊{f.data_used || 0}MB</span>
+                  </div>
                 </div>
               )
             })}
@@ -1294,8 +1211,7 @@ function NgoStationModal({ ngoName, onClose }) {
                   <button className="nd-modal-close" style={{ fontSize: 11, padding: '2px 10px', width: 'auto', borderRadius: 6 }} disabled={page >= totPages} onClick={() => setPage(p => p + 1)}>Next</button>
                 </div>
               )}
-            </>
-          )}
+            </>)}
         </div>
       </div>
     </div>
@@ -1309,12 +1225,9 @@ export default function Dashboard() {
   const [err, setErr] = useState('')
   const [animated, setAnimated] = useState(false)
   const [modal, setModal] = useState(null)
-  const [froLive, setFroLive] = useState([])
-  const [loadingFro, setLoadingFro] = useState(false)
-  const [showFroModal, setShowFroModal] = useState(false)
+  const [panelModal, setPanelModal] = useState(null)
   const [accountsModalStatus, setAccountsModalStatus] = useState(null)
   const [recruiterModalType, setRecruiterModalType] = useState(null)
-  const [panelModal, setPanelModal] = useState(null)
   const [allUserList, setAllUserList] = useState([])
   const froTimer = useRef(null)
   const [froLiveData, setFroLiveData] = useState([])
@@ -1378,19 +1291,6 @@ export default function Dashboard() {
     return () => clearInterval(t)
   }, [fetchFroLiveInline])
 
-  /* Legacy FRO modal fetch */
-  function fetchFroLiveLegacy() {
-    setLoadingFro(true)
-    getFroLiveStatus().then(setFroLive).catch(() => {}).finally(() => setLoadingFro(false))
-  }
-
-  useEffect(() => {
-    if (!showFroModal) return
-    fetchFroLiveLegacy()
-    const t = setInterval(fetchFroLiveLegacy, 30000)
-    return () => clearInterval(t)
-  }, [showFroModal])
-
   if (err) return <div className="sa-err-card">Error: {err}</div>
   if (!data) return (
     <div className="dash-page" style={{ maxWidth: 1280, margin: '0 auto' }}>
@@ -1443,11 +1343,8 @@ export default function Dashboard() {
   const metricCards = [
     { label: 'Total Workers', value: stats.totalWorkers || 0, icon: 'badge', changeKey: 'totalWorkers', color: CARD_COLORS[0] },
     { label: 'Active Workers', value: stats.activeWorkers || 0, icon: 'bolt', changeKey: 'reach', color: CARD_COLORS[1] },
-    { label: 'Attendance %', value: attendancePercent, suffix: '%', icon: 'event_available', changeKey: 'attendancePercent', color: CARD_COLORS[2] },
-    { label: 'ALL FRO', value: froLive.length || '\u2014', icon: 'groups', isFroCard: true, onClick: () => setShowFroModal(true), color: CARD_COLORS[3] },
-    { label: 'Total NGOs', value: stats.totalNgos || 0, icon: 'corporate_fare', changeKey: 'totalNgos', color: CARD_COLORS[4] },
-    { label: 'Total FROs', value: stats.totalFros || froLiveData.length || 0, icon: 'groups', changeKey: 'totalFros', color: CARD_COLORS[1] },
-    { label: 'Total Donors (₹)', value: totalDonorsAmount, icon: 'payments', isCurrency: true, color: CARD_COLORS[2], changeKey: 'totalDonors' },
+    { label: 'ALL FRO', value: froLiveData.length || '\u2014', icon: 'groups', isFroCard: true, onClick: () => setShowFroNestedModal(true), color: CARD_COLORS[3] },
+    { label: 'Total Donation', value: totalDonorsAmount, icon: 'payments', isCurrency: true, color: CARD_COLORS[2], changeKey: 'totalDonors' },
     { label: 'Pending Verif.', value: pendingVerifications, icon: 'hourglass_bottom', changeKey: 'pendingVerif', color: CARD_COLORS[4] },
     { label: 'Bank Audits', value: bankAudits, icon: 'account_balance', changeKey: 'bankAudits', color: CARD_COLORS[5] },
   ]
@@ -1904,7 +1801,7 @@ export default function Dashboard() {
           Create Notice
         </button>
         <button
-          onClick={() => setShowFroModal(true)}
+          onClick={() => setShowFroNestedModal(true)}
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 16px', borderRadius: 10,
@@ -2011,7 +1908,7 @@ export default function Dashboard() {
                     <AnimatedNum to={typeof card.value === 'number' ? card.value : 0} />
                   )}
                 </span>
-                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: card.color?.icon || MINT_DARK, fontWeight: 600, marginTop: 4 }}>
                   {card.isCurrency ? 'Total donation value' : `${card.label} across all departments`}
                 </div>
               </div>
@@ -2019,108 +1916,6 @@ export default function Dashboard() {
           )
         })}
       </div>
-
-      {/* ============ ROLE DISTRIBUTION + TOTAL SALARY ============ */}
-      {(Object.keys(allTimeRoleDistribution).length > 0 || Object.keys(roleDistribution).length > 0 || totalSalaryPayable > 0) ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-          <div className="nd-card nd-appear" style={{ animationDelay: '0.12s', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#8B5CF6' }}>group_work</span>
-              <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Role Distribution</h3>
-            </div>
-            {(() => {
-              const roleMap = {
-                super_admin: { label: 'Super Admin', color: '#EF4444' },
-                admin: { label: 'Admin', color: '#F59E0B' },
-                hoadmin: { label: 'HO Admin', color: '#F59E0B' },
-                inter: { label: 'Intermediate', color: '#84CC16' },
-                team_lead: { label: 'Team Lead', color: '#F97316' },
-                hr: { label: 'HR', color: '#3B82F6' },
-                recruiter: { label: 'Recruiter', color: '#10B981' },
-                telecaller: { label: 'Telecaller', color: '#8B5CF6' },
-                fro: { label: 'FRO', color: '#EC4899' },
-                accounts: { label: 'Accounts', color: '#14B8A6' },
-                leads: { label: 'Leads', color: '#F97316' },
-                worker: { label: 'Worker', color: '#6366F1' },
-              }
-              const roleDistro = Object.keys(allTimeRoleDistribution).length > 0 ? allTimeRoleDistribution : (() => {
-                const rd = {}
-                allUserList.forEach(u => { rd[u.role] = (rd[u.role] || 0) + 1 })
-                return Object.keys(rd).length > 0 ? rd : roleDistribution
-              })()
-              const segments = Object.entries(roleDistro)
-                .filter(([, v]) => v > 0)
-                .map(([key, val]) => ({
-                  label: roleMap[key]?.label || key,
-                  value: val,
-                  color: roleMap[key]?.color || '#94a3b8',
-                }))
-                .sort((a, b) => b.value - a.value)
-              const total = segments.reduce((s, seg) => s + seg.value, 0)
-              if (segments.length === 0 || total === 0) return <p className="nd-muted">No role data</p>
-              const maxVal = Math.max(...segments.map(s => s.value), 1)
-              return (
-                <div style={{ display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'center', flex: 1 }}>
-                  <DonutChart
-                    segments={segments}
-                    size={150}
-                    centerValue={total}
-                    centerLabel="Users"
-                    animated={animated}
-                  />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
-                    {segments.map(s => (
-                      <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#1F332B', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</span>
-                        <span style={{ fontSize: 12, fontWeight: 800, color: s.color }}>{s.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-          <div className="nd-card nd-appear" style={{ animationDelay: '0.16s', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#059669' }}>payments</span>
-              <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Total Salary Payable</h3>
-            </div>
-            {totalSalaryPayable === 0 ? (
-              <p className="nd-muted">No salary data</p>
-            ) : (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  width: 90, height: 90, borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #05966918, #10B98118)',
-                  border: '3px solid rgba(5,150,105,0.2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexDirection: 'column',
-                }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#059669' }}>account_balance</span>
-                </div>
-                <span style={{ fontSize: 32, fontWeight: 800, color: '#059669', lineHeight: 1.2 }}>
-                  ₹{totalSalaryPayable.toLocaleString('en-IN')}
-                </span>
-                <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>
-                  Monthly recurring salary
-                </span>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                  {(() => {
-                    const wc = stats.totalWorkers || 0
-                    const avg = wc > 0 ? Math.round(totalSalaryPayable / wc) : 0
-                    return (
-                      <span style={{ fontSize: 10.5, color: '#64748b', background: '#F1F5F2', borderRadius: 99, padding: '3px 10px', fontWeight: 600 }}>
-                        Avg ₹{avg.toLocaleString('en-IN')}/worker
-                      </span>
-                    )
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : null}
 
       {/* ============ PANEL LINKS — uniform mint cards ============ */}
       <div className="panel-link-grid">
@@ -2186,13 +1981,14 @@ export default function Dashboard() {
                 const total = ngoUserCounts.reduce((s, x) => s + (x.workers || x.count || 0), 0) || 1
                 const pct = Math.round(((n.workers || n.count || 0) / total) * 100)
                 const c = NGO_PALETTE[i % NGO_PALETTE.length]
+                const dotColor = ['man','aflf','bsct'].some(pre => n.name.toLowerCase().startsWith(pre)) ? ngoColor(n.name) : c
                 return (
                   <div key={n.name} onClick={() => setNgoStationModal(n.name)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '3px 6px', borderRadius: 8, transition: 'background 0.15s' }}
                     onMouseEnter={e => e.currentTarget.style.background = MINT_LIGHT} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, flexShrink: 0 }} />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: PRIMARY, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.name}</span>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: ['man','aflf','bsct'].some(pre => n.name.toLowerCase().startsWith(pre)) ? ngoColor(n.name) : PRIMARY, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.name}</span>
                     <div style={{ width: 60, height: 6, background: '#F1F5F2', borderRadius: 99, overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: c, borderRadius: 99 }} />
+                      <div style={{ width: `${pct}%`, height: '100%', background: dotColor, borderRadius: 99 }} />
                     </div>
                     <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', minWidth: 30, textAlign: 'right' }}>{n.workers || n.count || 0}</span>
                     <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#94a3b8' }}>chevron_right</span>
@@ -2209,7 +2005,7 @@ export default function Dashboard() {
         <div className="dash-grid-main">
 
           {/* ---- WORKERS BY DEPARTMENT — mint tile design ---- */}
-          <div className="nd-card nd-appear" style={{ animationDelay: '0.5s', marginBottom: 4, minHeight: 320 }}>
+          <div className="nd-card nd-appear" style={{ animationDelay: '0.5s', marginBottom: 4, minHeight: 450, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 className="nd-section-title" style={{ color: '#000' }}>Workers by Department</h3>
               <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{totalDeptWorkers} total</span>
@@ -2217,7 +2013,7 @@ export default function Dashboard() {
             {deptData.length === 0 ? (
               <p className="nd-muted">No department data</p>
             ) : (
-              <>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 {/* Stacked bar chart */}
                 <div style={{ height: 36, borderRadius: 6, overflow: 'hidden', display: 'flex', marginBottom: 14 }}>
                   {deptData.map((d, i) => {
@@ -2249,225 +2045,20 @@ export default function Dashboard() {
                     )
                   })}
                 </div>
-              </>
-            )}
-          </div>
-
-          {/* ---- NGO WISE FRO'S ASSIGNED ---- */}
-          <div className="nd-card nd-appear" style={{ animationDelay: '0.6s' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="nd-section-title" style={{ color: '#000' }}>NGO Wise FRO's Assigned</h3>
-              {froAssignments.length > 0 && (
-                <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{froAssignments.length} FROs</span>
-              )}
-            </div>
-
-            {/* per-NGO totals */}
-            {ngoTotals.length > 0 && (
-              <div className="nd-fro-summary">
-                {ngoTotals.map(t => (
-                  <div key={t.name} className="nd-fro-summary-pill" style={{ background: `${ngoColor(t.name)}14`, color: ngoColor(t.name) }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: ngoColor(t.name) }} />
-                    {t.name}
-                    <span style={{
-                      background: '#fff', borderRadius: 8, padding: '1px 8px',
-                      fontSize: 11.5, color: PRIMARY,
-                    }}>
-                      {froAssignments.length > 0 ? t.count : (ngoUserCounts.find(n => n.name === t.name)?.workers || 0)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* who works for which NGO */}
-            {froAssignments.length === 0 ? (
-              <p className="nd-muted">
-                FRO assignment data not available yet. Backend should send <code style={{ background: MINT_LIGHT, padding: '1px 6px', borderRadius: 6 }}>froAssignments</code> — each FRO with their assigned NGOs.
-              </p>
-            ) : (
-              <div className="nd-fro-list">
-                {froAssignments.map((f, i) => (
-                  <div key={f.name + i} className="nd-fro-row" style={{ cursor: 'pointer' }} onClick={() => setModal({
-                    title: f.name,
-                    color: MINT_DEEP,
-                    names: (f.ngos || []).map(ngo => ({ name: ngo, dept: 'NGO' })),
-                  })}>
-                    <span className="nd-avatar" style={{ background: MINT_LIGHT, color: MINT_DARK }}>
-                      {f.name?.charAt(0).toUpperCase() || '?'}
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700, color: PRIMARY }}>{f.name}</span>
-                      <span style={{ fontSize: 11, color: '#94a3b8' }}>
-                        {(f.ngos || []).length === allNgoNames.length && allNgoNames.length > 1
-                          ? 'Works for all NGOs'
-                          : `${(f.ngos || []).length} NGO${(f.ngos || []).length > 1 ? 's' : ''}`}
-                      </span>
-                    </div>
-                    <div className="nd-fro-chips">
-                      {(f.ngos || []).map(ngo => (
-                        <span key={ngo} className="nd-ngo-chip" style={{ background: `${ngoColor(ngo)}16`, color: ngoColor(ngo) }}>
-                          {ngo}
-                        </span>
-                      ))}
-                    </div>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#94a3b8' }}>chevron_right</span>
-                  </div>
-                ))}
               </div>
             )}
           </div>
-
-          {/* ---- FRO PERFORMANCE OVERVIEW ---- */}
-          {froLiveData.length > 0 && (
-            <div className="nd-card nd-appear" style={{ animationDelay: '0.65s' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, color: MINT_DEEP }}>monitoring</span>
-                <h3 className="nd-section-title" style={{ margin: 0 }}>FRO Performance — Today</h3>
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
-                  {froLiveData.reduce((s, f) => s + (f.today_calls || 0), 0)} total calls
-                </span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
-                <div style={{ padding: '10px 12px', borderRadius: 10, background: MINT_LIGHT }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Collection</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: MINT_DEEP }}>₹{froLiveData.reduce((s, f) => s + Number(f.today_collection || 0), 0).toLocaleString('en-IN')}</div>
-                </div>
-                <div style={{ padding: '10px 12px', borderRadius: 10, background: MINT_LIGHT }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Active FROs</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: PRIMARY }}>{froLiveData.filter(f => f.is_active).length}</div>
-                </div>
-                <div style={{ padding: '10px 12px', borderRadius: 10, background: MINT_LIGHT }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Data Used</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: PRIMARY }}>{froLiveData.reduce((s, f) => s + Number(f.data_used || 0), 0)}</div>
-                </div>
-                <div style={{ padding: '10px 12px', borderRadius: 10, background: MINT_LIGHT }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Avg Collection</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: MINT_DEEP }}>
-                    ₹{froLiveData.length > 0 ? Math.round(froLiveData.reduce((s, f) => s + Number(f.today_collection || 0), 0) / froLiveData.length).toLocaleString('en-IN') : 0}
-                  </div>
-                </div>
-              </div>
-              {froLiveData.filter(f => Number(f.today_collection || 0) > 0).length > 0 && (
-                <div style={{ height: 130 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={froLiveData.filter(f => Number(f.today_collection || 0) > 0).map(f => ({
-                      name: f.workers?.name || f.login_id || 'Unknown',
-                      collection: Number(f.today_collection || 0),
-                    }))} layout="vertical" margin={{ top: 0, right: 16, bottom: 0, left: 80 }}>
-                      <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} width={76} />
-                      <Tooltip formatter={(v) => [`₹${v.toLocaleString('en-IN')}`, 'Collection']} />
-                      <Bar dataKey="collection" radius={[0, 4, 4, 0]} fill={MINT_DEEP} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-              {froLiveData.filter(f => Number(f.today_calls || 0) > 0).length > 1 && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
-                  <div style={{ padding: '8px 12px', borderRadius: 10, background: '#f8fafb', border: '1px solid #eaf3ec' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Top Collector</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>
-                      {froLiveData.reduce((best, f) => Number(f.today_collection || 0) > Number(best.today_collection || 0) ? f : best, froLiveData[0])?.workers?.name || '—'}
-                    </div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: MINT_DEEP }}>
-                      ₹{froLiveData.reduce((best, f) => Number(f.today_collection || 0) > Number(best.today_collection || 0) ? f : best, froLiveData[0]).today_collection?.toLocaleString('en-IN') || 0}
-                    </div>
-                  </div>
-                  <div style={{ padding: '8px 12px', borderRadius: 10, background: '#f8fafb', border: '1px solid #eaf3ec' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Most Calls</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>
-                      {froLiveData.reduce((best, f) => (f.today_calls || 0) > (best.today_calls || 0) ? f : best, froLiveData[0])?.workers?.name || '—'}
-                    </div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: PRIMARY }}>
-                      {froLiveData.reduce((best, f) => (f.today_calls || 0) > (best.today_calls || 0) ? f : best, froLiveData[0]).today_calls || 0} calls
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ============ ACCOUNTS SUMMARY ============ */}
-          {accountsSummary.pending !== undefined && (
-            <div className="nd-card nd-appear" style={{ animationDelay: '0.2s' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, color: MINT_DEEP }}>receipt_long</span>
-                <h3 className="nd-section-title" style={{ margin: 0 }}>Accounts — Lead Verification Pipeline</h3>
-              </div>
-              <PipelineFlow stages={[
-                { label: 'Pending', value: accountsSummary.pending ?? 0, sub: `₹${(accountsSummary.pendingAmount || 0).toLocaleString('en-IN')}`, color: GOLD },
-                { label: 'Verified', value: accountsSummary.verified ?? 0, sub: `₹${(accountsSummary.verifiedAmount || 0).toLocaleString('en-IN')}`, color: MINT_DEEP },
-                { label: 'Rejected', value: accountsSummary.rejected ?? 0, sub: `₹${(accountsSummary.rejectedAmount || 0).toLocaleString('en-IN')}`, color: RED_DEEP },
-                { label: 'Today', value: accountsSummary.verifiedToday ?? 0, sub: `₹${(accountsSummary.verifiedTodayAmount || 0).toLocaleString('en-IN')}`, color: SLATE },
-              ]} height={50} />
-              <div className="mini-card-grid" style={{ marginTop: 8 }}>
-                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${GOLD}` }} onClick={() => setAccountsModalStatus('pending')}>
-                  <span className="mini-card-label">Pending</span>
-                  <span className="mini-card-value">{accountsSummary.pending ?? 0}</span>
-                  <span className="mini-card-sub">₹{(accountsSummary.pendingAmount || 0).toLocaleString('en-IN')}</span>
-                </div>
-                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${MINT_DEEP}` }} onClick={() => setAccountsModalStatus('verified')}>
-                  <span className="mini-card-label">Verified</span>
-                  <span className="mini-card-value">{accountsSummary.verified ?? 0}</span>
-                  <span className="mini-card-sub">₹{(accountsSummary.verifiedAmount || 0).toLocaleString('en-IN')}</span>
-                </div>
-                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${RED_DEEP}` }} onClick={() => setAccountsModalStatus('rejected')}>
-                  <span className="mini-card-label">Rejected</span>
-                  <span className="mini-card-value">{accountsSummary.rejected ?? 0}</span>
-                  <span className="mini-card-sub">₹{(accountsSummary.rejectedAmount || 0).toLocaleString('en-IN')}</span>
-                </div>
-                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${SLATE}` }} onClick={() => setAccountsModalStatus('verified_today')}>
-                  <span className="mini-card-label">Verified Today</span>
-                  <span className="mini-card-value">{accountsSummary.verifiedToday ?? 0}</span>
-                  <span className="mini-card-sub">₹{(accountsSummary.verifiedTodayAmount || 0).toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ============ RECRUITER SUMMARY ============ */}
-          {recruiterSummary.totalLeads !== undefined && (
-            <div className="nd-card nd-appear" style={{ animationDelay: '0.25s' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18, color: GOLD }}>person_search</span>
-                <h3 className="nd-section-title" style={{ margin: 0 }}>Recruiter — Lead Pipeline</h3>
-              </div>
-              <PipelineFlow stages={[
-                { label: 'Total Leads', value: recruiterSummary.totalLeads || 0, color: MINT_DARK },
-                { label: 'New Today', value: recruiterSummary.newToday ?? 0, color: MINT_DEEP },
-                { label: 'Conversion', value: typeof recruiterSummary.conversionRate === 'number' ? Math.round(recruiterSummary.conversionRate) : 0, sub: `${(recruiterSummary.conversionRate || 0).toFixed(1)}%`, color: GOLD },
-              ]} height={50} />
-              <div className="mini-card-grid" style={{ marginTop: 8 }}>
-                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${MINT_DARK}` }} onClick={() => setRecruiterModalType('total_leads')}>
-                  <span className="mini-card-label">Total Leads</span>
-                  <span className="mini-card-value">{(recruiterSummary.totalLeads || 0).toLocaleString()}</span>
-                  <span className="mini-card-sub">All time</span>
-                </div>
-                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${MINT_DEEP}` }} onClick={() => setRecruiterModalType('new_today')}>
-                  <span className="mini-card-label">New Today</span>
-                  <span className="mini-card-value">{recruiterSummary.newToday ?? 0}</span>
-                  <span className="mini-card-sub">Added today</span>
-                </div>
-                <div className="mini-card mini-card-clickable" style={{ borderTop: `3px solid ${GOLD}` }} onClick={() => setRecruiterModalType('conversion_rate')}>
-                  <span className="mini-card-label">Conversion Rate</span>
-                  <span className="mini-card-value">{(recruiterSummary.conversionRate ?? 0).toFixed(1)}%</span>
-                  <span className="mini-card-sub">Selected vs Rejected</span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="dash-grid-side">
 
           {/* ---- DAILY CHECK-INS — clickable ---- */}
-          <div className="nd-card nd-appear" style={{ animationDelay: '0.7s', marginBottom: 20, minHeight: 520, display: 'flex', flexDirection: 'column' }}>
+          <div className="nd-card nd-appear" style={{ animationDelay: '0.7s', marginBottom: 20, minHeight: 450, display: 'flex', flexDirection: 'column' }}>
             <h3 className="nd-section-title" style={{ color: '#000' }}>Daily Check-ins</h3>
             {attSegments.length === 0 ? (
               <p className="nd-muted">No attendance data</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginTop: 14, flex: 1, justifyContent: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginTop: 10 }}>
                 <DonutChart
                   segments={attSegments}
                   size={170}
@@ -2497,8 +2088,117 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ---- FRO PERFORMANCE OVERVIEW ---- */}
+      {froLiveData.length > 0 && (
+        <div className="nd-card nd-appear" style={{ animationDelay: '0.65s', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#000' }}>monitoring</span>
+            <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>FRO Performance — Today</h3>
+            <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
+              {froLiveData.reduce((s, f) => s + (f.today_calls || 0), 0)} total calls
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 14 }}>
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#E8F5E9' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Collection</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: MINT_DEEP }}>₹{froLiveData.reduce((s, f) => s + Number(f.today_collection || 0), 0).toLocaleString('en-IN')}</div>
+            </div>
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#E3F2FD' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Active FROs</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#1E88E5' }}>{froLiveData.filter(f => f.is_active).length}</div>
+            </div>
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#F3E5F5' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Data Used</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#8E24AA' }}>{froLiveData.reduce((s, f) => s + Number(f.data_used || 0), 0)}</div>
+            </div>
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#FFF8E1' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Avg Collection</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#F57C00' }}>
+                ₹{froLiveData.length > 0 ? Math.round(froLiveData.reduce((s, f) => s + Number(f.today_collection || 0), 0) / froLiveData.length).toLocaleString('en-IN') : 0}
+              </div>
+            </div>
+          </div>
+          {froLiveData.filter(f => Number(f.today_collection || 0) > 0).length > 0 && (
+            <div style={{ height: 150 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={froLiveData.filter(f => Number(f.today_collection || 0) > 0).map(f => ({
+                  name: f.workers?.name || f.login_id || 'Unknown',
+                  collection: Number(f.today_collection || 0),
+                }))} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} />
+                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <Tooltip formatter={(v) => [`₹${v.toLocaleString('en-IN')}`, 'Collection']} />
+                  <Line type="monotone" dataKey="collection" stroke="#64B5F6" strokeWidth={2} dot={{ fill: '#64B5F6', r: 4 }} animationDuration={800} animationBegin={200} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          {froLiveData.filter(f => Number(f.today_calls || 0) > 0).length > 1 && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
+              <div style={{ padding: '8px 12px', borderRadius: 10, background: '#f8fafb', border: '1px solid #eaf3ec' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Top Collector</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>
+                  {froLiveData.reduce((best, f) => Number(f.today_collection || 0) > Number(best.today_collection || 0) ? f : best, froLiveData[0])?.workers?.name || '—'}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: MINT_DEEP }}>
+                  ₹{froLiveData.reduce((best, f) => Number(f.today_collection || 0) > Number(best.today_collection || 0) ? f : best, froLiveData[0]).today_collection?.toLocaleString('en-IN') || 0}
+                </div>
+              </div>
+              <div style={{ padding: '8px 12px', borderRadius: 10, background: '#f8fafb', border: '1px solid #eaf3ec' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Most Calls</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>
+                  {froLiveData.reduce((best, f) => (f.today_calls || 0) > (best.today_calls || 0) ? f : best, froLiveData[0])?.workers?.name || '—'}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: PRIMARY }}>
+                  {froLiveData.reduce((best, f) => (f.today_calls || 0) > (best.today_calls || 0) ? f : best, froLiveData[0]).today_calls || 0} calls
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============ ACCOUNTS SUMMARY ============ */}
+      {accountsSummary.pending !== undefined && (
+        <div className="nd-card nd-appear" style={{ animationDelay: '0.2s', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#0284c7' }}>receipt_long</span>
+            <h3 className="nd-section-title" style={{ margin: 0 }}>Accounts — Lead Verification Pipeline</h3>
+          </div>
+          <PipelineFlow stages={[
+            { label: 'Pending', value: accountsSummary.pending ?? 0, sub: `₹${(accountsSummary.pendingAmount || 0).toLocaleString('en-IN')}`, color: '#38bdf8' },
+            { label: 'Verified', value: accountsSummary.verified ?? 0, sub: `₹${(accountsSummary.verifiedAmount || 0).toLocaleString('en-IN')}`, color: '#a78bfa' },
+            { label: 'Rejected', value: accountsSummary.rejected ?? 0, sub: `₹${(accountsSummary.rejectedAmount || 0).toLocaleString('en-IN')}`, color: '#f472b6' },
+            { label: 'Today', value: accountsSummary.verifiedToday ?? 0, sub: `₹${(accountsSummary.verifiedTodayAmount || 0).toLocaleString('en-IN')}`, color: '#fbbf24' },
+          ]} height={50} />
+          <div className="mini-card-grid" style={{ marginTop: 8 }}>
+            <div className="mini-card mini-card-clickable" style={{ borderLeft: `3px solid #38bdf8`, paddingLeft: 13, background: '#fff' }} onClick={() => setAccountsModalStatus('pending')}>
+              <span className="mini-card-label">Pending</span>
+              <span className="mini-card-value">{accountsSummary.pending ?? 0}</span>
+              <span className="mini-card-sub">₹{(accountsSummary.pendingAmount || 0).toLocaleString('en-IN')}</span>
+            </div>
+            <div className="mini-card mini-card-clickable" style={{ borderLeft: `3px solid #a78bfa`, paddingLeft: 13, background: '#fff' }} onClick={() => setAccountsModalStatus('verified')}>
+              <span className="mini-card-label">Verified</span>
+              <span className="mini-card-value">{accountsSummary.verified ?? 0}</span>
+              <span className="mini-card-sub">₹{(accountsSummary.verifiedAmount || 0).toLocaleString('en-IN')}</span>
+            </div>
+            <div className="mini-card mini-card-clickable" style={{ borderLeft: `3px solid #f472b6`, paddingLeft: 13, background: '#fff' }} onClick={() => setAccountsModalStatus('rejected')}>
+              <span className="mini-card-label">Rejected</span>
+              <span className="mini-card-value">{accountsSummary.rejected ?? 0}</span>
+              <span className="mini-card-sub">₹{(accountsSummary.rejectedAmount || 0).toLocaleString('en-IN')}</span>
+            </div>
+            <div className="mini-card mini-card-clickable" style={{ borderLeft: `3px solid #fbbf24`, paddingLeft: 13, background: '#fff' }} onClick={() => setAccountsModalStatus('verified_today')}>
+              <span className="mini-card-label">Verified Today</span>
+              <span className="mini-card-value">{accountsSummary.verifiedToday ?? 0}</span>
+              <span className="mini-card-sub">₹{(accountsSummary.verifiedTodayAmount || 0).toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ============ REVENUE TREND CHART ============ */}
-      <div className="nd-card nd-appear" style={{ animationDelay: '0.22s', marginTop: 16, padding: '18px 20px' }}>
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.22s', marginBottom: 20, padding: '18px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
           <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#14B8A6' }}>trending_up</span>
           <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Revenue Overview</h3>
@@ -2537,6 +2237,38 @@ export default function Dashboard() {
           )
         })()}
       </div>
+
+      {/* ============ RECRUITER SUMMARY ============ */}
+      {recruiterSummary.totalLeads !== undefined && (
+        <div className="nd-card nd-appear" style={{ animationDelay: '0.25s', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#f59e0b' }}>person_search</span>
+            <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Recruiter — Lead Pipeline</h3>
+          </div>
+          <PipelineFlow stages={[
+            { label: 'Total Leads', value: recruiterSummary.totalLeads || 0, color: '#8b5cf6' },
+            { label: 'New Today', value: recruiterSummary.newToday ?? 0, color: '#3b82f6' },
+            { label: 'Conversion', value: typeof recruiterSummary.conversionRate === 'number' ? Math.round(recruiterSummary.conversionRate) : 0, sub: `${(recruiterSummary.conversionRate || 0).toFixed(1)}%`, color: '#f97316' },
+          ]} height={50} />
+          <div className="mini-card-grid" style={{ marginTop: 8 }}>
+            <div className="mini-card mini-card-clickable" style={{ borderLeft: `3px solid #8b5cf6`, paddingLeft: 13, background: '#fff' }} onClick={() => setRecruiterModalType('total_leads')}>
+              <span className="mini-card-label">Total Leads</span>
+              <span className="mini-card-value">{(recruiterSummary.totalLeads || 0).toLocaleString()}</span>
+              <span className="mini-card-sub">All time</span>
+            </div>
+            <div className="mini-card mini-card-clickable" style={{ borderLeft: `3px solid #3b82f6`, paddingLeft: 13, background: '#fff' }} onClick={() => setRecruiterModalType('new_today')}>
+              <span className="mini-card-label">New Today</span>
+              <span className="mini-card-value">{recruiterSummary.newToday ?? 0}</span>
+              <span className="mini-card-sub">Added today</span>
+            </div>
+            <div className="mini-card mini-card-clickable" style={{ borderLeft: `3px solid #f97316`, paddingLeft: 13, background: '#fff' }} onClick={() => setRecruiterModalType('conversion_rate')}>
+              <span className="mini-card-label">Conversion Rate</span>
+              <span className="mini-card-value">{(recruiterSummary.conversionRate ?? 0).toFixed(1)}%</span>
+              <span className="mini-card-sub">Selected vs Rejected</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============ 3-COL GRID: Monthly Revenue + Top Performers + Recent Activity ============ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 20 }}>
@@ -2744,7 +2476,7 @@ export default function Dashboard() {
       </div>
 
       {/* ---- RECENT NOTICES — scrollable, shows all ---- */}
-      <div className="nd-card nd-appear" style={{ animationDelay: '0.8s', marginTop: 20, marginBottom: 20 }}>
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.8s', marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 className="nd-section-title" style={{ color: '#000' }}>Recent Notices</h3>
           {recentNotices.length > 0 && (
@@ -2777,96 +2509,14 @@ export default function Dashboard() {
                       {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                     </span>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4 }}>On Break</div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: GOLD }}>{froLiveData.filter(f => f.status === 'break').length}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4 }}>Idle</div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: '#94a3b8' }}>{froLiveData.filter(f => f.status === 'idle').length}</div>
-                  </div>
                 </div>
               ))}
-              <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', display: 'flex', overflow: 'hidden', marginBottom: 12 }}>
-                {[
-                  { label: 'Online', count: froLiveData.filter(f => f.status === 'online' || f.status === 'on_call').length, color: '#16a34a' },
-                  { label: 'On Call', count: froLiveData.filter(f => f.status === 'on_call').length, color: '#dc2626' },
-                  { label: 'Break', count: froLiveData.filter(f => f.status === 'break').length, color: '#d97706' },
-                  { label: 'Idle', count: froLiveData.filter(f => f.status === 'idle').length, color: '#f59e0b' },
-                ].filter(s => s.count > 0).map(s => (
-                  <div key={s.label} style={{ width: `${(s.count / froLiveData.length) * 100}%`, height: '100%', background: s.color, opacity: 0.7 }} title={`${s.label}: ${s.count}`} />
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
-                {froLiveData.slice(0, 6).map(f => (
-                  <FroMiniCard key={f.id} fro={f} onCardClick={(selected) => setSelectedFro(selected)} />
-                ))}
-              </div>
-              {froLiveData.length > 6 && (
-                <div style={{ textAlign: 'center', marginTop: 8 }}>
-                  <button onClick={() => setShowFroNestedModal(true)} style={{
-                    border: 'none', background: 'transparent', color: MINT_DEEP, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                    textDecoration: 'underline dotted', textUnderlineOffset: 3,
-                  }}>
-                    View all {froLiveData.length} FROs →
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}
       </div>
 
       {/* ---- UPCOMING EVENTS — scrollable, shows all ---- */}
-      <div className="nd-card nd-appear" style={{ animationDelay: '0.9s', marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 className="nd-section-title" style={{ color: '#000' }}>Upcoming Events</h3>
-          {upcomingEvents.length > 0 && (
-            <span style={{
-              fontSize: 11, fontWeight: 700, color: RED_DEEP,
-              background: 'rgba(247,178,173,0.25)', borderRadius: 99, padding: '3px 10px',
-            }}>
-              {upcomingEvents.length}
-            </span>
-          )}
-        </div>
-        {upcomingEvents.length === 0 ? (
-          <p className="nd-muted" style={{ color: '#8B5CF6', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#8B5CF6' }}>event_busy</span>
-            No upcoming events
-          </p>
-        ) : (
-          <>
-            <div className={upcomingEvents.length > 3 ? 'nd-scroll-fade' : ''}>
-              <div className="nd-scroll-list">
-                {upcomingEvents.map((ev, i) => {
-                  const d = new Date(ev.event_date)
-                  return (
-                    <div key={ev.id || i} className="nd-event">
-                      <div className="nd-event-date">
-                        <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.8 }}>
-                          {d.toLocaleString('en-IN', { month: 'short' })}
-                        </span>
-                      </div>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: PRIMARY }}>{n.title}</h4>
-                        <p style={{ margin: '3px 0 4px', fontSize: 12, color: '#64748b', lineHeight: 1.45 }}>
-                          {n.content && n.content.length > 110 ? n.content.slice(0, 110) + '\u2026' : n.content || ''}
-                        </p>
-                        <span style={{ fontSize: 10.5, color: '#94a3b8', fontWeight: 600 }}>
-                          {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-          {/* ---- UPCOMING EVENTS — scrollable, shows all ---- */}
           <div className="nd-card nd-appear" style={{ animationDelay: '0.9s' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 className="nd-section-title">Upcoming Events</h3>
@@ -2922,6 +2572,108 @@ export default function Dashboard() {
             )}
           </div>
 
+
+      {/* ============ ROLE DISTRIBUTION + TOTAL SALARY ============ */}
+      {(Object.keys(allTimeRoleDistribution).length > 0 || Object.keys(roleDistribution).length > 0 || totalSalaryPayable > 0) ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 24, marginBottom: 20 }}>
+          <div className="nd-card nd-appear" style={{ animationDelay: '0.12s', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#8B5CF6' }}>group_work</span>
+              <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Role Distribution</h3>
+            </div>
+            {(() => {
+              const roleMap = {
+                super_admin: { label: 'Super Admin', color: '#EF4444' },
+                admin: { label: 'Admin', color: '#F59E0B' },
+                hoadmin: { label: 'HO Admin', color: '#F59E0B' },
+                inter: { label: 'Intermediate', color: '#84CC16' },
+                team_lead: { label: 'Team Lead', color: '#F97316' },
+                hr: { label: 'HR', color: '#3B82F6' },
+                recruiter: { label: 'Recruiter', color: '#10B981' },
+                telecaller: { label: 'Telecaller', color: '#8B5CF6' },
+                fro: { label: 'FRO', color: '#EC4899' },
+                accounts: { label: 'Accounts', color: '#14B8A6' },
+                leads: { label: 'Leads', color: '#F97316' },
+                worker: { label: 'Worker', color: '#6366F1' },
+              }
+              const roleDistro = Object.keys(allTimeRoleDistribution).length > 0 ? allTimeRoleDistribution : (() => {
+                const rd = {}
+                allUserList.forEach(u => { rd[u.role] = (rd[u.role] || 0) + 1 })
+                return Object.keys(rd).length > 0 ? rd : roleDistribution
+              })()
+              const segments = Object.entries(roleDistro)
+                .filter(([, v]) => v > 0)
+                .map(([key, val]) => ({
+                  label: roleMap[key]?.label || key,
+                  value: val,
+                  color: roleMap[key]?.color || '#94a3b8',
+                }))
+                .sort((a, b) => b.value - a.value)
+              const total = segments.reduce((s, seg) => s + seg.value, 0)
+              if (segments.length === 0 || total === 0) return <p className="nd-muted">No role data</p>
+              const maxVal = Math.max(...segments.map(s => s.value), 1)
+              return (
+                <div style={{ display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'center', flex: 1 }}>
+                  <DonutChart
+                    segments={segments}
+                    size={150}
+                    centerValue={total}
+                    centerLabel="Users"
+                    animated={animated}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
+                    {segments.map(s => (
+                      <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: 11, fontWeight: 600, color: '#1F332B', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: s.color }}>{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+          <div className="nd-card nd-appear" style={{ animationDelay: '0.16s', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#059669' }}>payments</span>
+              <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Total Salary Payable</h3>
+            </div>
+            {totalSalaryPayable === 0 ? (
+              <p className="nd-muted">No salary data</p>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 90, height: 90, borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #05966918, #10B98118)',
+                  border: '3px solid rgba(5,150,105,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexDirection: 'column',
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#059669' }}>account_balance</span>
+                </div>
+                <span style={{ fontSize: 32, fontWeight: 800, color: '#059669', lineHeight: 1.2 }}>
+                  ₹{totalSalaryPayable.toLocaleString('en-IN')}
+                </span>
+                <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>
+                  Monthly recurring salary
+                </span>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  {(() => {
+                    const wc = stats.totalWorkers || 0
+                    const avg = wc > 0 ? Math.round(totalSalaryPayable / wc) : 0
+                    return (
+                      <span style={{ fontSize: 10.5, color: '#64748b', background: '#F1F5F2', borderRadius: 99, padding: '3px 10px', fontWeight: 600 }}>
+                        Avg ₹{avg.toLocaleString('en-IN')}/worker
+                      </span>
+                    )
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {/* ============ NAME LIST MODAL ============ */}
       {modal && (
@@ -3008,21 +2760,14 @@ export default function Dashboard() {
         />
       )}
 
-      {/* ============ LEGACY FRO LIVE MODAL ============ */}
-      {showFroModal && (
-        <FroLiveModal
-          froLive={froLive}
-          loadingFro={loadingFro}
-          onClose={() => setShowFroModal(false)}
-          onRefresh={fetchFroLive}
-        />
-      )}
-
       {/* ============ LEGACY FRO DETAIL MODALS ============ */}
       {selectedFro && <FroDetailModal fro={selectedFro} onClose={() => setSelectedFro(null)} onShowDeep={() => { setDeepFro(selectedFro); setSelectedFro(null) }} />}
       {deepFro && <FroDeepDetailModal fro={deepFro} onClose={() => setDeepFro(null)} />}
     </div>
   )
 }
+
+
+
 
 
