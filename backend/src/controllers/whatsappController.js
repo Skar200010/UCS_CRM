@@ -1,4 +1,4 @@
-import { sendDocumentMessage, sendReceiptMessage, sendTextMessage, testConnection } from '../services/whatsappService.js';
+import { sendDocumentMessage, sendReceiptMessage, sendNgoInfoTemplate, sendTemplateMessage, sendTextMessage, testConnection } from '../services/whatsappService.js';
 import supabase from '../config/supabase.js';
 
 export async function test(req, res) {
@@ -115,6 +115,30 @@ export async function sendReceipt(req, res) {
     }
 
     return res.json({ success: true, message: documentUrl ? 'Receipt PDF sent via WhatsApp' : 'Receipt text sent via WhatsApp', data: results, uploadError: uploadErrorMsg });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function sendNgoInfo(req, res) {
+  try {
+    const { to, name } = req.body;
+    if (!to) return res.status(400).json({ message: 'Phone number is required' });
+    const result = await sendNgoInfoTemplate(to, name || 'Donor');
+    return res.json({ success: true, message: 'NGO info sent', data: result });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+export async function sendCustomTemplate(req, res) {
+  try {
+    const { to, templateName, parameters } = req.body;
+    if (!to || !templateName || !parameters) {
+      return res.status(400).json({ message: 'to, templateName, and parameters are required' });
+    }
+    const result = await sendTemplateMessage(to, templateName, parameters);
+    return res.json({ success: true, message: 'Template message sent', data: result });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
