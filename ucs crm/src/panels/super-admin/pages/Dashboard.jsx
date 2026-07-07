@@ -677,7 +677,9 @@ export default function Dashboard() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    getUsers().then(d => setAllUserList(d?.data || d || [])).catch(() => {})
+    getUsers().then(d => {
+      setAllUserList(Array.isArray(d) ? d : d?.data || d || [])
+    }).catch(() => {})
   }, [])
 
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 150); return () => clearTimeout(t) }, [])
