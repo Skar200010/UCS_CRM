@@ -23,7 +23,6 @@ const ROLE_PANELS = {
   admin: { panel: NgoAdminPanel, cls: 'panel-ngo-admin' },
   hr: { panel: HRPanel, cls: 'panel-hr' },
   accounts: { panel: AccountsPanel, cls: 'panel-accounts' },
-  'admin': { panel: NgoAdminPanel, cls: 'panel-ngo-admin' },
   fro: { panel: FROPanel, cls: 'panel-fro' },
   recruiter: { panel: RecruiterPanel, cls: 'panel-recruiter' },
 }

@@ -1,3 +1,7 @@
+
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { getDashboard, getFroLiveStatus, getAccountsLeads, getRecruiterLeads, getWorkers, getAttendance, getUsers } from '../api/endpoints'
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getDashboard, getFroLiveStatus, getAccountsLeads, getRecruiterLeads, getWorkers, getAttendance, getHolidays } from '../api/endpoints'
@@ -481,22 +485,22 @@ function PanelSummaryModal({ panel, onClose, dashboardData }) {
             <div className="ps-grid">
               {panel === 'accounts' && data && (
                 <>
-                  <div className="ps-card" style={{ borderTop: `3px solid ${GOLD}` }}>
+                  <div className="ps-card" style={{ borderTop: `3px solid #F59E0B` }}>
                     <span className="ps-label">⏳ Pending</span>
                     <span className="ps-value">{data.pending?.count ?? 0}</span>
                     <span className="ps-sub">₹{(data.pending?.amount || 0).toLocaleString('en-IN')} total</span>
                   </div>
-                  <div className="ps-card" style={{ borderTop: `3px solid ${MINT_DEEP}` }}>
+                  <div className="ps-card" style={{ borderTop: `3px solid #3B82F6` }}>
                     <span className="ps-label">✔️ Verified</span>
                     <span className="ps-value">{data.verified?.count ?? 0}</span>
                     <span className="ps-sub">₹{(data.verified?.amount || 0).toLocaleString('en-IN')} total</span>
                   </div>
-                  <div className="ps-card" style={{ borderTop: `3px solid ${SLATE}` }}>
+                  <div className="ps-card" style={{ borderTop: `3px solid #10B981` }}>
                     <span className="ps-label">📅 Verified Today</span>
                     <span className="ps-value">{data.verifiedToday?.count ?? 0}</span>
                     <span className="ps-sub">₹{(data.verifiedToday?.amount || 0).toLocaleString('en-IN')} collected</span>
                   </div>
-                  <div className="ps-card" style={{ borderTop: `3px solid ${MINT_DARK}` }}>
+                  <div className="ps-card" style={{ borderTop: `3px solid #8B5CF6` }}>
                     <span className="ps-label">💰 Total Amount</span>
                     <span className="ps-value">₹{(data.total?.amount || 0).toLocaleString('en-IN')}</span>
                     <span className="ps-sub">Across {data.total?.count || 0} leads</span>
@@ -1314,6 +1318,8 @@ export default function Dashboard() {
   const [accountsModalStatus, setAccountsModalStatus] = useState(null)
   const [recruiterModalType, setRecruiterModalType] = useState(null)
   const [panelModal, setPanelModal] = useState(null)
+  const [allUserList, setAllUserList] = useState([])
+  const froTimer = useRef(null)
   const [froLiveData, setFroLiveData] = useState([])
   const [selectedFro, setSelectedFro] = useState(null)
   const [deepFro, setDeepFro] = useState(null)
@@ -1324,6 +1330,10 @@ export default function Dashboard() {
   const [deptModal, setDeptModal] = useState(null)
   const [kpiModal, setKpiModal] = useState(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    getUsers().then(d => setAllUserList(d?.data || d || [])).catch(() => {})
+  }, [])
 
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 150); return () => clearTimeout(t) }, [])
 
@@ -1407,6 +1417,8 @@ export default function Dashboard() {
     attendanceDetails = {}, todayAttendanceDetails = {},
     froAssignments = [],      // [{ name: 'Ramesh', ngos: ['MAN', 'AFLF'] }]
     accountsSummary = {}, recruiterSummary = {},
+    monthlyRevenue = [], topFros = [], topRecruiters = [], recentActivities = [],
+    roleDistribution = {}, allTimeRoleDistribution = {}, totalSalaryPayable = 0,
   } = data
 
   const today = new Date()
@@ -1430,6 +1442,11 @@ export default function Dashboard() {
 
   /* -------- 6 metric cards -------- */
   const metricCards = [
+    { label: 'Total Workers', value: stats.totalWorkers || 0, icon: 'badge', changeKey: 'totalWorkers', color: CARD_COLORS[0] },
+    { label: 'Active Workers', value: stats.activeWorkers || 0, icon: 'bolt', changeKey: 'reach', color: CARD_COLORS[1] },
+    { label: 'Attendance %', value: attendancePercent, suffix: '%', icon: 'event_available', changeKey: 'attendancePercent', color: CARD_COLORS[2] },
+    { label: 'ALL FRO', value: froLive.length || '\u2014', icon: 'groups', isFroCard: true, onClick: () => setShowFroModal(true), color: CARD_COLORS[3] },
+    { label: 'Total NGOs', value: stats.totalNgos || 0, icon: 'corporate_fare', changeKey: 'totalNgos', color: CARD_COLORS[4] },
     { label: 'Total NGOs', value: stats.totalNgos || 0, icon: 'corporate_fare', changeKey: 'totalNgos', color: CARD_COLORS[0] },
     { label: 'Total FROs', value: stats.totalFros || froLiveData.length || 0, icon: 'groups', changeKey: 'totalFros', color: CARD_COLORS[1] },
     { label: 'Total Donors (₹)', value: totalDonorsAmount, icon: 'payments', isCurrency: true, color: CARD_COLORS[2], changeKey: 'totalDonors' },
@@ -1823,10 +1840,10 @@ export default function Dashboard() {
       {/* ============ HEADER ============ */}
       <div className="dash-header">
         <div>
-          <span style={{ fontSize: 12, fontWeight: 600, color: MINT_DEEP, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#3B82F6', textTransform: 'uppercase', letterSpacing: 0.8 }}>
             {greeting} · {dateStr}
           </span>
-          <h2 className="dash-header-title" style={{ marginTop: 2, color: MINT_DARK }}>Dashboard Overview</h2>
+          <h2 className="dash-header-title" style={{ marginTop: 2, color: '#000' }}>Dashboard Overview</h2>
           <p className="dash-header-sub">Operational insights across all NGOs and departments.</p>
         </div>
         <div className="dash-header-actions">
@@ -1851,6 +1868,61 @@ export default function Dashboard() {
             Export Report
           </button>
         </div>
+      </div>
+
+      {/* ============ QUICK ACTION BUTTONS ============ */}
+      <div className="nd-appear" style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', animationDelay: '0.05s' }}>
+        <button
+          onClick={() => navigate('/sa/events')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 16px', borderRadius: 10,
+            border: '1px solid #DCEEE2', background: '#fff',
+            color: MINT_DARK, fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+            transition: 'box-shadow 0.2s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          }}
+          onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+          onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#14B8A6' }}>add_circle</span>
+          Add Event
+        </button>
+        <button
+          onClick={() => navigate('/sa/notices')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 16px', borderRadius: 10,
+            border: '1px solid #DCEEE2', background: '#fff',
+            color: MINT_DARK, fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+            transition: 'box-shadow 0.2s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          }}
+          onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+          onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#3B82F6' }}>campaign</span>
+          Create Notice
+        </button>
+        <button
+          onClick={() => setShowFroModal(true)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 16px', borderRadius: 10,
+            border: '1px solid #DCEEE2', background: '#fff',
+            color: MINT_DARK, fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+            transition: 'box-shadow 0.2s',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          }}
+          onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+          onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#EC4899' }}>visibility</span>
+          View All FRO
+        </button>
       </div>
 
       {/* ============ LOW ATTENDANCE ALERT (clickable, slim) ============ */}
@@ -1893,6 +1965,8 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* ============ METRIC CARDS (Total Users removed) ============ */}
+      <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
       {/* ============ 6 METRIC CARDS ============ */}
       <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(6, minmax(0, 1fr))' }}>
         {metricCards.map((card, i) => {
@@ -1950,6 +2024,108 @@ export default function Dashboard() {
           )
         })}
       </div>
+
+      {/* ============ ROLE DISTRIBUTION + TOTAL SALARY ============ */}
+      {(Object.keys(allTimeRoleDistribution).length > 0 || Object.keys(roleDistribution).length > 0 || totalSalaryPayable > 0) ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+          <div className="nd-card nd-appear" style={{ animationDelay: '0.12s', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#8B5CF6' }}>group_work</span>
+              <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Role Distribution</h3>
+            </div>
+            {(() => {
+              const roleMap = {
+                super_admin: { label: 'Super Admin', color: '#EF4444' },
+                admin: { label: 'Admin', color: '#F59E0B' },
+                hoadmin: { label: 'HO Admin', color: '#F59E0B' },
+                inter: { label: 'Intermediate', color: '#84CC16' },
+                team_lead: { label: 'Team Lead', color: '#F97316' },
+                hr: { label: 'HR', color: '#3B82F6' },
+                recruiter: { label: 'Recruiter', color: '#10B981' },
+                telecaller: { label: 'Telecaller', color: '#8B5CF6' },
+                fro: { label: 'FRO', color: '#EC4899' },
+                accounts: { label: 'Accounts', color: '#14B8A6' },
+                leads: { label: 'Leads', color: '#F97316' },
+                worker: { label: 'Worker', color: '#6366F1' },
+              }
+              const roleDistro = Object.keys(allTimeRoleDistribution).length > 0 ? allTimeRoleDistribution : (() => {
+                const rd = {}
+                allUserList.forEach(u => { rd[u.role] = (rd[u.role] || 0) + 1 })
+                return Object.keys(rd).length > 0 ? rd : roleDistribution
+              })()
+              const segments = Object.entries(roleDistro)
+                .filter(([, v]) => v > 0)
+                .map(([key, val]) => ({
+                  label: roleMap[key]?.label || key,
+                  value: val,
+                  color: roleMap[key]?.color || '#94a3b8',
+                }))
+                .sort((a, b) => b.value - a.value)
+              const total = segments.reduce((s, seg) => s + seg.value, 0)
+              if (segments.length === 0 || total === 0) return <p className="nd-muted">No role data</p>
+              const maxVal = Math.max(...segments.map(s => s.value), 1)
+              return (
+                <div style={{ display: 'flex', flexDirection: 'row', gap: 16, alignItems: 'center', flex: 1 }}>
+                  <DonutChart
+                    segments={segments}
+                    size={150}
+                    centerValue={total}
+                    centerLabel="Users"
+                    animated={animated}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
+                    {segments.map(s => (
+                      <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: 11, fontWeight: 600, color: '#1F332B', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: s.color }}>{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+          <div className="nd-card nd-appear" style={{ animationDelay: '0.16s', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#059669' }}>payments</span>
+              <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Total Salary Payable</h3>
+            </div>
+            {totalSalaryPayable === 0 ? (
+              <p className="nd-muted">No salary data</p>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 90, height: 90, borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #05966918, #10B98118)',
+                  border: '3px solid rgba(5,150,105,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexDirection: 'column',
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#059669' }}>account_balance</span>
+                </div>
+                <span style={{ fontSize: 32, fontWeight: 800, color: '#059669', lineHeight: 1.2 }}>
+                  ₹{totalSalaryPayable.toLocaleString('en-IN')}
+                </span>
+                <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>
+                  Monthly recurring salary
+                </span>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  {(() => {
+                    const wc = stats.totalWorkers || 0
+                    const avg = wc > 0 ? Math.round(totalSalaryPayable / wc) : 0
+                    return (
+                      <span style={{ fontSize: 10.5, color: '#64748b', background: '#F1F5F2', borderRadius: 99, padding: '3px 10px', fontWeight: 600 }}>
+                        Avg ₹{avg.toLocaleString('en-IN')}/worker
+                      </span>
+                    )
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {/* ============ PANEL LINKS — uniform mint cards ============ */}
       <div className="panel-link-grid">
@@ -2040,7 +2216,7 @@ export default function Dashboard() {
           {/* ---- WORKERS BY DEPARTMENT — mint tile design ---- */}
           <div className="nd-card nd-appear" style={{ animationDelay: '0.5s', marginBottom: 4, minHeight: 320 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="nd-section-title">Workers by Department</h3>
+              <h3 className="nd-section-title" style={{ color: '#000' }}>Workers by Department</h3>
               <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{totalDeptWorkers} total</span>
             </div>
             {deptData.length === 0 ? (
@@ -2085,7 +2261,7 @@ export default function Dashboard() {
           {/* ---- NGO WISE FRO'S ASSIGNED ---- */}
           <div className="nd-card nd-appear" style={{ animationDelay: '0.6s' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="nd-section-title">NGO Wise FRO's Assigned</h3>
+              <h3 className="nd-section-title" style={{ color: '#000' }}>NGO Wise FRO's Assigned</h3>
               {froAssignments.length > 0 && (
                 <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>{froAssignments.length} FROs</span>
               )}
@@ -2292,7 +2468,7 @@ export default function Dashboard() {
 
           {/* ---- DAILY CHECK-INS — clickable ---- */}
           <div className="nd-card nd-appear" style={{ animationDelay: '0.7s', marginBottom: 20, minHeight: 520, display: 'flex', flexDirection: 'column' }}>
-            <h3 className="nd-section-title">Daily Check-ins</h3>
+            <h3 className="nd-section-title" style={{ color: '#000' }}>Daily Check-ins</h3>
             {attSegments.length === 0 ? (
               <p className="nd-muted">No attendance data</p>
             ) : (
@@ -2323,48 +2499,364 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* ---- HR ATTENDANCE HEATMAP ---- */}
-          <div className="nd-card nd-appear" style={{ animationDelay: '0.75s', minHeight: 200 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16, color: SLATE }}>calendar_month</span>
-              <h3 className="nd-section-title" style={{ margin: 0 }}>Attendance Heatmap</h3>
-            </div>
-            <div style={{ marginTop: 10 }}>
-              <AttendanceHeatmap attendance={attendanceData} holidays={holidaysData} />
-            </div>
-          </div>
+        </div>
+      </div>
 
-          {/* ---- FRO LIVE STATUS + ACTIVITY ---- */}
-          {froLiveData.length > 0 && (
-            <div className="nd-card nd-appear" style={{ animationDelay: '0.8s' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16, color: MINT_DEEP }}>groups</span>
-                <h3 className="nd-section-title" style={{ margin: 0 }}>FRO Activity</h3>
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
-                  {froLiveData.filter(f => f.is_active).length}/{froLiveData.length} active
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
-                <div style={{ width: 90, height: 90, flexShrink: 0 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={[
-                        { name: 'Active', value: froLiveData.filter(f => f.is_active).length, color: MINT },
-                        { name: 'Inactive', value: froLiveData.filter(f => !f.is_active).length, color: '#e2e8f0' },
-                      ]} cx="50%" cy="50%" innerRadius={24} outerRadius={38} dataKey="value" startAngle={90} endAngle={-270}>
-                        {[0, 1].map(i => <Cell key={i} fill={i === 0 ? MINT : '#e2e8f0'} />)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', flex: 1 }}>
-                  <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4 }}>Punched In</div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: PRIMARY }}>{froLiveData.filter(f => f.is_punched_in).length}</div>
+      {/* ============ ACCOUNTS SUMMARY ============ */}
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.2s', marginTop: 20, padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: MINT_DEEP }}>receipt_long</span>
+          <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Accounts — Lead Verification</h3>
+        </div>
+        <div className="mini-card-grid">
+          <div className="mini-card mini-card-clickable" style={{ background: '#fff', borderTop: `3px solid #F59E0B` }} onClick={() => setAccountsModalStatus('pending')}>
+            <span className="mini-card-label">
+              <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'text-bottom', marginRight: 4, color: '#F59E0B' }}>hourglass_empty</span>
+              Pending
+            </span>
+            <span className="mini-card-value">{accountsSummary.pending ?? 0}</span>
+            <span className="mini-card-sub" style={{ color: '#F59E0B', fontWeight: 700 }}>₹{(accountsSummary.pendingAmount || 0).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="mini-card mini-card-clickable" style={{ background: '#fff', borderTop: `3px solid #3B82F6` }} onClick={() => setAccountsModalStatus('verified')}>
+            <span className="mini-card-label">
+              <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'text-bottom', marginRight: 4, color: '#3B82F6' }}>verified</span>
+              Verified
+            </span>
+            <span className="mini-card-value">{accountsSummary.verified ?? 0}</span>
+            <span className="mini-card-sub" style={{ color: '#3B82F6', fontWeight: 700 }}>₹{(accountsSummary.verifiedAmount || 0).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="mini-card mini-card-clickable" style={{ background: '#fff', borderTop: `3px solid #EF4444` }} onClick={() => setAccountsModalStatus('rejected')}>
+            <span className="mini-card-label">
+              <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'text-bottom', marginRight: 4, color: '#EF4444' }}>cancel</span>
+              Rejected
+            </span>
+            <span className="mini-card-value">{accountsSummary.rejected ?? 0}</span>
+            <span className="mini-card-sub" style={{ color: '#EF4444', fontWeight: 700 }}>₹{(accountsSummary.rejectedAmount || 0).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="mini-card mini-card-clickable" style={{ background: '#fff', borderTop: `3px solid #8B5CF6` }} onClick={() => setAccountsModalStatus('verified_today')}>
+            <span className="mini-card-label">
+              <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'text-bottom', marginRight: 4, color: '#8B5CF6' }}>today</span>
+              Verified Today
+            </span>
+            <span className="mini-card-value">{accountsSummary.verifiedToday ?? 0}</span>
+            <span className="mini-card-sub" style={{ color: '#8B5CF6', fontWeight: 700 }}>₹{(accountsSummary.verifiedTodayAmount || 0).toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ============ REVENUE TREND CHART ============ */}
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.22s', marginTop: 16, padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#14B8A6' }}>trending_up</span>
+          <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Revenue Overview</h3>
+        </div>
+        {(() => {
+          const amounts = [
+            { label: 'Pending', amount: accountsSummary.pendingAmount || 0, color: '#F59E0B' },
+            { label: 'Verified', amount: accountsSummary.verifiedAmount || 0, color: '#3B82F6' },
+            { label: 'Rejected', amount: accountsSummary.rejectedAmount || 0, color: '#EF4444' },
+            { label: 'Verified Today', amount: accountsSummary.verifiedTodayAmount || 0, color: '#8B5CF6' },
+          ]
+          const max = Math.max(...amounts.map(a => a.amount), 1)
+          const barMaxHeight = 140
+          return (
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: barMaxHeight + 40, gap: 12 }}>
+              {amounts.map(a => {
+                const h = (a.amount / max) * barMaxHeight
+                return (
+                  <div key={a.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: a.color, marginBottom: 4 }}>
+                      ₹{(a.amount).toLocaleString('en-IN')}
+                    </span>
+                    <div style={{
+                      width: '100%', maxWidth: 80, height: h || 4,
+                      background: a.color, borderRadius: '6px 6px 0 0',
+                      transition: 'height 0.6s ease',
+                      minHeight: 4,
+                    }} />
+                    <span style={{ fontSize: 10, fontWeight: 600, color: '#64748b', marginTop: 6, textAlign: 'center' }}>
+                      {a.label}
+                    </span>
                   </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+      </div>
+
+      {/* ============ RECRUITER SUMMARY ============ */}
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.25s', marginTop: 16, padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: GOLD }}>person_search</span>
+          <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Recruiter — Lead Pipeline</h3>
+        </div>
+        <div className="mini-card-grid">
+          <div className="mini-card mini-card-clickable" style={{ background: '#fff', borderTop: `3px solid #3B82F6` }} onClick={() => setRecruiterModalType('total_leads')}>
+            <span className="mini-card-label">
+              <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'text-bottom', marginRight: 4, color: '#3B82F6' }}>list_alt</span>
+              Total Leads
+            </span>
+            <span className="mini-card-value">{(recruiterSummary.totalLeads || 0).toLocaleString()}</span>
+            <span className="mini-card-sub" style={{ color: '#3B82F6', fontWeight: 700 }}>All time</span>
+          </div>
+          <div className="mini-card mini-card-clickable" style={{ background: '#fff', borderTop: `3px solid #10B981` }} onClick={() => setRecruiterModalType('new_today')}>
+            <span className="mini-card-label">
+              <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'text-bottom', marginRight: 4, color: '#10B981' }}>fiber_new</span>
+              New Today
+            </span>
+            <span className="mini-card-value">{recruiterSummary.newToday ?? 0}</span>
+            <span className="mini-card-sub" style={{ color: '#10B981', fontWeight: 700 }}>Added today</span>
+          </div>
+          <div className="mini-card mini-card-clickable" style={{ background: '#fff', borderTop: `3px solid #8B5CF6` }} onClick={() => setRecruiterModalType('conversion_rate')}>
+            <span className="mini-card-label">
+              <span className="material-symbols-outlined" style={{ fontSize: 16, verticalAlign: 'text-bottom', marginRight: 4, color: '#8B5CF6' }}>trending_up</span>
+              Conversion Rate
+            </span>
+            <span className="mini-card-value">{(recruiterSummary.conversionRate ?? 0).toFixed(1)}%</span>
+            <span className="mini-card-sub" style={{ color: '#8B5CF6', fontWeight: 700 }}>Selected vs Rejected</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ============ 3-COL GRID: Monthly Revenue + Top Performers + Recent Activity ============ */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 20 }}>
+
+        {/* ---- MONTHLY REVENUE TREND (line chart) ---- */}
+        <div className="nd-card nd-appear" style={{ animationDelay: '0.28s', gridColumn: 'span 1', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#14B8A6' }}>monitoring</span>
+            <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Monthly Revenue</h3>
+          </div>
+          {monthlyRevenue.length === 0 ? (
+            <p className="nd-muted">No revenue data yet</p>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', position: 'relative', height: 160, paddingTop: 16 }}>
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+                {(() => {
+                  const max = Math.max(...monthlyRevenue.map(m => m.amount), 1)
+                  const pts = monthlyRevenue.map((m, i) => {
+                    const x = (i / (monthlyRevenue.length - 1 || 1)) * 100
+                    const y = 95 - (m.amount / max) * 85
+                    return `${x},${y}`
+                  })
+                  const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p}`).join(' ')
+                  const areaD = pts.length > 0 ? `${d} L${pts[pts.length - 1].split(',')[0]},95 L${pts[0].split(',')[0]},95 Z` : ''
+                  return (
+                    <>
+                      <defs>
+                        <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#14B8A6" stopOpacity={0.25} />
+                          <stop offset="100%" stopColor="#14B8A6" stopOpacity={0.01} />
+                        </linearGradient>
+                      </defs>
+                      <path d={areaD} fill="url(#revenueGrad)" />
+                      <path d={d} fill="none" stroke="#14B8A6" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                      {pts.map((p, i) => {
+                        const [cx, cy] = p.split(',')
+                        return i % 2 === 0 || i === pts.length - 1 ? (
+                          <circle key={i} cx={cx} cy={cy} r={1.8} fill="#fff" stroke="#14B8A6" strokeWidth={0.8} />
+                        ) : null
+                      })}
+                    </>
+                  )
+                })()}
+              </svg>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginTop: 'auto', paddingTop: 8 }}>
+                {monthlyRevenue.map((m, i) => (
+                  <div key={m.month} style={{ textAlign: 'center', flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: '#94a3b8', display: 'block', whiteSpace: 'nowrap' }}>
+                      {i % 2 === 0 || i === monthlyRevenue.length - 1 ? (() => {
+                        const [y, mo] = m.month.split('-')
+                        const months = ['J','F','M','A','M','J','J','A','S','O','N','D']
+                        return `${months[parseInt(mo) - 1]}'${y.slice(2)}`
+                      })() : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px solid #DEE9E1' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>
+              Total: ₹{monthlyRevenue.reduce((s, m) => s + m.amount, 0).toLocaleString('en-IN')}
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#14B8A6' }}>
+              Avg: ₹{monthlyRevenue.length > 0 ? Math.round(monthlyRevenue.reduce((s, m) => s + m.amount, 0) / monthlyRevenue.length).toLocaleString('en-IN') : 0}
+            </span>
+          </div>
+        </div>
+
+        {/* ---- TOP PERFORMERS ---- */}
+        <div className="nd-card nd-appear" style={{ animationDelay: '0.33s', gridColumn: 'span 1', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#F59E0B' }}>emoji_events</span>
+            <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Top Performers</h3>
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {topFros.length === 0 && topRecruiters.length === 0 ? (
+              <p className="nd-muted">No performer data yet</p>
+            ) : (
+              <>
+                {topFros.length > 0 && (
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4 }}>On Call</div>
-                    <div style={{ fontSize: 17, fontWeight: 800, color: RED_DEEP }}>{froLiveData.filter(f => f.status === 'on_call').length}</div>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#EC4899', textTransform: 'uppercase', letterSpacing: 0.6 }}>Top FROs by Collection</span>
+                    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {topFros.map((f, i) => {
+                        const colors = ['#F59E0B', '#14B8A6', '#3B82F6', '#8B5CF6', '#64748b']
+                        const c = colors[i] || '#94a3b8'
+                        const maxAmt = Math.max(...topFros.map(x => x.totalCollection), 1)
+                        const pct = (f.totalCollection / maxAmt) * 100
+                        return (
+                          <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ width: 18, height: 18, borderRadius: '50%', background: `${c}18`, color: c, fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {i + 1}
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: '#1F332B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
+                                <span style={{ fontSize: 12, fontWeight: 800, color: c }}>₹{f.totalCollection.toLocaleString('en-IN')}</span>
+                              </div>
+                              <div style={{ width: '100%', height: 6, background: '#F1F5F2', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: c, borderRadius: 99, transition: 'width 0.6s ease' }} />
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                {topRecruiters.length > 0 && (
+                  <div style={{ marginTop: topFros.length > 0 ? 12 : 0, paddingTop: topFros.length > 0 ? 12 : 0, borderTop: topFros.length > 0 ? '1px solid #DEE9E1' : 'none' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#3B82F6', textTransform: 'uppercase', letterSpacing: 0.6 }}>Top Recruiters by Leads</span>
+                    <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {topRecruiters.map((r, i) => {
+                        const colors = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899']
+                        const c = colors[i] || '#94a3b8'
+                        const maxLead = Math.max(...topRecruiters.map(x => x.leadCount), 1)
+                        const pct = (r.leadCount / maxLead) * 100
+                        return (
+                          <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ width: 18, height: 18, borderRadius: '50%', background: `${c}18`, color: c, fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {i + 1}
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: '#1F332B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
+                                <span style={{ fontSize: 12, fontWeight: 800, color: c }}>{r.leadCount}</span>
+                              </div>
+                              <div style={{ width: '100%', height: 6, background: '#F1F5F2', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: c, borderRadius: 99, transition: 'width 0.6s ease' }} />
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ---- RECENT ACTIVITY LOG ---- */}
+        <div className="nd-card nd-appear" style={{ animationDelay: '0.38s', gridColumn: 'span 1', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#8B5CF6' }}>history</span>
+            <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Recent Activity</h3>
+            {recentActivities.length > 0 && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#8B5CF6', background: 'rgba(139,92,246,0.12)', borderRadius: 99, padding: '2px 8px', marginLeft: 'auto' }}>
+                {recentActivities.length}
+              </span>
+            )}
+          </div>
+          {recentActivities.length === 0 ? (
+            <p className="nd-muted">No recent activity</p>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto', paddingRight: 4 }}>
+              {recentActivities.map((a, i) => {
+                const iconMap = {
+                  verified: { icon: 'check_circle', bg: '#ECFDF5', color: '#10B981' },
+                  rejected: { icon: 'cancel', bg: '#FEF2F2', color: '#EF4444' },
+                  lead_created: { icon: 'person_add', bg: '#EFF6FF', color: '#3B82F6' },
+                  worker_joined: { icon: 'how_to_reg', bg: '#F5F3FF', color: '#8B5CF6' },
+                  notification: { icon: 'notifications', bg: '#FFFBEB', color: '#F59E0B' },
+                }
+                const meta = iconMap[a.type] || { icon: 'circle', bg: '#F1F5F2', color: '#94a3b8' }
+                const timeStr = a.time
+                  ? (() => {
+                      const d = new Date(a.time)
+                      const now = new Date()
+                      const diffMs = now - d
+                      const diffMin = Math.floor(diffMs / 60000)
+                      if (diffMin < 1) return 'Just now'
+                      if (diffMin < 60) return `${diffMin}m ago`
+                      const diffHr = Math.floor(diffMin / 60)
+                      if (diffHr < 24) return `${diffHr}h ago`
+                      return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                    })()
+                  : ''
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                      background: meta.bg, color: meta.color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{meta.icon}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#1F332B', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {a.message}
+                      </span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 1 }}>
+                        <span style={{ fontSize: 10.5, color: '#94a3b8' }}>{a.detail}</span>
+                        <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, flexShrink: 0 }}>{timeStr}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ---- RECENT NOTICES — scrollable, shows all ---- */}
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.8s', marginTop: 20, marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 className="nd-section-title" style={{ color: '#000' }}>Recent Notices</h3>
+          {recentNotices.length > 0 && (
+            <span style={{
+              fontSize: 11, fontWeight: 700, color: '#3B82F6',
+              background: 'rgba(59,130,246,0.15)', borderRadius: 99, padding: '3px 10px',
+            }}>
+              {recentNotices.length}
+            </span>
+          )}
+        </div>
+        {recentNotices.length === 0 ? (
+          <p className="nd-muted">No recent notices</p>
+        ) : (
+          <div className={recentNotices.length > 3 ? 'nd-scroll-fade' : ''}>
+            <div className="nd-scroll-list">
+              {recentNotices.map((n, i) => (
+                <div key={n.id || i} className="nd-notice" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                  <div className="nd-notice-icon" style={{ background: i % 2 === 0 ? '#3B82F6' : '#60A5FA' }}>
+                    <span className="material-symbols-outlined" style={{ color: '#fff', fontSize: 18 }}>
+                      {i % 2 === 0 ? 'priority_high' : 'campaign'}
+                    </span>
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <h4 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1E3A5F' }}>{n.title}</h4>
+                    <p style={{ margin: '3px 0 4px', fontSize: 12, color: '#475569', lineHeight: 1.45 }}>
+                      {n.content && n.content.length > 110 ? n.content.slice(0, 110) + '\u2026' : n.content || ''}
+                    </p>
+                    <span style={{ fontSize: 10.5, color: '#60A5FA', fontWeight: 600 }}>
+                      {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    </span>
                   </div>
                   <div>
                     <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4 }}>On Break</div>
@@ -2402,31 +2894,39 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-          )}
+          </div>
+        )}
+      </div>
 
-          {/* ---- RECENT NOTICES — scrollable, shows all ---- */}
-          <div className="nd-card nd-appear" style={{ animationDelay: '0.85s' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="nd-section-title">Recent Notices</h3>
-              {recentNotices.length > 0 && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700, color: MINT_DEEP,
-                  background: 'rgba(140,205,164,0.18)', borderRadius: 99, padding: '3px 10px',
-                }}>
-                  {recentNotices.length}
-                </span>
-              )}
-            </div>
-            {recentNotices.length === 0 ? (
-              <p className="nd-muted">No recent notices</p>
-            ) : (
-              <div className={recentNotices.length > 2 ? 'nd-scroll-fade' : ''}>
-                <div className="nd-scroll-list" style={{ maxHeight: 240 }}>
-                  {recentNotices.map((n, i) => (
-                    <div key={n.id || i} className="nd-notice">
-                      <div className="nd-notice-icon" style={{ background: i % 2 === 0 ? MINT_DARK : MINT_DEEP }}>
-                        <span className="material-symbols-outlined" style={{ color: '#fff', fontSize: 18 }}>
-                          {i % 2 === 0 ? 'priority_high' : 'campaign'}
+      {/* ---- UPCOMING EVENTS — scrollable, shows all ---- */}
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.9s', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 className="nd-section-title" style={{ color: '#000' }}>Upcoming Events</h3>
+          {upcomingEvents.length > 0 && (
+            <span style={{
+              fontSize: 11, fontWeight: 700, color: RED_DEEP,
+              background: 'rgba(247,178,173,0.25)', borderRadius: 99, padding: '3px 10px',
+            }}>
+              {upcomingEvents.length}
+            </span>
+          )}
+        </div>
+        {upcomingEvents.length === 0 ? (
+          <p className="nd-muted" style={{ color: '#8B5CF6', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#8B5CF6' }}>event_busy</span>
+            No upcoming events
+          </p>
+        ) : (
+          <>
+            <div className={upcomingEvents.length > 3 ? 'nd-scroll-fade' : ''}>
+              <div className="nd-scroll-list">
+                {upcomingEvents.map((ev, i) => {
+                  const d = new Date(ev.event_date)
+                  return (
+                    <div key={ev.id || i} className="nd-event">
+                      <div className="nd-event-date">
+                        <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.8 }}>
+                          {d.toLocaleString('en-IN', { month: 'short' })}
                         </span>
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
@@ -2606,3 +3106,5 @@ export default function Dashboard() {
     </div>
   )
 }
+
+

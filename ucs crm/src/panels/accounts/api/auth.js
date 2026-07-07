@@ -1,4 +1,5 @@
 import { api } from '../../../api/auth'
+export { api } from '../../../api/auth'
 
 export async function login(email, password) {
   const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ identifier: email, password }), _prefix: 'ucs' })
