@@ -129,6 +129,15 @@ export default function EmailImport() {
               <div className="stat-lbl" style={{ fontSize: 12, color: '#6b7280' }}>
                 {lastPoll.message} — {lastPoll.timestamp ? new Date(lastPoll.timestamp).toLocaleString('en-IN') : 'N/A'}
               </div>
+              {lastPoll.details?.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  {lastPoll.details.map((d, i) => (
+                    <div key={i} style={{ fontSize: 11, color: d.result?.error ? '#dc2626' : '#059669', marginTop: 2 }}>
+                      {d.name}: {d.result?.error || d.result?.message || 'OK'}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -30,7 +30,6 @@ export async function logImport({
       parsed_sender_name: parsed_sender_name || null,
       bank_entry_id: bank_entry_id || null,
       status: status || 'imported',
-      seen: seen ?? false,
       error_message: error_message || null,
       raw_snippet: raw_snippet ? raw_snippet.slice(0, 1000) : null,
       account_id: account_id || null,
