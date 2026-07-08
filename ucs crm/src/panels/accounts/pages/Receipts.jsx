@@ -263,6 +263,11 @@ export default function Receipts() {
   }
 
   const [sendingIndex, setSendingIndex] = useState(null)
+  const [editingPhone, setEditingPhone] = useState(null)
+
+  const updatePhone = (index, val) => {
+    setDonors(prev => prev.map((d, i) => i === index ? { ...d, 'Mobile No.': val } : d))
+  }
 
   const handleSendSingle = async (donor, index) => {
     setSendingIndex(index)
@@ -426,7 +431,16 @@ export default function Receipts() {
                       <td style={{ color:'#059669', fontWeight:600 }}>{formatIndianCurrency(d['Amount'])}</td>
                       <td style={{ fontFamily:'monospace', fontSize:12 }}>{d['Receipt No.']}</td>
                       <td style={{ fontSize:12 }}>{formatReceiptDate(d['Receipt Date'])}</td>
-                      <td style={{ fontSize:12 }}>{d['Mobile No.'] || '\u2014'}</td>
+                      <td style={{ fontSize:12, cursor:'pointer' }} onClick={e => { e.stopPropagation(); setEditingPhone(editingPhone === i ? null : i) }}>
+                        {editingPhone === i ? (
+                          <input className="field-input" type="tel" value={d['Mobile No.'] || ''} autoFocus
+                            onChange={e => updatePhone(i, e.target.value)}
+                            onBlur={() => setEditingPhone(null)}
+                            onKeyDown={e => { if (e.key === 'Enter') setEditingPhone(null) }}
+                            style={{ width:120, height:28, padding:'2px 6px', fontSize:12 }}
+                            onClick={e => e.stopPropagation()} />
+                        ) : d['Mobile No.'] || <span style={{ color:'#d1d5db' }}>Click to add</span>}
+                      </td>
                       <td style={{ fontSize:12 }}><span className="pill pill-gray">{({ bsct:'Being Sevak', maan:'Mann Care', aflf:'Ashray' })[d['Project']] || d['Project'] || 'bsct'}</span></td>
                       <td style={{ textAlign:'center' }}>
                         {d.sent ? <span style={{ color:'#059669' }}>{'\u2713'}</span> : <span style={{ color:'#9ca3af' }}>{'\u2014'}</span>}
