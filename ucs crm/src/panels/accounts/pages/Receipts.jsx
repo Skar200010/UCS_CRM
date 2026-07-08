@@ -476,7 +476,11 @@ export default function Receipts() {
                 <div className="modal-header">
                   <h3>{donors[previewIndex]['Donor Name']} — {getNgoSettings(donors[previewIndex]['Project'] || 'bsct').label}</h3>
                   <div style={{ display:'flex', gap:8 }}>
-                    <button className="btn btn-sm" onClick={() => { setPreviewIndex(null) }}>Close</button>
+                    <button className="btn btn-primary btn-sm" onClick={handleDownloadSingle} disabled={downloadSingle}>
+                      {downloadSingle ? 'Generating...' : 'Download PDF'}
+                    </button>
+                    <button className="btn btn-sm" onClick={handlePrint}>Print</button>
+                    <button className="btn btn-sm" onClick={() => setPreviewIndex(null)}>Close</button>
                   </div>
                 </div>
                 <div className="modal-body" style={{ padding:20, overflowX:'auto', textAlign:'center' }}>

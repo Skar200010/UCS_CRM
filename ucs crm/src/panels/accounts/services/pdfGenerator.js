@@ -307,9 +307,8 @@ function sanitizeFileName(name) {
 function getFilePrefix(project) {
   if (!project) return ''
   const map = {
-    ashray: 'Ashray',
-    beingsevak: 'BeingSevak',
-    manncar: 'MannCare',
+    ashray: 'Ashray', beingsevak: 'BeingSevak', manncar: 'MannCare',
+    bsct: 'BeingSevak', aflf: 'Ashray', maan: 'MannCare',
   }
   return (map[project] || project) + '_'
 }
@@ -317,9 +316,8 @@ function getFilePrefix(project) {
 function getZipName(project) {
   if (!project) return 'Donation_Receipts.zip'
   const map = {
-    ashray: 'Ashray',
-    beingsevak: 'BeingSevak',
-    manncar: 'MannCare',
+    ashray: 'Ashray', beingsevak: 'BeingSevak', manncar: 'MannCare',
+    bsct: 'BeingSevak', aflf: 'Ashray', maan: 'MannCare',
   }
   return (map[project] || project) + '_Donation_Receipts.zip'
 }
@@ -329,7 +327,7 @@ export async function downloadSinglePDF(element, donor, project = '') {
   const donorName = sanitizeFileName(donor['Donor Name'])
   const prefix = getFilePrefix(project)
   const pdf = await generateReceiptPDF(element)
-  pdf.save(`${prefix}Receipt_${receiptNo}_${donorName}.pdf`)
+  pdf.save(`${prefix}${donorName}_${receiptNo}.pdf`)
 }
 
 export async function downloadAllPDFs(elements, project = '') {
@@ -342,7 +340,7 @@ export async function downloadAllPDFs(elements, project = '') {
     const receiptNo = donor['Receipt No.'] || `ROW${i + 1}`
     const donorName = sanitizeFileName(donor['Donor Name'])
     const prefix = getFilePrefix(project)
-    folder.file(`${prefix}Receipt_${receiptNo}_${donorName}.pdf`, pdf.output('arraybuffer'))
+    folder.file(`${prefix}${donorName}_${receiptNo}.pdf`, pdf.output('arraybuffer'))
   }
 
   const content = await zip.generateAsync({ type: 'blob' })
