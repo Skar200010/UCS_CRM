@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { apiPost } from '../api/auth'
+import { apiGet, apiPost } from '../api/auth'
 import { formatIndianCurrency, formatReceiptDate, generateReceiptPDF, downloadSinglePDF, downloadAllPDFs } from '../services/pdfGenerator'
 import ReceiptTemplateManncar from '../components/ReceiptTemplateManncar'
 import ReceiptTemplateAshray from '../components/ReceiptTemplateAshray'
@@ -221,7 +221,6 @@ export default function Receipts() {
   const loadFromDatabase = useCallback(async () => {
     setLoadingDb(true)
     try {
-      const { apiGet } = await import('../api/auth')
       const data = await apiGet('/accounts/receipts/pending')
       setDonors(data)
       setSelectedIndex(null)
