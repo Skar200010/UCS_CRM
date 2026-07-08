@@ -132,17 +132,6 @@ export default function Letters() {
     }
   };
 
-  const copy = () => {
-    if (!out) return;
-    if (out.type === 'Offer letter') {
-      const t = document.createElement('div');
-      t.innerHTML = out.body;
-      navigator.clipboard?.writeText(t.textContent || t.innerText);
-    } else {
-      navigator.clipboard?.writeText(`${out.body}`);
-    }
-  };
-
   useEffect(() => {
     if (workers.length && !name) setName(workers[0].name);
   }, [workers, name]);
@@ -181,9 +170,7 @@ export default function Letters() {
             <div style={{ color:'var(--ink-soft)', fontSize:12, marginBottom:18 }}>{out.today}</div>
             {out.body}</>
             )}
-            <div style={{ marginTop:18, display:'flex', gap:8 }}>
-              <button className="btn btn-sm" onClick={copy}>Copy text</button>
-            </div>
+
           </div>
         )}
       </div>
