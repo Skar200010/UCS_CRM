@@ -7,9 +7,10 @@ import jsPDF from 'jspdf';
 
 const TYPES = ['Offer letter','Experience letter','Promotion letter','Warning letter','Relieving letter'];
 
-function buildOfferLetterHTML(w, dateText, hrNameText) {
+function buildOfferLetterHTML(w, dateText, hrNameText, subjectText) {
   const r = w.role || w.department || 'Team Member';
   const d = w.dept || w.department || 'General';
+  const subj = subjectText || `Appointment as ${r}`;
   return `<div style="max-width:800px;margin:0 auto;font-family:'Times New Roman',Times,serif;font-size:12px;line-height:1.25;color:#000;background:#fff;padding:25px 35px">
 <div style="display:flex;align-items:center;margin-bottom:4px">
 <img src="/logo/ucs-logo.png" alt="UCS" style="width:65px;height:auto;margin-right:14px" />
@@ -17,7 +18,7 @@ function buildOfferLetterHTML(w, dateText, hrNameText) {
 </div>
 <svg width="100%" height="20" viewBox="0 0 700 20" preserveAspectRatio="none" style="display:block"><path d="M0,10 Q175,20 350,10 Q525,0 700,10 L700,20 L0,20 Z" fill="#0B73C4" /></svg>
 <div style="height:2px;background:#F58220;margin-bottom:12px"></div>
-<div style="text-align:center;font-size:14px;font-weight:700;color:#082F5A;margin:0 0 8px 0;text-transform:uppercase">Subject: Appointment as ${r}</div>
+<div style="text-align:center;font-size:14px;font-weight:700;color:#082F5A;margin:0 0 8px 0;text-transform:uppercase">Subject: ${subj}</div>
 <table style="width:100%;border-collapse:collapse"><tr><td style="padding:0 0 6px 0;font-size:12px"><strong>Date:</strong> ${dateText}</td></tr></table>
 <div style="margin-bottom:6px"><strong>Dear ${w.name},</strong></div>
 <div style="text-align:justify">
@@ -61,6 +62,7 @@ export default function Letters() {
   const [type, setType] = useState(TYPES[0]);
   const [letterDate, setLetterDate] = useState('');
   const [hrName, setHrName] = useState('');
+  const [subject, setSubject] = useState('');
   const [out, setOut] = useState(null);
   const [showDownload, setShowDownload] = useState(false);
   const pdfRef = useRef(null);
@@ -113,7 +115,7 @@ export default function Letters() {
     if (type === 'Offer letter') {
       const dateText = letterDate ? new Date(letterDate + 'T00:00:00').toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' }) : '{{date}}';
       const hrNameText = hrName || '{{hr_name}}';
-      body = buildOfferLetterHTML(w, dateText, hrNameText);
+      body = buildOfferLetterHTML(w, dateText, hrNameText, subject);
       today = dateText;
     } else {
       const result = build(type, w);
@@ -138,7 +140,7 @@ export default function Letters() {
 
   useEffect(() => {
     if (showDownload) setShowDownload(false);
-  }, [name, type, letterDate, hrName]);
+  }, [name, type, letterDate, hrName, subject]);
 
   return (
     <div className="card">
@@ -157,6 +159,9 @@ export default function Letters() {
           </label>
           <label className="field">HR name
             <Dropdown value={hrName} onChange={e=>setHrName(e.target.value)} options={[{value:'',label:'Select HR...'}, ...workers.filter(w => (w.dept||w.department||'').toLowerCase().includes('hr') || (w.dept||w.department||'').toLowerCase().includes('admin')).map(w => ({value: w.name, label: w.name}))]} />
+          </label>
+          <label className="field">Subject
+            <input type="text" value={subject} onChange={e=>setSubject(e.target.value)} placeholder="e.g. Appointment as ..." style={{padding:'9px 11px',border:'1px solid var(--line)',borderRadius:'var(--radius-sm)',fontSize:14,fontFamily:'inherit',outline:'none',background:'var(--paper)',color:'var(--ink)'}} />
           </label>
           <label className="field btn-field"><span>&nbsp;</span>{!showDownload ? <button className="btn btn-primary" onClick={generate}><FileTxt width={16}/> Generate</button> : <button className="btn btn-primary" onClick={downloadPdf} style={{background:'#dc2626',color:'#fff',fontWeight:600,border:'1px solid #b91c1c'}}><FileTxt width={16}/> Download PDF</button>}</label>
         </div>
