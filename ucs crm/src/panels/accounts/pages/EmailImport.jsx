@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPost } from '../api/auth';
-import EmailAccountsManager from './EmailAccountsManager';
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u20B90';
 
@@ -19,25 +18,31 @@ function SkeletonTableRows({ rows, cols }) {
 export default function EmailImport() {
   const [status, setStatus] = useState(null);
   const [log, setLog] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [importingFromDate, setImportingFromDate] = useState(false);
+  const [filterAccount, setFilterAccount] = useState('');
 
   async function loadData() {
     setLoading(true);
     try {
-      const [statusRes, logRes] = await Promise.allSettled([
+      const params = new URLSearchParams();
+      if (filterAccount) params.set('account_id', filterAccount);
+      const [statusRes, logRes, accRes] = await Promise.allSettled([
         apiGet('/accounts/email-import/status'),
-        apiGet('/accounts/email-import/log'),
+        apiGet('/accounts/email-import/log?' + params.toString()),
+        apiGet('/accounts/email-import/accounts'),
       ]);
       if (statusRes.status === 'fulfilled') setStatus(statusRes.value);
       if (logRes.status === 'fulfilled') setLog(logRes.value || []);
+      if (accRes.status === 'fulfilled') setAccounts(accRes.value || []);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [filterAccount]);
 
   const handleTrigger = async () => {
     setTriggering(true);
@@ -76,7 +81,6 @@ export default function EmailImport() {
 
   return (
     <div>
-      <EmailAccountsManager onAccountsChange={loadData} />
       <div className="stats-grid" style={{ marginBottom: 16 }}>
         <div className="stat-card" style={{ gridColumn: '1 / -1', border: '2px solid #5B6B4E', background: 'linear-gradient(135deg, #5B6B4E08 0%, #5B6B4E18 100%)', padding: '18px 22px' }}>
           <div className="stat-icon" style={{ background: '#5B6B4E20', color: '#5B6B4E', width: 48, height: 48, borderRadius: 14 }}>
@@ -152,6 +156,42 @@ export default function EmailImport() {
             {triggering ? 'Importing...' : 'Manual Import'}
           </button>
         </div>
+
+        {accounts.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, padding: '8px 12px', borderBottom: '1px solid var(--line)', overflowX: 'auto', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.3, whiteSpace: 'nowrap', marginRight: 2 }}>Account:</span>
+            <button
+              onClick={() => setFilterAccount('')}
+              style={{
+                fontSize: 12, padding: '4px 12px', borderRadius: 16, border: '1px solid', cursor: 'pointer', whiteSpace: 'nowrap',
+                background: !filterAccount ? 'var(--sage)' : 'transparent',
+                color: !filterAccount ? '#fff' : 'var(--ink)',
+                borderColor: !filterAccount ? 'var(--sage)' : 'var(--line)',
+                fontWeight: !filterAccount ? 600 : 500,
+              }}>
+              All
+            </button>
+            {accounts.map(acc => {
+              const active = String(filterAccount) === String(acc.id);
+              return (
+                <button key={acc.id}
+                  onClick={() => setFilterAccount(acc.id)}
+                  style={{
+                    fontSize: 12, padding: '4px 12px', borderRadius: 16, border: '1px solid', cursor: 'pointer', whiteSpace: 'nowrap',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    background: active ? 'var(--sage)' : acc.is_active ? '#05966908' : 'transparent',
+                    color: active ? '#fff' : '#374151',
+                    borderColor: active ? 'var(--sage)' : acc.is_active ? '#05966940' : 'var(--line)',
+                    fontWeight: active ? 600 : 500,
+                    opacity: acc.is_active ? 1 : 0.55,
+                  }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: acc.is_active ? '#059669' : '#d1d5db', flexShrink: 0 }} />
+                  {acc.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="table-wrap">
           <table>

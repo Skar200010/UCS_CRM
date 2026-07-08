@@ -23,8 +23,8 @@ export async function getImportStatus(req, res) {
 
 export async function getLog(req, res) {
   try {
-    const { status } = req.query;
-    const log = await getImportLog({ status, limit: 100 });
+    const { status, account_id } = req.query;
+    const log = await getImportLog({ status, account_id, limit: 100 });
     return res.json(log);
   } catch (error) {
     return res.status(500).json({ message: error.message });

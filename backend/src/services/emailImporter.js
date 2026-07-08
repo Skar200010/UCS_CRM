@@ -246,6 +246,8 @@ async function pollSingleAccount(account, sources, fromDate) {
             bank_entry_id: entry.id,
             status: 'imported',
             raw_snippet: emailText.slice(0, 500),
+            account_id: account.id,
+            account_name: account.name,
           });
 
           processed++;
@@ -258,6 +260,8 @@ async function pollSingleAccount(account, sources, fromDate) {
             status: 'skipped',
             error_message: senderSource ? `Bank alert (${senderSource}) but no amount found` : (details ? 'Low confidence or no payment data' : 'Failed to parse'),
             raw_snippet: emailText.slice(0, 500),
+            account_id: account.id,
+            account_name: account.name,
           });
           skipped++;
         }
