@@ -455,7 +455,7 @@ export default function Receipts() {
                 {currentDonor && <TemplateComp donor={currentDonor} project={project} />}
               </div>
             </div>
-            <div style={{ display:'none' }}>
+            <div style={{ position:'fixed', left:'-9999px', top:0, width:'1000px', opacity:0, pointerEvents:'none', zIndex:-1 }}>
               {donors.map((d, i) => (
                 <div key={i} data-receipt-batch={i}>
                   {project === 'manncar' ? <ReceiptTemplateManncar donor={d} /> : project === 'ashray' ? <ReceiptTemplateAshray donor={d} project={project} /> : <ReceiptTemplateBeingSevak donor={d} />}
