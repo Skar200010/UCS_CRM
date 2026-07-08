@@ -1,6 +1,8 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { Users, Check, Plane, Bell } from '../icons';
 import { fetchWorkers, fetchAttendance, fetchLeaves, fetchHolidays } from '../store';
+import api from '../api/auth';
+import RecentNotices from '../../../components/RecentNotices';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://attendance-roan-zeta.vercel.app/api';
 
@@ -110,6 +112,20 @@ export default function Visualizations() {
   const [leaves, setLeaves] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [salSum, setSalSum] = useState([]);
+  const [noticeForm, setNoticeForm] = useState({ title: '', content: '', target_role: 'all' })
+  const [noticeSaving, setNoticeSaving] = useState(false)
+  const [noticeErr, setNoticeErr] = useState('')
+  const [noticeRefresh, setNoticeRefresh] = useState(0)
+
+  const publishNotice = useCallback(async () => {
+    if (!noticeForm.title.trim()) { setNoticeErr('Title is required'); return }
+    setNoticeSaving(true); setNoticeErr('')
+    try {
+      await api('/notices', { method: 'POST', body: JSON.stringify(noticeForm), _prefix: 'ucs' })
+      setNoticeForm({ title: '', content: '', target_role: 'all' })
+      setNoticeRefresh(k => k + 1)
+    } catch (e) { setNoticeErr(e.message) } finally { setNoticeSaving(false) }
+  }, [noticeForm])
 
   useEffect(() => {
     const token = localStorage.getItem('ucs_token');
@@ -394,6 +410,44 @@ export default function Visualizations() {
             </table>
           </div>
         ) : <div style={{ fontSize: 11, color: 'var(--ink-soft)', textAlign: 'center', padding: 12 }}>No data</div>}
+      </div>
+
+      {/* ============ NOTICES ============ */}
+      <div style={{ marginTop: 20 }}>
+        <div className="card">
+          <div className="card-head">
+            <h3>Create Notice</h3>
+          </div>
+          <div className="card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {noticeErr && <div style={{ fontSize: 12, color: '#dc2626', background: '#FEF2F2', padding: '8px 12px', borderRadius: 8 }}>{noticeErr}</div>}
+            <div className="form-row" style={{ flexWrap: 'wrap' }}>
+              <label className="field" style={{ flex: 2, minWidth: 200 }}>
+                Title
+                <input value={noticeForm.title} onChange={e => setNoticeForm({...noticeForm, title: e.target.value})} placeholder="Notice title" />
+              </label>
+              <label className="field" style={{ flex: 3, minWidth: 250 }}>
+                Content
+                <input value={noticeForm.content} onChange={e => setNoticeForm({...noticeForm, content: e.target.value})} placeholder="Write your notice..." />
+              </label>
+              <label className="field" style={{ flex: 1, minWidth: 140 }}>
+                Show to
+                <select value={noticeForm.target_role} onChange={e => setNoticeForm({...noticeForm, target_role: e.target.value})}>
+                  <option value="all">All Panels</option>
+                  <option value="admin">NGO Admin</option>
+                  <option value="accounts">Accounts</option>
+                  <option value="hr">HR</option>
+                  <option value="recruiter">Recruiter</option>
+                  <option value="fro">FRO</option>
+                  <option value="event_head">Event Head</option>
+                </select>
+              </label>
+              <button className="btn btn-primary" onClick={publishNotice} disabled={noticeSaving} style={{ alignSelf: 'flex-end', marginTop: 2, fontFamily: 'inherit' }}>
+                {noticeSaving ? 'Publishing...' : 'Publish'}
+              </button>
+            </div>
+          </div>
+        </div>
+        <RecentNotices key={noticeRefresh} limit={5} title="Recent Notices" />
       </div>
     </div>
   );

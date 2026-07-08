@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis
 import { getMyDashboard, requestMoreData, getFollowUps, getLeadStats, getMonthlyDonors } from '../api/donors'
 import { getMyTarget } from '../api/target'
 import { SkeletonDashboard } from '../../../components/Skeleton'
+import RecentNotices from '../../../components/RecentNotices'
 import { cacheGet, cacheSet } from '../../../utils/cache'
 import { useCall } from '../CallContext'
 
@@ -551,6 +552,8 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <RecentNotices limit={5} />
     </div>
   )
 }

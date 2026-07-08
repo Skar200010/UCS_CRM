@@ -90,7 +90,7 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 .panel-sa .dm-toggle input:checked + .dm-slider::before { transform:translateX(16px); }
 
 .panel-sa .sa-app { display:flex; height:100vh; }
-.panel-sa .sa-sidebar { width:230px; background:var(--bg-sidebar); color:var(--text-light); display:flex; flex-direction:column; flex-shrink:0; overflow-y:auto; }
+.panel-sa .sa-sidebar { width:230px; background:var(--bg-sidebar); color:var(--text-light); display:flex; flex-direction:column; flex-shrink:0; overflow-y:auto; position:sticky; top:0; align-self:flex-start; height:100vh; }
 .panel-sa .sa-sidebar::-webkit-scrollbar { width:4px; }
 .panel-sa .sa-sidebar::-webkit-scrollbar-track { background:transparent; }
 .panel-sa .sa-sidebar::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }

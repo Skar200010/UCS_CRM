@@ -10,19 +10,22 @@ export const createNotice = async (data) => {
   return result;
 };
 
-export const getAllNotices = async (ngo_id) => {
+export const getAllNotices = async (ngo_id, target_role) => {
   let query = supabase
     .from('notices')
     .select('*')
     .eq('is_active', true)
     .order('created_at', { ascending: false });
   if (ngo_id) query = query.eq('ngo_id', ngo_id);
+  if (target_role && target_role !== 'all') {
+    query = query.or(`target_role.eq.${target_role},target_role.is.null,target_role.eq.all`);
+  }
   const { data, error } = await query;
   if (error) throw error;
   return data;
 };
 
-export const getRecentNotices = async (ngo_id, since) => {
+export const getRecentNotices = async (ngo_id, since, target_role) => {
   let query = supabase
     .from('notices')
     .select('*')
@@ -30,6 +33,9 @@ export const getRecentNotices = async (ngo_id, since) => {
     .gte('created_at', since)
     .order('created_at', { ascending: false });
   if (ngo_id) query = query.eq('ngo_id', ngo_id);
+  if (target_role && target_role !== 'all') {
+    query = query.or(`target_role.eq.${target_role},target_role.is.null,target_role.eq.all`);
+  }
   const { data, error } = await query;
   if (error) throw error;
   return data;

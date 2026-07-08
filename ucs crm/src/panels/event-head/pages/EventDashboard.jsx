@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchEvents, fetchEventDashboard } from '../store'
 import { StatCard } from '../components/Table'
+import RecentNotices from '../../../components/RecentNotices'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 
 const COLORS = ['#7B5EA7', '#3485D4', '#C08A2E', '#5B6B4E', '#B5603A', '#9ca3af']
@@ -123,6 +124,8 @@ export default function EventDashboard() {
           </table>
         </div>
       </div>
+
+      <RecentNotices limit={5} />
     </>
   )
 }

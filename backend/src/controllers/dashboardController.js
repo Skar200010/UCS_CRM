@@ -310,7 +310,7 @@ export const getSuperAdminDashboard = async (req, res) => {
     /* ── Recent notices ── */
     const { data: recentNotices } = await supabase
       .from('notices')
-      .select('id, title, content, created_at')
+      .select('id, title, content, created_at, created_by_name, target_role')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(5);

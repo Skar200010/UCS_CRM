@@ -1,6 +1,7 @@
 import { useRec } from '../store';
 import { Who, Score } from './ui';
 import { Users, Brief, Funnel, Star } from '../icons';
+import RecentNotices from '../../../components/RecentNotices';
 
 export default function Dashboard() {
   const { leads, leadsLoading, leadStats, candidates, jobs, feed } = useRec();
@@ -67,6 +68,8 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+
+      <RecentNotices limit={5} />
     </>
   );
 }

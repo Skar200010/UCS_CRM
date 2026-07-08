@@ -8,15 +8,17 @@ import {
 
 export const addNotice = async (req, res) => {
   try {
-    const { title, content } = req.body;
+    const { title, content, target_role } = req.body;
     if (!title || !content) {
       return res.status(400).json({ message: 'Title and content are required' });
     }
     const notice = await createNotice({
       title,
       content,
+      target_role: target_role || 'all',
       ngo_id: req.user.ngo_id || req.body.ngo_id || null,
       created_by: req.user.id,
+      created_by_name: req.user.name || null,
     });
     return res.status(201).json({ message: 'Notice created', notice });
   } catch (error) {
@@ -27,7 +29,7 @@ export const addNotice = async (req, res) => {
 export const listNotices = async (req, res) => {
   try {
     const ngoId = req.user.role === 'super_admin' ? req.query.ngo_id : req.user.ngo_id;
-    const notices = await getAllNotices(ngoId);
+    const notices = await getAllNotices(ngoId, req.query.target_role);
     return res.json(notices);
   } catch (error) {
     return res.status(500).json({ message: error.message });

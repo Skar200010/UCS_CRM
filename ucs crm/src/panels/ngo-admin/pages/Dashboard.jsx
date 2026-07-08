@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { apiGet } from '../api/auth';
 import { SkeletonDashboard } from '../../../components/Skeleton';
+import RecentNotices from '../../../components/RecentNotices';
 
 const DISPOSITION_LABELS = {
   pending: 'Pending', contacted: 'Contacted', follow_up: 'Follow Up', scheduled: 'Scheduled',
@@ -1007,6 +1008,8 @@ export default function Dashboard() {
           onClose={() => setSelectedStatus(null)}
         />
       )}
+
+      <RecentNotices limit={5} />
     </div>
   );
 }
