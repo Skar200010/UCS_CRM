@@ -427,7 +427,7 @@ export default function Receipts() {
                       <td style={{ fontFamily:'monospace', fontSize:12 }}>{d['Receipt No.']}</td>
                       <td style={{ fontSize:12 }}>{formatReceiptDate(d['Receipt Date'])}</td>
                       <td style={{ fontSize:12 }}>{d['Mobile No.'] || '\u2014'}</td>
-                      <td style={{ fontSize:12 }}><span className="pill pill-gray">{d['Project'] || 'bsct'}</span></td>
+                      <td style={{ fontSize:12 }}><span className="pill pill-gray">{({ bsct:'Being Sevak', maan:'Mann Care', aflf:'Ashray' })[d['Project']] || d['Project'] || 'bsct'}</span></td>
                       <td style={{ textAlign:'center' }}>
                         {d.sent ? <span style={{ color:'#059669' }}>{'\u2713'}</span> : <span style={{ color:'#9ca3af' }}>{'\u2014'}</span>}
                       </td>

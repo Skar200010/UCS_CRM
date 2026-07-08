@@ -184,7 +184,7 @@ export default function Dashboard() {
                     <td><strong>{l.donor_name}</strong></td>
                     <td style={{ fontSize: 12 }}>{l.donor_mobile}</td>
                     <td><strong style={{ color: 'var(--sage)' }}>{currency(l.amount)}</strong></td>
-                    <td style={{ fontSize: 12 }}><span className="pill pill-gray">{l.donor_project || '\u2014'}</span></td>
+                    <td style={{ fontSize: 12 }}><span className="pill pill-gray">{({ bsct:'Being Sevak', maan:'Mann Care', aflf:'Ashray' })[l.donor_project] || l.donor_project || '\u2014'}</span></td>
                     <td style={{ fontSize: 12 }}><span className="pill pill-gray">{l.agent_name}</span></td>
                     <td>
                       {l.accounts_status === 'pending' ? <span className="pill pill-yellow">Pending</span> :
