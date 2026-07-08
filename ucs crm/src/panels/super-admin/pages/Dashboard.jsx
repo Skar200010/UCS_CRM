@@ -2102,10 +2102,7 @@ export default function Dashboard() {
           <span className="panel-link-label" style={{ color: '#3B82F6' }}>HR</span>
           <span className="panel-link-sub">{allUserList.filter(u => u.role === 'hr' || u.role === 'hoadmin').length || 0} workers</span>
         </div>
-        <div className="panel-link-card" style={{ borderLeftColor: '#F59E0B' }} onClick={() => {
-          const users = allUserList.filter(u => u.role === 'admin' || u.role === 'ngo_admin')
-          setDeptModal({ title: 'NGO Admin', names: users.length > 0 ? users.map(u => u.name || u.login_id || 'Unknown') : ['No NGO Admin users found'] })
-        }}>
+        <div className="panel-link-card" style={{ borderLeftColor: '#F59E0B', cursor: 'pointer' }} onClick={() => setPanelModal('ngo-admin')}>
           <span className="material-symbols-outlined" style={{ background: '#FFFBEB', color: '#F59E0B' }}>corporate_fare</span>
           <span className="panel-link-label" style={{ color: '#F59E0B' }}>NGO Admin</span>
           <span className="panel-link-sub">{allUserList.filter(u => u.role === 'admin' || u.role === 'ngo_admin').length || 0} workers</span>
