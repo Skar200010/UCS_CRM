@@ -99,11 +99,11 @@ export const getDonors = async (req, res) => {
     for (const d of allData || []) {
       const key = d.mobile_number || `no-mobile-${d.id}`;
       if (!groups[key]) {
-        groups[key] = { ...d, ngos: [d.ngo], donor_ids: [d.id], total_amount_all: Number(d.amount || 0), records: 1 };
+        groups[key] = { ...d, ngos: [d.ngo], donor_ids: [d.id], total_amount_all: Number(d.total_amount || d.amount || 0), records: 1 };
       } else {
         if (!groups[key].ngos.includes(d.ngo)) groups[key].ngos.push(d.ngo);
         if (!groups[key].donor_ids.includes(d.id)) groups[key].donor_ids.push(d.id);
-        groups[key].total_amount_all += Number(d.amount || 0);
+        groups[key].total_amount_all += Number(d.total_amount || d.amount || 0);
         groups[key].records += 1;
         if (new Date(d.last_donation_date || 0) > new Date(groups[key].last_donation_date || 0)) {
           groups[key].name = d.name;
