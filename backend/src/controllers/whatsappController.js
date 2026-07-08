@@ -193,26 +193,6 @@ export async function sendDirect(req, res) {
   }
 }
 
-export async function debugSend(req, res) {
-  try {
-    const msgRes = await fetch(
-      `https://graph.facebook.com/${whatsappConfig.apiVersion}/${whatsappConfig.phoneNumberId}/messages`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${whatsappConfig.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp', to: '917506419340', type: 'template',
-          template: { name: 'bsct_receipt', language: { code: 'en_US' }, components: [{ type: 'header', parameters: [{ type: 'document', document: { link: 'https://sqlbimnmhdvesudpxtbi.supabase.co/storage/v1/object/public/receipts/test.pdf' } }] }] },
-        }),
-      }
-    );
-    const msgText = await msgRes.text();
-    return res.json({ status: msgRes.status, body: msgText });
-  } catch (error) {
-    return res.json({ error: error.message });
-  }
-}
-
 export async function listTemplates(req, res) {
   try {
     if (!whatsappConfig.enabled) {

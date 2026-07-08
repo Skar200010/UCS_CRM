@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticateRole } from '../middleware/authMiddleware.js';
-import { sendReceipt, test, status, sendNgoInfo, sendCustomTemplate, listTemplates, sendDirect, debugSend } from '../controllers/whatsappController.js';
+import { sendReceipt, test, status, sendNgoInfo, sendCustomTemplate, listTemplates, sendDirect } from '../controllers/whatsappController.js';
 
 const router = Router();
 
@@ -11,6 +11,5 @@ router.post('/send-ngo-info', authenticateRole('accounts', 'super_admin'), sendN
 router.post('/send-template', authenticateRole('accounts', 'super_admin'), sendCustomTemplate);
 router.get('/templates', authenticateRole('accounts', 'super_admin'), listTemplates);
 router.post('/send-direct', authenticateRole('accounts', 'super_admin'), sendDirect);
-router.get('/debug-send', debugSend);
 
 export default router;
