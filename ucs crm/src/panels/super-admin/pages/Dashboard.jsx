@@ -2103,10 +2103,7 @@ export default function Dashboard() {
           <span className="panel-link-label" style={{ color: '#EC4899' }}>FRO</span>
           <span className="panel-link-sub">{allUserList.filter(u => u.role === 'fro').length || froLiveData.length} workers</span>
         </div>
-        <div className="panel-link-card" style={{ borderLeftColor: '#3B82F6' }} onClick={() => {
-          const users = allUserList.filter(u => u.role === 'hr' || u.role === 'hoadmin')
-          setDeptModal({ title: 'HR', names: users.length > 0 ? users.map(u => u.name || u.login_id || 'Unknown') : ['No HR users found'] })
-        }}>
+        <div className="panel-link-card" style={{ borderLeftColor: '#3B82F6', cursor: 'pointer' }} onClick={() => setPanelModal('hr')}>
           <span className="material-symbols-outlined" style={{ background: '#EFF6FF', color: '#3B82F6' }}>badge</span>
           <span className="panel-link-label" style={{ color: '#3B82F6' }}>HR</span>
           <span className="panel-link-sub">{allUserList.filter(u => u.role === 'hr' || u.role === 'hoadmin').length || 0} workers</span>
