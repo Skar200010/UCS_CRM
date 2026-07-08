@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
+import JSZip from 'jszip'
+import { saveAs } from 'file-saver'
 import { apiGet, apiPost } from '../api/auth'
 import { useRealtime } from '../../../hooks/useRealtime'
 import { formatIndianCurrency, formatReceiptDate, generateReceiptPDF, downloadSinglePDF, downloadAllPDFs } from '../services/pdfGenerator'
@@ -249,6 +251,8 @@ export default function Receipts() {
   const handleDownloadAll = async () => {
     setDownloadAll(true)
     try {
+      const ngoFolder = { bsct:'BSCT', maan:'MANN', aflf:'AFLF' }
+      const namePrefix = { bsct:'BeingSevak', maan:'MannCare', aflf:'Ashray' }
       const all = donors.map((d, i) => ({ element: document.querySelector(`[data-receipt-batch="${i}"]`), donor: d })).filter(x => x.element)
       const groups = {}
       for (const item of all) {
@@ -256,9 +260,20 @@ export default function Receipts() {
         if (!groups[ngo]) groups[ngo] = []
         groups[ngo].push(item)
       }
+      const zip = new JSZip()
       for (const [ngo, items] of Object.entries(groups)) {
-        await downloadAllPDFs(items, ngo)
+        const folderName = ngoFolder[ngo] || 'OTHER'
+        const folder = zip.folder(folderName)
+        for (const { element, donor } of items) {
+          const pdf = await generateReceiptPDF(element)
+          const receiptNo = donor['Receipt No.'] || 'N/A'
+          const donorName = String(donor['Donor Name']).replace(/[<>:"/\\|?*]/g, '_').trim() || 'Donor'
+          const prefix = namePrefix[ngo] || 'Receipt'
+          folder.file(`${prefix}_${donorName}_${receiptNo}.pdf`, pdf.output('arraybuffer'))
+        }
       }
+      const content = await zip.generateAsync({ type: 'blob' })
+      saveAs(content, 'Donation_Receipts.zip')
     } catch (e) { alert('Failed to download ZIP: ' + e.message) }
     setDownloadAll(false)
   }
