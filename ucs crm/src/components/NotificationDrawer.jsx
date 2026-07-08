@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u2014'
 
-export default function NotificationDrawer({ open, onClose, sections, onItemClick, onMarkRead, onClear }) {
+export default function NotificationDrawer({ open, onClose, sections, onItemClick, onMarkRead, onClear, topOffset = 0 }) {
   const drawerRef = useRef(null)
 
   useEffect(() => {
