@@ -19,7 +19,7 @@ const getJobRole = (lead) => {
 };
 
 const statusPill = (s) => {
-  const m = { scheduled:'pill-clay' };
+  const m = { rejected:'pill-danger', hold:'pill-gold', scheduled:'pill-clay' };
   const st = LEAD_STATUSES.find(st => st.value === s);
   return <span className={`pill ${m[s] || 'pill-gray'}`}>{st ? st.label : s}</span>;
 };
@@ -50,8 +50,6 @@ export default function Leads() {
   const [dob, setDob] = useState('');
   const [source, setSource] = useState('Walk-in');
   const [customSource, setCustomSource] = useState('');
-  const [status, setStatus] = useState('');
-
   const [notConnectedOption, setNotConnectedOption] = useState('');
   const [connectedOption, setConnectedOption] = useState('');
   const [followUpDateTime, setFollowUpDateTime] = useState('');
@@ -96,7 +94,7 @@ export default function Leads() {
     if (!name.trim() || !phone.trim()) return;
     try {
       const finalSource = source === 'Other' ? (customSource.trim() || 'Other') : source;
-      const finalStatus = connectedOption === 'follow_up' ? 'followed_up' : connectedOption === 'call_back' ? 'call_back' : connectedOption === 'schedule' ? 'scheduled' : connectedOption === 'not_interested' ? 'not_interested' : notConnectedOption || status;
+      const finalStatus = connectedOption === 'follow_up' ? 'followed_up' : connectedOption === 'call_back' ? 'call_back' : connectedOption === 'schedule' ? 'scheduled' : connectedOption === 'not_interested' ? 'not_interested' : notConnectedOption;
       const finalJobRole = selectedJobRole === 'Other' ? (customJobRole.trim() || 'Other') : selectedJobRole;
       const notesArr = [...formNotes];
       if (finalJobRole) notesArr.unshift({ __meta: true, type: 'job_role', value: finalJobRole });
@@ -105,7 +103,8 @@ export default function Leads() {
       if (finalStatus === 'call_back' && callBackTime) payload.call_back_time = callBackTime;
       if (finalStatus === 'scheduled' && scheduledDate) payload.scheduled_date = scheduledDate;
       await addLead(payload);
-      setName(''); setPhone(''); setDob(''); setSource('Walk-in'); setCustomSource(''); setStatus(''); setConnectedOption(''); setNotConnectedOption(''); setFollowUpDateTime(''); setCallBackTime(''); setScheduledDate(''); setFormNotes([]); setSelectedJobRole(''); setCustomJobRole('');
+      setLeadFilters(p => ({ ...p, status: '', source: '' }));
+      setName(''); setPhone(''); setDob(''); setSource('Walk-in'); setCustomSource(''); setConnectedOption(''); setNotConnectedOption(''); setFollowUpDateTime(''); setCallBackTime(''); setScheduledDate(''); setFormNotes([]); setSelectedJobRole(''); setCustomJobRole('');
     } catch (err) { alert(err.message); }
   };
 

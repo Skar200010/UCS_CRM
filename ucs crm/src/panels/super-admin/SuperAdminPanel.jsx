@@ -17,7 +17,8 @@ import DataManagement from './pages/DataManagement'
 import Tickets from './pages/Tickets'
 import Events from './pages/Events'
 import LiveFroStatus from './pages/LiveFroStatus'
-import { Radio } from '@phosphor-icons/react'
+import AssetOverview from './pages/AssetOverview'
+import { Radio, Clipboard } from '@phosphor-icons/react'
 
 const NAV = [
   { id: 'dashboard', path: '/sa/dashboard', label: 'Dashboard', icon: GridFour },
@@ -27,6 +28,7 @@ const NAV = [
   { id: 'leaves', path: '/sa/leaves', label: 'Leaves', icon: Airplane },
   { id: 'tickets', path: '/sa/tickets', label: 'Tickets', icon: Ticket },
   { id: 'live-fro', path: '/sa/live-fro', label: 'Live FRO', icon: Radio },
+  { id: 'assets', path: '/sa/assets', label: 'Assets Overview', icon: Clipboard },
 ]
 
 const navMap = {}
@@ -36,15 +38,13 @@ const GROUPS = [
   { id: 'org', label: 'Organization', icon: Buildings, items: ['organization', 'employees'] },
 ]
 
-const standaloneIds = ['dashboard', 'data-management', 'leaves', 'tickets']
+const standaloneIds = ['dashboard', 'data-management', 'leaves', 'tickets', 'live-fro', 'assets']
 
 function Sidebar({ mobileOpen }) {
   const location = useLocation()
   const [collapsedGroups, setCollapsedGroups] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sa_collapsed_groups') || '[]') } catch { return [] }
   })
-  const navMap = {}
-  NAV.forEach(n => { navMap[n.id] = n })
 
   const toggleGroup = (id) => {
     setCollapsedGroups(prev => {
@@ -109,6 +109,7 @@ function Sidebar({ mobileOpen }) {
 function PageShell({ children }) {
   const { user, logout } = useUcs()
   const [showMenu, setShowMenu] = useState(false)
+  const [mobileSidebar, setMobileSidebar] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [allNotifs, setAllNotifs] = useState([])
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -304,6 +305,7 @@ export default function SuperAdminPanel() {
         <Route path="tickets" element={<Tickets />} />
         <Route path="events" element={<Events />} />
         <Route path="live-fro" element={<LiveFroStatus />} />
+        <Route path="assets" element={<AssetOverview />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
     </PageShell>

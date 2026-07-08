@@ -2,21 +2,7 @@ import { useState, useEffect } from 'react'
 import { useUcs } from '../../../store'
 import { supabase } from '../../../config/supabase'
 import { api } from '../../../api/auth'
-
-function fmt(seconds) {
-  if (seconds == null) return '00:00'
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
-
-const STATUS_META = {
-  on_call: { label: 'On Call', color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
-  online: { label: 'Online', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-  idle: { label: 'Idle', color: '#f59e0b', bg: '#fefce8', border: '#fde68a' },
-  break: { label: 'Break', color: '#d97706', bg: '#fefce8', border: '#fde68a' },
-  offline: { label: 'Offline', color: '#9ca3af', bg: '#f9fafb', border: '#e5e7eb' },
-}
+import { fmt, STATUS_META, StatBox } from '../components/froShared'
 
 function FroDeepDetailModal({ fro, onClose }) {
   if (!fro) return null
@@ -171,15 +157,6 @@ function FroDetailModal({ fro, onClose, onShowDeep }) {
           Last seen: {fro.updated_at ? new Date(fro.updated_at).toLocaleTimeString('en-IN') : '—'}
         </div>
       </div>
-    </div>
-  )
-}
-
-function StatBox({ label, value, icon }) {
-  return (
-    <div style={{ padding: '8px 10px', borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-      <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, marginBottom: 2 }}>{icon} {label}</div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: '#091426' }}>{value}</div>
     </div>
   )
 }

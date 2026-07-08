@@ -58,47 +58,168 @@ body { font-family: 'Inter', Arial, sans-serif; margin: 40px; color: #333; }
   {
     category: 'offer',
     title: 'Offer Letter',
-    variables: ['candidate_name', 'designation', 'ctc', 'joining_date', 'location', 'company_name'],
+    variables: ['candidate_name', 'designation', 'department', 'ctc', 'joining_date', 'probation_period', 'reporting_manager', 'location', 'company_name', 'reference_no'],
     html_content: `<!DOCTYPE html>
 <html>
 <head><style>
-body { font-family: 'Inter', Arial, sans-serif; margin: 40px; color: #333; }
-.header { text-align: center; margin-bottom: 30px; }
-.header h1 { color: #1a1a2e; margin: 0; font-size: 24px; }
-.date { text-align: right; margin-bottom: 20px; color: #666; }
-.subject { font-weight: bold; margin-bottom: 20px; }
-.content p { line-height: 1.8; margin-bottom: 12px; }
-.highlight { background: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #22c55e; }
-.highlight p { margin: 5px 0; }
-.signature { margin-top: 40px; }
-.footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 12px; color: #999; text-align: center; }
+@page { margin: 20mm 15mm; }
+body { font-family: 'Times New Roman', Times, serif; margin: 0; padding: 40px; color: #2d2d2d; font-size: 14px; line-height: 1.6; }
+
+/* Letterhead */
+.letterhead { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px double #1a3a5c; padding-bottom: 20px; margin-bottom: 25px; }
+.letterhead .logo { width: 80px; height: 80px; background: #f0f4f8; border: 1px dashed #1a3a5c; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #1a3a5c; text-align: center; }
+.letterhead .company-info { text-align: right; }
+.letterhead .company-info h1 { margin: 0; font-size: 22px; color: #1a3a5c; letter-spacing: 1px; text-transform: uppercase; }
+.letterhead .company-info p { margin: 2px 0; font-size: 12px; color: #555; }
+
+/* Reference & Date Row */
+.ref-row { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; color: #444; }
+.ref-row .ref span { font-weight: bold; color: #1a3a5c; }
+
+/* Subject */
+.subject-box { margin-bottom: 20px; }
+.subject-box .subject-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2px; }
+.subject-box .subject-text { font-weight: bold; font-size: 16px; color: #1a3a5c; text-decoration: underline; }
+
+/* Salutation */
+.salutation { margin-bottom: 15px; }
+
+/* Body */
+.body-text p { margin-bottom: 12px; text-align: justify; }
+
+/* Info Table */
+.info-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+.info-table td { padding: 8px 12px; border-bottom: 1px solid #e0e0e0; font-size: 14px; }
+.info-table td:first-child { width: 180px; font-weight: bold; color: #1a3a5c; background: #f8fafc; }
+
+/* Terms Section */
+.terms-section { margin: 20px 0; border: 1px solid #1a3a5c; border-radius: 4px; padding: 0; }
+.terms-section .terms-header { background: #1a3a5c; color: #fff; padding: 10px 15px; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+.terms-section .terms-body { padding: 15px; }
+.terms-section .terms-body ol { margin: 0; padding-left: 20px; }
+.terms-section .terms-body ol li { margin-bottom: 8px; text-align: justify; font-size: 13px; line-height: 1.5; }
+
+/* Declaration */
+.declaration { margin: 20px 0; padding: 15px; background: #f9fafb; border-left: 4px solid #1a3a5c; font-style: italic; font-size: 13px; color: #555; }
+
+/* Signature Block */
+.signature-section { margin-top: 40px; display: flex; justify-content: space-between; gap: 40px; }
+.signature-block { flex: 1; }
+.signature-block .sig-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+.signature-block .sig-line { border-top: 1px solid #333; width: 250px; margin-bottom: 5px; }
+.signature-block .sig-name { font-weight: bold; color: #1a3a5c; }
+.signature-block .sig-title { font-size: 12px; color: #666; }
+
+/* Stamp Placeholder */
+.stamp { margin-top: 10px; width: 100px; height: 100px; border: 2px dashed #1a3a5c; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #1a3a5c; text-align: center; text-transform: uppercase; letter-spacing: 1px; }
+
+/* Footer */
+.footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ccc; font-size: 11px; color: #999; text-align: center; line-height: 1.4; }
+.footer strong { color: #666; }
+
+/* Print */
+@media print { body { padding: 0; } .no-print { display: none; } }
 </style></head>
 <body>
-<div class="header">
-  <h1>{company_name}</h1>
-  <h2>Offer Letter</h2>
-</div>
-<div class="date">Date: {joining_date}</div>
-<div class="subject">Subject: Offer of Employment</div>
-<div class="content">
-  <p>Dear {candidate_name},</p>
-  <p>Congratulations! We are delighted to offer you the position of <strong>{designation}</strong> at {company_name}.</p>
-  <div class="highlight">
-    <p><strong>Compensation:</strong> ₹{ctc} per annum</p>
-    <p><strong>Location:</strong> {location}</p>
-    <p><strong>Expected Joining Date:</strong> {joining_date}</p>
+
+<!-- Letterhead -->
+<div class="letterhead">
+  <div class="logo">[LOGO]</div>
+  <div class="company-info">
+    <h1>{company_name}</h1>
+    <p>Registered Office: {location}</p>
   </div>
-  <p>Please confirm your acceptance of this offer by replying to this email within 5 working days.</p>
-  <p>We are excited to have you join our team and look forward to seeing the contributions you will make.</p>
 </div>
-<div class="signature">
-  <p>Warm regards,</p>
-  <p><strong>HR Team</strong></p>
-  <p>{company_name}</p>
+
+<!-- Reference & Date -->
+<div class="ref-row">
+  <div class="ref"><span>Ref No:</span> {reference_no}</div>
+  <div class="ref"><span>Date:</span> {joining_date}</div>
 </div>
+
+<!-- Subject -->
+<div class="subject-box">
+  <div class="subject-label">Subject</div>
+  <div class="subject-text">Appointment as {designation}</div>
+</div>
+
+<!-- Salutation -->
+<div class="salutation">
+  <p>Dear <strong>{candidate_name}</strong>,</p>
+</div>
+
+<!-- Body -->
+<div class="body-text">
+  <p>We are pleased to inform you that based on your application and subsequent interviews, you have been selected for the position of <strong>{designation}</strong> in the <strong>{department}</strong> department at <strong>{company_name}</strong>. We are delighted to offer you this appointment and look forward to having you as part of our growing team.</p>
+</div>
+
+<!-- Appointment Details Table -->
+<table class="info-table">
+  <tr><td>Position</td><td>{designation}</td></tr>
+  <tr><td>Department</td><td>{department}</td></tr>
+  <tr><td>Date of Joining</td><td>{joining_date}</td></tr>
+  <tr><td>Reporting Manager</td><td>{reporting_manager}</td></tr>
+  <tr><td>Location</td><td>{location}</td></tr>
+  <tr><td>Probation Period</td><td>{probation_period}</td></tr>
+  <tr><td>Annual CTC (Cost to Company)</td><td><strong>₹{ctc}</strong></td></tr>
+</table>
+
+<!-- Body continued -->
+<div class="body-text">
+  <p>Your compensation package includes basic salary, house rent allowance, conveyance allowance, medical allowance, special allowance, and other perquisites as per company policy. Detailed terms of employment are outlined in your employment contract, which will be shared separately.</p>
+  <p>You will be on a probation period of <strong>{probation_period}</strong> from the date of joining, during which your performance will be evaluated. Upon successful completion of probation, your employment will be confirmed on a permanent basis subject to the terms and conditions of the company.</p>
+</div>
+
+<!-- Terms & Conditions -->
+<div class="terms-section">
+  <div class="terms-header">Terms &amp; Conditions</div>
+  <div class="terms-body">
+    <ol>
+      <li>Your employment is subject to the successful verification of your educational certificates, previous employment details, and background checks.</li>
+      <li>You shall abide by all rules, regulations, and policies of the company as amended from time to time.</li>
+      <li>During your employment, you shall devote your full time and attention to the business of the company and shall not engage in any other employment or business activity without prior written consent.</li>
+      <li>You shall maintain strict confidentiality of all proprietary information, trade secrets, and business affairs of the company during and after your employment.</li>
+      <li>The company reserves the right to terminate your employment during the probation period with a notice period of one week, or after confirmation with one month's notice as per company policy.</li>
+      <li>Any intellectual property created by you during the course of employment shall be the sole property of the company.</li>
+      <li>You shall be entitled to leave, medical benefits, and other benefits as per the company's HR policy in effect from time to time.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- Declaration -->
+<div class="declaration">
+  I confirm that I have read, understood, and accept the terms and conditions of this appointment letter and agree to abide by the policies of {company_name}.
+</div>
+
+<!-- Signatures -->
+<div class="signature-section">
+  <div class="signature-block">
+    <div class="sig-label">For {company_name}</div>
+    <div style="height: 50px;"></div>
+    <div class="sig-line"></div>
+    <div class="sig-name">Authorised Signatory</div>
+    <div class="sig-title">HR Department, {company_name}</div>
+    <div class="stamp">[COMPANY<br>SEAL]</div>
+  </div>
+  <div class="signature-block" style="text-align: right;">
+    <div class="sig-label">Accepted By</div>
+    <div style="height: 50px;"></div>
+    <div class="sig-line" style="margin-left: auto;"></div>
+    <div class="sig-name">{candidate_name}</div>
+    <div class="sig-title">{designation}</div>
+    <div style="margin-top: 10px; font-size: 12px; color: #666;">
+      <div>Date: _______________</div>
+      <div style="margin-top: 5px;">Signature: _______________</div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
 <div class="footer">
-  <p>This offer is subject to verification of documents and background checks.</p>
+  <strong>{company_name}</strong> &mdash; This is a computer-generated document issued by the HR Department.<br>
+  Registered Address: {location} &mdash; Email: hr@{company_name}.com
 </div>
+
 </body>
 </html>`,
   },
@@ -341,7 +462,11 @@ export const generateLetter = async (req, res) => {
     let filledHtml = template.html_content;
     const vars = req.body.variables || {};
     template.variables.forEach((v) => {
-      const val = vars[v] || worker[v.replace('employee_', '')] || `[${v}]`;
+      let val = vars[v];
+      if (!val) {
+        const stripped = v.replace(/^(employee_|candidate_|emp_)/, '');
+        val = worker[stripped] || worker[v] || `[${v}]`;
+      }
       filledHtml = filledHtml.replaceAll(`{${v}}`, val);
     });
 
@@ -391,7 +516,7 @@ export const downloadLetter = async (req, res) => {
     const filename = `${workerName.replace(/\s+/g, '_')}_${templateTitle.replace(/\s+/g, '_')}.html`;
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     return res.send(letter.filled_html);
   } catch (error) {
     return res.status(500).json({ message: error.message });

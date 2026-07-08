@@ -29,7 +29,7 @@ export function Dropdown({ value, onChange, options, placeholder, renderOption, 
             const optValue = typeof opt === 'string' ? opt : opt.value
             const optLabel = typeof opt === 'string' ? opt : opt.label
             return (
-              <div key={optValue} className={`dropdown-item ${value === optValue ? 'active' : ''}`} onClick={() => { onChange(optValue); if (optValue !== customTrigger) setOpen(false) }}>
+              <div key={optValue} className={`dropdown-item ${value === optValue ? 'active' : ''}`} onClick={() => { onChange({ target: { value: optValue } }); if (optValue !== customTrigger) setOpen(false) }}>
                 {renderOption ? renderOption(opt) : optLabel}
               </div>
             )

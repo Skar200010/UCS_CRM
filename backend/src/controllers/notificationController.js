@@ -50,7 +50,7 @@ export const getUnreadCount = async (req, res) => {
 
 export const deleteNotification = async (req, res) => {
   try {
-    const result = await deleteNotificationModel(req.params.id);
+    const result = await deleteNotificationModel(req.params.id, req.user.id);
     return res.json(result);
   } catch (error) {
     return res.status(500).json({ message: error.message });

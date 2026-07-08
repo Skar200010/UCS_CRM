@@ -102,6 +102,11 @@ export const getSuperAdminDashboard = async (req, res) => {
     userCreated.forEach(u => {
       roleDistribution[u.role] = (roleDistribution[u.role] || 0) + 1;
     });
+    /* all-time role distribution (ignores period filter) */
+    const allTimeRoleDistribution = {};
+    users.forEach(u => {
+      allTimeRoleDistribution[u.role] = (allTimeRoleDistribution[u.role] || 0) + 1;
+    });
 
     /* ── Department worker counts ── */
     const deptWorkers = {};
@@ -355,6 +360,154 @@ export const getSuperAdminDashboard = async (req, res) => {
       recruiterSummary = { totalLeads, newToday, conversionRate };
     } catch (_) { /* table may not exist */ }
 
+    /* ── Monthly Revenue Trend (last 12 months, verified amounts) ── */
+    let monthlyRevenue = [];
+    try {
+      const twelveMonthsAgo = new Date();
+      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11);
+      twelveMonthsAgo.setDate(1);
+      const fromDate = twelveMonthsAgo.toISOString().slice(0, 10);
+      const { data: revenueLogs } = await supabase
+        .from('fro_donor_logs')
+        .select('amount_collected, verified_at')
+        .eq('accounts_status', 'verified')
+        .gte('verified_at', fromDate);
+      const monthMap = {};
+      for (let i = 0; i < 12; i++) {
+        const d = new Date(twelveMonthsAgo);
+        d.setMonth(d.getMonth() + i);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        monthMap[key] = { month: key, amount: 0, count: 0 };
+      }
+      for (const log of revenueLogs || []) {
+        const key = log.verified_at?.slice(0, 7);
+        if (monthMap[key]) {
+          monthMap[key].amount += parseFloat(log.amount_collected || 0);
+          monthMap[key].count++;
+        }
+      }
+      monthlyRevenue = Object.values(monthMap);
+    } catch (_) { monthlyRevenue = []; }
+
+    /* ── Top FROs by total collection (all-time) ── */
+    let topFros = [];
+    try {
+      const allWorkersForFro = await getAllWorkers();
+      const froWorkersOnly = allWorkersForFro.filter(w =>
+        (w.department || '').toLowerCase().trim() === 'fro'
+      );
+      const { data: froCollectionLogs } = await supabase
+        .from('fro_donor_logs')
+        .select('fro_worker_id, amount_collected')
+        .not('fro_worker_id', 'is', null);
+      const froTotals = {};
+      for (const log of froCollectionLogs || []) {
+        const wid = log.fro_worker_id;
+        if (!froTotals[wid]) froTotals[wid] = 0;
+        froTotals[wid] += parseFloat(log.amount_collected || 0);
+      }
+      topFros = froWorkersOnly
+        .map(w => ({ id: w.id, name: w.name, totalCollection: froTotals[w.id] || 0 }))
+        .filter(f => f.totalCollection > 0)
+        .sort((a, b) => b.totalCollection - a.totalCollection)
+        .slice(0, 5);
+    } catch (_) { topFros = []; }
+
+    /* ── Top Recruiters by lead count (all-time) ── */
+    let topRecruiters = [];
+    try {
+      const { data: recruiterUsers } = await supabase
+        .from('users')
+        .select('id, name, login_id')
+        .eq('role', 'recruiter');
+      const { data: allLeadsForRecruiters } = await supabase
+        .from('leads')
+        .select('recruiter_id, created_by');
+      const recruiterLeadCounts = {};
+      for (const ld of allLeadsForRecruiters || []) {
+        const rid = ld.recruiter_id || ld.created_by;
+        if (rid) recruiterLeadCounts[rid] = (recruiterLeadCounts[rid] || 0) + 1;
+      }
+      topRecruiters = (recruiterUsers || [])
+        .map(u => ({
+          id: u.id,
+          name: u.name,
+          loginId: u.login_id,
+          leadCount: recruiterLeadCounts[u.id] || 0,
+        }))
+        .filter(r => r.leadCount > 0)
+        .sort((a, b) => b.leadCount - a.leadCount)
+        .slice(0, 5);
+    } catch (_) { topRecruiters = []; }
+
+    /* ── Recent Activity Log (union from multiple tables) ── */
+    let recentActivities = [];
+    try {
+      const [verifiedLeads, newLeads, newWorkers, recentNotifications] = await Promise.all([
+        supabase
+          .from('fro_donor_logs')
+          .select('id, amount_collected, verified_at, accounts_status, fro_worker_id')
+          .not('accounts_status', 'eq', 'pending')
+          .order('verified_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('leads')
+          .select('id, name, status, created_at')
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('workers')
+          .select('id, name, created_at')
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('notification_log')
+          .select('id, message, sent_at, type')
+          .order('sent_at', { ascending: false })
+          .limit(5),
+      ]);
+
+      const activities = [];
+      for (const l of verifiedLeads?.data || []) {
+        activities.push({
+          type: l.accounts_status === 'verified' ? 'verified' : 'rejected',
+          message: `${l.accounts_status === 'verified' ? '✓' : '✗'} Lead ${l.accounts_status}`,
+          detail: `₹${parseFloat(l.amount_collected || 0).toLocaleString('en-IN')}`,
+          time: l.verified_at,
+        });
+      }
+      for (const l of newLeads?.data || []) {
+        activities.push({
+          type: 'lead_created',
+          message: `New lead: ${l.name || 'Unknown'}`,
+          detail: `Status: ${l.status}`,
+          time: l.created_at,
+        });
+      }
+      for (const w of newWorkers?.data || []) {
+        activities.push({
+          type: 'worker_joined',
+          message: `Worker joined: ${w.name || 'Unknown'}`,
+          detail: 'New registration',
+          time: w.created_at,
+        });
+      }
+      for (const n of recentNotifications?.data || []) {
+        activities.push({
+          type: 'notification',
+          message: n.message || 'Notification sent',
+          detail: n.type || '',
+          time: n.sent_at,
+        });
+      }
+      activities.sort((a, b) => {
+        const ta = a.time ? new Date(a.time).getTime() : 0;
+        const tb = b.time ? new Date(b.time).getTime() : 0;
+        return tb - ta;
+      });
+      recentActivities = activities.slice(0, 10);
+    } catch (_) { recentActivities = []; }
+
     return res.json({
       stats,
       kpiChanges,
@@ -376,6 +529,11 @@ export const getSuperAdminDashboard = async (req, res) => {
       upcomingEvents: upcomingEvents || [],
       accountsSummary,
       recruiterSummary,
+      monthlyRevenue,
+      topFros,
+      topRecruiters,
+      recentActivities,
+      allTimeRoleDistribution,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });

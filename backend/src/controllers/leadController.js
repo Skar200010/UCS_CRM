@@ -19,7 +19,7 @@ export const addLead = async (req, res) => {
       phone: phone || null,
       age: age || null,
       source: source || 'Walk-in',
-      status: status || 'hold',
+      status: status,
       notes: notes || null,
       recruiter_id: recruiter_id || null,
       created_by: req.user.id,

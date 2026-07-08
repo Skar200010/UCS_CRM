@@ -57,30 +57,39 @@ async function getUserNgoIds(user) {
 
 export const getDonors = async (req, res) => {
   try {
-    const { search, limit } = req.query;
+    const { search, from_date, to_date, page: pageStr, page_size } = req.query;
+    const page = Math.max(1, parseInt(pageStr) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(page_size) || 50));
+    const offset = (page - 1) * limit;
     const access = await getUserNgoAccess(req.user.id);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
 
-    let donors;
-    if (ngoNames.length > 0) {
-      donors = await getDonorProfilesByImportNgo(ngoNames, parseInt(limit) || 1000);
-    } else if (req.user.ngo_id) {
+    if (ngoNames.length === 0 && req.user.ngo_id) {
       const { data: ngo } = await supabase.from('ngos').select('name').eq('id', req.user.ngo_id).single();
-      donors = ngo ? await getDonorProfilesByImportNgo([ngo.name], parseInt(limit) || 1000) : [];
-    } else {
-      donors = [];
+      if (ngo) ngoNames.push(ngo.name);
     }
 
+    if (ngoNames.length === 0) return res.json({ data: [], pagination: { page, pageSize: limit, total: 0, totalPages: 0 } });
+
+    let countQuery = supabase.from('donor_profiles').select('id', { count: 'exact', head: true }).in('ngo', ngoNames);
+    let dataQuery = supabase.from('donor_profiles').select('*').in('ngo', ngoNames).order('last_donation_date', { ascending: false, nullsLast: true }).range(offset, offset + limit - 1);
+
+    if (from_date) { countQuery = countQuery.gte('last_donation_date', from_date); dataQuery = dataQuery.gte('last_donation_date', from_date); }
+    if (to_date) { countQuery = countQuery.lte('last_donation_date', to_date); dataQuery = dataQuery.lte('last_donation_date', to_date); }
     if (search) {
-      const q = search.toLowerCase();
-      donors = donors.filter(d =>
-        (d.name && d.name.toLowerCase().includes(q)) ||
-        (d.city && d.city.toLowerCase().includes(q)) ||
-        (d.mobile_number && d.mobile_number.includes(q))
-      );
+      const q = `%${search}%`;
+      countQuery = countQuery.or(`name.ilike.${q},mobile_number.ilike.${q},city.ilike.${q}`);
+      dataQuery = dataQuery.or(`name.ilike.${q},mobile_number.ilike.${q},city.ilike.${q}`);
     }
 
-    return res.json(donors);
+    const [{ count }, { data, error }] = await Promise.all([countQuery, dataQuery]);
+    if (error) throw error;
+
+    const total = count || 0;
+    if (req.query.paginated === 'true') {
+      return res.json({ data: data || [], pagination: { page, pageSize: limit, total, totalPages: Math.ceil(total / limit) } });
+    }
+    return res.json(data || []);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -1590,7 +1599,86 @@ export const acknowledgeAlert = async (req, res) => {
       .eq('id', alertId);
 
     if (error) throw error;
-    return res.json({ message: 'Alert acknowledged' });
+    return res.json(data);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getDonorTransactions = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page: pageStr, page_size } = req.query;
+    const pg = Math.max(1, parseInt(pageStr) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(page_size) || 20));
+    const offset = (pg - 1) * limit;
+
+    const numId = parseInt(id);
+    let donor;
+    if (!isNaN(numId)) {
+      const { data } = await supabase.from('donor_profiles').select('id, mobile_number').eq('id', numId).maybeSingle();
+      donor = data;
+    }
+    if (!donor) {
+      const { data } = await supabase.from('donor_profiles').select('id, mobile_number').eq('mobile_number', id).maybeSingle();
+      donor = data;
+    }
+    if (!donor) return res.json({ data: [], pagination: { page: pg, pageSize: limit, total: 0, totalPages: 0 } });
+
+    const [donationsRes, receiptsRes, importRes] = await Promise.all([
+      supabase.from('fro_donor_logs')
+        .select('id, amount_collected, payment_mode, accounts_status, created_at, action, disposition_detail, notes, fro_assignments!inner(donor_id)')
+        .eq('fro_assignments.donor_id', donor.id)
+        .gt('amount_collected', 0)
+        .order('created_at', { ascending: false }),
+      supabase.from('receipts')
+        .select('id, amount, receipt_no, mode, created_at')
+        .eq('donor_mobile', donor.mobile_number)
+        .order('created_at', { ascending: false }),
+      supabase.from('new_data')
+        .select('id, amount, transaction_date, category, bank_donor_name, created_at')
+        .eq('mobile_number', donor.mobile_number)
+        .order('created_at', { ascending: false }),
+    ]);
+
+    const mapStatus = (s) => {
+      if (s === 'verified') return 'verified';
+      if (s === 'pending') return 'pending';
+      return 'imported';
+    };
+
+    const transactions = [
+      ...(donationsRes.data || []).map(d => ({
+        date: d.created_at, type: 'Donation', amount: d.amount_collected || 0,
+        ref: String(d.id), mode: d.payment_mode || d.disposition_detail || d.action,
+        status: mapStatus(d.accounts_status), source: 'FRO Log',
+      })),
+      ...(receiptsRes.data || []).map(r => ({
+        date: r.created_at, type: 'Receipt', amount: r.amount || 0,
+        ref: r.receipt_no || `REC-${r.id}`, mode: r.mode || '',
+        status: 'verified', source: 'Receipt',
+      })),
+      ...(importRes.data || []).map(n => ({
+        date: n.created_at || n.transaction_date, type: 'Import', amount: n.amount || 0,
+        ref: String(n.id), mode: n.category || n.bank_donor_name || '',
+        status: 'imported', source: 'Import',
+      })),
+    ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+    const seen = new Set();
+    const unique = transactions.filter(t => {
+      const key = `${t.date?.slice(0, 10)}-${t.amount}-${t.mode}-${t.type}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const total = unique.length;
+    const paginated = unique.slice(offset, offset + limit);
+    return res.json({
+      data: paginated,
+      pagination: { page: pg, pageSize: limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -1956,6 +2044,355 @@ export const getVerificationFroWise = async (req, res) => {
     }));
 
     return res.json(results);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+// ---- Donor CRM ----
+
+export const listLeads = async (req, res) => {
+  try {
+    const { search, status, from_date, to_date, page: pageStr, page_size } = req.query;
+    const page = Math.max(1, parseInt(pageStr) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(page_size) || 50));
+    const offset = (page - 1) * limit;
+
+    // Only show telecaller-created leads (not recruiter leads)
+    const { data: telecallerUsers } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'telecaller');
+    const telecallerIds = (telecallerUsers || []).map(u => u.id);
+    if (telecallerIds.length === 0) {
+      return res.json({ data: [], pagination: { page, pageSize: limit, total: 0, totalPages: 0 } });
+    }
+
+    let countQuery = supabase.from('leads').select('id', { count: 'exact', head: true }).in('created_by', telecallerIds);
+    let dataQuery = supabase.from('leads').select('*, users(name)').in('created_by', telecallerIds).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+
+    if (status) { countQuery = countQuery.eq('status', status); dataQuery = dataQuery.eq('status', status); }
+    if (from_date) { countQuery = countQuery.gte('created_at', from_date + 'T00:00:00'); dataQuery = dataQuery.gte('created_at', from_date + 'T00:00:00'); }
+    if (to_date) { countQuery = countQuery.lte('created_at', to_date + 'T23:59:59'); dataQuery = dataQuery.lte('created_at', to_date + 'T23:59:59'); }
+
+    if (search) {
+      const q = `%${search}%`;
+      countQuery = countQuery.or(`name.ilike.${q},phone.ilike.${q},email.ilike.${q}`);
+      dataQuery = dataQuery.or(`name.ilike.${q},phone.ilike.${q},email.ilike.${q}`);
+    }
+
+    const [{ count }, { data, error }] = await Promise.all([countQuery, dataQuery]);
+    if (error) throw error;
+
+    const total = count || 0;
+    return res.json({
+      data: data || [],
+      pagination: { page, pageSize: limit, total, totalPages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const createLead = async (req, res) => {
+  try {
+    const { name, mobile, email, address, city, state, pan, aadhaar, birthday, anniversary, language, notes } = req.body;
+    if (!name || !mobile) {
+      return res.status(400).json({ message: 'Name and mobile are required' });
+    }
+
+    const { data, error } = await supabase
+      .from('leads')
+      .insert({
+        name,
+        phone: mobile,
+        email: email || null,
+        notes: [address, city, state, pan, aadhaar, birthday, anniversary, language].filter(Boolean).join(' | ') || null,
+        created_by: req.user.id,
+        source: 'admin',
+        status: 'pending',
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return res.json(data);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const importLeads = async (req, res) => {
+  try {
+    if (!req.files || !req.files.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+    const file = req.files.file;
+
+    const XLSX = await import('xlsx');
+    const workbook = XLSX.read(file.data, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    const leads = rows.map(row => ({
+      name: row.name || row.Name || '',
+      phone: String(row.mobile || row.Mobile || row.phone || row.Phone || ''),
+      email: row.email || row.Email || null,
+      created_by: req.user.id,
+      source: 'import',
+      status: 'pending',
+    })).filter(l => l.name && l.phone);
+
+    if (leads.length === 0) {
+      return res.status(400).json({ message: 'No valid leads found in file' });
+    }
+
+    const { data, error } = await supabase.from('leads').insert(leads).select();
+    if (error) throw error;
+
+    return res.json({ message: `${leads.length} leads imported`, count: leads.length, data });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const assignLeads = async (req, res) => {
+  try {
+    const { lead_ids, fro_worker_id } = req.body;
+    if (!lead_ids || !lead_ids.length || !fro_worker_id) {
+      return res.status(400).json({ message: 'lead_ids array and fro_worker_id are required' });
+    }
+
+    const { data: leads, error: lErr } = await supabase
+      .from('leads')
+      .select('id, phone, name')
+      .in('id', lead_ids);
+    if (lErr) throw lErr;
+
+    const now = new Date().toISOString();
+    const assignments = leads.map(lead => ({
+      lead_id: lead.id,
+      fro_worker_id: parseInt(fro_worker_id),
+      assigned_by: req.user.id,
+      assigned_at: now,
+      status: 'assigned',
+    }));
+
+    const { error: aErr } = await supabase.from('lead_assignments').insert(assignments);
+    if (aErr) throw aErr;
+
+    await supabase.from('leads').update({ status: 'assigned', assigned_to: parseInt(fro_worker_id) }).in('id', lead_ids);
+
+    return res.json({ message: `${leads.length} leads assigned`, count: leads.length });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const transferLead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { target_fro_worker_id, target_station } = req.body;
+    if (!target_fro_worker_id && !target_station) {
+      return res.status(400).json({ message: 'target_fro_worker_id or target_station required' });
+    }
+
+    const updateData = {};
+    if (target_fro_worker_id) updateData.assigned_to = parseInt(target_fro_worker_id);
+    if (target_station) updateData.station = target_station;
+    updateData.status = 'transferred';
+
+    const { error } = await supabase.from('leads').update(updateData).eq('id', id);
+    if (error) throw error;
+
+    return res.json({ message: 'Lead transferred successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getLeadHistory = async (req, res) => {
+  try {
+    const { lead_id } = req.query;
+    let query = supabase
+      .from('lead_assignments')
+      .select('*, leads(name, phone), workers!fro_worker_id(name)')
+      .order('assigned_at', { ascending: false });
+
+    if (lead_id) query = query.eq('lead_id', lead_id);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const result = (data || []).map(h => ({
+      id: h.id,
+      lead_id: h.lead_id,
+      lead_name: h.leads?.name || 'Unknown',
+      lead_phone: h.leads?.phone || '',
+      fro_name: h.workers?.name || 'Unknown',
+      assigned_by: h.assigned_by,
+      status: h.status || 'assigned',
+      assigned_at: h.assigned_at,
+    }));
+
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getDuplicateLeads = async (req, res) => {
+  try {
+    const ngoIds = await getUserNgoIds(req.user);
+    if (ngoIds.length === 0) return res.json([]);
+
+    const { data, error } = await supabase
+      .from('donor_profiles')
+      .select('id, name, mobile_number, city, amount, last_donation_date, pan_number')
+      .in('ngo_id', ngoIds)
+      .order('mobile_number');
+
+    if (error) throw error;
+
+    const grouped = {};
+    for (const d of data || []) {
+      const key = d.mobile_number || d.name || 'unknown';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(d);
+    }
+
+    const duplicates = Object.values(grouped).filter(g => g.length > 1);
+    return res.json(duplicates);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getFullDonorDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const numId = parseInt(id);
+
+    let profile;
+    const { data: donor, error } = await supabase
+      .from('donor_profiles')
+      .select('*')
+      .eq('id', numId)
+      .single();
+
+    if (error || !donor) {
+      const { data: mobileDonor } = await supabase
+        .from('donor_profiles')
+        .select('*')
+        .eq('mobile_number', id)
+        .maybeSingle();
+      if (!mobileDonor) return res.status(404).json({ message: 'Donor not found' });
+      profile = mobileDonor;
+    } else {
+      profile = donor;
+    }
+
+    const { data: donations } = await supabase
+      .from('fro_donor_logs')
+      .select('*, fro_assignments!inner(donor_id)')
+      .eq('fro_assignments.donor_id', profile.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    return res.json({ profile, donations: donations || [] });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getDonorReceipts = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    let donorMobile;
+    const numId = parseInt(id);
+    if (!isNaN(numId)) {
+      const { data: donor } = await supabase.from('donor_profiles').select('mobile_number').eq('id', numId).maybeSingle();
+      if (donor) donorMobile = donor.mobile_number;
+    } else {
+      donorMobile = id;
+    }
+
+    if (!donorMobile) return res.json([]);
+
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('donor_mobile', donorMobile)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return res.json(data || []);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getDonorFollowups = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    let donorId;
+    const numId = parseInt(id);
+    if (!isNaN(numId)) {
+      const { data: fa } = await supabase
+        .from('fro_assignments')
+        .select('id')
+        .eq('donor_id', numId)
+        .maybeSingle();
+      if (fa) donorId = fa.id;
+    }
+
+    if (!donorId) return res.json([]);
+
+    const { data, error } = await supabase
+      .from('fro_scheduled_contacts')
+      .select('*, workers!created_by(name)')
+      .eq('assignment_id', donorId)
+      .order('scheduled_at', { ascending: false });
+
+    if (error) throw error;
+    return res.json(data || []);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const createFollowup = async (req, res) => {
+  try {
+    const { donor_id, fro_worker_id, scheduled_at, notes } = req.body;
+    if (!donor_id || !scheduled_at) {
+      return res.status(400).json({ message: 'donor_id and scheduled_at are required' });
+    }
+
+    const { data: assignment } = await supabase
+      .from('fro_assignments')
+      .select('id')
+      .eq('donor_id', donor_id)
+      .maybeSingle();
+
+    if (!assignment) {
+      return res.status(400).json({ message: 'No assignment found for this donor' });
+    }
+
+    const { data, error } = await supabase
+      .from('fro_scheduled_contacts')
+      .insert({
+        assignment_id: assignment.id,
+        scheduled_at: scheduled_at,
+        notes: notes || null,
+        created_by: req.user.id,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return res.json(data);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

@@ -7,6 +7,7 @@ import AccountsPanel from './panels/accounts/AccountsPanel'
 import NgoAdminPanel from './panels/ngo-admin/NgoAdminPanel'
 import FROPanel from './panels/fro/FROPanel'
 import RecruiterPanel from './panels/recruiter/RecruiterPanel'
+import EventHeadPanel from './panels/event-head/EventHeadPanel'
 
 const ROLE_PATHS = {
   super_admin: '/sa',
@@ -16,6 +17,10 @@ const ROLE_PATHS = {
   recruiter: '/recruiter',
   fro: '/fro',
   worker: '/fro',
+  event_head: '/event-head',
+  event_manager: '/event-head',
+  'Event Manager': '/event-head',
+  'Event Head': '/event-head',
 }
 
 const ROLE_PANELS = {
@@ -23,9 +28,12 @@ const ROLE_PANELS = {
   admin: { panel: NgoAdminPanel, cls: 'panel-ngo-admin' },
   hr: { panel: HRPanel, cls: 'panel-hr' },
   accounts: { panel: AccountsPanel, cls: 'panel-accounts' },
-  'admin': { panel: NgoAdminPanel, cls: 'panel-ngo-admin' },
   fro: { panel: FROPanel, cls: 'panel-fro' },
   recruiter: { panel: RecruiterPanel, cls: 'panel-recruiter' },
+  event_head: { panel: EventHeadPanel, cls: 'panel-event-head' },
+  event_manager: { panel: EventHeadPanel, cls: 'panel-event-head' },
+  'Event Manager': { panel: EventHeadPanel, cls: 'panel-event-head' },
+  'Event Head': { panel: EventHeadPanel, cls: 'panel-event-head' },
 }
 
 function ProtectedRoute({ role, children }) {
@@ -70,7 +78,7 @@ function AccessDenied() {
 function RootRedirect() {
   const { user } = useUcs()
   if (!user) return <Navigate to="/login" replace />
-  const path = ROLE_PATHS[user.role] || ROLE_PATHS[user.department]
+  const path = ROLE_PATHS[user.department] || ROLE_PATHS[user.role]
   if (path) return <Navigate to={path} replace />
   return <AccessDenied />
 }
@@ -79,7 +87,7 @@ function LoginWrapper() {
   const { user } = useUcs()
   const navigate = useNavigate()
   if (user) {
-    const path = ROLE_PATHS[user.role] || ROLE_PATHS[user.department]
+    const path = ROLE_PATHS[user.department] || ROLE_PATHS[user.role]
     if (path) return <Navigate to={path} replace />
   }
   return <Login onLogin={(role) => {
@@ -123,6 +131,11 @@ export default function App() {
         <Route path="/recruiter/*" element={
           <ProtectedRoute role={['recruiter', 'HR-Recruiter']}>
             <PanelWrapper roleKey="recruiter" />
+          </ProtectedRoute>
+        } />
+        <Route path="/event-head/*" element={
+          <ProtectedRoute role={['event_head', 'Event Head', 'Event Manager']}>
+            <PanelWrapper roleKey="event_head" />
           </ProtectedRoute>
         } />
 

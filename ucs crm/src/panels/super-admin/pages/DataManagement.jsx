@@ -1,5 +1,128 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api/auth'
+
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+
+function ImportForm({ dataSources, onError, onBatchUpdate, endpoint, showSample, showTestSheet }) {
+  const [date, setDate] = useState(todayStr)
+  const [dataSourceId, setDataSourceId] = useState('')
+  const [file, setFile] = useState(null)
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState(null)
+  const [sheets, setSheets] = useState([])
+  const [selectedSheets, setSelectedSheets] = useState({})
+  const [inspecting, setInspecting] = useState(false)
+
+  const inspectFile = async (f) => {
+    if (!f) return
+    setInspecting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', f)
+      const res = await api('/data-import/inspect', { method: 'POST', body: fd })
+      setSheets(res.sheets || [])
+      const all = {}
+      ;(res.sheets || []).forEach(s => { all[s] = true })
+      setSelectedSheets(all)
+    } catch {
+      setSheets([])
+      setSelectedSheets({})
+    } finally { setInspecting(false) }
+  }
+
+  const handleFileChange = (e) => {
+    const f = e.target.files[0]; setFile(f); setResult(null)
+    inspectFile(f)
+  }
+
+  const toggleSheet = (name) => setSelectedSheets(prev => ({ ...prev, [name]: !prev[name] }))
+
+  const handleImport = async () => {
+    if (!file || !date || !dataSourceId) return
+    setImporting(true); onError(''); setResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file); fd.append('date', date); fd.append('data_source_id', dataSourceId)
+      const selected = Object.entries(selectedSheets).filter(([, v]) => v).map(([k]) => k)
+      if (selected.length > 0 && selected.length < sheets.length) selected.forEach(s => fd.append('sheets', s))
+      const res = await api(endpoint, { method: 'POST', body: fd })
+      setResult(res)
+      if (onBatchUpdate) onBatchUpdate()
+    } catch (e) { onError(e.message) } finally { setImporting(false) }
+  }
+
+  const downloadSample = async () => {
+    try { const res = await api('/data-import/sample', { raw: true }); const blob = await res.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'data-import-sample.xlsx'; a.click() }
+    catch (e) { onError(e.message) }
+  }
+  const downloadTestSheet = async () => {
+    try { const res = await api('/data-import/test-sheet', { raw: true }); const blob = await res.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'data-import-test.xlsx'; a.click() }
+    catch (e) { onError(e.message) }
+  }
+
+  return (
+    <>
+      <div className="sa-card">
+        <h3 className="sa-card-title">{endpoint === '/data-import/upload-old' ? 'Upload Old Donor Data' : 'Upload Data'}</h3>
+        {endpoint === '/data-import/upload-old' && (
+          <p className="sa-muted" style={{marginBottom:12}}>Each row creates a new donor profile entry. Duplicate mobile numbers are allowed.</p>
+        )}
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <label className="field">Import Date <input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
+          <label className="field">Data Source
+            <select value={dataSourceId} onChange={e => setDataSourceId(e.target.value)}>
+              <option value="">— Select —</option>
+              {dataSources.map(ds => <option key={ds.id} value={ds.id}>{ds.name}</option>)}
+            </select>
+          </label>
+          <label className="field">Excel / CSV File <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} /></label>
+          {inspecting && <p className="sa-muted" style={{fontSize:12}}>Inspecting file...</p>}
+          {sheets.length > 0 && (
+            <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
+              <span style={{fontSize:12,color:'var(--ink-soft)',fontWeight:500}}>Sheets:</span>
+              {sheets.map(s => (
+                <label key={s} style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:13,
+                  background:selectedSheets[s]?'var(--primary-light, #eef2ff)':'#f5f5f5',padding:'4px 10px',borderRadius:6,border:'1px solid var(--line, #e5e7eb)'}}>
+                  <input type="checkbox" checked={!!selectedSheets[s]} onChange={() => toggleSheet(s)} />{s}
+                </label>
+              ))}
+            </div>
+          )}
+          <div className="sa-filters" style={{marginTop:8}}>
+            <button className="btn btn-primary" onClick={handleImport} disabled={importing || !file || !dataSourceId}>
+              {importing ? 'Importing…' : 'Upload & Import'}
+            </button>
+            {showSample && <button className="btn" onClick={downloadSample}>Download Sample</button>}
+            {showTestSheet && <button className="btn" onClick={downloadTestSheet}>Download Test Sheet</button>}
+          </div>
+        </div>
+      </div>
+      {result && endpoint !== '/data-import/upload-old' && (
+        <div className="sa-card">
+          <h3 className="sa-card-title" style={{color:'#10b981'}}>Import Complete</h3>
+          <div className="sa-stat-grid" style={{gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))'}}>
+            <div className="sa-stat-card"><div className="sa-stat-label">Total in File</div><div className="sa-stat-value">{result.total_in_file}</div></div>
+            <div className="sa-stat-card" style={{borderLeftColor:'#f59e0b'}}><div className="sa-stat-label">Within-File Dups Removed</div><div className="sa-stat-value" style={{color:'#f59e0b'}}>{result.duplicates_removed}</div></div>
+            <div className="sa-stat-card" style={{borderLeftColor:'#eab308'}}><div className="sa-stat-label">Cross-Batch Dups Removed</div><div className="sa-stat-value" style={{color:'#eab308'}}>{result.cross_batch_duplicates_removed}</div></div>
+            <div className="sa-stat-card" style={{borderLeftColor:'#10b981'}}><div className="sa-stat-label">Imported</div><div className="sa-stat-value" style={{color:'#10b981'}}>{result.imported}</div></div>
+            <div className="sa-stat-card" style={{borderLeftColor:'#3b82f6'}}><div className="sa-stat-label">NGOs Replicated To</div><div className="sa-stat-value" style={{color:'#3b82f6'}}>{result.ngos_used}</div></div>
+          </div>
+        </div>
+      )}
+      {result && endpoint === '/data-import/upload-old' && (
+        <div className="sa-card">
+          <h3 className="sa-card-title" style={{color:'#10b981'}}>Import Complete</h3>
+          <div className="sa-stat-grid" style={{gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))'}}>
+            <div className="sa-stat-card"><div className="sa-stat-label">Total in File</div><div className="sa-stat-value">{result.total_in_file}</div></div>
+            <div className="sa-stat-card" style={{borderLeftColor:'#eab308'}}><div className="sa-stat-label">Cross-Batch Dups Removed</div><div className="sa-stat-value" style={{color:'#eab308'}}>{result.cross_batch_duplicates_removed}</div></div>
+            <div className="sa-stat-card" style={{borderLeftColor:'#10b981'}}><div className="sa-stat-label">Imported to Donors</div><div className="sa-stat-value" style={{color:'#10b981'}}>{result.imported}</div></div>
+          </div>
+          {result.errors?.length > 0 && <div style={{marginTop:12}}><p className="sa-muted">{result.errors.length} rows failed</p></div>}
+        </div>
+      )}
+    </>
+  )
+}
 
 export default function DataManagement() {
   const [tab, setTab] = useState('import')
@@ -9,43 +132,17 @@ export default function DataManagement() {
   const [form, setForm] = useState({ name: '' })
   const [err, setErr] = useState('')
 
-  const [dataSources, setDataSources] = useState([])
   const [batches, setBatches] = useState([])
   const [selectedBatch, setSelectedBatch] = useState(null)
 
-  const [date, setDate] = useState(() => {
-    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })
-  const [dataSourceId, setDataSourceId] = useState('')
-  const [file, setFile] = useState(null)
-  const [importing, setImporting] = useState(false)
-  const [result, setResult] = useState(null)
-  const [sheets, setSheets] = useState([])
-  const [selectedSheets, setSelectedSheets] = useState({})
-  const [inspecting, setInspecting] = useState(false)
-
-  const [oldFile, setOldFile] = useState(null)
-  const [oldDate, setOldDate] = useState(() => {
-    const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })
-  const [oldDataSourceId, setOldDataSourceId] = useState('')
-  const [oldImporting, setOldImporting] = useState(false)
-  const [oldResult, setOldResult] = useState(null)
-  const [oldSheets, setOldSheets] = useState([])
-  const [oldSelectedSheets, setOldSelectedSheets] = useState({})
-
-  const loadSources = () => {
+  const loadSources = useCallback(() => {
     api('/data-sources').then(setSources).catch(e => setErr(e.message))
-  }
-  useEffect(() => {
-    loadSources()
-    api('/data-sources').then(setDataSources).catch(e => setErr(e.message))
+  }, [])
+  useEffect(() => { loadSources(); api('/data-import/batches').then(setBatches).catch(() => {}) }, [loadSources])
+
+  const loadBatches = useCallback(() => {
     api('/data-import/batches').then(setBatches).catch(() => {})
   }, [])
-
-  const loadBatches = () => {
-    api('/data-import/batches').then(setBatches).catch(() => {})
-  }
 
   const openNew = () => { setEdit(null); setForm({ name: '' }); setShowForm(true) }
   const openEdit = (s) => { setEdit(s); setForm({ name: s.name }); setShowForm(true) }
@@ -53,11 +150,8 @@ export default function DataManagement() {
   const save = async () => {
     setErr('')
     try {
-      if (edit) {
-        await api(`/data-sources/${edit.id}`, { method: 'PUT', body: JSON.stringify(form) })
-      } else {
-        await api('/data-sources', { method: 'POST', body: JSON.stringify(form) })
-      }
+      if (edit) { await api(`/data-sources/${edit.id}`, { method: 'PUT', body: JSON.stringify(form) }) }
+      else { await api('/data-sources', { method: 'POST', body: JSON.stringify(form) }) }
       setShowForm(false); loadSources()
     } catch (e) { setErr(e.message) }
   }
@@ -73,42 +167,6 @@ export default function DataManagement() {
     catch (e) { setErr(e.message) }
   }
 
-  const inspectFile = async (file, setSheetsFn, setSelectedSheetsFn) => {
-    if (!file) return
-    setInspecting(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await api('/data-import/inspect', { method: 'POST', body: fd })
-      setSheetsFn(res.sheets)
-      const all = {}
-      res.sheets.forEach(s => { all[s] = true })
-      setSelectedSheetsFn(all)
-    } catch {
-      setSheetsFn([])
-      setSelectedSheetsFn({})
-    } finally { setInspecting(false) }
-  }
-
-  const handleFileChange = (e) => {
-    const f = e.target.files[0]; setFile(f); setResult(null)
-    inspectFile(f, setSheets, setSelectedSheets)
-  }
-  const toggleSheet = (name) => setSelectedSheets(prev => ({ ...prev, [name]: !prev[name] }))
-
-  const handleImport = async () => {
-    if (!file || !date || !dataSourceId) return
-    setImporting(true); setErr(''); setResult(null)
-    try {
-      const fd = new FormData()
-      fd.append('file', file); fd.append('date', date); fd.append('data_source_id', dataSourceId)
-      const selected = Object.entries(selectedSheets).filter(([, v]) => v).map(([k]) => k)
-      if (selected.length > 0 && selected.length < sheets.length) selected.forEach(s => fd.append('sheets', s))
-      const res = await api('/data-import/upload', { method: 'POST', body: fd })
-      setResult(res); loadBatches()
-    } catch (e) { setErr(e.message) } finally { setImporting(false) }
-  }
-
   const viewBatch = async (id) => {
     try { const d = await api(`/data-import/batch/${id}`); setSelectedBatch(d) }
     catch (e) { setErr(e.message) }
@@ -117,33 +175,6 @@ export default function DataManagement() {
   const exportBatch = async (id) => {
     try { const res = await api(`/data-import/batch/${id}/export`, { raw: true }); const blob = await res.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `import-batch-${id}.xlsx`; a.click() }
     catch (e) { setErr(e.message) }
-  }
-
-  const downloadSample = async () => {
-    try { const res = await api('/data-import/sample', { raw: true }); const blob = await res.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'data-import-sample.xlsx'; a.click() }
-    catch (e) { setErr(e.message) }
-  }
-  const downloadTestSheet = async () => {
-    try { const res = await api('/data-import/test-sheet', { raw: true }); const blob = await res.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'data-import-test.xlsx'; a.click() }
-    catch (e) { setErr(e.message) }
-  }
-
-  const handleOldFileChange = (e) => {
-    const f = e.target.files[0]; setOldFile(f); setOldResult(null)
-    inspectFile(f, setOldSheets, setOldSelectedSheets)
-  }
-  const toggleOldSheet = (name) => setOldSelectedSheets(prev => ({ ...prev, [name]: !prev[name] }))
-
-  const handleOldImport = async () => {
-    if (!oldFile || !oldDate || !oldDataSourceId) return
-    setOldImporting(true); setErr(''); setOldResult(null)
-    try {
-      const fd = new FormData(); fd.append('file', oldFile); fd.append('date', oldDate); fd.append('data_source_id', oldDataSourceId)
-      const selected = Object.entries(oldSelectedSheets).filter(([, v]) => v).map(([k]) => k)
-      if (selected.length > 0 && selected.length < oldSheets.length) selected.forEach(s => fd.append('sheets', s))
-      const res = await api('/data-import/upload-old', { method: 'POST', body: fd })
-      setOldResult(res)
-    } catch (e) { setErr(e.message) } finally { setOldImporting(false) }
   }
 
   if (selectedBatch) {
@@ -232,52 +263,14 @@ export default function DataManagement() {
       )}
 
       {tab === 'import' && (
-        <>
-          <div className="sa-card">
-            <h3 className="sa-card-title">Upload Data</h3>
-            <div style={{display:'flex',flexDirection:'column',gap:12}}>
-              <label className="field">Import Date <input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
-              <label className="field">Data Source
-                <select value={dataSourceId} onChange={e => setDataSourceId(e.target.value)}>
-                  <option value="">— Select —</option>
-                  {dataSources.map(ds => <option key={ds.id} value={ds.id}>{ds.name}</option>)}
-                </select>
-              </label>
-              <label className="field">Excel / CSV File <input type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} /></label>
-              {inspecting && <p className="sa-muted" style={{fontSize:12}}>Inspecting file...</p>}
-              {sheets.length > 0 && (
-                <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
-                  <span style={{fontSize:12,color:'var(--ink-soft)',fontWeight:500}}>Sheets:</span>
-                  {sheets.map(s => (
-                    <label key={s} style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:13,
-                      background:selectedSheets[s]?'var(--primary-light, #eef2ff)':'#f5f5f5',padding:'4px 10px',borderRadius:6,border:'1px solid var(--line, #e5e7eb)'}}>
-                      <input type="checkbox" checked={!!selectedSheets[s]} onChange={() => toggleSheet(s)} />{s}
-                    </label>
-                  ))}
-                </div>
-              )}
-              <div className="sa-filters" style={{marginTop:8}}>
-                <button className="btn btn-primary" onClick={handleImport} disabled={importing || !file || !dataSourceId}>
-                  {importing ? 'Importing…' : 'Upload & Import'}
-                </button>
-                <button className="btn" onClick={downloadSample}>Download Sample</button>
-                <button className="btn" onClick={downloadTestSheet}>Download Test Sheet</button>
-              </div>
-            </div>
-          </div>
-          {result && (
-            <div className="sa-card">
-              <h3 className="sa-card-title" style={{color:'#10b981'}}>Import Complete</h3>
-              <div className="sa-stat-grid" style={{gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))'}}>
-                <div className="sa-stat-card"><div className="sa-stat-label">Total in File</div><div className="sa-stat-value">{result.total_in_file}</div></div>
-                <div className="sa-stat-card" style={{borderLeftColor:'#f59e0b'}}><div className="sa-stat-label">Within-File Dups Removed</div><div className="sa-stat-value" style={{color:'#f59e0b'}}>{result.duplicates_removed}</div></div>
-                <div className="sa-stat-card" style={{borderLeftColor:'#eab308'}}><div className="sa-stat-label">Cross-Batch Dups Removed</div><div className="sa-stat-value" style={{color:'#eab308'}}>{result.cross_batch_duplicates_removed}</div></div>
-                <div className="sa-stat-card" style={{borderLeftColor:'#10b981'}}><div className="sa-stat-label">Imported</div><div className="sa-stat-value" style={{color:'#10b981'}}>{result.imported}</div></div>
-                <div className="sa-stat-card" style={{borderLeftColor:'#3b82f6'}}><div className="sa-stat-label">NGOs Replicated To</div><div className="sa-stat-value" style={{color:'#3b82f6'}}>{result.ngos_used}</div></div>
-              </div>
-            </div>
-          )}
-        </>
+        <ImportForm
+          dataSources={sources}
+          onError={setErr}
+          onBatchUpdate={loadBatches}
+          endpoint="/data-import/upload"
+          showSample
+          showTestSheet
+        />
       )}
 
       {tab === 'history' && (
@@ -300,51 +293,12 @@ export default function DataManagement() {
       )}
 
       {tab === 'old' && (
-        <>
-          <div className="sa-card">
-            <h3 className="sa-card-title">Upload Old Donor Data</h3>
-            <p className="sa-muted" style={{marginBottom:12}}>Each row creates a new donor profile entry. Duplicate mobile numbers are allowed.</p>
-            <div style={{display:'flex',flexDirection:'column',gap:12}}>
-              <label className="field">Import Date <input type="date" value={oldDate} onChange={e => setOldDate(e.target.value)} /></label>
-              <label className="field">Data Source
-                <select value={oldDataSourceId} onChange={e => setOldDataSourceId(e.target.value)}>
-                  <option value="">— Select —</option>
-                  {dataSources.map(ds => <option key={ds.id} value={ds.id}>{ds.name}</option>)}
-                </select>
-              </label>
-              <label className="field">Excel / CSV File <input type="file" accept=".xlsx,.xls,.csv" onChange={handleOldFileChange} /></label>
-              {inspecting && <p className="sa-muted" style={{fontSize:12}}>Inspecting file...</p>}
-              {oldSheets.length > 0 && (
-                <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
-                  <span style={{fontSize:12,color:'var(--ink-soft)',fontWeight:500}}>Sheets:</span>
-                  {oldSheets.map(s => (
-                    <label key={s} style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:13,
-                      background:oldSelectedSheets[s]?'var(--primary-light, #eef2ff)':'#f5f5f5',padding:'4px 10px',borderRadius:6,border:'1px solid var(--line, #e5e7eb)'}}>
-                      <input type="checkbox" checked={!!oldSelectedSheets[s]} onChange={() => toggleOldSheet(s)} />{s}
-                    </label>
-                  ))}
-                </div>
-              )}
-              <div className="sa-filters" style={{marginTop:8}}>
-                <button className="btn btn-primary" onClick={handleOldImport} disabled={oldImporting || !oldFile || !oldDataSourceId}>
-                  {oldImporting ? 'Importing…' : 'Upload & Import'}
-                </button>
-                <button className="btn" onClick={downloadTestSheet}>Download Test Sheet</button>
-              </div>
-            </div>
-          </div>
-          {oldResult && (
-            <div className="sa-card">
-              <h3 className="sa-card-title" style={{color:'#10b981'}}>Import Complete</h3>
-              <div className="sa-stat-grid" style={{gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))'}}>
-                <div className="sa-stat-card"><div className="sa-stat-label">Total in File</div><div className="sa-stat-value">{oldResult.total_in_file}</div></div>
-                <div className="sa-stat-card" style={{borderLeftColor:'#eab308'}}><div className="sa-stat-label">Cross-Batch Dups Removed</div><div className="sa-stat-value" style={{color:'#eab308'}}>{oldResult.cross_batch_duplicates_removed}</div></div>
-                <div className="sa-stat-card" style={{borderLeftColor:'#10b981'}}><div className="sa-stat-label">Imported to Donors</div><div className="sa-stat-value" style={{color:'#10b981'}}>{oldResult.imported}</div></div>
-              </div>
-              {oldResult.errors?.length > 0 && <div style={{marginTop:12}}><p className="sa-muted">{oldResult.errors.length} rows failed</p></div>}
-            </div>
-          )}
-        </>
+        <ImportForm
+          dataSources={sources}
+          onError={setErr}
+          endpoint="/data-import/upload-old"
+          showTestSheet
+        />
       )}
     </div>
   )

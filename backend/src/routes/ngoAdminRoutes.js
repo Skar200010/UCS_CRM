@@ -4,6 +4,20 @@ import {
   listNgoSuspense, assignSuspenseToFro,
 } from '../controllers/bankAuditController.js';
 import {
+  listLeads,
+  createLead,
+  importLeads,
+  assignLeads,
+  transferLead,
+  getLeadHistory,
+  getDuplicateLeads,
+  getFullDonorDetail,
+  getDonorReceipts,
+  getDonorFollowups,
+  createFollowup,
+  getDonorTransactions,
+} from '../controllers/ngoAdminController.js';
+import {
   getDonors,
   getDonorDetail,
   getFroWorkers,
@@ -90,5 +104,19 @@ router.put('/database-requests/:id/resolve', resolveDataRequest);
 
 router.get('/suspense', listNgoSuspense);
 router.put('/suspense/:id/assign-fro', assignSuspenseToFro);
+
+// Donor CRM
+router.get('/donor-crm/leads', listLeads);
+router.post('/donor-crm/leads', createLead);
+router.post('/donor-crm/leads/import', importLeads);
+router.put('/donor-crm/leads/assign', assignLeads);
+router.put('/donor-crm/leads/:id/transfer', transferLead);
+router.get('/donor-crm/leads/history', getLeadHistory);
+router.get('/donor-crm/duplicates', getDuplicateLeads);
+router.get('/donor-crm/donors/:id', getFullDonorDetail);
+router.get('/donor-crm/donors/:id/receipts', getDonorReceipts);
+router.get('/donor-crm/donors/:id/followups', getDonorFollowups);
+router.get('/donor-crm/donors/:id/transactions', getDonorTransactions);
+router.post('/donor-crm/followups', createFollowup);
 
 export default router;

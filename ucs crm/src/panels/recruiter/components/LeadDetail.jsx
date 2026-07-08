@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRec } from '../store';
+import { useRec, LEAD_STATUSES } from '../store';
 import { ArrowLeft } from '../icons';
 
 const calcAge = (dob) => {
@@ -10,8 +10,9 @@ const calcAge = (dob) => {
 
 const statusPill = (s) => {
   const m = { rejected:'pill-danger', selected:'pill-green', hold:'pill-gold', scheduled:'pill-clay', joined:'pill-gray' };
-  const labels = { followed_up:'Followed Up', call_back:'Call Back', not_interested:'Not Interested', ringing:'Ringing', unreachable:'Unreachable', busy:'Busy', switched_off:'Switched Off', wrong_number:'Wrong Number', invalid:'Invalid', rejected:'Rejected' };
-  return <span className={`pill ${m[s] || 'pill-gray'}`}>{labels[s] || s}</span>;
+  const labels = { hold:'Hold', followed_up:'Followed Up', call_back:'Call Back', scheduled:'Scheduled', not_interested:'Not Interested', selected:'Selected', joined:'Joined', ringing:'Ringing', unreachable:'Unreachable', busy:'Busy', switched_off:'Switched Off', wrong_number:'Wrong Number', invalid:'Invalid', rejected:'Rejected' };
+  const found = LEAD_STATUSES.find(st => st.value === s);
+  return <span className={`pill ${m[s] || 'pill-gray'}`}>{found ? found.label : (labels[s] || s)}</span>;
 };
 
 export default function LeadDetail({ lead, onBack }) {
@@ -19,7 +20,6 @@ export default function LeadDetail({ lead, onBack }) {
   const myId = user?.id;
   const isOwner = myId && lead.created_by === myId;
   const [noteText, setNoteText] = useState('');
-  const [editScheduledDate, setEditScheduledDate] = useState(lead.scheduled_date || '');
 
   let allNotes = [];
   try { allNotes = JSON.parse(lead.notes || '[]'); } catch { allNotes = lead.notes ? [{ text: lead.notes }] : []; }
@@ -30,10 +30,6 @@ export default function LeadDetail({ lead, onBack }) {
     const n = { text: noteText.trim(), date: new Date().toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}), by: user?.name || 'Unknown' };
     await updateLead(lead.id, { notes: JSON.stringify([...allNotes, n]) });
     setNoteText('');
-  };
-
-  const updateScheduledDate = async () => {
-    await updateLead(lead.id, { scheduled_date: editScheduledDate || null });
   };
 
   const age = lead.dob ? calcAge(lead.dob) : lead.age;
@@ -57,27 +53,21 @@ export default function LeadDetail({ lead, onBack }) {
           <div><strong>Source</strong><p>{lead.source}</p></div>
           <div><strong>Created by</strong><p>{lead.created_by_name || '—'}</p></div>
           <div><strong>Status</strong>
-            <p style={{marginTop:4}}>{statusPill(lead.status)}</p>
-        </div>
+            <p style={{marginTop:4}}>
+              {isOwner ? (
+                <select value={lead.status || ''} onChange={async e => { await updateLead(lead.id, { status: e.target.value }); }}
+                  style={{ border:'1px solid var(--line)', borderRadius:'var(--radius-sm)', padding:'4px 8px', fontSize:12, fontFamily:'inherit', outline:'none', background:'var(--paper)', color:'var(--ink)', cursor:'pointer' }}>
+                  <option value="">Select status</option>
+                  {LEAD_STATUSES.map(st => <option key={st.value} value={st.value}>{st.label}</option>)}
+                </select>
+              ) : statusPill(lead.status)}
+            </p>
+          </div>
       </div>
       </div>
 
       {lead.status === 'scheduled' && (
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,padding:'16px 22px'}}>
-          <div><strong>Interview date</strong>
-            <p style={{marginTop:4}}>
-              {isOwner ? (
-                <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                  <input type="date" value={editScheduledDate} onChange={e=>setEditScheduledDate(e.target.value)}
-                    style={{flex:1,border:'1px solid var(--line)',borderRadius:'var(--radius-sm)',padding:'4px 8px',fontSize:13,background:'transparent',color:'var(--ink)',outline:'none'}} />
-                  <button className="btn btn-sm" onClick={updateScheduledDate}>Save</button>
-                </div>
-              ) : (
-                lead.scheduled_date ? new Date(lead.scheduled_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—'
-              )}
-            </p>
-          </div>
-          <div><strong>Scheduled by</strong><p>{lead.scheduled_by_name || '—'}</p></div>
           <div><strong>Scheduled at</strong><p style={{color:'var(--ink-soft)'}}>{formatDT(lead.scheduled_at)}</p></div>
         </div>
       )}
