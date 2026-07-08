@@ -26,12 +26,12 @@ const NAV = [
   { id: 'employees', path: '/sa/employees', label: 'Employees', icon: Users },
   { id: 'leaves', path: '/sa/leaves', label: 'Leaves', icon: Airplane },
   { id: 'tickets', path: '/sa/tickets', label: 'Tickets', icon: Ticket },
-  { id: 'accounts', path: '/sa/accounts', label: 'Accounts', icon: CurrencyCircleDollar },
-  { id: 'fro', path: '/sa/fro', label: 'FRO', icon: Radio },
   { id: 'ngo-admin', path: '/sa/ngo-admin', label: 'NGO Admin', icon: BuildingOffice },
-  { id: 'hr', path: '/sa/hr', label: 'HR', icon: Users },
+  { id: 'accounts', path: '/sa/accounts', label: 'Accounts', icon: CurrencyCircleDollar },
   { id: 'event-head', path: '/sa/event-head', label: 'Event Head', icon: CalendarBlank },
+  { id: 'hr', path: '/sa/hr', label: 'HR', icon: Users },
   { id: 'recruiter', path: '/sa/recruiter', label: 'Recruiter', icon: MagnifyingGlass },
+  { id: 'fro', path: '/sa/fro', label: 'FRO', icon: Radio },
   { id: 'assets', path: '/sa/assets', label: 'Assets Overview', icon: Clipboard },
 ]
 
@@ -42,7 +42,7 @@ const GROUPS = [
   { id: 'org', label: 'Organization', icon: Buildings, items: ['organization', 'employees'] },
 ]
 
-const standaloneIds = ['dashboard', 'data-management', 'leaves', 'tickets', 'accounts', 'fro', 'ngo-admin', 'hr', 'event-head', 'recruiter', 'assets']
+const standaloneIds = ['dashboard', 'data-management', 'leaves', 'tickets', 'ngo-admin', 'accounts', 'event-head', 'hr', 'recruiter', 'fro', 'assets']
 
 function Sidebar({ mobileOpen }) {
   const location = useLocation()
