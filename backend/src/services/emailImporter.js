@@ -201,9 +201,9 @@ async function pollSingleAccount(account, sources, fromDate) {
       await client.logout();
       return { processed: 0, skipped: 0, error: null, message: `No emails found (mailbox has ${mailbox.exists} total)` };
     }
-    if (messages.length > 500) {
-      messages = messages.slice(0, 500);
-      console.log(`[emailImporter] ${account.name}: limiting to 500 messages`);
+    if (messages.length > 25) {
+      messages = messages.slice(0, 25);
+      console.log(`[emailImporter] ${account.name}: limiting to 25 messages`);
     }
 
     for await (const msg of client.fetch(messages, { source: true })) {
