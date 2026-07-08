@@ -123,9 +123,14 @@ export async function sendReceiptMessage(to, donorName, amount, receiptNo, date,
     }
   }
 
+  const ngoMap = { bsct_receipt:'BeingSevak', mann_receipt:'MannCare', aflf_receipt:'Ashray' }
+  const ngoPrefix = ngoMap[tpl] || 'Receipt'
+  const safeName = String(donorName || 'Donor').replace(/[<>:"/\\|?*]/g, '_').trim()
+  const fileName = `${ngoPrefix}_${safeName}_${receiptNo || 'receipt'}.pdf`
+
   const components = [];
   if (headerMediaUrl) {
-    components.push({ type: 'header', parameters: [{ type: 'document', document: { link: headerMediaUrl } }] });
+    components.push({ type: 'header', parameters: [{ type: 'document', document: { link: headerMediaUrl, filename: fileName } }] });
   }
   components.push({
     type: 'body',
@@ -195,7 +200,7 @@ async function sendWithHeaderMedia(to, templateName, params, headerMediaUrl) {
       components: [
         {
           type: 'header',
-          parameters: [{ type: 'document', document: { link: headerMediaUrl } }],
+          parameters: [{ type: 'document', document: { link: headerMediaUrl, filename: 'receipt.pdf' } }],
         },
         {
           type: 'body',

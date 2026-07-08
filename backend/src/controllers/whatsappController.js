@@ -150,19 +150,25 @@ export async function sendDirect(req, res) {
     const tpl = templateName || 'bsct_receipt';
     const lang = templateLang || 'en_US';
 
+    const ngoMap = { bsct_receipt:'BeingSevak', mann_receipt:'MannCare', aflf_receipt:'Ashray' }
+    const ngoPrefix = ngoMap[tpl] || 'Receipt'
+
     let documentUrl = null;
+    let displayName = null;
     if (pdfBase64) {
       try {
         const buffer = Buffer.from(pdfBase64, 'base64');
-        const fileName = `receipts/${receiptNo || Date.now()}.pdf`;
-        let { error: upErr } = await supabase.storage.from('receipts').upload(fileName, buffer, { contentType: 'application/pdf', upsert: true });
+        const safeName = String(donorName || 'Donor').replace(/[<>:"/\\|?*]/g, '_').trim()
+        displayName = `${ngoPrefix}_${safeName}_${receiptNo || 'receipt'}.pdf`
+        const storagePath = `receipts/${receiptNo || Date.now()}.pdf`;
+        let { error: upErr } = await supabase.storage.from('receipts').upload(storagePath, buffer, { contentType: 'application/pdf', upsert: true });
         if (upErr && upErr.message?.includes('bucket')) {
           await supabase.storage.createBucket('receipts', { public: true });
-          const retry = await supabase.storage.from('receipts').upload(fileName, buffer, { contentType: 'application/pdf', upsert: true });
+          const retry = await supabase.storage.from('receipts').upload(storagePath, buffer, { contentType: 'application/pdf', upsert: true });
           upErr = retry.error;
         }
         if (!upErr) {
-          const { data: pub } = supabase.storage.from('receipts').getPublicUrl(fileName);
+          const { data: pub } = supabase.storage.from('receipts').getPublicUrl(storagePath);
           documentUrl = pub?.publicUrl || null;
         }
       } catch (e) {
@@ -172,7 +178,7 @@ export async function sendDirect(req, res) {
 
     const components = [];
     if (documentUrl) {
-      components.push({ type: 'header', parameters: [{ type: 'document', document: { link: documentUrl } }] });
+      components.push({ type: 'header', parameters: [{ type: 'document', document: { link: documentUrl, filename: displayName || 'receipt.pdf' } }] });
     }
 
     const msgRes = await fetch(
