@@ -436,15 +436,22 @@ export default function Dashboard() {
   const [selectedStation, setSelectedStation] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
+  const [selectedNgoId, setSelectedNgoId] = useState('all');
+  const [accessibleNgos, setAccessibleNgos] = useState([]);
+
+  useEffect(() => {
+    apiGet('/ngo-admin/ngos').then(setAccessibleNgos).catch(() => {});
+  }, []);
 
   const fetchDashboard = useCallback(() => {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
+    const ngoParam = selectedNgoId !== 'all' ? `?ngo_id=${selectedNgoId}` : '';
     const opts = { signal: controller.signal, timeout: 45000 };
     Promise.all([
-      apiGet('/ngo-admin/dashboard', opts),
-      apiGet('/ngo-admin/dashboard/station-stats', opts),
+      apiGet(`/ngo-admin/dashboard${ngoParam}`, opts),
+      apiGet(`/ngo-admin/dashboard/station-stats${ngoParam}`, opts),
       apiGet('/ngo-admin/stations', opts),
     ])
       .then(([d, s, st]) => {
@@ -463,7 +470,7 @@ export default function Dashboard() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return controller;
-  }, []);
+  }, [selectedNgoId]);
 
   useEffect(() => {
     const controller = fetchDashboard();
@@ -542,6 +549,15 @@ export default function Dashboard() {
 
   return (
     <div>
+      <div className="filter-bar">
+        <span style={{fontSize:13, fontWeight:600, color:'var(--ink-soft)'}}>NGO:</span>
+        <select value={selectedNgoId} onChange={e => setSelectedNgoId(e.target.value)}>
+          <option value="all">All NGOs</option>
+          {accessibleNgos.map(ngo => (
+            <option key={ngo.id} value={ngo.id}>{ngo.name}</option>
+          ))}
+        </select>
+      </div>
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
