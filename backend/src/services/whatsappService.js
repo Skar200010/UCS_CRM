@@ -123,18 +123,17 @@ export async function sendReceiptMessage(to, donorName, amount, receiptNo, date,
     }
   }
 
+  const components = [];
   if (headerMediaUrl) {
-    return sendWithHeaderMedia(to, tpl, params, headerMediaUrl);
+    components.push({ type: 'header', parameters: [{ type: 'document', document: { link: headerMediaUrl } }] });
   }
+  components.push({
+    type: 'body',
+    parameters: params.map(p => ({ type: 'text', text: String(p) })),
+  });
+
   return sendViaFacebook(to, 'template', {
-    template: {
-      name: tpl,
-      language: { code: config.templateLanguage },
-      components: [{
-        type: 'body',
-        parameters: params.map(p => ({ type: 'text', text: String(p) })),
-      }],
-    },
+    template: { name: tpl, language: { code: config.templateLanguage }, components },
   });
 }
 
