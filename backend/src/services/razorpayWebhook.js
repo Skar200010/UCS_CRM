@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import config from '../config/paymentGatewayConfig.js';
-import { processPayment } from './paymentWebhookService.js';
+import { processPayment, reversePayment, logEventOnly } from './paymentWebhookService.js';
 import {
   getAccountById,
   getActiveAccounts,
@@ -103,6 +103,10 @@ export async function handleRazorpayWebhook(rawBody, signature, accountId = null
   const accountIdForLog = account?.id || null;
   const accountNameForLog = account?.name || null;
 
+  const logCtx = { accountId: accountIdForLog, accountName: accountNameForLog };
+
+  // ---- PAYMENT EVENTS ----
+
   if (event === 'payment.captured' && payload?.payment?.entity) {
     const payment = payload.payment.entity;
     const amount = (payment.amount || 0) / 100;
@@ -132,23 +136,296 @@ export async function handleRazorpayWebhook(rawBody, signature, accountId = null
       senderPhone: contact,
       eventType: event,
       rawPayload: payment,
-      accountId: accountIdForLog,
-      accountName: accountNameForLog,
+      ...logCtx,
+    });
+  }
+
+  if (event === 'payment.authorized' && payload?.payment?.entity) {
+    const payment = payload.payment.entity;
+    const amount = (payment.amount || 0) / 100;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: payment.id,
+      amount,
+      description: `Authorized - ${payment.method || 'unknown'} (not yet captured)`,
+      rawPayload: payment,
+      status: 'logged',
+      ...logCtx,
     });
   }
 
   if (event === 'payment.failed' && payload?.payment?.entity) {
     const payment = payload.payment.entity;
     const amount = (payment.amount || 0) / 100;
-    return {
-      success: true,
-      message: `Payment failed recorded: ${payment.error_description || 'Unknown reason'}`,
-      amount,
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
       paymentId: payment.id,
-    };
+      amount,
+      description: `Failed: ${payment.error_description || 'Unknown reason'}`,
+      rawPayload: payment,
+      status: 'failed',
+      ...logCtx,
+    });
   }
 
-  return { success: true, message: `Unhandled event: ${event}` };
+  // ---- REFUND EVENTS ----
+
+  if (event === 'refund.processed' && payload?.refund?.entity) {
+    const refund = payload.refund.entity;
+    const amount = (refund.amount || 0) / 100;
+    const originalPaymentId = refund.payment_id;
+    const refundId = refund.id;
+    return await reversePayment({
+      gateway: 'razorpay',
+      originalPaymentId,
+      reversalId: refundId,
+      amount,
+      reason: 'refund',
+      eventType: event,
+      rawPayload: refund,
+      ...logCtx,
+    });
+  }
+
+  if (event === 'refund.created' && payload?.refund?.entity) {
+    const refund = payload.refund.entity;
+    const amount = (refund.amount || 0) / 100;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: refund.payment_id,
+      amount,
+      description: `Refund initiated: ${refund.id}`,
+      rawPayload: refund,
+      status: 'logged',
+      ...logCtx,
+    });
+  }
+
+  if (event === 'refund.failed' && payload?.refund?.entity) {
+    const refund = payload.refund.entity;
+    const amount = (refund.amount || 0) / 100;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: refund.payment_id,
+      amount,
+      description: `Refund failed: ${refund.id}`,
+      rawPayload: refund,
+      status: 'failed',
+      ...logCtx,
+    });
+  }
+
+  // ---- DISPUTE EVENTS ----
+
+  if (event === 'payment.dispute.created' && payload?.dispute?.entity) {
+    const dispute = payload.dispute.entity;
+    const amount = (dispute.amount || 0) / 100;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: dispute.payment_id,
+      amount,
+      description: `Dispute created: ${dispute.id} - ${dispute.reason || 'unknown reason'}`,
+      rawPayload: dispute,
+      status: 'dispute',
+      ...logCtx,
+    });
+  }
+
+  if (event === 'payment.dispute.lost' && payload?.dispute?.entity) {
+    const dispute = payload.dispute.entity;
+    const amount = (dispute.amount || 0) / 100;
+    return await reversePayment({
+      gateway: 'razorpay',
+      originalPaymentId: dispute.payment_id,
+      reversalId: dispute.id,
+      amount,
+      reason: 'dispute_lost',
+      eventType: event,
+      rawPayload: dispute,
+      ...logCtx,
+    });
+  }
+
+  if (event === 'payment.dispute.won' && payload?.dispute?.entity) {
+    const dispute = payload.dispute.entity;
+    const amount = (dispute.amount || 0) / 100;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: dispute.payment_id,
+      amount,
+      description: `Dispute won: ${dispute.id} - funds retained`,
+      rawPayload: dispute,
+      status: 'logged',
+      ...logCtx,
+    });
+  }
+
+  if (event === 'payment.dispute.closed' && payload?.dispute?.entity) {
+    const dispute = payload.dispute.entity;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: dispute.payment_id,
+      description: `Dispute closed: ${dispute.id}`,
+      rawPayload: dispute,
+      status: 'logged',
+      ...logCtx,
+    });
+  }
+
+  // ---- SETTLEMENT EVENTS ----
+
+  if (event === 'settlement.processed' && payload?.settlement?.entity) {
+    const settlement = payload.settlement.entity;
+    const amount = (settlement.amount || 0) / 100;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: settlement.id,
+      amount,
+      description: `Settlement processed: ₹${amount} to bank account`,
+      rawPayload: settlement,
+      status: 'logged',
+      ...logCtx,
+    });
+  }
+
+  // ---- INVOICE EVENTS ----
+
+  if (event === 'invoice.paid' && payload?.invoice?.entity) {
+    const invoice = payload.invoice.entity;
+    const amount = (invoice.amount || invoice.amount_paid || 0) / 100;
+    const paymentId = invoice.payment_id || invoice.id;
+    return await processPayment({
+      gateway: 'razorpay',
+      paymentId,
+      orderId: invoice.id,
+      amount,
+      gatewaySource: 'Invoice',
+      senderName: invoice.customer_name || null,
+      senderEmail: invoice.customer_email || null,
+      eventType: event,
+      rawPayload: invoice,
+      ...logCtx,
+    });
+  }
+
+  if (event === 'invoice.partially_paid' && payload?.invoice?.entity) {
+    const invoice = payload.invoice.entity;
+    const amount = (invoice.amount_paid || 0) / 100;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: invoice.id,
+      amount,
+      description: `Invoice partially paid: ${invoice.id}`,
+      rawPayload: invoice,
+      status: 'logged',
+      ...logCtx,
+    });
+  }
+
+  if (event === 'invoice.expired' && payload?.invoice?.entity) {
+    const invoice = payload.invoice.entity;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: invoice.id,
+      description: `Invoice expired: ${invoice.id}`,
+      rawPayload: invoice,
+      status: 'logged',
+      ...logCtx,
+    });
+  }
+
+  // ---- PAYMENT LINK EVENTS ----
+
+  if (event === 'payment_link.paid' && payload?.payment_link?.entity) {
+    const link = payload.payment_link.entity;
+    const payment = payload.payment?.entity;
+    const amount = (link.amount || (payment ? payment.amount : 0) || 0) / 100;
+    const paymentId = payment?.id || link.id;
+    const method = payment?.method || 'unknown';
+
+    let gatewaySource = 'Payment Link';
+    if (payment) {
+      if (method === 'upi') gatewaySource = 'UPI Link';
+      else if (method === 'netbanking') gatewaySource = payment.bank || 'Net Banking Link';
+      else if (method === 'card') gatewaySource = payment.card?.last4 ? `Card Link (${payment.card.last4})` : 'Card Link';
+    }
+
+    return await processPayment({
+      gateway: 'razorpay',
+      paymentId,
+      orderId: link.id,
+      amount,
+      gatewaySource,
+      senderName: link.customer?.name || payment?.name || null,
+      senderEmail: link.customer?.email || payment?.email || null,
+      senderPhone: link.customer?.contact || payment?.contact || null,
+      eventType: event,
+      rawPayload: { link, payment },
+      ...logCtx,
+    });
+  }
+
+  if (event === 'payment_link.partially_paid' && payload?.payment_link?.entity) {
+    const link = payload.payment_link.entity;
+    const amount = (link.amount_paid || 0) / 100;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: link.id,
+      amount,
+      description: `Payment link partially paid: ${link.id}`,
+      rawPayload: link,
+      status: 'logged',
+      ...logCtx,
+    });
+  }
+
+  if (event === 'payment_link.cancelled' && payload?.payment_link?.entity) {
+    const link = payload.payment_link.entity;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: link.id,
+      description: `Payment link cancelled: ${link.id}`,
+      rawPayload: link,
+      status: 'logged',
+      ...logCtx,
+    });
+  }
+
+  if (event === 'payment_link.expired' && payload?.payment_link?.entity) {
+    const link = payload.payment_link.entity;
+    return await logEventOnly({
+      gateway: 'razorpay',
+      eventType: event,
+      paymentId: link.id,
+      description: `Payment link expired: ${link.id}`,
+      rawPayload: link,
+      status: 'logged',
+      ...logCtx,
+    });
+  }
+
+  // ---- UNHANDLED ----
+
+  return await logEventOnly({
+    gateway: 'razorpay',
+    eventType: event,
+    description: `Unhandled event`,
+    rawPayload: body,
+    status: 'unhandled',
+    ...logCtx,
+  });
 }
 
 export async function fetchRazorpayPayments(client, options = {}) {

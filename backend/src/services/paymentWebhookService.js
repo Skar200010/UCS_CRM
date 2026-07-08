@@ -129,3 +129,111 @@ export async function processPayment({
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Create a reversing (negative) Bank Audit entry for refunds / disputes lost.
+ * The original captured entry is left intact for audit trail; a new negative
+ * entry is inserted with a reference to the original payment_id.
+ */
+export async function reversePayment({
+  gateway, originalPaymentId, reversalId, amount, reason,
+  eventType, rawPayload, accountId, accountName,
+}) {
+  try {
+    let sourceId;
+    if (gateway === 'razorpay') {
+      sourceId = await ensureRazorpaySource();
+    } else if (gateway === 'paytm') {
+      sourceId = await ensurePaytmSource();
+    } else {
+      sourceId = await getSourceIdByName(gateway);
+    }
+    if (!sourceId) sourceId = 1;
+
+    const remarks = [
+      `REVERSAL (${reason || eventType || 'refund'})`,
+      accountName ? `[${accountName}]` : '',
+      `for ${originalPaymentId || 'unknown'}`,
+      reversalId ? `- ${reversalId}` : '',
+    ].filter(Boolean).join(' ');
+
+    const { data: entry, error: entryError } = await supabase
+      .from('bank_audit_entries')
+      .insert({
+        source_id: sourceId,
+        amount: -Math.abs(amount),
+        payment_id: reversalId || null,
+        transaction_date: new Date().toISOString().slice(0, 10),
+        remarks,
+        created_by: null,
+      })
+      .select()
+      .single();
+
+    if (entryError) throw entryError;
+
+    await logWebhook({
+      gateway,
+      event_type: eventType || null,
+      payment_id: originalPaymentId || null,
+      order_id: reversalId || null,
+      amount: -Math.abs(amount),
+      gateway_source: reason || null,
+      raw_payload: rawPayload || null,
+      bank_entry_id: entry.id,
+      status: 'processed',
+      account_id: accountId || null,
+      account_name: accountName || null,
+    });
+
+    console.log(`[paymentWebhook] REVERSAL ${gateway}${accountName ? `/${accountName}` : ''}: -₹${amount} (${originalPaymentId}) -> bank_audit_entry #${entry.id}`);
+    return { success: true, entry };
+  } catch (error) {
+    console.error(`[paymentWebhook] reversal error:`, error.message);
+    try {
+      await logWebhook({
+        gateway,
+        event_type: eventType || null,
+        payment_id: originalPaymentId || null,
+        amount: -Math.abs(amount || 0),
+        gateway_source: reason || null,
+        raw_payload: rawPayload || null,
+        status: 'failed',
+        error_message: error.message,
+        account_id: accountId || null,
+        account_name: accountName || null,
+      });
+    } catch {}
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Log a webhook event without creating/modifying Bank Audit entries.
+ * Used for: payment.authorized, refund.created, refund.failed,
+ * payment.dispute.created/won/closed, settlement.processed, etc.
+ */
+export async function logEventOnly({
+  gateway, eventType, paymentId, amount, description,
+  rawPayload, accountId, accountName, status,
+}) {
+  try {
+    await logWebhook({
+      gateway,
+      event_type: eventType || null,
+      payment_id: paymentId || null,
+      amount: amount || null,
+      gateway_source: description || null,
+      raw_payload: rawPayload || null,
+      status: status || 'logged',
+      account_id: accountId || null,
+      account_name: accountName || null,
+    });
+
+    console.log(`[paymentWebhook] LOG ${gateway}${accountName ? `/${accountName}` : ''}: ${eventType} (${paymentId || 'no id'})${amount ? ` ₹${amount}` : ''}`);
+    return { success: true, logged: true };
+  } catch (error) {
+    console.error(`[paymentWebhook] log-only error:`, error.message);
+    return { success: false, error: error.message };
+  }
+}

@@ -344,23 +344,31 @@ export default function PaymentGateways() {
               ) : log.length === 0 ? (
                 <tr><td colSpan={9} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>No webhook events yet</td></tr>
               ) : (
-                log.map(e => (
+                log.map(e => {
+                  const isNegative = e.amount != null && Number(e.amount) < 0;
+                  const statusColor = e.status === 'processed' ? 'pill-green'
+                    : e.status === 'failed' ? 'pill-red'
+                    : e.status === 'dispute' ? 'pill-red'
+                    : e.status === 'unhandled' ? 'pill-red'
+                    : 'pill-gray';
+                  return (
                   <tr key={e.id}>
                     <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>{e.created_at ? new Date(e.created_at).toLocaleDateString('en-IN') : '\u2014'}</td>
                     <td><span className="pill" style={{ background: e.gateway === 'razorpay' ? '#0d948818' : '#2563eb18', color: e.gateway === 'razorpay' ? '#0d9488' : '#2563eb', fontSize: 11 }}>{e.gateway}</span></td>
                     <td style={{ fontSize: 11 }}>{e.account_name || '\u2014'}</td>
                     <td style={{ fontSize: 11 }}>{e.event_type || '\u2014'}</td>
-                    <td style={{ fontSize: 12, fontWeight: 600, color: 'var(--sage)' }}>{e.amount ? currency(e.amount) : '\u2014'}</td>
+                    <td style={{ fontSize: 12, fontWeight: 600, color: isNegative ? '#dc2626' : 'var(--sage)' }}>{e.amount ? currency(e.amount) : '\u2014'}</td>
                     <td style={{ fontSize: 11 }}>{e.payment_id || '\u2014'}</td>
                     <td style={{ fontSize: 11 }}>{e.order_id || '\u2014'}</td>
                     <td style={{ fontSize: 11 }}>{e.gateway_source || '\u2014'}</td>
                     <td>
-                      <span className={`pill ${e.status === 'processed' ? 'pill-green' : e.status === 'failed' ? 'pill-red' : 'pill-gray'}`} style={{ fontSize: 11 }}>
+                      <span className={`pill ${statusColor}`} style={{ fontSize: 11 }}>
                         {e.status}
                       </span>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
