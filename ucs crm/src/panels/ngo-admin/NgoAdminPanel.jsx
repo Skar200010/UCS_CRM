@@ -21,15 +21,15 @@ import DonorCRM from './pages/DonorCRM'
 
 const NAV = [
   { id: 'dashboard', path: '/ngo-admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { id: 'alerts', path: '/ngo-admin/alerts', label: 'Alerts', icon: 'alerts' },
+  { id: 'station-mgmt', path: '/ngo-admin/station-mgmt', label: 'Stations & FROs', icon: 'station' },
+  { id: 'fro-status', path: '/ngo-admin/fro-status', label: 'FRO Status', icon: 'froStatus' },
   { id: 'donor-crm', path: '/ngo-admin/donor-crm', label: 'Donor CRM', icon: 'donorCrm' },
+  { id: 'suspense', path: '/ngo-admin/suspense', label: 'Suspense', icon: 'suspense' },
+  { id: 'alerts', path: '/ngo-admin/alerts', label: 'Alerts', icon: 'alerts' },
   { id: 'donors', path: '/ngo-admin/donors', label: 'Donors', icon: 'donors' },
   { id: 'new-data', path: '/ngo-admin/new-data', label: 'New Data', icon: 'newData' },
-  { id: 'station-mgmt', path: '/ngo-admin/station-mgmt', label: 'Stations & FROs', icon: 'station' },
   { id: 'attendance', path: '/ngo-admin/attendance', label: 'Attendance', icon: 'attendance' },
   { id: 'rejected', path: '/ngo-admin/rejected-leads', label: 'Rejected Leads', icon: 'rejected' },
-  { id: 'fro-status', path: '/ngo-admin/fro-status', label: 'FRO Status', icon: 'froStatus' },
-  { id: 'suspense', path: '/ngo-admin/suspense', label: 'Suspense', icon: 'suspense' },
 ]
 
 const ICONS = {

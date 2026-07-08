@@ -443,6 +443,7 @@ export default function Dashboard() {
   const [weakPerformers, setWeakPerformers] = useState([]);
   const [stationDateFrom, setStationDateFrom] = useState('');
   const [stationDateTo, setStationDateTo] = useState('');
+  const [showAllLowPerformers, setShowAllLowPerformers] = useState(false);
   const todayStr = new Date().toISOString().slice(0,10);
   const monthStart = new Date().toISOString().slice(0,7) + '-01';
   const monthEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().slice(0,10);
@@ -755,12 +756,63 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--ink-soft)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        Verification
-      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="card" style={{ marginBottom: 0, padding: '16px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Workforce</span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{total_workers}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              <div style={{ width: 64, height: 64, flexShrink: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={[
+                      { name: 'Present', value: Math.max(0, workers_present), color: '#22c55e' },
+                      { name: 'Absent', value: Math.max(0, workers_absent), color: '#ef4444' },
+                    ]} cx="50%" cy="50%" innerRadius={20} outerRadius={30} dataKey="value" startAngle={90} endAngle={-270}>
+                      <Cell fill="#22c55e" />
+                      <Cell fill="#ef4444" />
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
+                  <span style={{ color: '#22c55e', fontWeight: 600 }}>Present</span>
+                  <span style={{ fontWeight: 600 }}>{workers_present}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span style={{ color: '#ef4444', fontWeight: 500 }}>Absent</span>
+                  <span style={{ fontWeight: 500, color: '#ef4444' }}>{workers_absent}</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>{attendance_pct}% attendance</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1, background: '#f0fdf4', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#22c55e' }}>{workers_present}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Present Today</div>
+                </div>
+                <div style={{ flex: 1, background: '#fef2f2', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#ef4444' }}>{workers_absent}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Absent Today</div>
+                </div>
+                <div style={{ flex: 1, background: '#fffbeb', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#f59e0b' }}>{attendance_pct}%</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Attendance</div>
+                </div>
+              </div>
+              {total_workers > 0 && (
+                <div style={{ height: 4, borderRadius: 2, background: '#fef2f2', marginTop: 8, overflow: 'hidden' }}>
+                  <div style={{ width: `${(workers_present / total_workers) * 100}%`, height: '100%', borderRadius: 2, background: '#22c55e' }} />
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="card" style={{ marginBottom: 0, padding: '16px 18px', cursor: 'pointer', border: '1px solid #16a34a33' }} onClick={() => setSelectedStatus('verified')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -818,7 +870,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {weakPerformers.map((p, i) => (
+                  {weakPerformers.slice(0, showAllLowPerformers ? weakPerformers.length : 10).map((p, i) => (
                     <tr key={p.fro_id}>
                       <td style={{color:'var(--ink-soft)', fontSize:11}}>{i + 1}</td>
                       <td style={{fontWeight:600}}>{p.fro_name}</td>
@@ -837,67 +889,22 @@ export default function Dashboard() {
                     </tr>
                   ))}
                 </tbody>
+                {weakPerformers.length > 10 && !showAllLowPerformers && (
+                  <tfoot>
+                    <tr>
+                      <td colSpan={8} style={{padding:0}}>
+                        <button onClick={() => setShowAllLowPerformers(true)}
+                          style={{width:'100%', padding:'10px 14px', border:'none', fontSize:12, fontWeight:600, fontFamily:'inherit', cursor:'pointer', background:'var(--sage-soft)', color:'var(--sage)', textAlign:'center', letterSpacing:.3}}>
+                          View All {weakPerformers.length} FROs →
+                        </button>
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>
         )}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 20 }}>
-        <div className="card" style={{ marginBottom: 0, padding: '16px 18px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Workforce</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{total_workers}</span>
-          </div>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <div style={{ width: 64, height: 64, flexShrink: 0 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={[
-                    { name: 'Present', value: Math.max(0, workers_present), color: '#22c55e' },
-                    { name: 'Absent', value: Math.max(0, workers_absent), color: '#ef4444' },
-                  ]} cx="50%" cy="50%" innerRadius={20} outerRadius={30} dataKey="value" startAngle={90} endAngle={-270}>
-                    <Cell fill="#22c55e" />
-                    <Cell fill="#ef4444" />
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
-                <span style={{ color: '#22c55e', fontWeight: 600 }}>Present</span>
-                <span style={{ fontWeight: 600 }}>{workers_present}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                <span style={{ color: '#ef4444', fontWeight: 500 }}>Absent</span>
-                <span style={{ fontWeight: 500, color: '#ef4444' }}>{workers_absent}</span>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>{attendance_pct}% attendance</div>
-            </div>
-          </div>
-          <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 1, background: '#f0fdf4', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#22c55e' }}>{workers_present}</div>
-                <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Present Today</div>
-              </div>
-              <div style={{ flex: 1, background: '#fef2f2', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#ef4444' }}>{workers_absent}</div>
-                <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Absent Today</div>
-              </div>
-              <div style={{ flex: 1, background: '#fffbeb', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#f59e0b' }}>{attendance_pct}%</div>
-                <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Attendance</div>
-              </div>
-            </div>
-            {total_workers > 0 && (
-              <div style={{ height: 4, borderRadius: 2, background: '#fef2f2', marginTop: 8, overflow: 'hidden' }}>
-                <div style={{ width: `${(workers_present / total_workers) * 100}%`, height: '100%', borderRadius: 2, background: '#22c55e' }} />
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--ink-soft)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>

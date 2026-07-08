@@ -582,21 +582,6 @@ export default function DonorCRM() {
         </select>
       </div>
 
-      <div className="tabs">
-        {Object.entries(LABELS).map(([key, v]) => {
-          const Icon = v.icon
-          const count = tabCounts[key] || 0
-          return (
-            <button key={key} className={`tab ${tab === key ? 'active' : ''}`} onClick={() => setTab(key)}>
-              <Icon size={ICON_SIZE} /> {v.label}
-              <span className="tab-badge">{count}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      {err && <div className="err-card">{err}</div>}
-
       <div className="filter-bar">
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-soft)', display: 'flex' }}>{I.MagnifyingGlass}</span>
@@ -619,6 +604,21 @@ export default function DonorCRM() {
             <button className="btn" onClick={loadDuplicates} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{I.MagnifyingGlass} Duplicates</button>
           </>
         )}
+      </div>
+
+      {err && <div className="err-card">{err}</div>}
+
+      <div className="tabs">
+        {Object.entries(LABELS).map(([key, v]) => {
+          const Icon = v.icon
+          const count = tabCounts[key] || 0
+          return (
+            <button key={key} className={`tab ${tab === key ? 'active' : ''}`} onClick={() => setTab(key)}>
+              <Icon size={ICON_SIZE} /> {v.label}
+              <span className="tab-badge">{count}</span>
+            </button>
+          )
+        })}
       </div>
 
       {loading ? (
@@ -654,16 +654,22 @@ export default function DonorCRM() {
         <div className="card" style={{ overflow: 'auto' }}>
           <table className="table">
             <thead>
-              <tr><th><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{I.UserCircle} Name</span></th><th><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{I.DeviceMobile} Mobile</span></th><th><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{I.Buildings} City</span></th><th><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{I.CurrencyCircleDollar} Amount</span></th><th><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{I.CalendarCheck} Last Donation</span></th><th></th></tr>
+              <tr><th><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{I.UserCircle} Name</span></th><th><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{I.DeviceMobile} Mobile</span></th><th><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{I.Buildings} NGO(s)</span></th><th><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{I.CurrencyCircleDollar} Amount</span></th><th><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>{I.CalendarCheck} Last Donation</span></th><th></th></tr>
             </thead>
             <tbody>
               {donors.length === 0 ? (
                 <tr><td colSpan={6} className="empty-state">No donors found</td></tr>
-              ) : donors.map(d => (
-                <tr key={d.id}>
+              ) : donors.map((d, idx) => (
+                <tr key={d.mobile_number || idx}>
                   <td><strong>{d.name}</strong></td>
                   <td>{d.mobile_number}</td>
-                  <td style={{ color: 'var(--ink-soft)' }}>{d.city || '—'}</td>
+                  <td>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {(d.ngo_list || [d.ngo]).map(ngo => (
+                        <span key={ngo} style={{ fontSize: 11, fontWeight: 600, background: '#5B6B4E12', color: 'var(--sage)', padding: '2px 8px', borderRadius: 99, whiteSpace: 'nowrap' }}>{ngo}</span>
+                      ))}
+                    </div>
+                  </td>
                   <td style={{ fontWeight: 600 }}>₹{Number(d.amount || 0).toLocaleString('en-IN')}</td>
                   <td style={{ color: 'var(--ink-soft)', fontSize: 12 }}>{d.last_donation_date?.slice(0, 10) || '—'}</td>
                   <td><button className="btn btn-sm" onClick={() => setShowDonorDetail(d.id)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>{I.User} View</button></td>

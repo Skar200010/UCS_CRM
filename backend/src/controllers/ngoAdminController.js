@@ -83,25 +83,49 @@ export const getDonors = async (req, res) => {
 
     if (ngoNames.length === 0) return res.json({ data: [], pagination: { page, pageSize: limit, total: 0, totalPages: 0 } });
 
-    let countQuery = supabase.from('donor_profiles').select('id', { count: 'exact', head: true }).in('ngo', ngoNames);
-    let dataQuery = supabase.from('donor_profiles').select('*').in('ngo', ngoNames).order('last_donation_date', { ascending: false, nullsLast: true }).range(offset, offset + limit - 1);
+    let baseQuery = supabase.from('donor_profiles').select('*').in('ngo', ngoNames).order('last_donation_date', { ascending: false, nullsLast: true });
 
-    if (from_date) { countQuery = countQuery.gte('last_donation_date', from_date); dataQuery = dataQuery.gte('last_donation_date', from_date); }
-    if (to_date) { countQuery = countQuery.lte('last_donation_date', to_date); dataQuery = dataQuery.lte('last_donation_date', to_date); }
+    if (from_date) baseQuery = baseQuery.gte('last_donation_date', from_date);
+    if (to_date) baseQuery = baseQuery.lte('last_donation_date', to_date);
     if (search) {
       const q = `%${search}%`;
-      countQuery = countQuery.or(`name.ilike.${q},mobile_number.ilike.${q},city.ilike.${q}`);
-      dataQuery = dataQuery.or(`name.ilike.${q},mobile_number.ilike.${q},city.ilike.${q}`);
+      baseQuery = baseQuery.or(`name.ilike.${q},mobile_number.ilike.${q},city.ilike.${q}`);
     }
 
-    const [{ count }, { data, error }] = await Promise.all([countQuery, dataQuery]);
+    const { data: allData, error } = await baseQuery;
     if (error) throw error;
 
-    const total = count || 0;
-    if (req.query.paginated === 'true') {
-      return res.json({ data: data || [], pagination: { page, pageSize: limit, total, totalPages: Math.ceil(total / limit) } });
+    const groups = {};
+    for (const d of allData || []) {
+      const key = d.mobile_number || `no-mobile-${d.id}`;
+      if (!groups[key]) {
+        groups[key] = { ...d, ngos: [d.ngo], total_amount_all: Number(d.amount || 0), records: 1 };
+      } else {
+        if (!groups[key].ngos.includes(d.ngo)) groups[key].ngos.push(d.ngo);
+        groups[key].total_amount_all += Number(d.amount || 0);
+        groups[key].records += 1;
+        if (new Date(d.last_donation_date || 0) > new Date(groups[key].last_donation_date || 0)) {
+          groups[key].name = d.name;
+          groups[key].city = d.city;
+          groups[key].last_donation_date = d.last_donation_date;
+        }
+      }
     }
-    return res.json(data || []);
+
+    const grouped = Object.values(groups);
+    grouped.sort((a, b) => new Date(b.last_donation_date || 0) - new Date(a.last_donation_date || 0));
+
+    const total = grouped.length;
+    const paginatedData = grouped.slice(offset, offset + limit).map(d => ({
+      ...d,
+      amount: d.total_amount_all,
+      ngo_list: d.ngos,
+    }));
+
+    if (req.query.paginated === 'true') {
+      return res.json({ data: paginatedData, pagination: { page, pageSize: limit, total, totalPages: Math.ceil(total / limit) } });
+    }
+    return res.json(paginatedData);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
