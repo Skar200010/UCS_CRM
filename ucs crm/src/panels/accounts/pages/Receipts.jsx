@@ -290,8 +290,8 @@ export default function Receipts() {
         }
 
         try {
-          await apiPost('/whatsapp/send-receipt/' + (donor.log_id || '0'), {
-            number: phone,
+          await apiPost('/whatsapp/send-direct', {
+            to: phone,
             pdfBase64,
             receiptNo,
             donorName: donor['Donor Name'],

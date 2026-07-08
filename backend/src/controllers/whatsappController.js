@@ -141,6 +141,86 @@ export async function status(req, res) {
   }
 }
 
+export async function sendDirect(req, res) {
+  try {
+    const { to, receiptNo, donorName, amount, templateName, pdfBase64 } = req.body;
+    if (!to) return res.status(400).json({ message: 'Phone number is required' });
+
+    const phone = String(to).replace(/[^0-9]/g, '');
+    const tpl = templateName || 'bsct_receipt';
+
+    let mediaId = null;
+    if (pdfBase64) {
+      const boundary = '----boundary' + Date.now();
+      const buffer = Buffer.from(pdfBase64, 'base64');
+      const fileName = `receipt_${receiptNo || Date.now()}.pdf`;
+      let body = '';
+      body += `--${boundary}\r\n`;
+      body += 'Content-Disposition: form-data; name="messaging_product"\r\n\r\n';
+      body += 'whatsapp\r\n';
+      body += `--${boundary}\r\n`;
+      body += 'Content-Disposition: form-data; name="file"; filename="' + fileName + '"\r\n';
+      body += 'Content-Type: application/pdf\r\n\r\n';
+
+      const bodyBuffer = Buffer.concat([
+        Buffer.from(body, 'utf-8'),
+        buffer,
+        Buffer.from(`\r\n--${boundary}--\r\n`, 'utf-8'),
+      ]);
+
+      const mediaRes = await fetch(
+        `https://graph.facebook.com/${whatsappConfig.apiVersion}/${whatsappConfig.phoneNumberId}/media`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${whatsappConfig.accessToken}`,
+            'Content-Type': `multipart/form-data; boundary=${boundary}`,
+            'Content-Length': String(bodyBuffer.length),
+          },
+          body: bodyBuffer,
+        }
+      );
+      if (!mediaRes.ok) { const t = await mediaRes.text(); return res.status(400).json({ message: 'Media upload failed: ' + t }); }
+      const mediaData = await mediaRes.json();
+      mediaId = mediaData.id;
+    }
+
+    const components = [];
+    if (mediaId) {
+      components.push({ type: 'header', parameters: [{ type: 'document', document: { id: mediaId, filename: `receipt_${receiptNo || 'receipt'}.pdf` } }] });
+    }
+    components.push({
+      type: 'body',
+      parameters: [
+        { type: 'text', text: String(donorName || 'Donor') },
+        { type: 'text', text: String(amount || '0') },
+        { type: 'text', text: String(receiptNo || 'N/A') },
+        { type: 'text', text: new Date().toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) },
+      ],
+    });
+
+    const msgRes = await fetch(
+      `https://graph.facebook.com/${whatsappConfig.apiVersion}/${whatsappConfig.phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${whatsappConfig.accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: phone,
+          type: 'template',
+          template: { name: tpl, language: { code: 'en_US' }, components },
+        }),
+      }
+    );
+    if (!msgRes.ok) { const t = await msgRes.text(); return res.status(400).json({ message: 'Template send failed: ' + t }); }
+    const msgData = await msgRes.json();
+
+    return res.json({ success: true, data: msgData });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
 export async function listTemplates(req, res) {
   try {
     if (!whatsappConfig.enabled) {
