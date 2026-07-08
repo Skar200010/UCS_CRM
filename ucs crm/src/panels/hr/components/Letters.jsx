@@ -5,7 +5,7 @@ import { FileTxt } from '../icons';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-const TYPES = ['Offer letter','Experience letter','Promotion letter','Warning letter','Relieving letter'];
+const TYPES = ['Offer letter','Experience letter','Promotion letter','Warning letter','Relieving letter','Joining letter'];
 
 function buildOfferLetterHTML(w, dateText, hrNameText, subjectText) {
   const r = w.role || w.department || 'Team Member';
