@@ -151,38 +151,20 @@ export async function sendDirect(req, res) {
 
     let mediaId = null;
     if (pdfBase64) {
-      const boundary = '----boundary' + Date.now();
       const buffer = Buffer.from(pdfBase64, 'base64');
       const fileName = `receipt_${receiptNo || Date.now()}.pdf`;
-      let body = '';
-      body += `--${boundary}\r\n`;
-      body += 'Content-Disposition: form-data; name="messaging_product"\r\n\r\n';
-      body += 'whatsapp\r\n';
-      body += `--${boundary}\r\n`;
-      body += 'Content-Disposition: form-data; name="file"; filename="' + fileName + '"\r\n';
-      body += 'Content-Type: application/pdf\r\n\r\n';
-
-      const bodyBuffer = Buffer.concat([
-        Buffer.from(body, 'utf-8'),
-        buffer,
-        Buffer.from(`\r\n--${boundary}--\r\n`, 'utf-8'),
-      ]);
+      const formData = new FormData();
+      formData.append('messaging_product', 'whatsapp');
+      formData.append('file', new Blob([buffer], { type: 'application/pdf' }), fileName);
+      formData.append('type', 'application/pdf');
 
       const mediaRes = await fetch(
         `https://graph.facebook.com/${whatsappConfig.apiVersion}/${whatsappConfig.phoneNumberId}/media`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${whatsappConfig.accessToken}`,
-            'Content-Type': `multipart/form-data; boundary=${boundary}`,
-            'Content-Length': String(bodyBuffer.length),
-          },
-          body: bodyBuffer,
-        }
+        { method: 'POST', headers: { Authorization: `Bearer ${whatsappConfig.accessToken}` }, body: formData }
       );
-      if (!mediaRes.ok) { const t = await mediaRes.text(); return res.status(400).json({ message: 'Media upload failed: ' + t }); }
-      const mediaData = await mediaRes.json();
-      mediaId = mediaData.id;
+      const mediaText = await mediaRes.text();
+      if (!mediaRes.ok) return res.status(400).json({ message: 'Media upload failed: ' + mediaText });
+      mediaId = JSON.parse(mediaText).id;
     }
 
     const components = [];
@@ -205,17 +187,14 @@ export async function sendDirect(req, res) {
         method: 'POST',
         headers: { Authorization: `Bearer ${whatsappConfig.accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: phone,
-          type: 'template',
+          messaging_product: 'whatsapp', to: phone, type: 'template',
           template: { name: tpl, language: { code: 'en_US' }, components },
         }),
       }
     );
-    if (!msgRes.ok) { const t = await msgRes.text(); return res.status(400).json({ message: 'Template send failed: ' + t }); }
-    const msgData = await msgRes.json();
-
-    return res.json({ success: true, data: msgData });
+    const msgText = await msgRes.text();
+    if (!msgRes.ok) return res.status(400).json({ message: msgText });
+    return res.json({ success: true, data: JSON.parse(msgText) });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
