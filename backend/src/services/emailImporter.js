@@ -307,6 +307,9 @@ async function pollSingleAccount(account, sources, fromDate, includeSeen, onlySe
             account_name: account.name,
           });
 
+          if (!msgSeen) {
+            try { await client.messageFlagsAdd(msg.uid, ['\\Seen']); } catch {}
+          }
           processed++;
         } else {
           await logImport({
