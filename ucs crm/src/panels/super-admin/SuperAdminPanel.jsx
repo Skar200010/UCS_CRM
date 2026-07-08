@@ -16,7 +16,6 @@ import Leaves from './pages/Leaves'
 import DataManagement from './pages/DataManagement'
 import Tickets from './pages/Tickets'
 import Events from './pages/Events'
-import LiveFroStatus from './pages/LiveFroStatus'
 import AssetOverview from './pages/AssetOverview'
 import { Radio, Clipboard, CurrencyCircleDollar, CalendarBlank, BuildingOffice, MagnifyingGlass } from '@phosphor-icons/react'
 
@@ -27,8 +26,8 @@ const NAV = [
   { id: 'employees', path: '/sa/employees', label: 'Employees', icon: Users },
   { id: 'leaves', path: '/sa/leaves', label: 'Leaves', icon: Airplane },
   { id: 'tickets', path: '/sa/tickets', label: 'Tickets', icon: Ticket },
-  { id: 'live-fro', path: '/sa/live-fro', label: 'Live FRO', icon: Radio },
   { id: 'accounts', path: '/sa/accounts', label: 'Accounts', icon: CurrencyCircleDollar },
+  { id: 'fro', path: '/sa/fro', label: 'FRO', icon: Radio },
   { id: 'ngo-admin', path: '/sa/ngo-admin', label: 'NGO Admin', icon: BuildingOffice },
   { id: 'hr', path: '/sa/hr', label: 'HR', icon: Users },
   { id: 'event-head', path: '/sa/event-head', label: 'Event Head', icon: CalendarBlank },
@@ -43,7 +42,7 @@ const GROUPS = [
   { id: 'org', label: 'Organization', icon: Buildings, items: ['organization', 'employees'] },
 ]
 
-const standaloneIds = ['dashboard', 'data-management', 'leaves', 'tickets', 'live-fro', 'accounts', 'ngo-admin', 'hr', 'event-head', 'recruiter', 'assets']
+const standaloneIds = ['dashboard', 'data-management', 'leaves', 'tickets', 'accounts', 'fro', 'ngo-admin', 'hr', 'event-head', 'recruiter', 'assets']
 
 function Sidebar({ mobileOpen }) {
   const location = useLocation()
@@ -62,6 +61,7 @@ function Sidebar({ mobileOpen }) {
   const isActive = (path) => {
     if (path.endsWith('/employees')) return location.pathname.startsWith('/sa/employees')
     if (path.endsWith('/accounts')) return location.pathname.startsWith('/sa/accounts')
+    if (path.endsWith('/fro')) return location.pathname.startsWith('/sa/fro')
     if (path.endsWith('/ngo-admin')) return location.pathname.startsWith('/sa/ngo-admin')
     if (path.endsWith('/hr')) return location.pathname.startsWith('/sa/hr')
     if (path.endsWith('/event-head')) return location.pathname.startsWith('/sa/event-head')
@@ -200,7 +200,7 @@ function PageShell({ children }) {
 
   useEffect(() => { setMobileSidebar(false) }, [location.pathname])
 
-  const isIframeRoute = ['/sa/accounts', '/sa/ngo-admin', '/sa/hr', '/sa/event-head', '/sa/recruiter'].some(p => location.pathname.startsWith(p))
+  const isIframeRoute = ['/sa/accounts', '/sa/fro', '/sa/ngo-admin', '/sa/hr', '/sa/event-head', '/sa/recruiter'].some(p => location.pathname.startsWith(p))
   const meta = NAV.find(n => location.pathname.startsWith(n.path))
   const userName = user?.name || 'Super Admin'
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -324,8 +324,8 @@ export default function SuperAdminPanel() {
         <Route path="leaves" element={<Leaves />} />
         <Route path="tickets" element={<Tickets />} />
         <Route path="events" element={<Events />} />
-        <Route path="live-fro" element={<LiveFroStatus />} />
         <Route path="accounts" element={<PanelFrame src="/accounts" />} />
+        <Route path="fro" element={<PanelFrame src="/fro" />} />
         <Route path="ngo-admin" element={<PanelFrame src="/ngo-admin" />} />
         <Route path="hr" element={<PanelFrame src="/hr" />} />
         <Route path="event-head" element={<PanelFrame src="/event-head" />} />
