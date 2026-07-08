@@ -200,7 +200,7 @@ export default function Letters() {
             <Dropdown value={hrName} onChange={e=>setHrName(e.target.value)} options={[{value:'',label:'Select HR...'}, ...workers.filter(w => (w.dept||w.department||'').toLowerCase().includes('hr') || (w.dept||w.department||'').toLowerCase().includes('admin')).map(w => ({value: w.name, label: w.name}))]} />
           </label>
           <label className="field">Subject
-            <Dropdown value={subject} onChange={e=>setSubject(e.target.value)} options={['hr','accounts','admin','fro','digital marketing','housekeeping']} />
+            <Dropdown value={subject} onChange={e=>setSubject(e.target.value)} options={['Hr','Accounts','Admin','FRO','Digital Marketing','Housekeeping']} />
           </label>
           <label className="field btn-field"><span>&nbsp;</span>{!showDownload ? <button className="btn btn-primary" onClick={generate}><FileTxt width={16}/> Generate</button> : <button className="btn btn-primary" onClick={downloadPdf} style={{background:'#dc2626',color:'#fff',fontWeight:600,border:'1px solid #b91c1c'}}><FileTxt width={16}/> Download PDF</button>}</label>
         </div>
