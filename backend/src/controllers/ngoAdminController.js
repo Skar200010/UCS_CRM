@@ -347,8 +347,7 @@ export const getDashboard = async (req, res) => {
 
     const { ngo_id: filterNgoId } = req.query;
     if (filterNgoId && filterNgoId !== 'all') {
-      const fid = Number(filterNgoId);
-      const idx = ngoIds.indexOf(fid);
+      const idx = ngoIds.indexOf(filterNgoId);
       if (idx !== -1) {
         ngoNames.splice(0, ngoNames.length, ngoNames[idx]);
         ngoIds.splice(0, ngoIds.length, ngoIds[idx]);
@@ -1073,8 +1072,7 @@ export const getStationStats = async (req, res) => {
 
     const { ngo_id: filterNgoId } = req.query;
     if (filterNgoId && filterNgoId !== 'all') {
-      const fid = Number(filterNgoId);
-      const idx = ngoIds.indexOf(fid);
+      const idx = ngoIds.indexOf(filterNgoId);
       if (idx !== -1) {
         ngoNames.splice(0, ngoNames.length, ngoNames[idx]);
         ngoIds.splice(0, ngoIds.length, ngoIds[idx]);
