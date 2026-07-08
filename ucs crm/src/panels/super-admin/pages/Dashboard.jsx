@@ -1414,11 +1414,24 @@ export default function Dashboard() {
     { label: 'Bank Audits', value: bankAudits, icon: 'account_balance', changeKey: 'bankAudits', color: CARD_COLORS[5] },
   ]
 
-  /* -------- departments (HR-Recruitment removed) -------- */
+  /* -------- departments (from allUserList by role) -------- */
+  const ROLE_LABELS = {
+    super_admin: 'Super Admin', admin: 'Admin', hoadmin: 'HO Admin',
+    inter: 'Intermediate', team_lead: 'Team Lead', hr: 'HR',
+    recruiter: 'Recruiter', telecaller: 'Telecaller', fro: 'FRO',
+    accounts: 'Accounts', leads: 'Leads', worker: 'Worker',
+    ngo_admin: 'NGO Admin',
+  }
   const HIDE_DEPTS = ['hr-recruitment', 'hr recruitment', 'hr_recruitment', 'hrrecruitment']
-  const deptData = Object.entries(deptWorkers || {})
-    .filter(([name]) => !HIDE_DEPTS.includes(name.toLowerCase().trim()))
-    .map(([name, value]) => ({ name, value }))
+  const deptData = Object.entries(
+    (allUserList || []).reduce((acc, u) => {
+      const role = (u.role || '').toLowerCase().trim()
+      if (role) acc[role] = (acc[role] || 0) + 1
+      return acc
+    }, {})
+  )
+    .filter(([name]) => !HIDE_DEPTS.includes(name))
+    .map(([name, value]) => ({ name: ROLE_LABELS[name] || name.charAt(0).toUpperCase() + name.slice(1), value }))
     .sort((a, b) => b.value - a.value)
   const totalDeptWorkers = deptData.reduce((s, d) => s + d.value, 0) || 1
 
