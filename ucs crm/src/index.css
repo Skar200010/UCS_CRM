@@ -537,6 +537,7 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 .panel-hr .field input:focus, .panel-hr .field select:focus, .panel-hr .field textarea:focus { border-color:var(--sage); box-shadow:0 0 0 3px var(--sage-soft); }
 .panel-hr .form-row { display:flex; gap:12px; flex-wrap:wrap; align-items:start; }
 .panel-hr .form-row .field { flex:1; min-width:130px; }
+.panel-hr .form-row .btn-field { flex:0 0 auto; min-width:0; }
 .panel-hr table { width:100%; border-collapse:collapse; font-size:13px; }
 .panel-hr th { text-align:left; font-weight:500; color:var(--ink-soft); font-size:11px; padding:10px 16px; border-bottom:1px solid var(--line); text-transform:uppercase; letter-spacing:.04em; }
 .panel-hr td { padding:11px 16px; border-bottom:1px solid var(--line); vertical-align:middle; }

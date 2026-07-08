@@ -90,7 +90,7 @@ export default function Letters() {
           <label className="field">Letter type
             <Dropdown value={type} onChange={e=>setType(e.target.value)} options={TYPES} />
           </label>
-          <button className="btn btn-primary" onClick={generate}><FileTxt width={16}/> Generate</button>
+          <label className="field btn-field"><span>&nbsp;</span><button className="btn btn-primary" onClick={generate}><FileTxt width={16}/> Generate</button></label>
         </div>
 
         {out && (
