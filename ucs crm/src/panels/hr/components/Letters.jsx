@@ -60,11 +60,6 @@ function buildExperienceLetterHTML(w, dateText, hrNameText) {
 <p style="margin:0 0 6px 0">Should you require any further information, please feel free to contact us.</p>
 </div>
 <div style="margin-top:14px">
-<p style="margin:0 0 2px 0"><strong>Yours faithfully,</strong></p>
-<p style="margin:0 0 2px 0"><strong>For Beingsevak</strong></p>
-<p style="margin:0 0 2px 0"><strong>Authorized Signatory</strong></p>
-<p style="margin:10px 0 2px 0">${hrNameText}</p>
-<p style="margin:0 0 2px 0">[HR Designation]</p>
 <p style="margin:6px 0 2px 0"><strong>Contact No.:</strong> +91 8879035035</p>
 <p style="margin:0 0 2px 0"><strong>Email:</strong> being.sevak@gmail.com</p>
 <p style="margin:6px 0 2px 0">Company Seal &amp; Signature</p>
