@@ -120,3 +120,45 @@ body {
 button, a, input, select, textarea {
   touch-action: manipulation;
 }
+
+/* Prevent zoom on input focus for iOS */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Dynamic Island / Notch safe area for modern iPhones */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Better responsive breakpoints */
+@media (max-width: 380px) {
+  .text-4xl { font-size: 1.75rem; }
+  .w-36 { width: 8rem; }
+  .h-36 { height: 8rem; }
+}
+
+@media (min-width: 414px) {
+  .text-4xl { font-size: 2.25rem; }
+}
+
+@media (min-width: 768px) {
+  .text-4xl { font-size: 3rem; }
+}
+
+/* Prevent text size adjustment on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}

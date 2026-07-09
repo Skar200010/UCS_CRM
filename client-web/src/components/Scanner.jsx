@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import jsQR from 'jsqr'
 import { api } from '../api'
@@ -15,6 +15,17 @@ export default function Scanner() {
   const [loading, setLoading] = useState(false)
   const [started, setStarted] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [alreadyPunchedIn, setAlreadyPunchedIn] = useState(false)
+
+  useEffect(() => {
+    api.today().then(td => {
+      const att = td?.attendance || td
+      if (att?.punch_in_time && !att?.punch_out_time) {
+        setAlreadyPunchedIn(true)
+        setError('You are already punched in. Go back to punch out.')
+      }
+    }).catch(() => {})
+  }, [])
 
   const stopCamera = useCallback(() => {
     if (animRef.current) cancelAnimationFrame(animRef.current)
@@ -150,10 +161,17 @@ export default function Scanner() {
             </div>
             <h2 className="text-white text-lg font-semibold mb-2">Scan QR Code</h2>
             <p className="text-white/50 text-sm mb-8 text-center px-8">Position the QR code within the frame to punch in</p>
-            <button onClick={startCamera}
-              className="px-8 py-3 rounded-xl bg-white text-black font-semibold text-sm active:scale-95 transition-transform">
-              Start Camera
-            </button>
+            {alreadyPunchedIn ? (
+              <button onClick={handleBack}
+                className="px-8 py-3 rounded-xl bg-blue-500 text-white font-semibold text-sm active:scale-95 transition-transform">
+                Go Back to Punch Out
+              </button>
+            ) : (
+              <button onClick={startCamera}
+                className="px-8 py-3 rounded-xl bg-white text-black font-semibold text-sm active:scale-95 transition-transform">
+                Start Camera
+              </button>
+            )}
           </div>
         )}
 
@@ -192,8 +210,12 @@ export default function Scanner() {
               </div>
               <p className="text-sm text-white/80 mb-6">{error}</p>
               <div className="flex gap-3 justify-center">
-                <button onClick={handleBack} className="px-5 py-2 rounded-lg bg-white/10 text-white text-sm">Go Back</button>
-                <button onClick={startCamera} className="px-5 py-2 rounded-lg bg-white text-black text-sm font-semibold">Try Again</button>
+                <button onClick={handleBack} className="px-5 py-2 rounded-lg bg-white/10 text-white text-sm min-h-[44px]">Go Back</button>
+                {!alreadyPunchedIn ? (
+                  <button onClick={startCamera} className="px-5 py-2 rounded-lg bg-white text-black text-sm font-semibold min-h-[44px]">Try Again</button>
+                ) : (
+                  <button onClick={() => { stopCamera(); navigate('/home', { state: { refresh: true } }) }} className="px-5 py-2 rounded-lg bg-blue-500 text-white text-sm font-semibold min-h-[44px]">Punch Out</button>
+                )}
               </div>
             </div>
           </div>
