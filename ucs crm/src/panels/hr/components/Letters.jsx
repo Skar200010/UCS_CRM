@@ -62,7 +62,7 @@ ${subjectText ? `<div style="text-align:center;font-size:12px;font-weight:600;co
 <p style="margin:0 0 6px 0">Should you require any further information, please feel free to contact us.</p>
 </div>
 <div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>Authorized Signatory</strong><br /><strong>Contact No.:</strong> +91 8879035035<br /><strong>Email:</strong> being.sevak@gmail.com<br /><br /><strong>Company Seal &amp; Signature</strong><br /><strong>Being Sevak Charitable Trust</strong></p></div>
-<div style="margin-top:14px;padding-top:4px"><svg width="100%" height="14" viewBox="0 0 700 14" preserveAspectRatio="none" style="display:block;margin-bottom:3px"><path d="M0,7 Q175,0 350,7 Q525,14 700,7 L700,14 L0,14 Z" fill="#0B73C4" /></svg><div style="height:2px;background:#F58220;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> 506, Sanjar Enclave, Bhadran Nagar, Kandivali (West), Mumbai, Maharashtra 400067.</div></div>
+<div style="margin-top:14px;padding-top:4px"><div style="height:2px;background:#0B73C4;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> 506, Sanjar Enclave, Bhadran Nagar, Kandivali (West), Mumbai, Maharashtra 400067.</div></div>
 </div>`;
 }
 
