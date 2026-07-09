@@ -173,7 +173,7 @@ function EntrySection({loading,entries,sources,summary,error,statusTab,setStatus
     </div>
     <div className="table-wrap"><table>
       <thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Payment ID</th><th>Check ID</th><th>Remarks</th><th style={{width:110}}></th></tr></thead>
-      <tbody>{loading?<SkTbl r=5 c={7}/>:entries.length===0?<tr><td colSpan={7} style={{textAlign:'center',padding:20,color:'#9ca3af'}}>No entries yet</td></tr>:(srcFilter?filtered.filter(e=>e.source_id===Number(srcFilter)):filtered).map(e=><tr key={e.id}>
+      <tbody>{loading?<SkTbl r={5} c={7}/>:entries.length===0?<tr><td colSpan={7} style={{textAlign:'center',padding:20,color:'#9ca3af'}}>No entries yet</td></tr>:(srcFilter?filtered.filter(e=>e.source_id===Number(srcFilter)):filtered).map((e,idx)=><tr key={e.id||idx}>
         <td style={{whiteSpace:'nowrap'}}>{e.transaction_date}</td>
         <td><span className="pill pill-gray">{e.bank_audit_sources?.name||getSrcName(e.source_id)}</span></td>
         <td style={{fontWeight:600,color:'var(--sage)'}}>{curr(e.amount)}</td>
