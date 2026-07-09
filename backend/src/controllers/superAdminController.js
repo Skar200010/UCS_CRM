@@ -1,91 +1,63 @@
 import supabase from '../config/supabase.js';
+import { getUserNgoAccess } from '../models/userNgoAccessModel.js';
 
-export const getNgoDailyTargets = async (req, res) => {
+export const getNgoAdminTargets = async (req, res) => {
   try {
-    const { data: ngos, error } = await supabase
-      .from('ngos')
-      .select('id, name, daily_collection_target');
+    const { data: admins, error } = await supabase
+      .from('workers')
+      .select('id, name, login_id, daily_collection_target, ngo_id')
+      .or('role.eq.admin,department.eq.Ngo Admin,department.eq.ngo admin,department.eq.NGO Admin');
 
     if (error) return res.status(500).json({ message: error.message });
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const result = await Promise.all((ngos || []).map(async (ngo) => {
+    const result = await Promise.all((admins || []).map(async (admin) => {
+      const access = await getUserNgoAccess(admin.id);
+      const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
+
       let todayCollection = 0;
-      let monthlyCollection = 0;
 
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-      const monthStartStr = monthStart.toISOString();
+      if (ngoIds.length > 0) {
+        const { data: donors } = await supabase
+          .from('donor_profiles')
+          .select('id')
+          .in('ngo_id', ngoIds);
 
-      const { data: donors, error: donorErr } = await supabase
-        .from('donor_profiles')
-        .select('id')
-        .eq('ngo_id', ngo.id);
+        if (donors && donors.length > 0) {
+          const donorIds = donors.map(d => d.id);
+          const { data: assignments } = await supabase
+            .from('fro_assignments')
+            .select('id')
+            .in('donor_id', donorIds);
 
-      if (donorErr || !donors || donors.length === 0) {
-        return {
-          id: ngo.id,
-          name: ngo.name,
-          daily_target: ngo.daily_collection_target || 0,
-          today_collection: 0,
-          monthly_collection: 0,
-        };
-      }
+          if (assignments && assignments.length > 0) {
+            const assignmentIds = assignments.map(a => a.id);
+            const { data: logs } = await supabase
+              .from('fro_donor_logs')
+              .select('amount_collected, verified_at, created_at')
+              .in('assignment_id', assignmentIds)
+              .eq('disposition_detail', 'lead_done')
+              .eq('accounts_status', 'verified')
+              .gte('verified_at', today);
 
-      const donorIds = donors.map(d => d.id);
-
-      const { data: assignments, error: assignErr } = await supabase
-        .from('fro_assignments')
-        .select('id')
-        .in('donor_id', donorIds);
-
-      if (assignErr || !assignments || assignments.length === 0) {
-        return {
-          id: ngo.id,
-          name: ngo.name,
-          daily_target: ngo.daily_collection_target || 0,
-          today_collection: 0,
-          monthly_collection: 0,
-        };
-      }
-
-      const assignmentIds = assignments.map(a => a.id);
-
-      const { data: logs, error: logsErr } = await supabase
-        .from('fro_donor_logs')
-        .select('amount_collected, verified_at, created_at')
-        .in('assignment_id', assignmentIds)
-        .eq('disposition_detail', 'lead_done')
-        .eq('accounts_status', 'verified')
-        .gte('verified_at', monthStartStr);
-
-      if (logsErr) {
-        return {
-          id: ngo.id,
-          name: ngo.name,
-          daily_target: ngo.daily_collection_target || 0,
-          today_collection: 0,
-          monthly_collection: 0,
-        };
-      }
-
-      for (const log of (logs || [])) {
-        const amount = Number(log.amount_collected || 0);
-        monthlyCollection += amount;
-        const verifiedDate = (log.verified_at || log.created_at || '').slice(0, 10);
-        if (verifiedDate === today) {
-          todayCollection += amount;
+            for (const log of (logs || [])) {
+              const verifiedDate = (log.verified_at || log.created_at || '').slice(0, 10);
+              if (verifiedDate === today) {
+                todayCollection += Number(log.amount_collected || 0);
+              }
+            }
+          }
         }
       }
 
       return {
-        id: ngo.id,
-        name: ngo.name,
-        daily_target: ngo.daily_collection_target || 0,
+        id: admin.id,
+        name: admin.name,
+        login_id: admin.login_id,
+        daily_target: Number(admin.daily_collection_target) || 0,
         today_collection: todayCollection,
-        monthly_collection: monthlyCollection,
+        ngo_count: ngoIds.length,
       };
     }));
 
@@ -95,9 +67,9 @@ export const getNgoDailyTargets = async (req, res) => {
   }
 };
 
-export const setNgoDailyTarget = async (req, res) => {
+export const setNgoAdminTarget = async (req, res) => {
   try {
-    const { ngoId } = req.params;
+    const { workerId } = req.params;
     const { daily_target } = req.body;
 
     if (daily_target == null || daily_target < 0) {
@@ -105,9 +77,9 @@ export const setNgoDailyTarget = async (req, res) => {
     }
 
     const { error } = await supabase
-      .from('ngos')
+      .from('workers')
       .update({ daily_collection_target: daily_target })
-      .eq('id', ngoId);
+      .eq('id', workerId);
 
     if (error) return res.status(500).json({ message: error.message });
 
@@ -116,3 +88,5 @@ export const setNgoDailyTarget = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
+

@@ -415,11 +415,12 @@ export const getTargets = async (req, res) => {
 
 export const getDailyTarget = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
-    const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
-    if (ngoIds.length === 0) return res.json({ daily_target: 0 });
-    const { data: ngo } = await supabase.from('ngos').select('daily_collection_target').eq('id', ngoIds[0]).single();
-    return res.json({ daily_target: ngo ? Number(ngo.daily_collection_target) || 0 : 0 });
+    const { data: worker } = await supabase
+      .from('workers')
+      .select('daily_collection_target')
+      .eq('id', req.user.id)
+      .maybeSingle();
+    return res.json({ daily_target: worker ? Number(worker.daily_collection_target) || 0 : 0 });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
