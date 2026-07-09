@@ -13,39 +13,6 @@ const OCR_API = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL + '/ocr/parse'
   : '/api/ocr/parse';
 
-let puterLoaded = false;
-
-async function loadPuter() {
-  if (puterLoaded) return true;
-  if (window.puter) { puterLoaded = true; return true; }
-  try {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://js.puter.com/v2/';
-      s.async = true;
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
-    await new Promise(r => setTimeout(r, 500));
-    puterLoaded = true;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function recognizeWithPuter(base64Image) {
-  try {
-    const ok = await loadPuter();
-    if (!ok || !window.puter?.ai?.img2txt) return null;
-    const text = await window.puter.ai.img2txt(base64Image);
-    return text || null;
-  } catch {
-    return null;
-  }
-}
-
 function normalizeDateStr(day, monthText, year) {
   const m = MONTHS[monthText.slice(0, 3).toLowerCase()];
   if (!m) return null;
@@ -143,14 +110,6 @@ async function callBackendOcr(base64Image) {
 }
 
 export async function extractTransactionData(base64Image) {
-  const puterText = await recognizeWithPuter(base64Image);
-  if (puterText) {
-    const result = extractTransactionDataFromText(puterText);
-    if (result.upiTransactionId || result.amount || result.transactionDatetime || result.fromName) {
-      return result;
-    }
-  }
-
   const backendText = await callBackendOcr(base64Image);
   if (backendText) {
     const result = extractTransactionDataFromText(backendText);
