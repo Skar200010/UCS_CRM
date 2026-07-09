@@ -268,6 +268,21 @@ async function pollSingleAccount(account, sources, fromDate, includeSeen, onlySe
         const receivedAt = parsed.date || new Date().toISOString();
 
         const senderSource = detectSourceFromSender(emailFrom);
+        if (senderSource === 'Razorpay') {
+          await logImport({
+            email_message_id: messageId,
+            email_subject: emailSubject,
+            email_from: emailFrom,
+            received_at: receivedAt,
+            status: 'skipped',
+            error_message: 'Razorpay payment - ignored',
+            raw_snippet: emailText.slice(0, 500),
+            account_id: account.id,
+            account_name: account.name,
+          });
+          skipped++;
+          continue;
+        }
         const details = await extractPaymentDetails(emailText, emailSubject, emailFrom);
 
         if (details && details.confidence !== 'low' && details.amount != null) {
