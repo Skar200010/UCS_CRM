@@ -1,7 +1,7 @@
-
+﻿
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getDashboard, getFroLiveStatus, getAccountsLeads, getRecruiterLeads, getWorkers, getAttendance, getHolidays, getUsers, getNgoAdminTargets, setNgoAdminTarget } from '../api/endpoints'
+import { getDashboard, getFroLiveStatus, getAccountsLeads, getRecruiterLeads, getWorkers, getAttendance, getHolidays, getUsers, getNgoAdminTargets, setNgoAdminTarget, getLeaves, getAllTickets, getEvents } from '../api/endpoints'
 import { api } from '../api/auth'
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, RadialBarChart, RadialBar, LineChart, Line, CartesianGrid, Legend } from 'recharts'
 
@@ -18,7 +18,7 @@ const SLATE = '#4C7C8C'         // secondary accent
 const PRIMARY = '#1F332B'       // main text (green-black)
 const CORAL = RED_DEEP          // kept name so old references work
 
-/* fresh chart colors for Workers by Department bars */
+/* fresh chart colors for Volunteers by Department bars */
 const DEPT_COLORS = [
   '#22C55E', // green
   '#3B82F6', // blue
@@ -68,8 +68,8 @@ function exportToExcel(data, period) {
   rows.push([])
   rows.push(['KEY METRICS'])
   rows.push(['Total NGOs', stats.totalNgos || 0])
-  rows.push(['Total Workers', stats.totalWorkers || 0])
-  rows.push(['Active Workers', stats.activeWorkers || 0])
+rows.push(['Total Volunteers', stats.totalWorkers || 0])
+    rows.push(['Active Volunteers', stats.activeWorkers || 0])
   rows.push(['Attendance %', attendancePercent + '%'])
   rows.push([])
   rows.push(['ATTENDANCE STATUS'])
@@ -77,8 +77,8 @@ function exportToExcel(data, period) {
   rows.push(['Late', attendanceStatus.late || 0])
   rows.push(['Absent', attendanceStatus.absent || 0])
   rows.push([])
-  rows.push(['WORKERS BY DEPARTMENT'])
-  rows.push(['Department', 'Workers'])
+rows.push(['VOLUNTEERS BY DEPARTMENT'])
+    rows.push(['Department', 'Volunteers'])
   Object.entries(deptWorkers).forEach(([name, count]) => rows.push([name, count]))
   rows.push([])
   if (froAssignments.length > 0) {
@@ -87,7 +87,7 @@ function exportToExcel(data, period) {
     froAssignments.forEach(f => rows.push([f.name, (f.ngos || []).join(' | ')]))
   } else if (ngoUserCounts.length > 0) {
     rows.push(['NGO SUMMARY'])
-    rows.push(['NGO', 'Workers'])
+    rows.push(['NGO', 'Volunteers'])
     ngoUserCounts.forEach(n => rows.push([n.name, n.workers || 0]))
   }
 
@@ -425,7 +425,7 @@ function PanelSummaryModal({ panel, onClose, dashboardData }) {
   const labels = {
     accounts: { title: 'Accounts — Lead Verification', icon: 'receipt_long', color: MINT_DARK },
     fro: { title: 'FRO — Field Operations', icon: 'groups', color: MINT_DEEP },
-    hr: { title: 'HR — Employee Management', icon: 'badge', color: SLATE },
+    hr: { title: 'HR — Volunteer Management', icon: 'badge', color: SLATE },
     'ngo-admin': { title: 'NGO Admin — NGO Management', icon: 'corporate_fare', color: GOLD },
     'event-head': { title: 'Event Head — Events & Volunteers', icon: 'event', color: '#3B82F6' },
     recruiter: { title: 'Recruiter — Lead Pipeline', icon: 'person_search', color: GOLD },
@@ -474,7 +474,7 @@ function PanelSummaryModal({ panel, onClose, dashboardData }) {
                   <div className="ps-card" style={{ borderTop: `3px solid ${MINT_DARK}` }}>
                     <span className="ps-label">📋 Total FROs</span>
                     <span className="ps-value">{data.total ?? 0}</span>
-                    <span className="ps-sub">Registered workers</span>
+                    <span className="ps-sub">Registered volunteers</span>
                   </div>
                   <div className="ps-card" style={{ borderTop: `3px solid ${MINT_DEEP}` }}>
                     <span className="ps-label">🟢 Active</span>
@@ -497,7 +497,7 @@ function PanelSummaryModal({ panel, onClose, dashboardData }) {
                 <>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
                     <div className="ps-card" style={{ borderTop: `3px solid ${SLATE}`, flex: 1, minWidth: 100 }}>
-                      <span className="ps-label">👷 Total Workers</span>
+                      <span className="ps-label">👷 Total Volunteers</span>
                       <span className="ps-value">{data.totalWorkers ?? 0}</span>
                       <span className="ps-sub">All time</span>
                     </div>
@@ -1312,7 +1312,7 @@ function NgoQuickModal({ ngoName, onClose, froLiveData, froAssignments, ngoUserC
         <div className="nd-modal-head" style={{ borderColor: `${nc}40` }}>
           <span style={{ width: 10, height: 10, borderRadius: '50%', background: nc, flexShrink: 0 }} />
           <h3 className="nd-modal-title" style={{ color: nc }}>{ngoName}</h3>
-          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{workerCount?.workers || workerCount?.count || 0} workers</span>
+          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{workerCount?.workers || workerCount?.count || 0} volunteers</span>
           <button className="nd-modal-close" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
         </div>
         <div className="nd-modal-body">
@@ -1361,6 +1361,113 @@ function NgoQuickModal({ ngoName, onClose, froLiveData, froAssignments, ngoUserC
   )
 }
 
+/* ================= ACTION CENTER MODAL ================= */
+function ActionCenterModal({ type, onClose }) {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [q, setQ] = useState('')
+
+  useEffect(() => {
+    setLoading(true)
+    const fetchers = {
+      pendingLeaves: () => getLeaves(),
+      hrVerifiedTickets: () => getAllTickets(),
+      pendingTickets: () => getAllTickets(),
+      pendingAccountsLeads: () => getAccountsLeads(),
+      submittedEvents: () => getEvents(),
+      recruiterPipeline: () => getRecruiterLeads(),
+    }
+    const fetcher = fetchers[type]
+    if (!fetcher) { setLoading(false); return }
+    fetcher()
+      .then(d => {
+        let list = d?.data || d || []
+        if (!Array.isArray(list)) list = []
+        if (type === 'pendingLeaves') list = list.filter(l => (l.status || '').toLowerCase() === 'pending')
+        else if (type === 'hrVerifiedTickets') list = list.filter(t => (t.status || '').toLowerCase() === 'hr_verified')
+        else if (type === 'pendingTickets') list = list.filter(t => (t.status || '').toLowerCase() === 'pending')
+        else if (type === 'pendingAccountsLeads') list = list.filter(l => (l.accounts_status || '').toLowerCase() === 'pending')
+        else if (type === 'submittedEvents') list = list.filter(e => (e.status || '').toLowerCase() === 'submitted')
+        else if (type === 'recruiterPipeline') list = list.filter(l => {
+          const s = (l.status || '').toLowerCase()
+          return s === 'hold' || s === 'followed_up' || s === 'call_back' || s === 'scheduled'
+        })
+        setItems(list)
+      })
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false))
+  }, [type])
+
+  const filtered = q.trim()
+    ? items.filter(r => {
+        const name = (r.worker_name || r.name || r.worker?.name || r.title || r.donor_name || r.event_title || r.mobile || '').toLowerCase()
+        return name.includes(q.trim().toLowerCase())
+      })
+    : items
+
+  const meta = {
+    pendingLeaves: { title: 'Pending Leave Requests', icon: 'event_busy', color: '#F59E0B', fields: ['worker_name', 'from_date', 'to_date', 'reason'] },
+    hrVerifiedTickets: { title: 'Tickets Ready to Approve', icon: 'verified', color: '#3B82F6', fields: ['worker_name', 'date', 'correct_status'] },
+    pendingTickets: { title: 'Pending Attendance Tickets', icon: 'confirmation_number', color: '#8B5CF6', fields: ['worker_name', 'date', 'correct_status'] },
+    pendingAccountsLeads: { title: 'Unverified Donor Leads', icon: 'receipt_long', color: '#EC4899', fields: ['donor_name', 'donor_mobile', 'amount'] },
+    submittedEvents: { title: 'Events Awaiting Approval', icon: 'event_upcoming', color: '#10B981', fields: ['title', 'event_date', 'event_time'] },
+    recruiterPipeline: { title: 'Recruiter Pipeline Leads', icon: 'person_search', color: '#0EA5E9', fields: ['name', 'phone', 'status'] },
+  }
+  const m = meta[type] || { title: 'Items', icon: 'list', color: '#64748b', fields: [] }
+
+  return (
+    <div className="nd-modal-overlay" onClick={onClose}>
+      <div className="nd-modal fro-modal" onClick={e => e.stopPropagation()}>
+        <div className="nd-modal-head" style={{ borderColor: `${m.color}50` }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 20, color: m.color }}>{m.icon}</span>
+          <span className="nd-modal-badge" style={{ background: `${m.color}18`, color: m.color }}>{items.length}</span>
+          <h3 className="nd-modal-title">{m.title}</h3>
+          <button className="nd-modal-close" onClick={onClose}><span className="material-symbols-outlined">close</span></button>
+        </div>
+        <div className="nd-modal-body" style={{ padding: 0 }}>
+          <div className="nd-modal-search" style={{ margin: 12 }}>
+            <input className="nd-modal-search-input" placeholder="Search..." value={q} onChange={e => setQ(e.target.value)} autoFocus />
+            {q && <button className="nd-modal-search-clear" onClick={() => setQ('')}><span className="material-symbols-outlined">close</span></button>}
+          </div>
+          {loading ? (
+            <p className="nd-muted" style={{ padding: 16 }}>Loading...</p>
+          ) : filtered.length === 0 ? (
+            <p className="nd-muted" style={{ padding: 16 }}>{q ? 'No matching items.' : 'No pending items.'}</p>
+          ) : (
+            <div className="fro-table-wrap">
+              <table className="fro-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    {m.fields.map(f => <th key={f}>{f.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r, i) => (
+                    <tr key={r.id || r.log_id || i}>
+                      <td>{i + 1}</td>
+                      {m.fields.map(f => (
+                        <td key={f}>
+                          {f.includes('amount') || f.includes('salary') ? `₹${Number(r[f] || 0).toLocaleString('en-IN')}` :
+                           f.includes('date') ? (r[f] || '-').toString().slice(0, 10) :
+                           r[f] || '-'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <div className="fro-live-footer" style={{ padding: '10px 16px', justifyContent: 'flex-end' }}>
+          <span style={{ fontSize: 11, color: '#94a3b8' }}>{filtered.length} item{filtered.length !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ================= CREATE NOTICE MODAL ================= */
 export default function Dashboard() {
   const [period, setPeriod] = useState('all')
@@ -1387,6 +1494,18 @@ export default function Dashboard() {
   const [editTargetValue, setEditTargetValue] = useState('')
   const [targetsLoading, setTargetsLoading] = useState(false)
   const [savingTarget, setSavingTarget] = useState(false)
+  const [performerPeriod, setPerformerPeriod] = useState('all')
+  const [performerFros, setPerformerFros] = useState([])
+  const [performerRecruiters, setPerformerRecruiters] = useState([])
+  const [actionCenter, setActionCenter] = useState({
+    pendingLeaves: 0,
+    hrVerifiedTickets: 0,
+    pendingTickets: 0,
+    pendingAccountsLeads: 0,
+    submittedEvents: 0,
+    recruiterPipeline: 0,
+  })
+  const [acModal, setAcModal] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -1444,6 +1563,54 @@ export default function Dashboard() {
     return () => clearInterval(t)
   }, [fetchFroLiveInline])
 
+  /* Top Performers — independent period fetch */
+  useEffect(() => {
+    getDashboard(performerPeriod).then(d => {
+      setPerformerFros(d?.topFros || [])
+      setPerformerRecruiters(d?.topRecruiters || [])
+    }).catch(() => {})
+  }, [performerPeriod])
+
+  /* Action Center — pending items across all panels */
+  const fetchActionCenter = useCallback(() => {
+    Promise.allSettled([
+      getLeaves().catch(() => []),
+      getAllTickets().catch(() => []),
+      getAccountsLeads().catch(() => []),
+      getEvents().catch(() => []),
+      getRecruiterLeads().catch(() => []),
+    ]).then(([leavesRes, ticketsRes, accLeadsRes, eventsRes, recLeadsRes]) => {
+      const leaves = leavesRes.status === 'fulfilled' ? (leavesRes.value?.data || leavesRes.value || []) : []
+      const tickets = ticketsRes.status === 'fulfilled' ? (ticketsRes.value?.data || ticketsRes.value || []) : []
+      const accLeads = accLeadsRes.status === 'fulfilled' ? (accLeadsRes.value?.data || accLeadsRes.value || []) : []
+      const events = eventsRes.status === 'fulfilled' ? (eventsRes.value?.data || eventsRes.value || []) : []
+      const recLeads = recLeadsRes.status === 'fulfilled' ? (recLeadsRes.value?.data || recLeadsRes.value || []) : []
+      const pendingLeaves = Array.isArray(leaves) ? leaves.filter(l => (l.status || '').toLowerCase() === 'pending').length : 0
+      const pendingTickets = Array.isArray(tickets) ? tickets.filter(t => (t.status || '').toLowerCase() === 'pending').length : 0
+      const hrVerifiedTickets = Array.isArray(tickets) ? tickets.filter(t => (t.status || '').toLowerCase() === 'hr_verified').length : 0
+      const pendingAccLeads = Array.isArray(accLeads) ? accLeads.filter(l => (l.accounts_status || '').toLowerCase() === 'pending').length : 0
+      const submittedEvents = Array.isArray(events) ? events.filter(e => (e.status || '').toLowerCase() === 'submitted').length : 0
+      const pipelineLeads = Array.isArray(recLeads) ? recLeads.filter(l => {
+        const s = (l.status || '').toLowerCase()
+        return s === 'hold' || s === 'followed_up' || s === 'call_back' || s === 'scheduled'
+      }).length : 0
+      setActionCenter({
+        pendingLeaves,
+        hrVerifiedTickets,
+        pendingTickets,
+        pendingAccountsLeads: pendingAccLeads,
+        submittedEvents,
+        recruiterPipeline: pipelineLeads,
+      })
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetchActionCenter()
+    const t = setInterval(fetchActionCenter, 30000)
+    return () => clearInterval(t)
+  }, [fetchActionCenter])
+
   if (err) return <div className="sa-err-card">Error: {err}</div>
   if (!data) return (
     <div className="dash-page" style={{ maxWidth: 1280, margin: '0 auto' }}>
@@ -1494,10 +1661,7 @@ export default function Dashboard() {
 
   /* -------- metric cards -------- */
   const metricCards = [
-    { label: 'Active Workers', value: stats.activeWorkers || 0, icon: 'bolt', changeKey: 'reach', color: CARD_COLORS[0] },
-
     { label: 'Total Donation', value: totalDonorsAmount, icon: 'payments', isCurrency: true, color: CARD_COLORS[2], changeKey: 'totalDonors' },
-    { label: 'Pending Verif.', value: pendingVerifications, icon: 'hourglass_bottom', changeKey: 'pendingVerif', color: CARD_COLORS[4] },
     { label: 'Bank Audits', value: bankAudits, icon: 'account_balance', changeKey: 'bankAudits', color: CARD_COLORS[5] },
   ]
 
@@ -1506,7 +1670,7 @@ export default function Dashboard() {
     super_admin: 'Super Admin', admin: 'Admin', hoadmin: 'HO Admin',
     inter: 'Intermediate', team_lead: 'Team Lead', hr: 'HR',
     recruiter: 'Recruiter', telecaller: 'Telecaller', fro: 'FRO',
-    accounts: 'Accounts', leads: 'Leads', worker: 'Worker',
+    accounts: 'Accounts', leads: 'Leads', worker: 'Volunteer',
     ngo_admin: 'NGO Admin',
   }
   const HIDE_DEPTS = ['hr-recruitment', 'hr recruitment', 'hr_recruitment', 'hrrecruitment']
@@ -1541,7 +1705,7 @@ export default function Dashboard() {
     const key = label.toLowerCase()
     const seg = attSegments.find(s => s.label === label)
     setModal({
-      title: `${label} Workers`,
+      title: `${label} Volunteers`,
       color: seg?.text || PRIMARY,
       names: detSrc?.[key] || [],
     })
@@ -1549,7 +1713,7 @@ export default function Dashboard() {
 
   function openAbsentees() {
     setModal({
-      title: 'Absent Workers',
+      title: 'Absent Volunteers',
       color: RED_DEEP,
       names: detSrc?.absent || [],
     })
@@ -1930,50 +2094,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ============ NGO TOPIC CARDS (BSCT, AFLF, MAN) ============ */}
-      {ngoUserCounts.filter(n => ['bsct', 'aflf', 'man'].some(pre => n.name.toLowerCase().startsWith(pre))).length > 0 && (
-        <div className="nd-appear" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20, animationDelay: '0.5s' }}>
-          {['bsct', 'aflf', 'man'].map(prefix => {
-            const n = ngoUserCounts.find(x => x.name.toLowerCase().startsWith(prefix))
-            if (!n) return null
-            const nc = ngoColor(n.name)
-            const ngoFros = froLiveData.filter(f => f.workers?.ngo_name === n.name)
-            const totalCollection = ngoFros.reduce((s, f) => s + Number(f.today_collection || 0), 0)
-            const totalCalls = ngoFros.reduce((s, f) => s + Number(f.today_calls || 0), 0)
-            const totalDataUsed = ngoFros.reduce((s, f) => s + Number(f.data_used || 0), 0)
-            const assignedFros = froAssignments.filter(f => (f.ngos || []).includes(n.name))
-            return (
-              <div key={n.name} className="nd-card" style={{ padding: '12px 14px', borderLeft: `4px solid ${nc}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: nc, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: nc }}>{n.name}</span>
-                  <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginLeft: 'auto' }}>{n.workers || n.count || 0} workers</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div style={{ padding: '8px 10px', borderRadius: 8, background: '#E8F5E9' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Today's Collection</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: MINT_DEEP }}>₹{totalCollection.toLocaleString('en-IN')}</div>
-                  </div>
-                  <div style={{ padding: '8px 10px', borderRadius: 8, background: '#E3F2FD' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Today's Calls</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#1E88E5' }}>{totalCalls}</div>
-                    <div style={{ fontSize: 8, color: '#94a3b8', marginTop: 1 }}>{totalCalls} people called today</div>
-                  </div>
-                  <div style={{ padding: '8px 10px', borderRadius: 8, background: '#F3E5F5' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Today's Data Used</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#8E24AA' }}>{totalDataUsed}</div>
-                  </div>
-                  <div style={{ padding: '8px 10px', borderRadius: 8, background: '#FFF8E1' }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total FROs</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: '#F57C00' }}>{assignedFros.length}</div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
       {/* ============ QUICK ACTION BUTTONS ============ */}
       <div className="nd-appear" style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', animationDelay: '0.05s' }}>
         <button
@@ -2012,6 +2132,7 @@ export default function Dashboard() {
         </button>
       </div>
 
+
       {/* ============ LOW ATTENDANCE ALERT (clickable, slim) ============ */}
       {attendancePercent < 60 && (
         <div
@@ -2036,7 +2157,7 @@ export default function Dashboard() {
               Attendance is low — {attendancePercent}%
             </strong>
             <span style={{ fontSize: 11.5, color: '#64748b' }}>
-              {attAbsent > 0 ? `${attAbsent} worker(s) absent` : 'Attendance dropped below 60% for the selected period.'}
+              {attAbsent > 0 ? `${attAbsent} volunteer(s) absent` : 'Attendance dropped below 60% for the selected period.'}
             </span>
           </div>
           <button
@@ -2052,8 +2173,163 @@ export default function Dashboard() {
         </div>
       )}
 
+
+      {/* ============ NGO TOPIC CARDS (BSCT, AFLF, MAN) ============ */}
+      {ngoUserCounts.filter(n => ['bsct', 'aflf', 'man'].some(pre => n.name.toLowerCase().startsWith(pre))).length > 0 && (
+        <div className="nd-appear" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20, animationDelay: '0.5s' }}>
+          {['bsct', 'aflf', 'man'].map(prefix => {
+            const n = ngoUserCounts.find(x => x.name.toLowerCase().startsWith(prefix))
+            if (!n) return null
+            const nc = ngoColor(n.name)
+            const ngoFros = froLiveData.filter(f => f.workers?.ngo_name === n.name)
+            const totalCollection = ngoFros.reduce((s, f) => s + Number(f.today_collection || 0), 0)
+            const totalCalls = ngoFros.reduce((s, f) => s + Number(f.today_calls || 0), 0)
+            const totalDataUsed = ngoFros.reduce((s, f) => s + Number(f.data_used || 0), 0)
+            const assignedFros = froAssignments.filter(f => (f.ngos || []).includes(n.name))
+            return (
+              <div key={n.name} className="nd-card" style={{ padding: '12px 14px', borderLeft: `4px solid ${nc}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: nc, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: nc }}>{n.name}</span>
+                  <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, marginLeft: 'auto' }}>{n.workers || n.count || 0} volunteers</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div style={{ padding: '8px 10px', borderRadius: 8, background: '#E8F5E9' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Today's Collection</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: MINT_DEEP }}>₹{totalCollection.toLocaleString('en-IN')}</div>
+                  </div>
+                  <div style={{ padding: '8px 10px', borderRadius: 8, background: '#E3F2FD' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Today's Calls</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#1E88E5' }}>{totalCalls}</div>
+                    <div style={{ fontSize: 8, color: '#94a3b8', marginTop: 1 }}>{totalCalls} people called today</div>
+                  </div>
+                  <div style={{ padding: '8px 10px', borderRadius: 8, background: '#F3E5F5' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Today's Data Used</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#8E24AA' }}>{totalDataUsed}</div>
+                  </div>
+                  <div style={{ padding: '8px 10px', borderRadius: 8, background: '#FFF8E1' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total FROs</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: '#F57C00' }}>{assignedFros.length}</div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+
+      {/* ============ ACTION CENTER — PENDING ITEMS ============ */}
+      <div className="nd-card nd-appear" style={{ animationDelay: '0.08s', marginBottom: 20, padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#EF4444' }}>notifications_active</span>
+          <h3 className="nd-section-title" style={{ margin: 0, color: '#EF4444' }}>Action Center</h3>
+          <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
+            Auto-refreshes every 30s
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10 }}>
+          {[
+            {
+              label: 'Pending Leaves',
+              count: actionCenter.pendingLeaves,
+              icon: 'event_busy',
+              color: '#F59E0B',
+              bg: '#FFFBEB',
+              type: 'pendingLeaves',
+            },
+            {
+              label: 'Tickets to Approve',
+              count: actionCenter.hrVerifiedTickets,
+              icon: 'verified',
+              color: '#3B82F6',
+              bg: '#EFF6FF',
+              type: 'hrVerifiedTickets',
+            },
+            {
+              label: 'Pending Tickets',
+              count: actionCenter.pendingTickets,
+              icon: 'confirmation_number',
+              color: '#8B5CF6',
+              bg: '#F5F3FF',
+              type: 'pendingTickets',
+            },
+            {
+              label: 'Unverified Leads',
+              count: actionCenter.pendingAccountsLeads,
+              icon: 'receipt_long',
+              color: '#EC4899',
+              bg: '#FDF2F8',
+              type: 'pendingAccountsLeads',
+            },
+            {
+              label: 'Events to Approve',
+              count: actionCenter.submittedEvents,
+              icon: 'event_upcoming',
+              color: '#10B981',
+              bg: '#ECFDF5',
+              type: 'submittedEvents',
+            },
+            {
+              label: 'Recruiter Pipeline',
+              count: actionCenter.recruiterPipeline,
+              icon: 'person_search',
+              color: '#0EA5E9',
+              bg: '#F0F9FF',
+              type: 'recruiterPipeline',
+            },
+          ].map(card => {
+            const hasItems = card.count > 0
+            return (
+              <div
+                key={card.label}
+                onClick={() => setAcModal(card.type)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px', borderRadius: 12,
+                  background: hasItems ? card.bg : '#F8FAFC',
+                  border: `1px solid ${hasItems ? card.color + '30' : '#E2E8F0'}`,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  opacity: hasItems ? 1 : 0.6,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 4px 12px ${card.color}20` }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}
+              >
+                <div style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  background: hasItems ? card.color + '18' : '#F1F5F9',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 17, color: hasItems ? card.color : '#94a3b8' }}>{card.icon}</span>
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.4 }}>{card.label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: hasItems ? card.color : '#CBD5E1', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{card.count}</div>
+                </div>
+                {hasItems && (
+                  <span style={{
+                    width: 7, height: 7, borderRadius: '50%',
+                    background: card.color, flexShrink: 0,
+                    animation: 'acPulse 2s ease-in-out infinite',
+                  }} />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes acPulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.4); }
+        }
+      `}</style>
+
+
       {/* ============ METRIC CARDS ============ */}
-      <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
         {metricCards.map((card, i) => {
           const kpiStages = [
             { label: 'Active', value: Math.round((card.value || 0) * 0.8), color: MINT },
@@ -2095,32 +2371,33 @@ export default function Dashboard() {
         })}
       </div>
 
+
       {/* ============ PANEL LINKS — uniform mint cards ============ */}
       <div className="panel-link-grid">
         <div className="panel-link-card" style={{ borderLeftColor: '#8B5CF6', cursor: 'pointer' }} onClick={() => setPanelModal('accounts')}>
           <span className="material-symbols-outlined" style={{ background: '#F5F3FF', color: '#8B5CF6' }}>receipt_long</span>
           <span className="panel-link-label" style={{ color: '#8B5CF6' }}>Accounts</span>
-          <span className="panel-link-sub">{allUserList.filter(u => u.role === 'accounts').length || 0} workers</span>
+          <span className="panel-link-sub">{allUserList.filter(u => u.role === 'accounts').length || 0} volunteers</span>
         </div>
         <div className="panel-link-card" style={{ borderLeftColor: '#EC4899', cursor: 'pointer' }} onClick={() => setPanelModal('fro')}>
           <span className="material-symbols-outlined" style={{ background: '#FDF2F8', color: '#EC4899' }}>groups</span>
           <span className="panel-link-label" style={{ color: '#EC4899' }}>FRO</span>
-          <span className="panel-link-sub">{allUserList.filter(u => u.role === 'fro').length || froLiveData.length} workers</span>
+          <span className="panel-link-sub">{allUserList.filter(u => u.role === 'fro').length || froLiveData.length} volunteers</span>
         </div>
         <div className="panel-link-card" style={{ borderLeftColor: '#3B82F6', cursor: 'pointer' }} onClick={() => setPanelModal('hr')}>
           <span className="material-symbols-outlined" style={{ background: '#EFF6FF', color: '#3B82F6' }}>badge</span>
           <span className="panel-link-label" style={{ color: '#3B82F6' }}>HR</span>
-          <span className="panel-link-sub">{allUserList.filter(u => u.role === 'hr' || u.role === 'hoadmin').length || 0} workers</span>
+          <span className="panel-link-sub">{allUserList.filter(u => u.role === 'hr' || u.role === 'hoadmin').length || 0} volunteers</span>
         </div>
-        <div className="panel-link-card" style={{ borderLeftColor: '#F59E0B', cursor: 'pointer' }} onClick={() => setPanelModal('ngo-admin')}>
-          <span className="material-symbols-outlined" style={{ background: '#FFFBEB', color: '#F59E0B' }}>corporate_fare</span>
-          <span className="panel-link-label" style={{ color: '#F59E0B' }}>NGO Admin</span>
-          <span className="panel-link-sub">{allUserList.filter(u => u.role === 'admin' || u.role === 'ngo_admin').length || 0} workers</span>
+        <div className="panel-link-card" style={{ borderLeftColor: '#F59E0B', cursor: 'pointer' }} onClick={() => setPanelModal('event-head')}>
+          <span className="material-symbols-outlined" style={{ background: '#FFFBEB', color: '#F59E0B' }}>event</span>
+          <span className="panel-link-label" style={{ color: '#F59E0B' }}>Events</span>
+          <span className="panel-link-sub">{upcomingEvents.length || 0} upcoming</span>
         </div>
         <div className="panel-link-card" style={{ borderLeftColor: '#10B981', cursor: 'pointer' }} onClick={() => setPanelModal('recruiter')}>
           <span className="material-symbols-outlined" style={{ background: '#ECFDF5', color: '#10B981' }}>person_search</span>
           <span className="panel-link-label" style={{ color: '#10B981' }}>Recruiter</span>
-          <span className="panel-link-sub">{allUserList.filter(u => u.role === 'recruiter').length || 0} workers</span>
+          <span className="panel-link-sub">{allUserList.filter(u => u.role === 'recruiter').length || 0} volunteers</span>
         </div>
       </div>
 
@@ -2358,6 +2635,7 @@ export default function Dashboard() {
         </div>
       )}
 
+
       {/* ============ ACCOUNTS SUMMARY ============ */}
       {accountsSummary.pending !== undefined && (
         <div className="nd-card nd-appear" style={{ animationDelay: '0.2s', marginBottom: 20 }}>
@@ -2395,6 +2673,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
 
       {/* ============ REVENUE TREND CHART ============ */}
       <div className="nd-card nd-appear" style={{ animationDelay: '0.22s', marginBottom: 20, padding: '18px 20px' }}>
@@ -2436,6 +2715,7 @@ export default function Dashboard() {
           )
         })()}
       </div>
+
 
       {/* ============ 3-COL GRID: Monthly Revenue + Top Performers + Recent Activity ============ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 20 }}>
@@ -2507,23 +2787,46 @@ export default function Dashboard() {
 
         {/* ---- TOP PERFORMERS ---- */}
         <div className="nd-card nd-appear" style={{ animationDelay: '0.33s', gridColumn: 'span 1', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#F59E0B' }}>emoji_events</span>
             <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>Top Performers</h3>
           </div>
+          <div style={{ display: 'flex', gap: 3, marginBottom: 14, background: '#F1F5F2', borderRadius: 10, padding: 3 }}>
+            {[
+              { key: 'today', label: 'Today' },
+              { key: '7d', label: 'Weekly' },
+              { key: '30d', label: 'Monthly' },
+              { key: '1y', label: 'Yearly' },
+              { key: 'all', label: 'All Time' },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setPerformerPeriod(opt.key)}
+                style={{
+                  flex: 1, padding: '5px 0', borderRadius: 8, border: 'none',
+                  background: performerPeriod === opt.key ? '#fff' : 'transparent',
+                  boxShadow: performerPeriod === opt.key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                  fontSize: 10, fontWeight: 700, color: performerPeriod === opt.key ? '#F59E0B' : '#94a3b8',
+                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {topFros.length === 0 && topRecruiters.length === 0 ? (
+            {performerFros.length === 0 && performerRecruiters.length === 0 ? (
               <p className="nd-muted">No performer data yet</p>
             ) : (
               <>
-                {topFros.length > 0 && (
+                {performerFros.length > 0 && (
                   <div>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#EC4899', textTransform: 'uppercase', letterSpacing: 0.6 }}>Top FROs by Collection</span>
                     <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {topFros.map((f, i) => {
+                      {performerFros.map((f, i) => {
                         const colors = ['#F59E0B', '#14B8A6', '#3B82F6', '#8B5CF6', '#64748b']
                         const c = colors[i] || '#94a3b8'
-                        const maxAmt = Math.max(...topFros.map(x => x.totalCollection), 1)
+                        const maxAmt = Math.max(...performerFros.map(x => x.totalCollection), 1)
                         const pct = (f.totalCollection / maxAmt) * 100
                         return (
                           <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2545,14 +2848,14 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-                {topRecruiters.length > 0 && (
-                  <div style={{ marginTop: topFros.length > 0 ? 12 : 0, paddingTop: topFros.length > 0 ? 12 : 0, borderTop: topFros.length > 0 ? '1px solid #DEE9E1' : 'none' }}>
+                {performerRecruiters.length > 0 && (
+                  <div style={{ marginTop: performerFros.length > 0 ? 12 : 0, paddingTop: performerFros.length > 0 ? 12 : 0, borderTop: performerFros.length > 0 ? '1px solid #DEE9E1' : 'none' }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: '#3B82F6', textTransform: 'uppercase', letterSpacing: 0.6 }}>Top Recruiters by Leads</span>
                     <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {topRecruiters.map((r, i) => {
+                      {performerRecruiters.map((r, i) => {
                         const colors = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EC4899']
                         const c = colors[i] || '#94a3b8'
-                        const maxLead = Math.max(...topRecruiters.map(x => x.leadCount), 1)
+                        const maxLead = Math.max(...performerRecruiters.map(x => x.leadCount), 1)
                         const pct = (r.leadCount / maxLead) * 100
                         return (
                           <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2642,6 +2945,7 @@ export default function Dashboard() {
         </div>
       </div>
 
+
       {/* ---- UPCOMING EVENTS — scrollable, shows all ---- */}
       <div className="nd-card nd-appear" style={{ animationDelay: '0.9s', marginTop: 17, marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
@@ -2714,6 +3018,7 @@ export default function Dashboard() {
         )}
       </div>
 
+
       {/* ============ TOTAL SALARY PAYABLE ============ */}
       {totalSalaryPayable > 0 && (
         <div className="nd-card nd-appear" style={{ padding: '12px 14px', borderLeft: '4px solid #059669', animationDelay: '0.16s', marginTop: 12, marginBottom: 20, cursor: 'pointer' }}>
@@ -2728,12 +3033,28 @@ export default function Dashboard() {
               const wc = stats.totalWorkers || 0
               const avg = wc > 0 ? Math.round(totalSalaryPayable / wc) : 0
               return avg > 0 ? (
-                <span style={{ fontSize: 10, color: '#64748b', background: '#F1F5F2', borderRadius: 99, padding: '2px 8px', fontWeight: 600 }}>Avg ₹{avg.toLocaleString('en-IN')}/worker</span>
+                <span style={{ fontSize: 10, color: '#64748b', background: '#F1F5F2', borderRadius: 99, padding: '2px 8px', fontWeight: 600 }}>Avg ₹{avg.toLocaleString('en-IN')}/volunteer</span>
               ) : null
             })()}
           </div>
         </div>
       )}
+
+
+      {/* ============ MAIN GRID ============ */}
+      <div className="dash-grid">
+        <div className="dash-grid-main">
+
+        </div>
+
+        <div className="dash-grid-side">
+
+    
+
+        </div>
+      </div>
+
+
 
       {/* ============ NAME LIST MODAL ============ */}
       {modal && (
@@ -2802,7 +3123,7 @@ export default function Dashboard() {
         />
       )}
 
-      {/* ============ DEPARTMENT WORKER MODAL ============ */}
+      {/* ============ DEPARTMENT VOLUNTEER MODAL ============ */}
       {deptModal && (
         <NameListModal
           title={deptModal.title}
@@ -2816,11 +3137,14 @@ export default function Dashboard() {
       {selectedFro && <FroDetailModal fro={selectedFro} onClose={() => setSelectedFro(null)} onShowDeep={() => { setDeepFro(selectedFro); setSelectedFro(null) }} />}
       {deepFro && <FroDeepDetailModal fro={deepFro} onClose={() => setDeepFro(null)} />}
 
+      {/* ============ ACTION CENTER MODAL ============ */}
+      {acModal && (
+        <ActionCenterModal type={acModal} onClose={() => setAcModal(null)} />
+      )}
+
     </div>
   )
 }
-
-
 
 
 
