@@ -50,17 +50,16 @@ function buildExperienceLetterHTML(w, joiningDate, lastWorkingDate, hrNameText, 
 <div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:700;color:#082F5A;letter-spacing:2px;line-height:1.1">BEING SEVAK CHARITABLE TRUST</div></div>
 </div>
 <div style="height:2px;background:#0B73C4;margin-bottom:12px"></div>
-<div style="text-align:center;font-size:14px;font-weight:700;color:#082F5A;margin:0 0 8px 0;text-transform:uppercase">Experience Letter</div>
-${subjectText ? `<div style="text-align:center;font-size:12px;font-weight:600;color:#082F5A;margin:0 0 6px 0">Designation: ${subjectText}</div>` : ''}
+<div style="text-align:center;font-size:14px;font-weight:700;color:#082F5A;margin:0 0 8px 0;text-transform:uppercase">EXPERIENCE LETTER</div>
 <div style="margin-bottom:6px"><strong>TO WHOM IT MAY CONCERN</strong></div>
 <div style="text-align:justify">
 <p style="margin:0 0 6px 0">This is to certify that <strong>${w.name}</strong> was employed with <strong>Being Sevak Charitable Trust</strong> from <strong>${joiningDate}</strong> to <strong>${lastWorkingDate}</strong> as a <strong>${r}</strong>.</p>
-<p style="margin:0 0 6px 0">During the tenure with our organization, <strong>${w.name}</strong> performed the assigned responsibilities with dedication and professionalism. The role involved managing day-to-day tasks, coordinating with clients and team members, preparing necessary documentation, and supporting organizational operations related to the assigned position. <strong>${w.name}</strong> consistently demonstrated sincerity, a positive attitude, and a commitment to delivering quality work.</p>
-<p style="margin:0 0 6px 0">Throughout the period of employment, <strong>${w.name}</strong> maintained good professional conduct, worked effectively as a team member, and carried out the assigned responsibilities to our satisfaction.</p>
-<p style="margin:0 0 6px 0">We appreciate the contributions made by <strong>${w.name}</strong> to <strong>Being Sevak Charitable Trust</strong> and thank them for their services. We wish them every success in their future professional endeavors.</p>
+<p style="margin:0 0 6px 0">During the tenure with our organization, they performed the assigned responsibilities with dedication and professionalism. The role involved managing day-to-day tasks, coordinating with clients and team members, preparing necessary documentation, and supporting organizational operations related to the assigned position. They consistently demonstrated sincerity, a positive attitude, and a commitment to delivering quality work.</p>
+<p style="margin:0 0 6px 0">Throughout the period of employment, they maintained good professional conduct, worked effectively as a team member, and carried out the assigned responsibilities to our satisfaction.</p>
+<p style="margin:0 0 6px 0">We appreciate the contributions made to Being Sevak Charitable Trust and thank them for their services. We wish them every success in their future professional endeavors.</p>
 <p style="margin:0 0 6px 0">Should you require any further information, please feel free to contact us.</p>
 </div>
-<div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>Authorized Signatory</strong><br /><strong>Contact No.:</strong> +91 8879035035<br /><strong>Email:</strong> being.sevak@gmail.com<br /><br /><strong>Company Seal &amp; Signature</strong><br /><strong>Being Sevak Charitable Trust</strong></p></div>
+<div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>Authorized Signatory</strong><br />Contact No.: +91 8879035035<br />Email: being.sevak@gmail.com</p><p style="margin:8px 0 0 0"><strong>Company Seal &amp; Signature</strong><br /><strong>Being Sevak Charitable Trust</strong></p></div>
 <div style="margin-top:14px;padding-top:4px"><div style="height:2px;background:#0B73C4;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> 506, Sanjar Enclave, Bhadran Nagar, Kandivali (West), Mumbai, Maharashtra 400067.</div></div>
 </div>`;
 }
