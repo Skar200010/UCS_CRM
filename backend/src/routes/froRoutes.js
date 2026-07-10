@@ -26,6 +26,7 @@ import {
   getDonorHistory,
   getFullDonorHistory,
   getRejectedLeads,
+  searchDonors,
   updateLiveStatus,
   getLiveStatuses,
 } from '../controllers/froController.js';
@@ -86,6 +87,7 @@ router.get('/lead-stats', getLeadStats);
 router.get('/monthly-donors', getMonthlyDonors);
 router.get('/donors/:id/history', getDonorHistory);
 router.get('/donors/:id/full-history', getFullDonorHistory);
+router.get('/search-donors', searchDonors);
 
 router.get('/suspense', listFroSuspense);
 router.get('/suspense/search-dispositions', searchFroDispositions);

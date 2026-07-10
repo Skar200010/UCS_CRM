@@ -2007,7 +2007,236 @@ export const resolveDataRequest = async (req, res) => {
       .eq('id', requestId);
 
     if (error) throw error;
-    return res.json({ message: 'Request resolved successfully' });
+    return res.json(data);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const CONNECTED_DISPOSITIONS = ['contacted', 'lead_done', 'donation_collected', 'follow_up', 'scheduled', 'callback', 'visit_donate', 'promise_to_pay', 'payment_pending', 'already_donated', 'language_barrier', 'transferred_senior', 'query_complaint', 'receipt_request'];
+const NOT_CONNECTED_DISPOSITIONS = ['busy', 'ringing', 'unreachable', 'switched_off', 'wrong_number', 'invalid', 'invalid_number', 'rejected'];
+
+export const masterSearch = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length < 2) return res.json({ donors: [], fros: [], stations: [] });
+
+    const term = `%${q.trim()}%`;
+    const ngoIds = await getUserNgoIds(req.user);
+    const ngoFilter = ngoIds.length > 0 ? ngoIds : null;
+
+    const [donorsRes, frosRes, stationsRes] = await Promise.all([
+      // Search donors
+      (async () => {
+        let query = supabase
+          .from('donor_profiles')
+          .select('id, name, mobile_number, city, amount, total_amount, donation_count, pan_number, email, address_1, birth_date, project_supported, last_donation_date')
+          .or(`name.ilike.${term},mobile_number.ilike.${term},pan_number.ilike.${term},city.ilike.${term}`)
+          .limit(15);
+        if (ngoFilter) {
+          const { data: ngoDonors } = await supabase
+            .from('fro_assignments')
+            .select('donor_id')
+            .in('ngo_id', ngoFilter)
+            .not('status', 'eq', 'reassigned');
+          const ids = [...new Set((ngoDonors || []).map(d => d.donor_id).filter(Boolean))];
+          if (ids.length > 0) query = query.in('id', ids);
+          else return [];
+        }
+        const { data } = await query;
+        return data || [];
+      })(),
+      // Search FRO workers
+      (async () => {
+        let query = supabase
+          .from('workers')
+          .select('id, name, login_id, ngo_id, is_active, created_at')
+          .eq('department', 'FRO')
+          .or(`name.ilike.${term},login_id.ilike.${term}`)
+          .limit(10);
+        if (ngoFilter) {
+          query = query.in('ngo_id', ngoFilter);
+        }
+        const { data } = await query;
+        return data || [];
+      })(),
+      // Search stations
+      (async () => {
+        try {
+          let query = supabase
+            .from('fro_station_assignments')
+            .select('station, ngo_id, fro_worker_id, workers!left(name, login_id)')
+            .ilike('station', term)
+            .limit(10);
+          if (ngoFilter) {
+            const { data: ngoStations } = await supabase
+              .from('fro_station_assignments')
+              .select('station')
+              .in('ngo_id', ngoFilter);
+            const stationNames = [...new Set((ngoStations || []).map(s => s.station).filter(Boolean))];
+            if (stationNames.length > 0) query = query.in('station', stationNames);
+            else return [];
+          }
+          const { data, error } = await query;
+          if (error) {
+            // Fallback: query without workers join if FK fails
+            const { data: fallback } = await supabase
+              .from('fro_station_assignments')
+              .select('station, ngo_id, fro_worker_id')
+              .ilike('station', term)
+              .limit(10);
+            return (fallback || []).map(s => ({ ...s, workers: null }));
+          }
+          return data || [];
+        } catch {
+          return [];
+        }
+      })(),
+    ]);
+
+    // Enrich donors with FRO/station assignment info
+    let donors = donorsRes;
+    if (donors.length > 0) {
+      const donorIds = donors.map(d => d.id);
+      const { data: assignments } = await supabase
+        .from('fro_assignments')
+        .select('donor_id, ngo_id, station, status, workers!left(name, login_id)')
+        .in('donor_id', donorIds)
+        .not('status', 'eq', 'reassigned');
+      const asgnMap = {};
+      for (const a of assignments || []) {
+        if (!asgnMap[a.donor_id]) asgnMap[a.donor_id] = [];
+        asgnMap[a.donor_id].push(a);
+      }
+      donors = donors.map(d => ({
+        ...d,
+        assignments: asgnMap[d.id] || [],
+      }));
+    }
+
+    // Enrich stations with donor count
+    let stations = stationsRes;
+    if (stations.length > 0) {
+      const stationNames = [...new Set(stations.map(s => s.station).filter(Boolean))];
+      const { data: counts } = await supabase
+        .from('fro_assignments')
+        .select('station, id', { count: 'exact', head: false })
+        .in('station', stationNames)
+        .not('status', 'eq', 'reassigned');
+      const countMap = {};
+      for (const c of counts || []) {
+        countMap[c.station] = (countMap[c.station] || 0) + 1;
+      }
+      stations = stations.map(s => ({
+        ...s,
+        donor_count: countMap[s.station] || 0,
+      }));
+    }
+
+    return res.json({ donors, fros: frosRes, stations });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getCallAnalytics = async (req, res) => {
+  try {
+    const { ngo_id, station, fro_id, from, to } = req.query;
+    const ngoIds = await getUserNgoIds(req.user);
+    const effectiveNgoId = ngo_id || (ngoIds.length === 1 ? ngoIds[0] : null);
+
+    const fromDate = from || new Date(new Date().setHours(0,0,0,0)).toISOString();
+    const toDate = to || new Date().toISOString();
+
+    // Build base filter
+    let logQuery = supabase
+      .from('fro_donor_logs')
+      .select('*, fro_assignments!inner(donor_id, ngo_id, station, fro_worker_id, workers!left(name, login_id))')
+      .gte('created_at', fromDate)
+      .lte('created_at', toDate);
+
+    if (effectiveNgoId) {
+      logQuery = logQuery.eq('fro_assignments.ngo_id', effectiveNgoId);
+    } else if (ngoIds.length > 0) {
+      logQuery = logQuery.in('fro_assignments.ngo_id', ngoIds);
+    }
+    if (station) logQuery = logQuery.eq('fro_assignments.station', station);
+    if (fro_id) logQuery = logQuery.eq('fro_assignments.fro_worker_id', fro_id);
+
+    const { data: logs, error } = await logQuery;
+    if (error) throw error;
+
+    const connected = (logs || []).filter(l => CONNECTED_DISPOSITIONS.includes(l.disposition_detail));
+    const notConnected = (logs || []).filter(l => NOT_CONNECTED_DISPOSITIONS.includes(l.disposition_detail));
+    const totalTalkSeconds = (logs || []).reduce((s, l) => s + (parseInt(l.call_duration_seconds) || 0), 0);
+
+    // Per FRO breakdown
+    const froMap = {};
+    for (const l of logs || []) {
+      const wid = l.fro_assignments?.fro_worker_id;
+      if (!wid) continue;
+      if (!froMap[wid]) {
+        froMap[wid] = {
+          fro_worker_id: wid,
+          fro_name: l.fro_assignments?.workers?.name || 'Unknown',
+          login_id: l.fro_assignments?.workers?.login_id || '',
+          total: 0, connected: 0, not_connected: 0, talk_seconds: 0,
+        };
+      }
+      froMap[wid].total++;
+      if (CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) froMap[wid].connected++;
+      if (NOT_CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) froMap[wid].not_connected++;
+      froMap[wid].talk_seconds += parseInt(l.call_duration_seconds) || 0;
+    }
+
+    // Per station breakdown
+    const stationMap = {};
+    for (const l of logs || []) {
+      const st = l.fro_assignments?.station;
+      if (!st) continue;
+      if (!stationMap[st]) {
+        stationMap[st] = { station: st, total: 0, connected: 0, not_connected: 0 };
+      }
+      stationMap[st].total++;
+      if (CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) stationMap[st].connected++;
+      if (NOT_CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) stationMap[st].not_connected++;
+    }
+
+    // Per disposition breakdown
+    const dispMap = {};
+    for (const l of logs || []) {
+      const d = l.disposition_detail || 'unknown';
+      if (!dispMap[d]) dispMap[d] = 0;
+      dispMap[d]++;
+    }
+
+    // Daily trend
+    const dailyMap = {};
+    for (const l of logs || []) {
+      const day = l.created_at?.slice(0, 10) || 'unknown';
+      if (!dailyMap[day]) dailyMap[day] = { date: day, connected: 0, not_connected: 0, total: 0 };
+      dailyMap[day].total++;
+      if (CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) dailyMap[day].connected++;
+      if (NOT_CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) dailyMap[day].not_connected++;
+    }
+
+    return res.json({
+      summary: {
+        total_calls: (logs || []).length,
+        connected: connected.length,
+        not_connected: notConnected.length,
+        connection_rate: (logs || []).length > 0 ? Math.round((connected.length / (logs || []).length) * 100) + '%' : '0%',
+        total_talk_seconds: totalTalkSeconds,
+        total_talk_time: `${Math.floor(totalTalkSeconds / 3600)}h ${Math.floor((totalTalkSeconds % 3600) / 60)}m`,
+        avg_call_duration: (logs || []).length > 0
+          ? `${Math.floor(totalTalkSeconds / (logs || []).length / 60)}m ${Math.round((totalTalkSeconds / (logs || []).length) % 60)}s`
+          : '0m 0s',
+      },
+      by_fro: Object.values(froMap).sort((a, b) => b.total - a.total),
+      by_station: Object.values(stationMap).sort((a, b) => b.total - a.total),
+      by_disposition: Object.entries(dispMap).map(([disposition, count]) => ({ disposition, count })).sort((a, b) => b.count - a.count),
+      daily_trend: Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date)),
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

@@ -98,6 +98,10 @@ export async function getDonorHistory(donorId, period) {
   return api(`/fro/donors/${donorId}/history${params}`, { _prefix: 'ucs' })
 }
 
+export async function searchDonorsByMobile(q) {
+  return api(`/fro/search-donors?q=${encodeURIComponent(q)}`, { _prefix: 'ucs' })
+}
+
 export async function getFullDonorHistory(donorId, ngoId, unlockAll) {
   const params = new URLSearchParams();
   if (ngoId) params.set('ngo_id', ngoId);
