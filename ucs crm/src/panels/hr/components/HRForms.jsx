@@ -539,7 +539,7 @@ export default function HRForms() {
             </button>
           ))}
           <button className={`btn ${showPreview ? 'btn-primary' : ''}`} onClick={() => setShowPreview(!showPreview)} style={{ fontSize: 13 }}>Preview</button>
-          <button className="btn" onClick={handlePrint} style={{ fontSize: 13 }}>Print Form</button>
+          <button className="btn btn-danger" onClick={handlePrint} style={{ fontSize: 13 }}>Print Form</button>
         </div>
 
         {showPreview ? (
