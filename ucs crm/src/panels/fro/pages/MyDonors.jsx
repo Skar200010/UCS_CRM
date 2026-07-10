@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot, getDonorDonations } from '../api/donors';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot, getDonorDonations, searchDonorsByMobile } from '../api/donors';
 import { SkeletonProfile } from '../../../components/Skeleton';
 import { useRealtime } from '../../../hooks/useRealtime';
 import { DatePicker } from '../components/ui';
@@ -89,6 +89,11 @@ export default function MyDonors() {
   const [donations, setDonations] = useState([]);
   const [donationYear, setDonationYear] = useState('this_year');
   const [donationLoading, setDonationLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [searchingAll, setSearchingAll] = useState(false);
+  const searchRef = useRef(null);
   const { isOnCall, activeCall, startCall, endCall, todayStats, startDonorView, endDonorView } = useCall();
 
   useEffect(() => {
@@ -292,6 +297,66 @@ export default function MyDonors() {
     } finally { setSaving(false); }
   };
 
+  const handleSearch = useCallback((q) => {
+    setSearchQuery(q);
+    if (!q || q.trim().length < 2) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+    const term = q.toLowerCase().trim();
+    const filtered = donors.filter(d =>
+      (d.donor_name || '').toLowerCase().includes(term) ||
+      (d.donor_mobile || '').includes(term)
+    );
+    setSearchResults(filtered);
+    setShowSearchDropdown(filtered.length > 0 || term.length >= 2);
+  }, [donors]);
+
+  const handleSelectSearchResult = (resultIdx) => {
+    const r = searchResults[resultIdx];
+    const donorId = r?.id || r?.donor_id;
+    const actualIdx = donors.findIndex(d => d.id === donorId);
+    if (actualIdx >= 0) {
+      setIndex(actualIdx);
+    } else {
+      setMessage({ type: 'error', text: 'Donor not in current list. Try navigating to the correct view.' });
+    }
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchDropdown(false);
+  };
+
+  const handleSearchAll = async () => {
+    if (!searchQuery || searchQuery.trim().length < 2) return;
+    setSearchingAll(true);
+    try {
+      const backendResults = await searchDonorsByMobile(searchQuery.trim());
+      if (backendResults && backendResults.length > 0) {
+        setSearchResults(backendResults);
+        setShowSearchDropdown(true);
+      } else {
+        setMessage({ type: 'error', text: 'No donors found with this mobile number' });
+        setShowSearchDropdown(false);
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Search failed: ' + err.message });
+    } finally {
+      setSearchingAll(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showSearchDropdown) return;
+    const handler = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showSearchDropdown]);
+
   const handleButtonClick = () => {
     if (selected) { handleSave(); return; }
     if (index < donors.length - 1) { setIndex(i => i + 1); return; }
@@ -453,6 +518,48 @@ export default function MyDonors() {
 
         {/* MIDDLE PANEL — Status (55%) */}
         <div className="detail-mid" style={{ padding: '12px 0 12px 8px' }}>
+          {/* Search donor by mobile */}
+          <div ref={searchRef} style={{ position: 'relative', marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', background: 'var(--card-bg)', borderRadius: 8, border: '1px solid var(--line)', padding: '4px 8px' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--ink-soft)' }}>search</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => handleSearch(e.target.value)}
+                onFocus={() => { if (searchResults.length > 0) setShowSearchDropdown(true); }}
+                placeholder="Search donor by name or mobile..."
+                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 11, fontFamily: 'inherit', background: 'transparent', padding: '4px 0' }}
+              />
+              {searchQuery && (
+                <span className="material-symbols-outlined" style={{ fontSize: 14, color: 'var(--ink-soft)', cursor: 'pointer' }}
+                  onClick={() => { setSearchQuery(''); setSearchResults([]); setShowSearchDropdown(false); }}>close</span>
+              )}
+              <button onClick={handleSearchAll} disabled={searchingAll || searchQuery.trim().length < 2}
+                style={{ padding: '3px 8px', border: 'none', borderRadius: 6, background: 'var(--sage)', color: '#fff', fontSize: 9, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                {searchingAll ? '...' : 'Search All'}
+              </button>
+            </div>
+            {showSearchDropdown && searchResults.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 100, maxHeight: 240, overflowY: 'auto', marginTop: 2 }}>
+                {searchResults.map((r, i) => (
+                  <div key={`${r.id || r.donor_id}-${r.ngo_id || ''}`} onClick={() => handleSelectSearchResult(i)}
+                    style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: i < searchResults.length - 1 ? '1px solid var(--line)' : 'none', display: 'flex', alignItems: 'center', gap: 8, transition: 'background .1s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--md-primary-container, #e0e7ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: 'var(--md-on-primary-container, #4338ca)', flexShrink: 0 }}>
+                      {initials(r.donor_name || (r.donor_name ?? ''))}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: '#111827' }}>{r.donor_name || 'Unknown'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{r.donor_mobile || ''}{r.ngo_name ? ` · ${r.ngo_name}` : ''}{r.status ? ` · ${r.status.replace(/_/g, ' ')}` : ''}</div>
+                    </div>
+                    <span className={`pill ${STATUS_PILL_MAP[r.status] || 'pill-gray'}`} style={{ fontSize: 8, padding: '1px 5px' }}>{r.status ? r.status.replace(/_/g, ' ') : ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {message && (
             <div className={`detail-message ${message.type}`}>
               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{message.type === 'error' ? 'error' : 'check_circle'}</span>

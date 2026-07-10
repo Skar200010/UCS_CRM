@@ -1610,6 +1610,73 @@ export const getLiveStatuses = async (req, res) => {
   }
 };
 
+export const searchDonors = async (req, res) => {
+  try {
+    const workerId = req.user.id;
+    const { q } = req.query;
+    if (!q || q.trim().length < 2) return res.json([]);
+
+    const stationNames = await getMyStationNames(workerId);
+    if (stationNames.length === 0) return res.json([]);
+
+    const searchTerm = `%${q.trim()}%`;
+
+    const { data: donors, error } = await supabase
+      .from('donor_profiles')
+      .select('id, name, mobile_number, city, amount, total_amount, donation_count, email, pan_number, address_1, birth_date, project_supported, last_donation_date, first_donation_date')
+      .or(`name.ilike.${searchTerm},mobile_number.ilike.${searchTerm}`)
+      .limit(20);
+
+    if (error) throw error;
+    if (!donors || donors.length === 0) return res.json([]);
+
+    const donorIds = donors.map(d => d.id);
+
+    const { data: assignments, error: asgnError } = await supabase
+      .from('fro_assignments')
+      .select('*, ngos!inner(name)')
+      .in('donor_id', donorIds)
+      .in('station', stationNames)
+      .not('status', 'eq', 'reassigned');
+    if (asgnError) throw asgnError;
+
+    const result = [];
+    const seen = new Set();
+    for (const d of donors) {
+      const matchingAssignments = (assignments || []).filter(a => a.donor_id === d.id);
+      if (matchingAssignments.length === 0) continue;
+      for (const a of matchingAssignments) {
+        const key = `${d.id}-${a.ngo_id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        result.push({
+          donor_id: d.id,
+          ngo_id: a.ngo_id,
+          ngo_name: a.ngos?.name || 'Unknown',
+          assignment_id: a.id,
+          station: a.station || '',
+          donor_name: d.name || 'Unknown',
+          donor_mobile: d.mobile_number || '',
+          donor_city: d.city || '',
+          donor_amount: d.amount || 0,
+          donor_email: d.email || '',
+          donor_pan: d.pan_number || '',
+          donor_project: d.project_supported || '',
+          donor_dob: d.birth_date || '',
+          donor_address: d.address_1 || '',
+          donation_count: d.donation_count || 0,
+          total_donated: d.total_amount || 0,
+          status: a.status || 'pending',
+        });
+      }
+    }
+
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const getFullDonorHistory = async (req, res) => {
   try {
     const workerId = req.user.id;
