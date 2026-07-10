@@ -5,7 +5,7 @@ import { Plus, Trash } from '../icons';
 
 const GENDERS = ['Male', 'Female', 'Other'];
 const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed'];
-const SECTIONS = ['Personal Details', 'Education', 'Previous Organizations', 'Family', 'References', 'Bank Details'];
+const SECTIONS = ['Personal Details', 'Education', 'Previous Organizations', 'Family', 'References', 'Bank Details', 'Declaration'];
 
 function Field({ label, type = 'text', value, onChange, placeholder, required, ...rest }) {
   return (
