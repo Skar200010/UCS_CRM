@@ -1,4 +1,4 @@
-import FormData from 'form-data';
+﻿import FormData from 'form-data';
 
 async function callService(baseUrl, endpoint, image) {
   const url = `${baseUrl}${endpoint}`;
@@ -74,3 +74,4 @@ export const extractImage = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+

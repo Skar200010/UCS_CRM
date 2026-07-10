@@ -444,6 +444,7 @@ export default function Dashboard() {
   const [stationDateFrom, setStationDateFrom] = useState('');
   const [stationDateTo, setStationDateTo] = useState('');
   const [showAllLowPerformers, setShowAllLowPerformers] = useState(false);
+  const [callAnalytics, setCallAnalytics] = useState(null);
   const todayStr = new Date().toISOString().slice(0,10);
   const monthStart = new Date().toISOString().slice(0,7) + '-01';
   const monthEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().slice(0,10);
@@ -458,6 +459,17 @@ export default function Dashboard() {
       .then(setWeakPerformers)
       .catch(() => setWeakPerformers([]));
   }, [selectedNgoId, weakPeriod]);
+
+  useEffect(() => {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const to = now.toISOString();
+    const params = new URLSearchParams({ from, to });
+    if (selectedNgoId !== 'all') params.set('ngo_id', selectedNgoId);
+    apiGet(`/ngo-admin/call-analytics?${params}`)
+      .then(setCallAnalytics)
+      .catch(() => setCallAnalytics(null));
+  }, [selectedNgoId]);
 
   const fetchDashboard = useCallback(() => {
     const controller = new AbortController();
@@ -908,6 +920,61 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Call Connectivity Widget */}
+      {(() => {
+        const s = callAnalytics?.summary
+        if (!s) return null
+        const rateNum = parseInt(s.connection_rate) || 0
+        return (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--ink-soft)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              Call Connectivity
+              <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10, marginLeft: 'auto' }}>
+                Today · {s.connection_rate} connected
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 14 }}>
+              <div className="card" style={{ marginBottom: 0, padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: rateNum >= 50 ? '#16a34a' : '#dc2626', lineHeight: 1.1 }}>{s.connection_rate}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink-soft)', marginTop: 2 }}>Connection Rate</div>
+                <div style={{ fontSize: 9, color: 'var(--ink-soft)', marginTop: 1 }}>{s.connected} connected · {s.not_connected} not connected</div>
+              </div>
+              <div className="card" style={{ marginBottom: 0, padding: '14px 16px' }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 6 }}>Top FROs</div>
+                {callAnalytics?.by_fro?.slice(0, 3).map((f, i) => (
+                  <div key={f.fro_worker_id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <span style={{ fontSize: 8, color: 'var(--ink-soft)', minWidth: 12 }}>#{i + 1}</span>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.fro_name}</span>
+                      <div style={{ height: 4, borderRadius: 2, background: 'var(--bg)', flex: 1, maxWidth: 60 }}>
+                        <div style={{ height: '100%', borderRadius: 2, width: Math.min((f.connected / Math.max(f.total, 1)) * 100, 100) + '%', background: '#16a34a' }} />
+                      </div>
+                      <span style={{ fontSize: 9, fontWeight: 600, minWidth: 28, textAlign: 'right' }}>{Math.round((f.connected / Math.max(f.total, 1)) * 100)}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="card" style={{ marginBottom: 0, padding: '14px 16px' }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 6 }}>Bottom FROs</div>
+                {callAnalytics?.by_fro?.slice(-3).reverse().map((f, i) => (
+                  <div key={f.fro_worker_id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <span style={{ fontSize: 8, color: 'var(--ink-soft)', minWidth: 12 }}>#{i + 1}</span>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 500, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.fro_name}</span>
+                      <div style={{ height: 4, borderRadius: 2, background: 'var(--bg)', flex: 1, maxWidth: 60 }}>
+                        <div style={{ height: '100%', borderRadius: 2, width: Math.min((f.connected / Math.max(f.total, 1)) * 100, 100) + '%', background: '#dc2626' }} />
+                      </div>
+                      <span style={{ fontSize: 9, fontWeight: 600, minWidth: 28, textAlign: 'right' }}>{Math.round((f.connected / Math.max(f.total, 1)) * 100)}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .5, color: 'var(--ink-soft)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>

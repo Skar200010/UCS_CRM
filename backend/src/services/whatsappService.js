@@ -1,6 +1,44 @@
 import config from '../config/whatsappConfig.js';
+import { getAccountByProject } from '../models/whatsappAccountModel.js';
 
-const API_BASE = `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`;
+function getApiBase(account) {
+  const id = account?.phoneNumberId || account?.phone_number_id || config.phoneNumberId;
+  return `https://graph.facebook.com/${config.apiVersion}/${id}/messages`;
+}
+
+function getAccessToken(account) {
+  return account?.accessToken || account?.access_token || config.accessToken;
+}
+
+function getWabaId(account) {
+  return account?.wabaId || account?.waba_id || config.wabaId;
+}
+
+function getTemplateLanguage(account) {
+  return account?.templateLanguage || account?.template_language || config.templateLanguage;
+}
+
+export async function resolveAccount(project) {
+  if (project) {
+    try {
+      const account = await getAccountByProject(project);
+      if (account) return account;
+    } catch (err) {
+      console.error(`Failed to resolve WhatsApp account for project "${project}":`, err.message);
+    }
+  }
+  if (config.enabled) {
+    return {
+      phone_number_id: config.phoneNumberId,
+      access_token: config.accessToken,
+      waba_id: config.wabaId,
+      template_name: config.receiptTemplate,
+      template_language: config.templateLanguage,
+      project: project || 'bsct',
+    };
+  }
+  return null;
+}
 
 async function sendViaSupabaseTemplate(to, templateName, params, headerMediaUrl, lang) {
   const body = {
@@ -71,8 +109,11 @@ function isSupabaseConfigured() {
   return !!(config.supabaseFunctionUrl && config.supabaseApiKey);
 }
 
-export async function sendTextMessage(to, text) {
-  if (!config.enabled) throw new Error('WhatsApp not configured');
+export async function sendTextMessage(to, text, account) {
+  if (!config.enabled && !account) throw new Error('WhatsApp not configured');
+
+  const resolved = account || await resolveAccount();
+  if (!resolved) throw new Error('WhatsApp not configured');
 
   if (isSupabaseConfigured()) {
     try {
@@ -82,15 +123,20 @@ export async function sendTextMessage(to, text) {
     }
   }
 
-  return sendViaFacebook(to, 'text', { text: { body: text } });
+  return sendViaFacebook(to, 'text', { text: { body: text } }, resolved);
 }
 
-export async function sendTemplateMessage(to, templateName, parameters, lang = 'en') {
-  if (!config.enabled) throw new Error('WhatsApp not configured');
+export async function sendTemplateMessage(to, templateName, parameters, lang = 'en', account) {
+  if (!config.enabled && !account) throw new Error('WhatsApp not configured');
+
+  const resolved = account || await resolveAccount();
+  if (!resolved) throw new Error('WhatsApp not configured');
+
+  const tplLang = lang || getTemplateLanguage(resolved);
 
   if (isSupabaseConfigured()) {
     try {
-      return await sendViaSupabaseTemplate(to, templateName, parameters, null, lang);
+      return await sendViaSupabaseTemplate(to, templateName, parameters, null, tplLang);
     } catch (error) {
       console.error('Supabase template failed, falling back to Facebook API:', error.message);
     }
@@ -99,7 +145,7 @@ export async function sendTemplateMessage(to, templateName, parameters, lang = '
   return sendViaFacebook(to, 'template', {
     template: {
       name: templateName,
-      language: { code: lang },
+      language: { code: tplLang },
       components: [
         {
           type: 'body',
@@ -107,13 +153,17 @@ export async function sendTemplateMessage(to, templateName, parameters, lang = '
         },
       ],
     },
-  });
+  }, resolved);
 }
 
-export async function sendReceiptMessage(to, donorName, amount, receiptNo, date, headerMediaUrl, templateName) {
+export async function sendReceiptMessage(to, donorName, amount, receiptNo, date, headerMediaUrl, templateName, account) {
   const formattedAmount = typeof amount === 'number' ? '\u20B9' + amount.toLocaleString('en-IN') : amount;
   const params = [donorName, formattedAmount, receiptNo, date];
-  const tpl = templateName || config.whatsappTemplateName || config.receiptTemplate;
+
+  const resolved = account || await resolveAccount();
+  if (!resolved) throw new Error('WhatsApp not configured');
+
+  const tpl = templateName || resolved.template_name || config.whatsappTemplateName || config.receiptTemplate;
 
   if (isSupabaseConfigured()) {
     try {
@@ -138,11 +188,11 @@ export async function sendReceiptMessage(to, donorName, amount, receiptNo, date,
   });
 
   return sendViaFacebook(to, 'template', {
-    template: { name: tpl, language: { code: config.templateLanguage }, components },
-  });
+    template: { name: tpl, language: { code: getTemplateLanguage(resolved) }, components },
+  }, resolved);
 }
 
-export async function sendNgoInfoTemplate(to, name) {
+export async function sendNgoInfoTemplate(to, name, account) {
   const ngoName = 'Being Sevak Charitable Trust';
   const num1 = '8879035035';
   const num2 = '8879034034';
@@ -157,6 +207,9 @@ export async function sendNgoInfoTemplate(to, name) {
     }
   }
 
+  const resolved = account || await resolveAccount();
+  if (!resolved) throw new Error('WhatsApp not configured');
+
   return sendViaFacebook(to, 'template', {
     template: {
       name: 'ngo_information',
@@ -168,11 +221,14 @@ export async function sendNgoInfoTemplate(to, name) {
         },
       ],
     },
-  });
+  }, resolved);
 }
 
-export async function sendDocumentMessage(to, documentUrl, caption, filename) {
-  if (!config.enabled) throw new Error('WhatsApp not configured');
+export async function sendDocumentMessage(to, documentUrl, caption, filename, account) {
+  if (!config.enabled && !account) throw new Error('WhatsApp not configured');
+
+  const resolved = account || await resolveAccount();
+  if (!resolved) throw new Error('WhatsApp not configured');
 
   const messageText = `${caption}\n\nDocument: ${documentUrl}`;
   if (isSupabaseConfigured()) {
@@ -189,14 +245,17 @@ export async function sendDocumentMessage(to, documentUrl, caption, filename) {
       caption: caption || '',
       filename: filename || 'receipt.pdf',
     },
-  });
+  }, resolved);
 }
 
-async function sendWithHeaderMedia(to, templateName, params, headerMediaUrl) {
+async function sendWithHeaderMedia(to, templateName, params, headerMediaUrl, account) {
+  const resolved = account || await resolveAccount();
+  if (!resolved) throw new Error('WhatsApp not configured');
+
   return sendViaFacebook(to, 'template', {
     template: {
       name: templateName,
-      language: { code: config.templateLanguage },
+      language: { code: getTemplateLanguage(resolved) },
       components: [
         {
           type: 'header',
@@ -208,10 +267,10 @@ async function sendWithHeaderMedia(to, templateName, params, headerMediaUrl) {
         },
       ],
     },
-  });
+  }, resolved);
 }
 
-async function sendViaFacebook(to, type, payload) {
+async function sendViaFacebook(to, type, payload, account) {
   const body = {
     messaging_product: 'whatsapp',
     to: String(to).replace(/[^0-9]/g, ''),
@@ -219,10 +278,13 @@ async function sendViaFacebook(to, type, payload) {
     ...payload,
   };
 
-  const res = await fetch(API_BASE, {
+  const apiBase = getApiBase(account);
+  const token = getAccessToken(account);
+
+  const res = await fetch(apiBase, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${config.accessToken}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
@@ -233,8 +295,12 @@ async function sendViaFacebook(to, type, payload) {
   return data;
 }
 
-export async function testConnection() {
-  if (!config.enabled) return { success: false, message: 'WhatsApp not configured' };
+export async function testConnection(account) {
+  const resolved = account || await resolveAccount();
+  if (!resolved) return { success: false, message: 'WhatsApp not configured' };
+
+  const apiBase = getApiBase(resolved);
+  const token = getAccessToken(resolved);
 
   if (isSupabaseConfigured()) {
     try {
@@ -259,9 +325,10 @@ export async function testConnection() {
   }
 
   try {
+    const phoneId = resolved.phone_number_id || resolved.phoneNumberId;
     const res = await fetch(
-      `https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}`,
-      { headers: { Authorization: `Bearer ${config.accessToken}` } }
+      `https://graph.facebook.com/${config.apiVersion}/${phoneId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
     );
     const data = await res.json();
     if (!res.ok) return { success: false, message: data.error?.message || 'Connection failed' };
@@ -269,4 +336,18 @@ export async function testConnection() {
   } catch (error) {
     return { success: false, message: error.message };
   }
+}
+
+export async function listTemplatesForAccount(account) {
+  const wabaId = getWabaId(account);
+  const token = getAccessToken(account);
+
+  const tplRes = await fetch(
+    `https://graph.facebook.com/${config.apiVersion}/${wabaId}/message_templates?fields=name,language,status`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!tplRes.ok) { const e = await tplRes.text(); throw new Error('Meta API: ' + e); }
+
+  const { data } = await tplRes.json();
+  return (data || []).filter(t => t.status === 'APPROVED').map(t => ({ name: t.name, language: t.language }));
 }

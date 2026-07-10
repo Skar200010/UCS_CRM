@@ -5,6 +5,7 @@ import { themes, applyTheme } from '../hr/theme'
 import { useRealtime } from '../../hooks/useRealtime'
 import { api } from '../../api/auth'
 import { requestNotifPermission, showDesktopNotification } from '../../utils/desktopNotif'
+import { masterSearch } from './api/auth'
 import NotificationDrawer from '../../components/NotificationDrawer'
 import SettingsDrawer from '../../components/SettingsDrawer'
 import Dashboard from './pages/Dashboard'
@@ -18,11 +19,14 @@ import NgoAttendance from './pages/Attendance'
 import FroLiveStatus from './pages/FroLiveStatus'
 import Suspense from './pages/Suspense'
 import DonorCRM from './pages/DonorCRM'
+import SearchResults from './pages/SearchResults'
+import CallAnalytics from './pages/CallAnalytics'
 
 const NAV = [
   { id: 'dashboard', path: '/ngo-admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'station-mgmt', path: '/ngo-admin/station-mgmt', label: 'Stations & FROs', icon: 'station' },
   { id: 'fro-status', path: '/ngo-admin/fro-status', label: 'FRO Status', icon: 'froStatus' },
+  { id: 'call-analytics', path: '/ngo-admin/call-analytics', label: 'Call Analytics', icon: 'callAnalytics' },
   { id: 'donor-crm', path: '/ngo-admin/donor-crm', label: 'Donor CRM', icon: 'donorCrm' },
   { id: 'suspense', path: '/ngo-admin/suspense', label: 'Suspense', icon: 'suspense' },
   { id: 'alerts', path: '/ngo-admin/alerts', label: 'Alerts', icon: 'alerts' },
@@ -43,6 +47,7 @@ const ICONS = {
   rejected: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
   froStatus: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 17a4 4 0 0 1 8 0"/><circle cx="9" cy="7" r="4"/><path d="M13 4.13A4 4 0 0 1 18 8v4"/><path d="M18 12v6"/><line x1="16" y1="18" x2="20" y2="18"/></svg>,
   suspense: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+  callAnalytics: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
 }
 
 const MAX_DROPDOWN = 4
@@ -109,6 +114,13 @@ export default function NgoAdminPanel() {
   const [showSettings, setShowSettings] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [themeName, setThemeName] = useState(() => localStorage.getItem('ngoadmin_theme') || 'sky')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState({ donors: [], fros: [], stations: [] })
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const [searchingMaster, setSearchingMaster] = useState(false)
+  const [selectedResult, setSelectedResult] = useState(null)
+  const searchRef = useRef(null)
+  const searchTimer = useRef(null)
   const menuRef = useRef(null)
   const location = useLocation()
 
@@ -192,6 +204,36 @@ export default function NgoAdminPanel() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showMenu, showNotifList])
 
+  const handleMasterSearch = async (q) => {
+    setSearchQuery(q);
+    if (!q || q.trim().length < 2) {
+      setSearchResults({ donors: [], fros: [], stations: [] });
+      setShowSearchDropdown(false);
+      return;
+    }
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(async () => {
+      setSearchingMaster(true);
+      try {
+        const results = await masterSearch(q.trim());
+        setSearchResults(results);
+        setShowSearchDropdown(true);
+      } catch { setShowSearchDropdown(false); }
+      finally { setSearchingMaster(false); }
+    }, 300);
+  };
+
+  useEffect(() => {
+    if (!showSearchDropdown) return;
+    const handler = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) setShowSearchDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showSearchDropdown]);
+
+  const searchTotal = (searchResults.donors?.length || 0) + (searchResults.fros?.length || 0) + (searchResults.stations?.length || 0);
+
   const meta = NAV.find(n => location.pathname === n.path || location.pathname.startsWith(n.path + '/') || (n.id === 'donors' && location.pathname.startsWith('/ngo-admin/donors/')))
   const userName = user?.name || 'Admin'
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -219,13 +261,87 @@ export default function NgoAdminPanel() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="main">
         <header className="topbar">
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
             <button className="hamburger" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
             </button>
-            <div>
+            <div style={{ minWidth: 140 }}>
               <div className="eyebrow">Admin</div>
               <h2>{meta?.label || 'Dashboard'}</h2>
+            </div>
+            {/* Global search */}
+            <div ref={searchRef} style={{ position:'relative', flex: 1, maxWidth: 420 }}>
+              <div style={{ display:'flex', gap:4, alignItems:'center', background:'var(--card-bg)', borderRadius:8, border:'1px solid var(--line)', padding:'4px 8px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" value={searchQuery}
+                  onChange={e => handleMasterSearch(e.target.value)}
+                  onFocus={() => { if (searchTotal > 0) setShowSearchDropdown(true); }}
+                  onKeyDown={e => { if (e.key === 'Enter' && searchQuery.trim().length >= 2) { setShowSearchDropdown(false); navigate(`/ngo-admin/search?q=${encodeURIComponent(searchQuery.trim())}`); } }}
+                  placeholder="Search donors, FROs, stations..."
+                  style={{ flex:1, border:'none', outline:'none', fontSize:11, fontFamily:'inherit', background:'transparent', padding:'4px 0', minWidth:0 }} />
+                {searchQuery && (
+                  <span style={{ fontSize:12, color:'var(--ink-soft)', cursor:'pointer' }}
+                    onClick={() => { setSearchQuery(''); setSearchResults({ donors:[], fros:[], stations:[] }); setShowSearchDropdown(false); }}>✕</span>
+                )}
+                {searchingMaster && <span style={{ fontSize:9, color:'var(--ink-soft)' }}>…</span>}
+              </div>
+              {showSearchDropdown && searchTotal > 0 && (
+                <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1px solid var(--line)', borderRadius:8, boxShadow:'0 4px 16px rgba(0,0,0,.12)', zIndex:200, maxHeight:360, overflowY:'auto', marginTop:2 }}>
+                  {searchResults.donors?.length > 0 && (
+                    <div>
+                      <div style={{ padding:'6px 10px', fontSize:9, fontWeight:700, color:'var(--ink-soft)', textTransform:'uppercase', letterSpacing:.5, background:'var(--bg)' }}>Donors ({searchResults.donors.length})</div>
+                      {searchResults.donors.slice(0, 5).map(d => (
+                        <div key={d.id} onClick={() => { setShowSearchDropdown(false); setSelectedResult({ type: 'donor', data: d }); }}
+                          style={{ padding:'6px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:8, transition:'background .1s' }}
+                          onMouseEnter={e => e.currentTarget.style.background='#f3f4f6'} onMouseLeave={e => e.currentTarget.style.background=''}>
+                          <div style={{ width:24, height:24, borderRadius:'50%', background:'#dcfce7', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#16a34a' }}>{d.name?.[0] || '?'}</div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:11, fontWeight:600, color:'#111827' }}>{d.name || 'Unknown'}</div>
+                            <div style={{ fontSize:9, color:'var(--ink-soft)' }}>{d.mobile_number || ''}{d.city ? ` · ${d.city}` : ''}</div>
+                          </div>
+                        </div>
+                      ))}
+                      {searchResults.donors.length > 5 && <div style={{ padding:'4px 10px', fontSize:9, color:'var(--ink-soft)', textAlign:'center' }}>+{searchResults.donors.length - 5} more</div>}
+                    </div>
+                  )}
+                  {searchResults.fros?.length > 0 && (
+                    <div>
+                      <div style={{ padding:'6px 10px', fontSize:9, fontWeight:700, color:'var(--ink-soft)', textTransform:'uppercase', letterSpacing:.5, background:'var(--bg)' }}>FROs ({searchResults.fros.length})</div>
+                      {searchResults.fros.slice(0, 5).map(f => (
+                        <div key={f.id} onClick={() => { setShowSearchDropdown(false); setSelectedResult({ type: 'fro', data: f }); }}
+                          style={{ padding:'6px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:8, transition:'background .1s' }}
+                          onMouseEnter={e => e.currentTarget.style.background='#f3f4f6'} onMouseLeave={e => e.currentTarget.style.background=''}>
+                          <div style={{ width:24, height:24, borderRadius:'50%', background:'#e0e7ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#4338ca' }}>{f.name?.[0] || '?'}</div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:11, fontWeight:600, color:'#111827' }}>{f.name || 'Unknown'}</div>
+                            <div style={{ fontSize:9, color:'var(--ink-soft)' }}>{f.login_id || ''}{f.is_active !== false ? ' · Active' : ' · Inactive'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {searchResults.stations?.length > 0 && (
+                    <div>
+                      <div style={{ padding:'6px 10px', fontSize:9, fontWeight:700, color:'var(--ink-soft)', textTransform:'uppercase', letterSpacing:.5, background:'var(--bg)' }}>Stations ({searchResults.stations.length})</div>
+                      {searchResults.stations.slice(0, 5).map((s, i) => (
+                        <div key={`${s.station}-${i}`} onClick={() => { setShowSearchDropdown(false); setSelectedResult({ type: 'station', data: s }); }}
+                          style={{ padding:'6px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:8, transition:'background .1s' }}
+                          onMouseEnter={e => e.currentTarget.style.background='#f3f4f6'} onMouseLeave={e => e.currentTarget.style.background=''}>
+                          <div style={{ width:24, height:24, borderRadius:'50%', background:'#fef3c7', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#d97706' }}>S</div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:11, fontWeight:600, color:'#111827' }}>{s.station || 'Unknown'}</div>
+                            <div style={{ fontSize:9, color:'var(--ink-soft)' }}>{s.workers?.name || 'No FRO'}{s.donor_count != null ? ` · ${s.donor_count} donors` : ''}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ padding:'6px 10px', borderTop:'1px solid var(--line)', textAlign:'center' }}>
+                    <span onClick={() => { setShowSearchDropdown(false); navigate(`/ngo-admin/search?q=${encodeURIComponent(searchQuery.trim())}`); }}
+                      style={{ fontSize:10, color:'var(--sage)', cursor:'pointer', fontWeight:600 }}>View all results →</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:4 }}>
@@ -286,10 +402,174 @@ export default function NgoAdminPanel() {
             <Route path="rejected-leads" element={<RejectedLeads />} />
             <Route path="fro-status" element={<FroLiveStatus />} />
             <Route path="suspense" element={<Suspense />} />
+            <Route path="search" element={<SearchResults />} />
+            <Route path="call-analytics" element={<CallAnalytics />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Routes>
         </div>
       </div>
+      {/* Search Result Detail Modal */}
+      {selectedResult && (() => {
+        const r = selectedResult.data
+        const close = () => setSelectedResult(null)
+        const iname = (name) => (name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+        const bgMap = { donor: '#dcfce7', fro: '#e0e7ff', station: '#fef3c7' }
+        const colorMap = { donor: '#16a34a', fro: '#4338ca', station: '#d97706' }
+        const iconMap = { donor: '👤', fro: '👤', station: '📍' }
+
+        if (selectedResult.type === 'donor') {
+          const asgn = r.assignments?.[0]
+          return (
+            <div className="modal-overlay" onClick={close}>
+              <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560, borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: bgMap.donor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: colorMap.donor }}>{iname(r.name)}</div>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700 }}>{r.name || 'Unknown'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{r.mobile_number || ''}{r.email ? ` · ${r.email}` : ''}</div>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, cursor: 'pointer', color: 'var(--ink-soft)' }} onClick={close}>close</span>
+                </div>
+                <div style={{ padding: '16px 22px', background: 'var(--bg)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                    <div className="card" style={{ margin: 0, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>City</div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{r.city || '—'}</div>
+                    </div>
+                    <div className="card" style={{ margin: 0, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Amount</div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>₹{Number(r.amount || 0).toLocaleString('en-IN')}</div>
+                    </div>
+                    <div className="card" style={{ margin: 0, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Status</div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{asgn?.status?.replace(/_/g, ' ') || 'N/A'}</div>
+                    </div>
+                    <div className="card" style={{ margin: 0, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Project</div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{r.project_supported || '—'}</div>
+                    </div>
+                    <div className="card" style={{ margin: 0, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Total Donated</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sage)' }}>₹{Number(r.total_amount || 0).toLocaleString('en-IN')}</div>
+                    </div>
+                    <div className="card" style={{ margin: 0, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Donations</div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{r.donation_count || 0} time{(r.donation_count || 0) !== 1 ? 's' : ''}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                    <div className="card" style={{ margin: 0, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Address</div>
+                      <div style={{ fontSize: 11, fontWeight: 500 }}>{r.address_1 || '—'}</div>
+                    </div>
+                    <div className="card" style={{ margin: 0, padding: '8px 10px' }}>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Last Donation</div>
+                      <div style={{ fontSize: 11, fontWeight: 500 }}>{r.last_donation_date ? new Date(r.last_donation_date).toLocaleDateString('en-GB') : '—'}</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 10, color: 'var(--ink-soft)' }}>
+                    {asgn?.workers?.name && <span className="card" style={{ margin: 0, padding: '4px 8px' }}>FRO: <strong>{asgn.workers.name}</strong></span>}
+                    {asgn?.station && <span className="card" style={{ margin: 0, padding: '4px 8px' }}>Station: <strong>{asgn.station}</strong></span>}
+                    {asgn?.ngo_id && <span className="card" style={{ margin: 0, padding: '4px 8px' }}>NGO ID: <strong>{asgn.ngo_id}</strong></span>}
+                    {!asgn && <span className="card" style={{ margin: 0, padding: '4px 8px', color: '#dc2626' }}>No assignment data</span>}
+                  </div>
+                  {(r.pan_number || r.birth_date) && (
+                    <div style={{ marginTop: 6, fontSize: 10, color: 'var(--ink-soft)', padding: '6px 10px', background: 'var(--card-bg)', borderRadius: 6 }}>
+                      {r.pan_number && <span>PAN: <strong>{r.pan_number}</strong></span>}
+                      {r.birth_date && <span> &nbsp;·&nbsp; DOB: <strong>{r.birth_date}</strong></span>}
+                    </div>
+                  )}
+                  <div style={{ marginTop: 14, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button className="btn btn-sm" onClick={close} style={{ background: 'transparent', border: '1px solid var(--line)' }}>Close</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => { close(); navigate(`/ngo-admin/donors/${r.id}`); }}>Open Full Detail →</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        if (selectedResult.type === 'fro') {
+          return (
+            <div className="modal-overlay" onClick={close}>
+              <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440, borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: bgMap.fro, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: colorMap.fro }}>{iname(r.name)}</div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>{r.name || 'Unknown'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{r.login_id || ''}</div>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, cursor: 'pointer', color: 'var(--ink-soft)' }} onClick={close}>close</span>
+                </div>
+                <div style={{ padding: '16px 22px', background: 'var(--bg)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <span className={`pill ${r.is_active !== false ? 'pill-green' : 'pill-red'}`}>{r.is_active !== false ? 'Active' : 'Inactive'}</span>
+                    <span style={{ fontSize: 10, color: 'var(--ink-soft)' }}>ID: {r.id}</span>
+                    <span style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Joined {r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : '—'}</span>
+                  </div>
+                  {r.ngo_id && (
+                    <div style={{ fontSize: 10, color: 'var(--ink-soft)', padding: '6px 10px', background: 'var(--card-bg)', borderRadius: 6 }}>
+                      NGO ID: <strong>{r.ngo_id}</strong>
+                    </div>
+                  )}
+                  <div style={{ marginTop: 14, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button className="btn btn-sm" onClick={close} style={{ background: 'transparent', border: '1px solid var(--line)' }}>Close</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => { close(); navigate('/ngo-admin/fro-status'); }}>View FRO Status →</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        if (selectedResult.type === 'station') {
+          const froName = r.workers?.name
+          return (
+            <div className="modal-overlay" onClick={close}>
+              <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440, borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: bgMap.station, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: colorMap.station }}>S</div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>{r.station || 'Unknown'}</div>
+                      <div style={{ fontSize: 11, color: r.workers?.name ? 'inherit' : '#dc2626' }}>{froName ? `FRO: ${froName}${r.workers?.login_id ? ` (${r.workers.login_id})` : ''}` : 'No FRO assigned'}</div>
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined" style={{ fontSize: 18, cursor: 'pointer', color: 'var(--ink-soft)' }} onClick={close}>close</span>
+                </div>
+                <div style={{ padding: '16px 22px', background: 'var(--bg)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div className="card" style={{ margin: 0, padding: '10px 12px' }}>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Donors</div>
+                      <div style={{ fontSize: 20, fontWeight: 700 }}>{r.donor_count || 0}</div>
+                    </div>
+                    <div className="card" style={{ margin: 0, padding: '10px 12px' }}>
+                      <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>NGO</div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{r.ngo_id || '—'}</div>
+                    </div>
+                  </div>
+                  {!froName && (
+                    <div style={{ marginTop: 8, fontSize: 10, color: '#dc2626', padding: '6px 10px', background: '#fef2f2', borderRadius: 6 }}>
+                      This station has no FRO assigned. FRO data may not load if the FK relationship is missing.
+                    </div>
+                  )}
+                  <div style={{ marginTop: 14, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button className="btn btn-sm" onClick={close} style={{ background: 'transparent', border: '1px solid var(--line)' }}>Close</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => { close(); navigate('/ngo-admin/station-mgmt'); }}>Manage Station →</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        return null
+      })()}
+
       <NotificationDrawer topOffset={56}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}

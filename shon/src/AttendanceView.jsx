@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import { apiGet, apiPut, apiPost, apiDelete } from './api'
+import { createClient } from '@supabase/supabase-js'
+import { fetchAttendance, fetchWorkers } from './api'
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL || '',
+  import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+)
 
 const IST_OFFSET = 5.5 * 60 * 60 * 1000
 
@@ -9,6 +15,12 @@ function fmtTime(iso) {
   const hh = String(d.getUTCHours()).padStart(2, '0')
   const mm = String(d.getUTCMinutes()).padStart(2, '0')
   return <span>{hh}:{mm}</span>
+}
+
+function fmtDate(dateStr) {
+  if (!dateStr) return ''
+  const [y, m, d] = dateStr.split('-')
+  return `${d}-${m}-${y}`
 }
 
 function getIstDateStr(date) {
@@ -27,12 +39,27 @@ function extractTime(iso) {
   return `${hh}:${mm}`
 }
 
-function reconstructIso(originalIso, newTime) {
+function reconstructIso(originalIso, newTime, fallbackDate) {
   if (!newTime) return null
   const [h, m] = newTime.split(':').map(Number)
-  const ist = new Date(new Date(originalIso).getTime() + IST_OFFSET)
-  ist.setUTCHours(h, m, 0, 0)
-  return new Date(ist.getTime() - IST_OFFSET).toISOString()
+  let base
+  if (originalIso) {
+    base = new Date(new Date(originalIso).getTime() + IST_OFFSET)
+  } else if (fallbackDate) {
+    base = new Date(new Date(fallbackDate + 'T00:00:00.000Z').getTime() + IST_OFFSET)
+  } else {
+    return null
+  }
+  base.setUTCHours(h, m, 0, 0)
+  return new Date(base.getTime() - IST_OFFSET).toISOString()
+}
+
+function istTimeToIso(dateStr, timeStr) {
+  if (!timeStr || !dateStr) return null
+  const [h, m] = timeStr.split(':').map(Number)
+  const base = new Date(new Date(dateStr + 'T00:00:00.000Z').getTime() + IST_OFFSET)
+  base.setUTCHours(h, m, 0, 0)
+  return new Date(base.getTime() - IST_OFFSET).toISOString()
 }
 
 function Badge({ status }) {
@@ -46,7 +73,7 @@ function Badge({ status }) {
   return <span className={`badge ${cls}`}>{lbl}</span>
 }
 
-export default function AttendanceView() {
+export default function AttendanceView({ readOnly }) {
   const [attendance, setAttendance] = useState([])
   const [workers, setWorkers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -74,6 +101,8 @@ export default function AttendanceView() {
   const [addPunchOut, setAddPunchOut] = useState('')
   const [addStatus, setAddStatus] = useState('present')
   const [addLoading, setAddLoading] = useState(false)
+  const [tab, setTab] = useState('today')
+  const [workerMonth, setWorkerMonth] = useState(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') })
 
   useEffect(() => {
     const d = new Date()
@@ -85,17 +114,27 @@ export default function AttendanceView() {
 
   useEffect(() => {
     if (selectedWorker) {
-      setWorkerAttendance(attendance.filter(a => a.worker_id === selectedWorker.id && a.id))
+      const records = attendance.filter(a => a.worker_id === selectedWorker.id)
+      const ym = workerMonth || (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') })()
+      const [y, m] = ym.split('-').map(Number)
+      const daysInMonth = new Date(y, m, 0).getDate()
+      const filled = []
+      for (let d = daysInMonth; d >= 1; d--) {
+        const ds = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        const existing = records.find(r => r.date === ds)
+        filled.push(existing || { id: null, date: ds, status: 'absent', punch_in_time: null, punch_out_time: null, late_minutes: 0, worker_id: selectedWorker.id })
+      }
+      setWorkerAttendance(filled)
     }
-  }, [attendance, selectedWorker])
+  }, [attendance, selectedWorker, workerMonth])
 
   async function loadData() {
     setLoading(true)
     setError('')
     try {
       const [att, wrk] = await Promise.all([
-        apiGet('/attendance/all').catch(() => []),
-        apiGet('/workers').catch(() => []),
+        fetchAttendance().catch(() => []),
+        fetchWorkers().catch(() => []),
       ])
       setAttendance(Array.isArray(att) ? att : [])
       setWorkers(Array.isArray(wrk) ? wrk : [])
@@ -107,11 +146,7 @@ export default function AttendanceView() {
   }
 
   const filtered = attendance.filter(r => {
-    if (dateFrom && r.date < dateFrom) return false
-    if (dateTo && r.date > dateTo) return false
-    if (statusFilter && r.status !== statusFilter) return false
     const w = r.workers || workers.find(x => x.id === r.worker_id) || {}
-    if (deptFilter && w.department !== deptFilter) return false
     if (search) {
       const name = (w.name || '').toLowerCase()
       const lid = (w.login_id || '').toLowerCase()
@@ -139,11 +174,11 @@ export default function AttendanceView() {
     if (!editingRecord) return
     setEditLoading(true)
     try {
-      await apiPut('/attendance/' + editingRecord.id, {
-        punch_in_time: reconstructIso(editingRecord.punch_in_time, editPunchIn),
-        punch_out_time: reconstructIso(editingRecord.punch_out_time, editPunchOut),
+      await supabase.from('attendance').update({
+        punch_in_time: reconstructIso(editingRecord.punch_in_time, editPunchIn, editingRecord.date),
+        punch_out_time: reconstructIso(editingRecord.punch_out_time, editPunchOut, editingRecord.date),
         status: editStatus,
-      })
+      }).eq('id', editingRecord.id)
       await loadData()
       closeEdit()
     } catch (err) {
@@ -156,7 +191,7 @@ export default function AttendanceView() {
   async function deleteRecord(id) {
     if (!confirm('Delete this attendance record?')) return
     try {
-      await apiDelete('/attendance/' + id)
+      await supabase.from('attendance').delete().eq('id', id)
       await loadData()
       closeEdit()
     } catch (err) {
@@ -168,11 +203,11 @@ export default function AttendanceView() {
     if (!addWorkerId || !addDate) { alert('Select a worker and date'); return }
     setAddLoading(true)
     try {
-      await apiPost('/attendance', {
+      await supabase.from('attendance').insert({
         worker_id: addWorkerId,
         date: addDate,
-        punch_in_time: addPunchIn ? `${addDate}T${addPunchIn}:00.000Z` : null,
-        punch_out_time: addPunchOut ? `${addDate}T${addPunchOut}:00.000Z` : null,
+        punch_in_time: istTimeToIso(addDate, addPunchIn),
+        punch_out_time: istTimeToIso(addDate, addPunchOut),
         status: addStatus,
       })
       await loadData()
@@ -189,11 +224,6 @@ export default function AttendanceView() {
     }
   }
 
-  const presentCount = filtered.filter(r => r.status === 'present').length
-  const lateCount = filtered.filter(r => r.status === 'late').length
-  const absentCount = filtered.filter(r => r.status === 'absent').length
-  const leaveCount = filtered.filter(r => r.status === 'leave').length
-
   if (loading && attendance.length === 0) {
     return <div className="loading"><div className="spinner" /><p>Loading attendance...</p></div>
   }
@@ -201,37 +231,45 @@ export default function AttendanceView() {
   if (selectedWorker) {
     return (
       <div>
-        <div className="flex-row">
-          <button className="btn" onClick={() => { setSelectedWorker(null); setEditingRecord(null) }}>&larr; Back</button>
-          <h3 style={{ margin: 0 }}>{selectedWorker.name}'s Attendance</h3>
-          <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => { setAddingRecord(true); setAddWorkerId(selectedWorker.id); setAddDate(''); setAddPunchIn(''); setAddPunchOut(''); setAddStatus('present') }}>+ Add Attendance</button>
+        <div className="detail-header">
+          <button className="btn btn-ghost" onClick={() => { setSelectedWorker(null); setEditingRecord(null) }}>&larr;</button>
+          <h3>{selectedWorker.name}</h3>
+          <select className="month-select" value={workerMonth} onChange={e => setWorkerMonth(e.target.value)}>
+            {Array.from({ length: 12 }, (_, i) => {
+              const d = new Date()
+              d.setMonth(d.getMonth() - i)
+              const y = d.getFullYear()
+              const m = String(d.getMonth() + 1).padStart(2, '0')
+              const val = `${y}-${m}`
+              const lbl = d.toLocaleString('default', { month: 'short', year: 'numeric' })
+              return <option key={val} value={val}>{lbl}</option>
+            })}
+          </select>
+          <div className="detail-actions">
+            {!readOnly && <button className="btn btn-primary btn-sm" onClick={() => { setAddingRecord(true); setAddWorkerId(selectedWorker.id); setAddDate(''); setAddPunchIn(''); setAddPunchOut(''); setAddStatus('present') }}>+ Add</button>}
+          </div>
         </div>
-        <div className="card">
+        <div className="table-card">
           {workerAttendance.length === 0 ? (
-            <div className="empty">No attendance records for this worker.</div>
+            <div className="empty-state">No records for this month.</div>
           ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>#</th><th>Date</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Late (min)</th><th>Action</th></tr>
-                </thead>
-                <tbody>
-                  {workerAttendance.map((r, i) => (
-                    <tr key={r.id} className={r.status === 'late' ? 'row-late' : r.status === 'absent' ? 'row-absent' : ''}>
-                      <td>{i + 1}</td>
-                      <td>{r.date}</td>
-                      <td><Badge status={r.status} /></td>
-                      <td>{fmtTime(r.punch_in_time)}</td>
-                      <td>{fmtTime(r.punch_out_time)}</td>
-                      <td>{r.late_minutes > 0 ? <span className="late-mins">{r.late_minutes}</span> : '\u2014'}</td>
-                      <td>
-                        <button className="btn btn-sm" onClick={() => openEdit(r)} title="Edit">&#9998;</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Punch In</th><th>Punch Out</th>{!readOnly && <th></th>}</tr>
+              </thead>
+              <tbody>
+                {workerAttendance.map((r, i) => (
+                  <tr key={r.id || r.date} className={r.status === 'absent' ? 'row-absent' : r.status === 'late' ? 'row-late' : ''}>
+                    <td>{fmtDate(r.date)}</td>
+                    <td>{fmtTime(r.punch_in_time)}</td>
+                    <td>{fmtTime(r.punch_out_time)}</td>
+                    {!readOnly && <td style={{ textAlign: 'right' }}>
+                      {r.id ? <button className="btn btn-sm" onClick={e => { e.stopPropagation(); openEdit(r) }} title="Edit">&#9998;</button> : <span className="dim">&mdash;</span>}
+                    </td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
 
@@ -279,7 +317,7 @@ export default function AttendanceView() {
           </div>
         )}
 
-        {editingRecord && (
+        {!readOnly && editingRecord && (
           <div className="modal-overlay" onClick={closeEdit}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-head">
@@ -293,7 +331,7 @@ export default function AttendanceView() {
                 </label>
                 <label className="field">
                   <span>Date</span>
-                  <input type="text" value={editingRecord.date} disabled />
+                  <input type="text" value={fmtDate(editingRecord.date)} disabled />
                 </label>
                 <label className="field">
                   <span>Punch In</span>
@@ -334,92 +372,39 @@ export default function AttendanceView() {
     <div>
       {error && <div className="login-error">{error}</div>}
 
-      <div className="card">
-        <div className="filters">
-          <div className="filter-group">
-            <label>From</label>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-          </div>
-          <div className="filter-group">
-            <label>To</label>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-          </div>
-          <div className="filter-group">
-            <label>Department</label>
-            <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
-              <option value="">All</option>
-              {depts.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
-          <div className="filter-group">
-            <label>Status</label>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-              <option value="">All</option>
-              <option value="present">Present</option>
-              <option value="late">Late</option>
-              <option value="absent">Absent</option>
-              <option value="leave">Leave</option>
-            </select>
-          </div>
-          <div className="filter-group">
-            <label>Search</label>
-            <input type="text" placeholder="Name or ID..." value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
-          <div className="filter-group" style={{ flex: 0 }}>
-            <label>&nbsp;</label>
-            <button className="btn btn-primary" onClick={loadData}>Refresh</button>
-          </div>
+      <div className="search-bar">
+        <div className="filter-group">
+          <input type="text" placeholder="Search employee..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
 
-      <div className="stats">
-        <div className="stat stat-total"><span className="stat-num">{filtered.length}</span><span className="stat-lbl">Total</span></div>
-        <div className="stat stat-present"><span className="stat-num">{presentCount}</span><span className="stat-lbl">Present</span></div>
-        <div className="stat stat-late"><span className="stat-num">{lateCount}</span><span className="stat-lbl">Late</span></div>
-        <div className="stat stat-absent"><span className="stat-num">{absentCount}</span><span className="stat-lbl">Absent</span></div>
-        <div className="stat stat-leave"><span className="stat-num">{leaveCount}</span><span className="stat-lbl">Leave</span></div>
-      </div>
-
-      <div className="card">
-        {filtered.length === 0 ? (
-          <div className="empty">No attendance records found.</div>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr><th>#</th><th>Date</th><th>Worker</th><th>Department</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Late (min)</th><th>Action</th></tr>
-              </thead>
-              <tbody>
-                {filtered.map((r, i) => {
-                  const w = r.workers || workers.find(x => x.id === r.worker_id) || {}
-                  const cls = r.status === 'absent' ? 'row-absent' : r.status === 'late' ? 'row-late' : ''
-                  return (
-                    <tr key={r.id} className={cls}>
-                      <td>{i + 1}</td>
-                      <td>{r.date}</td>
-                      <td>
-                        <a href="#" className="worker-link" onClick={e => { e.preventDefault(); setSelectedWorker(w) }}>
-                          <strong>{w.name || 'Unknown'}</strong>
-                        </a>
-                      </td>
-                      <td>{w.department || '\u2014'}</td>
-                      <td><Badge status={r.status} /></td>
-                      <td>{fmtTime(r.punch_in_time)}</td>
-                      <td>{fmtTime(r.punch_out_time)}</td>
-                      <td>{r.late_minutes > 0 ? <span className="late-mins">{r.late_minutes}</span> : '\u2014'}</td>
-                      <td>
-                        <button className="btn btn-sm" onClick={() => openEdit(r)} title="Edit">&#9998;</button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+      <div className="employee-list">
+        {workers.filter(w => {
+          if (!search) return true
+          const s = search.toLowerCase()
+          return (w.name || '').toLowerCase().includes(s) || (w.login_id || '').toLowerCase().includes(s)
+        }).map((w) => (
+          <div key={w.id} className="employee-item" onClick={() => setSelectedWorker(w)}>
+            <div>
+              <div className="employee-name">{w.name || 'Unknown'}</div>
+              {w.department && <div className="employee-id">{w.department}</div>}
+            </div>
+            <span className="employee-arrow">&rarr;</span>
           </div>
+        ))}
+        {workers.length > 0 && workers.filter(w => {
+          if (!search) return true
+          const s = search.toLowerCase()
+          return (w.name || '').toLowerCase().includes(s) || (w.login_id || '').toLowerCase().includes(s)
+        }).length === 0 && (
+          <div className="empty-state">No employees match your search.</div>
+        )}
+        {workers.length === 0 && !loading && (
+          <div className="empty-state">No employees found.</div>
         )}
       </div>
 
-      {editingRecord && !selectedWorker && (
+      {!readOnly && editingRecord && !selectedWorker && (
         <div className="modal-overlay" onClick={closeEdit}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
@@ -433,7 +418,7 @@ export default function AttendanceView() {
               </label>
               <label className="field">
                 <span>Date</span>
-                <input type="text" value={editingRecord.date} disabled />
+                <input type="text" value={fmtDate(editingRecord.date)} disabled />
               </label>
               <label className="field">
                 <span>Punch In</span>

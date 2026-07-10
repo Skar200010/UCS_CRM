@@ -99,7 +99,7 @@ export const getMonthlyAttendance = async (worker_id, startDate, endDate) => {
 export const getAllAttendance = async () => {
   const { data, error } = await supabase
     .from('attendance')
-    .select('*, workers(name, login_id, email)')
+    .select('*, workers(name, login_id, email, department)')
     .order('date', { ascending: false });
   if (error) throw error;
   return data;

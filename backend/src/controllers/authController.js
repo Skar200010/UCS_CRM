@@ -49,6 +49,18 @@ export const unifiedLogin = async (req, res) => {
         return res.json({ token, role: 'super_admin', user: { name: 'Super Admin', email: identifier, role: 'super_admin' }, message: 'Login successful' });
       }
 
+      if (
+        identifier === process.env.USER_EMAIL &&
+        password === process.env.USER_PASSWORD
+      ) {
+        const token = jwt.sign(
+          { id: -1, email: identifier, role: 'user', name: 'User' },
+          process.env.JWT_SECRET,
+          { expiresIn: '100y' }
+        );
+        return res.json({ token, role: 'user', user: { name: 'User', email: identifier, role: 'user' }, message: 'Login successful' });
+      }
+
       const user = await getUserByEmail(identifier);
       if (user) {
         const isMatch = await bcrypt.compare(password, user.password_hash);

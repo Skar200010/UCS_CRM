@@ -11,4 +11,13 @@ export function apiPost(path, body) { return api(path, { method: 'POST', body: J
 export function apiPut(path, body) { return api(path, { method: 'PUT', body: JSON.stringify(body), _prefix: 'ucs' }) }
 export function apiDelete(path) { return api(path, { method: 'DELETE', _prefix: 'ucs' }) }
 
+export async function masterSearch(q) {
+  return apiGet(`/ngo-admin/master-search?q=${encodeURIComponent(q)}`)
+}
+
+export async function getCallAnalytics(params = {}) {
+  const qs = new URLSearchParams(params).toString()
+  return apiGet(`/ngo-admin/call-analytics${qs ? '?' + qs : ''}`)
+}
+
 export { setSession, clearSession, getToken, getUser } from '../../../api/auth'

@@ -1,39 +1,33 @@
-import { useState, useEffect } from 'react'
-import { getToken, getUser, clearSession, login as apiLogin } from './api'
+import { useState } from 'react'
+import { getUser, clearSession, setSession } from './api'
 import AttendanceView from './AttendanceView'
 
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@ufs.com'
+const ADMIN_PASS = import.meta.env.VITE_ADMIN_PASSWORD || '123456'
+const USER_EMAIL = import.meta.env.VITE_USER_EMAIL || 'user@ufs.com'
+const USER_PASS = import.meta.env.VITE_USER_PASSWORD || '123456'
+
 export default function App() {
-  const [user, setUser] = useState(() => getUser())
-  const [token, setToken] = useState(() => getToken())
-  const [identifier, setIdentifier] = useState(import.meta.env.VITE_ADMIN_EMAIL || '')
-  const [password, setPassword] = useState(import.meta.env.VITE_ADMIN_PASSWORD || '')
+  const [saved, setSaved] = useState(() => getUser())
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    setUser(getUser())
-    setToken(getToken())
-    const onExpired = () => { setToken(null); setUser(null) }
-    window.addEventListener('auth:expired', onExpired)
-    return () => window.removeEventListener('auth:expired', onExpired)
-  }, [])
-
-  if (token && user) {
+  if (saved) {
     return (
       <div className="app">
         <header className="topbar">
           <div>
-            <span className="eyebrow">Shon</span>
-            <h2>Attendance View</h2>
+            <h2>Employees</h2>
           </div>
           <div className="topbar-user">
-            <span className="topbar-name">{user.name || user.email || 'User'}</span>
-            <span className="topbar-role">{user.role}</span>
-            <button className="btn btn-sm" onClick={() => { clearSession(); setToken(null); setUser(null) }}>Sign out</button>
+            <span className="topbar-name">{saved.email}</span>
+            <button className="btn btn-sm" onClick={() => { clearSession(); setSaved(null) }}>Sign out</button>
           </div>
         </header>
         <div className="content">
-          <AttendanceView />
+          <AttendanceView readOnly={saved.readOnly} />
         </div>
       </div>
     )
@@ -43,21 +37,26 @@ export default function App() {
     <div className="login-page">
       <div className="login-card">
         <h2>Attendance</h2>
-        <p className="login-sub">Sign in to manage attendance</p>
-        <form className="login-form" onSubmit={async (e) => {
+        <p className="login-sub">Sign in to view attendance</p>
+        <form className="login-form" onSubmit={(e) => {
           e.preventDefault()
           if (!identifier || !password) { setError('Please fill in all fields'); return }
           setLoading(true)
           setError('')
-          try {
-            const data = await apiLogin(identifier, password)
-            setToken(data.token)
-            setUser(data.user || data)
-          } catch (err) {
-            setError(err.message)
-          } finally {
+          setTimeout(() => {
+            const email = identifier.trim().toLowerCase()
+            const pass = password.trim()
+            if (email === ADMIN_EMAIL && pass === ADMIN_PASS) {
+              setSession(email, false)
+              setSaved({ email, readOnly: false })
+            } else if (email === USER_EMAIL && pass === USER_PASS) {
+              setSession(email, true)
+              setSaved({ email, readOnly: true })
+            } else {
+              setError('Invalid credentials')
+            }
             setLoading(false)
-          }
+          }, 400)
         }}>
           {error && <div className="login-error">{error}</div>}
           <label className="field">

@@ -56,6 +56,8 @@ import {
   getIncentives,
   getVerificationFroWise,
   getFroPerformance,
+  masterSearch,
+  getCallAnalytics,
 } from '../controllers/ngoAdminController.js';
 
 const router = Router();
@@ -122,5 +124,8 @@ router.get('/donor-crm/donors/:id/receipts', getDonorReceipts);
 router.get('/donor-crm/donors/:id/followups', getDonorFollowups);
 router.get('/donor-crm/donors/:id/transactions', getDonorTransactions);
 router.post('/donor-crm/followups', createFollowup);
+
+router.get('/master-search', masterSearch);
+router.get('/call-analytics', getCallAnalytics);
 
 export default router;

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot, getDonorDonations } from '../api/donors';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { getMyDonors, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot, getDonorDonations, searchDonorsByMobile } from '../api/donors';
 import { SkeletonProfile } from '../../../components/Skeleton';
 import { useRealtime } from '../../../hooks/useRealtime';
 import { DatePicker } from '../components/ui';
@@ -89,6 +89,11 @@ export default function MyDonors() {
   const [donations, setDonations] = useState([]);
   const [donationYear, setDonationYear] = useState('this_year');
   const [donationLoading, setDonationLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [searchingAll, setSearchingAll] = useState(false);
+  const searchRef = useRef(null);
   const { isOnCall, activeCall, startCall, endCall, todayStats, startDonorView, endDonorView } = useCall();
 
   useEffect(() => {
@@ -292,6 +297,66 @@ export default function MyDonors() {
     } finally { setSaving(false); }
   };
 
+  const handleSearch = useCallback((q) => {
+    setSearchQuery(q);
+    if (!q || q.trim().length < 2) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+    const term = q.toLowerCase().trim();
+    const filtered = donors.filter(d =>
+      (d.donor_name || '').toLowerCase().includes(term) ||
+      (d.donor_mobile || '').includes(term)
+    );
+    setSearchResults(filtered);
+    setShowSearchDropdown(filtered.length > 0 || term.length >= 2);
+  }, [donors]);
+
+  const handleSelectSearchResult = (resultIdx) => {
+    const r = searchResults[resultIdx];
+    const donorId = r?.id || r?.donor_id;
+    const actualIdx = donors.findIndex(d => d.id === donorId);
+    if (actualIdx >= 0) {
+      setIndex(actualIdx);
+    } else {
+      setMessage({ type: 'error', text: 'Donor not in current list. Try navigating to the correct view.' });
+    }
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchDropdown(false);
+  };
+
+  const handleSearchAll = async () => {
+    if (!searchQuery || searchQuery.trim().length < 2) return;
+    setSearchingAll(true);
+    try {
+      const backendResults = await searchDonorsByMobile(searchQuery.trim());
+      if (backendResults && backendResults.length > 0) {
+        setSearchResults(backendResults);
+        setShowSearchDropdown(true);
+      } else {
+        setMessage({ type: 'error', text: 'No donors found with this mobile number' });
+        setShowSearchDropdown(false);
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Search failed: ' + err.message });
+    } finally {
+      setSearchingAll(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showSearchDropdown) return;
+    const handler = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showSearchDropdown]);
+
   const handleButtonClick = () => {
     if (selected) { handleSave(); return; }
     if (index < donors.length - 1) { setIndex(i => i + 1); return; }
@@ -350,33 +415,37 @@ export default function MyDonors() {
               </div>
             </div>
 
-            {/* Telecaller call button */}
-            <div style={{ margin: '10px 0', borderRadius: 10, overflow: 'hidden' }}>
-              {isOnCall && activeCall?.donorId === donor.id ? (
-                <button onClick={(e) => { e.stopPropagation(); endCall() }}
-                  style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#fff' }}>call_end</span>
-                  </div>
-                  <div style={{ flex: 1, textAlign: 'left' }}>
-                    <div style={{ fontSize: 11, color: '#991b1b', fontWeight: 500 }}>On Call</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>{callFmt(todayStats?.totalSeconds || 0)}</div>
-                  </div>
-                  <span style={{ fontSize: 10, color: '#dc2626', fontWeight: 600 }}>Tap to end →</span>
-                </button>
-              ) : (
-                <button onClick={(e) => { e.stopPropagation(); startCall(donor) }}
-                  style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: 'all .15s' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#fff' }}>call</span>
-                  </div>
-                  <div style={{ flex: 1, textAlign: 'left' }}>
-                    <div style={{ fontSize: 11, color: '#166534', fontWeight: 500 }}>Call Now</div>
-                    <div style={{ fontSize: 12, color: '#15803d', fontWeight: 600 }}>{donor.donor_mobile || 'No number'}</div>
-                  </div>
-                  <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#16a34a' }}>arrow_forward_ios</span>
-                </button>
-              )}
+            {/* Telecaller call button + WhatsApp */}
+            <div style={{ margin: '10px 0', borderRadius: 10, overflow: 'hidden', display: 'flex', gap: 6 }}>
+              <div style={{ flex: 1, borderRadius: 10, overflow: 'hidden' }}>
+                {isOnCall && activeCall?.donorId === donor.id ? (
+                  <button onClick={(e) => { e.stopPropagation(); endCall() }}
+                    style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, transition: 'all .15s' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#fff' }}>call_end</span>
+                    </div>
+                    <div style={{ flex: 1, textAlign: 'left' }}>
+                      <div style={{ fontSize: 10, color: '#991b1b', fontWeight: 500 }}>On Call</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>{callFmt(todayStats?.totalSeconds || 0)}</div>
+                    </div>
+                  </button>
+                ) : (
+                  <button onClick={(e) => { e.stopPropagation(); startCall(donor) }}
+                    style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, transition: 'all .15s' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#fff' }}>call</span>
+                    </div>
+                    <div style={{ flex: 1, textAlign: 'left' }}>
+                      <div style={{ fontSize: 10, color: '#166534', fontWeight: 500 }}>Call</div>
+                      <div style={{ fontSize: 11, color: '#15803d', fontWeight: 600 }}>{donor.donor_mobile || 'No number'}</div>
+                    </div>
+                  </button>
+                )}
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); navigate(`/fro/whatsapp-chat?phone=${donor.donor_mobile || ''}`) }}
+                style={{ width: 48, border: 'none', borderRadius: 10, background: 'linear-gradient(135deg, #25D366 0%, #1da851 100%)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              </button>
             </div>
             {/* Fields */}
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -453,6 +522,48 @@ export default function MyDonors() {
 
         {/* MIDDLE PANEL — Status (55%) */}
         <div className="detail-mid" style={{ padding: '12px 0 12px 8px' }}>
+          {/* Search donor by mobile */}
+          <div ref={searchRef} style={{ position: 'relative', marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', background: 'var(--card-bg)', borderRadius: 8, border: '1px solid var(--line)', padding: '4px 8px' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--ink-soft)' }}>search</span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => handleSearch(e.target.value)}
+                onFocus={() => { if (searchResults.length > 0) setShowSearchDropdown(true); }}
+                placeholder="Search donor by name or mobile..."
+                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 11, fontFamily: 'inherit', background: 'transparent', padding: '4px 0' }}
+              />
+              {searchQuery && (
+                <span className="material-symbols-outlined" style={{ fontSize: 14, color: 'var(--ink-soft)', cursor: 'pointer' }}
+                  onClick={() => { setSearchQuery(''); setSearchResults([]); setShowSearchDropdown(false); }}>close</span>
+              )}
+              <button onClick={handleSearchAll} disabled={searchingAll || searchQuery.trim().length < 2}
+                style={{ padding: '3px 8px', border: 'none', borderRadius: 6, background: 'var(--sage)', color: '#fff', fontSize: 9, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                {searchingAll ? '...' : 'Search All'}
+              </button>
+            </div>
+            {showSearchDropdown && searchResults.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--line)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 100, maxHeight: 240, overflowY: 'auto', marginTop: 2 }}>
+                {searchResults.map((r, i) => (
+                  <div key={`${r.id || r.donor_id}-${r.ngo_id || ''}`} onClick={() => handleSelectSearchResult(i)}
+                    style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: i < searchResults.length - 1 ? '1px solid var(--line)' : 'none', display: 'flex', alignItems: 'center', gap: 8, transition: 'background .1s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--md-primary-container, #e0e7ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: 'var(--md-on-primary-container, #4338ca)', flexShrink: 0 }}>
+                      {initials(r.donor_name || (r.donor_name ?? ''))}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: '#111827' }}>{r.donor_name || 'Unknown'}</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{r.donor_mobile || ''}{r.ngo_name ? ` · ${r.ngo_name}` : ''}{r.status ? ` · ${r.status.replace(/_/g, ' ')}` : ''}</div>
+                    </div>
+                    <span className={`pill ${STATUS_PILL_MAP[r.status] || 'pill-gray'}`} style={{ fontSize: 8, padding: '1px 5px' }}>{r.status ? r.status.replace(/_/g, ' ') : ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {message && (
             <div className={`detail-message ${message.type}`}>
               <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{message.type === 'error' ? 'error' : 'check_circle'}</span>

@@ -12,5 +12,6 @@ router.get('/all', authenticateRole('super_admin', 'admin', 'hr'), listAll);
 router.post('/', authenticateRole('super_admin', 'admin', 'hr'), createAttendanceByHR);
 router.put('/:id', authenticateRole('super_admin', 'admin', 'hr'), updateAttendanceRecord);
 router.delete('/:id', authenticateRole('super_admin', 'admin', 'hr'), deleteAttendanceRecord);
+router.get('/worker/:id', authenticateRole('super_admin', 'admin', 'hr'), getWorkerMonthlyAttendance);
 
 export default router;

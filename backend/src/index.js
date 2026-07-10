@@ -46,6 +46,7 @@ import whatsappRoutes from './routes/whatsappRoutes.js';
 import eventHeadRoutes from './routes/eventHeadRoutes.js';
 import ocrRoutes from './routes/ocrRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
+import froWhatsAppRoutes from './routes/froWhatsAppRoutes.js';
 
 dotenv.config();
 
@@ -111,6 +112,7 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/event-head', eventHeadRoutes);
+app.use('/api/fro/whatsapp', froWhatsAppRoutes);
 
 if (fs.existsSync(froDist)) {
   app.use('/assets', express.static(path.join(froDist, 'assets')));

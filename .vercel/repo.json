@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_l9oYC7xpuYK4f2m3RPbH5Tz7vZix",
+      "name": "ucs-crm",
+      "directory": "backend",
+      "orgId": "team_ro0E1xXaxaypHjxXrkd5kbDq"
+    }
+  ]
+}

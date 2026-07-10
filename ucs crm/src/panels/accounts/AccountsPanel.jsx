@@ -15,6 +15,8 @@ import Reports from './pages/Reports'
 import RazorpayAccountsManager from './components/RazorpayAccountsManager'
 import EmailAccountsView from './components/EmailAccountsView'
 import WhatsAppSettings from './pages/WhatsAppSettings'
+import WhatsAppAccountsManager from './components/WhatsAppAccountsManager'
+import WhatsAppAgents from './pages/WhatsAppAgents'
 import Receipts from './pages/Receipts'
 import TemplateSettings from './pages/TemplateSettings'
 
@@ -32,6 +34,10 @@ const NAV = [
 
   { id: 'asset-register', path: '/accounts/asset-register', label: 'Asset Register',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
+  { id: 'whatsapp-accounts', path: '/accounts/whatsapp-accounts', label: 'WhatsApp Accounts',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> },
+  { id: 'whatsapp-agents', path: '/accounts/whatsapp-agents', label: 'WhatsApp Agents',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
 ]
 
 const settingsViews = [
@@ -217,6 +223,16 @@ export default function AccountsPanel() {
             <Route path="receipt-generator" element={<Receipts />} />
             <Route path="bank-audit" element={<BankAudit />} />
             <Route path="whatsapp" element={<WhatsAppSettings />} />
+            <Route path="whatsapp-agents" element={<WhatsAppAgents />} />
+            <Route path="whatsapp-accounts" element={
+              <div>
+                <div style={{ marginBottom: 16 }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>WhatsApp Accounts</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>Manage your WhatsApp Business API accounts</p>
+                </div>
+                <WhatsAppAccountsManager />
+              </div>
+            } />
             <Route path="template-settings" element={<TemplateSettings />} />
             <Route path="asset-register" element={<AssetRegister />} />
             <Route path="*" element={<Navigate to="leads" replace />} />
