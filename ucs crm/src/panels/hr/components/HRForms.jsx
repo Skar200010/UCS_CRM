@@ -496,6 +496,26 @@ export default function HRForms() {
           </>
         );
 
+      case 'Declaration':
+        return (
+          <>
+            <div className="card-head"><h4>Declaration</h4></div>
+            <div className="card-pad">
+              <p style={{ fontSize: 14, lineHeight: 1.8, marginBottom: 24 }}>
+                I hereby declare that the above statements made in my application form are true, complete, and correct to the best of my knowledge and belief. In the event of any information being found false or incorrect at any stage, my services are liable to be terminated without notice.
+              </p>
+              <div className="form-row">
+                <Field label="Date" placeholder="____________" readOnly={false} value="" onChange={() => {}} />
+                <Field label="Place" placeholder="____________" readOnly={false} value="" onChange={() => {}} />
+                <div style={{ flex: 1 }}>
+                  <label className="form-label">Sign</label>
+                  <div style={{ width: 200, height: 60, border: '1px solid #ccc', borderRadius: 4, marginTop: 4 }}></div>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+
       default:
         return null;
     }
@@ -619,6 +639,19 @@ export default function HRForms() {
             <div className="form-row">
               <Field label="IFSC Code" value={bank.ifsc} readOnly />
               <Field label="Account Number" value={bank.accountNo} readOnly />
+            </div>
+
+            <h3 style={{ marginTop: 24, marginBottom: 16 }}>Declaration</h3>
+            <p style={{ fontSize: 14, lineHeight: 1.8, marginBottom: 16 }}>
+              I hereby declare that the above statements made in my application form are true, complete, and correct to the best of my knowledge and belief. In the event of any information being found false or incorrect at any stage, my services are liable to be terminated without notice.
+            </p>
+            <div className="form-row">
+              <Field label="Date" value="" readOnly />
+              <Field label="Place" value="" readOnly />
+              <div style={{ flex: 1 }}>
+                <label className="form-label">Sign</label>
+                <div style={{ width: 200, height: 60, border: '1px solid #ccc', borderRadius: 4, marginTop: 4 }}></div>
+              </div>
             </div>
           </div>
         ) : (
