@@ -20,8 +20,6 @@ interface WhatsAppAccount {
   phone_number_id: string;
   access_token: string;
   waba_id: string;
-  template_name: string | null;
-  template_language: string | null;
   is_active: boolean;
   is_default: boolean;
   created_at: string;
@@ -187,14 +185,6 @@ function AccountCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 px-5 py-3 border-b">
-            <Send className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-muted-foreground">Template</p>
-              <p className="text-sm">{account.template_name || '—'}</p>
-            </div>
-          </div>
-
           <div className="flex items-center gap-3 px-5 py-3">
             <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="min-w-0 flex-1">
@@ -240,8 +230,6 @@ export function PhoneNumbersPage() {
     phone_number_id: '',
     access_token: '',
     waba_id: '',
-    template_name: '',
-    template_language: 'en',
     is_active: true,
     is_default: false,
   });
@@ -302,7 +290,7 @@ export function PhoneNumbersPage() {
   const resetForm = () => {
     setForm({
       name: '', project: '', phone_number_id: '', access_token: '',
-      waba_id: '', template_name: '', template_language: 'en', is_active: true, is_default: false,
+      waba_id: '', is_active: true, is_default: false,
     });
   };
 
@@ -318,8 +306,6 @@ export function PhoneNumbersPage() {
         phone_number_id: form.phone_number_id,
         access_token: form.access_token,
         waba_id: form.waba_id,
-        template_name: form.template_name || null,
-        template_language: form.template_language || 'en',
         is_active: form.is_active,
         is_default: form.is_default,
       });
@@ -344,8 +330,6 @@ export function PhoneNumbersPage() {
           phone_number_id: form.phone_number_id,
           access_token: form.access_token,
           waba_id: form.waba_id,
-          template_name: form.template_name || null,
-          template_language: form.template_language || 'en',
           is_active: form.is_active,
           is_default: form.is_default,
         })
@@ -413,8 +397,6 @@ export function PhoneNumbersPage() {
       phone_number_id: account.phone_number_id,
       access_token: account.access_token,
       waba_id: account.waba_id,
-      template_name: account.template_name || '',
-      template_language: account.template_language || 'en',
       is_active: account.is_active,
       is_default: account.is_default,
     });
@@ -469,17 +451,6 @@ export function PhoneNumbersPage() {
           className="font-mono text-sm"
           type="password"
         />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Template Name</Label>
-          <Input value={form.template_name} onChange={(e) => setForm({ ...form, template_name: e.target.value })} placeholder="aflf_receipt" />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Template Language</Label>
-          <Input value={form.template_language} onChange={(e) => setForm({ ...form, template_language: e.target.value })} placeholder="en" />
-        </div>
       </div>
 
       <div className="flex items-center gap-6">

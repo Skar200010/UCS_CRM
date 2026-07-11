@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../stores/authStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -23,7 +22,6 @@ const TABS = [
 ];
 
 export function SettingsPage() {
-  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState('general');
 
   return (
@@ -49,7 +47,7 @@ export function SettingsPage() {
         ))}
       </div>
 
-      {activeTab === 'general' && <GeneralSettings user={user} />}
+      {activeTab === 'general' && <GeneralSettings />}
       {activeTab === 'whatsapp' && <WhatsAppSettings />}
       {activeTab === 'team' && <TeamSettings />}
       {activeTab === 'api-keys' && <ApiKeysSettings />}
@@ -59,26 +57,12 @@ export function SettingsPage() {
   );
 }
 
-function GeneralSettings({ user }: { user: any }) {
+function GeneralSettings() {
   return (
     <Card>
       <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>First Name</Label>
-            <Input defaultValue={user?.first_name} />
-          </div>
-          <div className="space-y-2">
-            <Label>Last Name</Label>
-            <Input defaultValue={user?.last_name} />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label>Email</Label>
-          <Input defaultValue={user?.email} disabled />
-        </div>
-        <Button>Save Changes</Button>
+        <p className="text-sm text-muted-foreground">Profile settings will be available after login integration.</p>
       </CardContent>
     </Card>
   );
@@ -213,7 +197,6 @@ function TeamSettings() {
 
 interface ApiKey {
   id: string;
-  tenant_id: string;
   name: string;
   key: string;
   permissions: any;
@@ -224,7 +207,6 @@ interface ApiKey {
 }
 
 function ApiKeysSettings() {
-  const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState('');
@@ -242,9 +224,8 @@ function ApiKeysSettings() {
 
   const handleGenerate = async () => {
     if (!newName) { toast.error('Name is required'); return; }
-    if (!user?.tenant_id) { toast.error('Tenant not found'); return; }
     try {
-      const { data, error } = await supabase.from('api_keys').insert({ name: newName, tenant_id: user.tenant_id }).select().single();
+      const { data, error } = await supabase.from('api_keys').insert({ name: newName }).select().single();
       if (error) throw error;
       setNewKey(data.key);
       setNewName('');
@@ -335,7 +316,6 @@ function ApiKeysSettings() {
 }
 
 function QuickRepliesSettings() {
-  const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<QuickReply | null>(null);
   const [newReply, setNewReply] = useState(false);
@@ -354,7 +334,7 @@ function QuickRepliesSettings() {
   });
 
   const handleSave = async (reply: Partial<QuickReply>) => {
-    if (!user || !reply.name || !reply.message_text) {
+    if (!reply.name || !reply.message_text) {
       toast.error('Name and message are required');
       return;
     }
@@ -362,7 +342,7 @@ function QuickRepliesSettings() {
       if (editing) {
         await supabase.from('quick_replies').update(reply).eq('id', editing.id);
       } else {
-        await supabase.from('quick_replies').insert({ ...reply, tenant_id: user.tenant_id });
+        await supabase.from('quick_replies').insert(reply);
       }
       queryClient.invalidateQueries({ queryKey: ['quick-replies-all'] });
       setEditing(null);
@@ -490,7 +470,6 @@ function QuickReplyForm({ reply, onSave, onCancel }: {
 }
 
 function MediaLibrarySettings() {
-  const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
 
@@ -505,14 +484,13 @@ function MediaLibrarySettings() {
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
     setUploading(true);
     try {
-      const fileName = `media-library/${user.tenant_id}/${Date.now()}_${file.name}`;
+      const fileName = `media-library/${Date.now()}_${file.name}`;
       await supabase.storage.from('whatsapp-media').upload(fileName, file);
       const { data: { publicUrl } } = supabase.storage.from('whatsapp-media').getPublicUrl(fileName);
       await supabase.from('media_library').insert({
-        tenant_id: user.tenant_id,
         name: file.name,
         category: file.type.startsWith('image/') ? 'image' : 'document',
         file_url: publicUrl,

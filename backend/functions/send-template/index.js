@@ -59,45 +59,10 @@ serve(async (req) => {
       );
     }
 
-    const authHeader = req.headers.get("Authorization");
-    const apiKey = req.headers.get("x-api-key");
-
-    if (!authHeader && !apiKey) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    let tenantId = null;
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-
-    if (apiKey) {
-      const { data: keyRecord } = await supabase
-        .from("api_keys")
-        .select("id, tenant_id, active")
-        .eq("key", apiKey)
-        .maybeSingle();
-      if (!keyRecord || !keyRecord.active) {
-        return new Response(JSON.stringify({ error: "Invalid or inactive API key" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      tenantId = keyRecord.tenant_id;
-      await supabase.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", keyRecord.id);
-    } else {
-      const userSupabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
-      const { data: { user } } = await userSupabase.auth.getUser();
-      if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      const { data: profile } = await supabase.from("users").select("tenant_id").eq("id", user.id).single();
-      tenantId = profile?.tenant_id || null;
-    }
-
-    if (!tenantId) {
-      return new Response(JSON.stringify({ error: "Tenant not found" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
 
     let contact = null;
     let conversation = null;
@@ -105,7 +70,7 @@ serve(async (req) => {
     if (conversationId) {
       const { data: conv } = await supabase
         .from("conversations")
-        .select("*, contact:contacts(*), phone_number:whatsapp_phone_numbers(*)")
+        .select("*, contact:contacts(*)")
         .eq("id", conversationId)
         .single();
       if (!conv) return new Response(JSON.stringify({ error: "Conversation not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -113,32 +78,32 @@ serve(async (req) => {
       contact = conv.contact;
     } else {
       const phoneNormalized = phone.replace(/[^0-9]/g, "");
-      const { data: existingContact } = await supabase.from("contacts").select("*").eq("tenant_id", tenantId).eq("phone_normalized", phoneNormalized).maybeSingle();
+      const { data: existingContact } = await supabase.from("contacts").select("*").eq("phone_normalized", phoneNormalized).maybeSingle();
       if (existingContact) {
         contact = existingContact;
       } else {
-        const { data: newContact } = await supabase.from("contacts").insert({ tenant_id: tenantId, phone, phone_normalized: phoneNormalized, source: "api", project: project || null }).select().single();
+        const { data: newContact } = await supabase.from("contacts").insert({ phone, phone_normalized: phoneNormalized, source: "api", project: project || null }).select().single();
         if (!newContact) throw new Error("Failed to create contact");
         contact = newContact;
       }
 
       const { data: existingConv } = await supabase
         .from("conversations")
-        .select("*, contact:contacts(*), phone_number:whatsapp_phone_numbers(*)")
-        .eq("tenant_id", tenantId).eq("contact_id", contact.id).eq("status", "open")
+        .select("*, contact:contacts(*)")
+        .eq("contact_id", contact.id).eq("status", "open")
         .maybeSingle();
 
       if (existingConv) {
         conversation = existingConv;
       } else {
-        const { data: newConv } = await supabase.from("conversations").insert({ tenant_id: tenantId, contact_id: contact.id, phone_number_id: null, status: "open", last_message_at: new Date().toISOString(), project: project || null }).select("*, contact:contacts(*), phone_number:whatsapp_phone_numbers(*)").single();
+        const { data: newConv } = await supabase.from("conversations").insert({ contact_id: contact.id, phone_number_id: null, status: "open", last_message_at: new Date().toISOString(), project: project || null }).select("*, contact:contacts(*)").single();
         if (!newConv) throw new Error("Failed to create conversation");
         conversation = newConv;
       }
     }
 
     const convId = conversation.id;
-    const phoneNumberIdFromConv = conversation.phone_number?.phone_number_id;
+    const phoneNumberIdFromConv = conversation.phone_number_id;
     const account = await resolveAccount(supabase, conversationId, project, phoneNumberIdFromConv);
 
     if (!account) {
@@ -215,7 +180,6 @@ serve(async (req) => {
     const { data: message, error: msgError } = await supabase
       .from("messages")
       .insert({
-        tenant_id: tenantId,
         conversation_id: convId,
         contact_id: conversation.contact_id,
         direction: "outbound",

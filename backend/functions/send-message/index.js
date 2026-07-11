@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const WHATSAPP_API = "https://graph.facebook.com/v23.0";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -45,9 +47,7 @@ async function resolveAccount(supabase, conversationId, project, phoneNumberIdFr
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const { conversationId, phone, messageText, project, phoneNumberId: customPhoneNumberId, mediaUrl, mediaMimeType } = await req.json();
@@ -59,65 +59,10 @@ serve(async (req) => {
       );
     }
 
-    const authHeader = req.headers.get("Authorization");
-    const apiKey = req.headers.get("x-api-key");
-
-    if (!authHeader && !apiKey) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    let userId = null;
-    let tenantId = null;
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-
-    if (apiKey) {
-      const { data: keyRecord } = await supabase
-        .from("api_keys")
-        .select("id, tenant_id, active")
-        .eq("key", apiKey)
-        .maybeSingle();
-
-      if (!keyRecord || !keyRecord.active) {
-        return new Response(
-          JSON.stringify({ error: "Invalid or inactive API key" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      tenantId = keyRecord.tenant_id;
-      await supabase.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", keyRecord.id);
-    } else {
-      const userSupabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_ANON_KEY")!,
-        { global: { headers: { Authorization: authHeader } } }
-      );
-
-      const { data: { user } } = await userSupabase.auth.getUser();
-      if (!user) {
-        return new Response(
-          JSON.stringify({ error: "Unauthorized" }),
-          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      userId = user.id;
-      const { data: profile } = await supabase.from("users").select("tenant_id").eq("id", user.id).single();
-      tenantId = profile?.tenant_id || null;
-    }
-
-    if (!tenantId) {
-      return new Response(
-        JSON.stringify({ error: "Tenant not found" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     let conversation = null;
     let contact = null;
@@ -125,7 +70,7 @@ serve(async (req) => {
     if (conversationId) {
       const { data: conv, error: convError } = await supabase
         .from("conversations")
-        .select("*, contact:contacts(*), phone_number:whatsapp_phone_numbers(*)")
+        .select("*, contact:contacts(*)")
         .eq("id", conversationId)
         .single();
 
@@ -142,7 +87,6 @@ serve(async (req) => {
       const { data: existingContact } = await supabase
         .from("contacts")
         .select("*")
-        .eq("tenant_id", tenantId)
         .eq("phone_normalized", phoneNormalized)
         .maybeSingle();
 
@@ -151,7 +95,7 @@ serve(async (req) => {
       } else {
         const { data: newContact, error: createError } = await supabase
           .from("contacts")
-          .insert({ tenant_id: tenantId, phone, phone_normalized: phoneNormalized, source: "api", project: project || null })
+          .insert({ phone, phone_normalized: phoneNormalized, source: "api", project: project || null })
           .select()
           .single();
         if (createError) throw createError;
@@ -160,8 +104,7 @@ serve(async (req) => {
 
       const { data: existingConv } = await supabase
         .from("conversations")
-        .select("*, contact:contacts(*), phone_number:whatsapp_phone_numbers(*)")
-        .eq("tenant_id", tenantId)
+        .select("*, contact:contacts(*)")
         .eq("contact_id", contact.id)
         .eq("status", "open")
         .maybeSingle();
@@ -172,14 +115,13 @@ serve(async (req) => {
         const { data: newConv, error: convError } = await supabase
           .from("conversations")
           .insert({
-            tenant_id: tenantId,
             contact_id: contact.id,
             phone_number_id: null,
             status: "open",
             last_message_at: new Date().toISOString(),
             project: project || null,
           })
-          .select("*, contact:contacts(*), phone_number:whatsapp_phone_numbers(*)")
+          .select("*, contact:contacts(*)")
           .single();
         if (convError) throw convError;
         conversation = newConv;
@@ -199,15 +141,11 @@ serve(async (req) => {
     const { data: message, error: msgError } = await supabase
       .from("messages")
       .insert({
-        tenant_id: conversation.tenant_id || tenantId,
         conversation_id: convId,
         contact_id: conversation.contact_id,
-        user_id: userId,
         direction: "outbound",
         message_type: messageType,
         body_text: messageText || null,
-        media_url: mediaUrl || null,
-        media_mime_type: mediaMimeType || null,
         status: "queued",
         message_category: "service",
       })
@@ -216,7 +154,7 @@ serve(async (req) => {
 
     if (msgError) throw msgError;
 
-    const phoneNumberIdFromConv = conversation.phone_number?.phone_number_id || customPhoneNumberId;
+    const phoneNumberIdFromConv = conversation.phone_number_id || customPhoneNumberId;
     const account = await resolveAccount(supabase, conversationId, project, phoneNumberIdFromConv);
 
     if (!account) {

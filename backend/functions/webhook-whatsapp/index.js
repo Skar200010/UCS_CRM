@@ -67,6 +67,19 @@ serve(async (req) => {
       if (changes?.field === "messages" && value?.messages) {
         for (const message of value.messages) {
           const from = message.from;
+          let bodyText = message.text?.body || null;
+
+          if (message.type === "image") {
+            bodyText = message.image?.caption || "[Image]";
+          } else if (message.type === "video") {
+            bodyText = message.video?.caption || "[Video]";
+          } else if (message.type === "audio") {
+            bodyText = "[Audio]";
+          } else if (message.type === "document") {
+            bodyText = message.document?.caption || "[Document]";
+          } else if (message.type === "sticker") {
+            bodyText = "[Sticker]";
+          }
 
           let { data: contact } = await supabase
             .from("contacts")
@@ -91,16 +104,6 @@ serve(async (req) => {
             contact = newContact;
           }
 
-          let localPhoneNumber = null;
-          if (phoneNumberId) {
-            const { data: pn } = await supabase
-              .from("whatsapp_phone_numbers")
-              .select("id")
-              .eq("phone_number_id", phoneNumberId)
-              .maybeSingle();
-            localPhoneNumber = pn;
-          }
-
           let { data: conversation } = await supabase
             .from("conversations")
             .select("*")
@@ -112,9 +115,8 @@ serve(async (req) => {
             const { data: newConversation, error: convErr } = await supabase
               .from("conversations")
               .insert({
-                tenant_id: contact.tenant_id,
                 contact_id: contact.id,
-                phone_number_id: localPhoneNumber?.id || null,
+                phone_number_id: phoneNumberId || null,
                 status: "open",
                 last_message_at: new Date().toISOString(),
                 last_inbound_at: new Date().toISOString(),
@@ -127,46 +129,12 @@ serve(async (req) => {
             conversation = newConversation;
           }
 
-          let mediaUrl = null;
-          let mediaId = null;
-          let mediaMimeType = null;
-          let bodyText = message.text?.body || null;
-
-          if (message.type === "image") {
-            mediaUrl = message.image?.link || null;
-            mediaId = message.image?.id || null;
-            mediaMimeType = message.image?.mime_type || "image/jpeg";
-            bodyText = message.image?.caption || null;
-          } else if (message.type === "video") {
-            mediaUrl = message.video?.link || null;
-            mediaId = message.video?.id || null;
-            mediaMimeType = message.video?.mime_type || "video/mp4";
-            bodyText = message.video?.caption || null;
-          } else if (message.type === "audio") {
-            mediaUrl = message.audio?.link || null;
-            mediaId = message.audio?.id || null;
-            mediaMimeType = message.audio?.mime_type || "audio/ogg";
-          } else if (message.type === "document") {
-            mediaUrl = message.document?.link || null;
-            mediaId = message.document?.id || null;
-            mediaMimeType = message.document?.mime_type || "application/octet-stream";
-            bodyText = message.document?.caption || null;
-          } else if (message.type === "sticker") {
-            mediaUrl = message.sticker?.link || null;
-            mediaId = message.sticker?.id || null;
-            mediaMimeType = message.sticker?.mime_type || "image/webp";
-          }
-
           const { error: msgError } = await supabase.from("messages").insert({
-            tenant_id: contact.tenant_id,
             conversation_id: conversation.id,
             contact_id: contact.id,
             direction: "inbound",
             message_type: message.type,
             body_text: bodyText,
-            media_url: mediaUrl,
-            media_id: mediaId,
-            media_mime_type: mediaMimeType,
             wa_message_id: message.id,
             status: "delivered",
             message_category: "service",
@@ -187,7 +155,6 @@ serve(async (req) => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              tenant_id: contact.tenant_id,
               contact_id: contact.id,
               conversation_id: conversation.id,
               trigger_type: "inbound_message",
@@ -197,8 +164,6 @@ serve(async (req) => {
                 from: message.from,
                 text: bodyText,
                 type: message.type,
-                media_url: mediaUrl,
-                media_mime_type: mediaMimeType,
               },
             }),
           }).catch((err) => console.error("Failed to trigger automations:", err));
