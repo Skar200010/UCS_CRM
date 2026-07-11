@@ -367,45 +367,6 @@ export default function RecruiterOverview() {
         })}
       </div>
 
-      {/* ── Fourth Section: Lead Distribution ── */}
-      <div className="ro-two-col">
-        <div className="ro-card">
-          <div className="ro-card-title">Lead Distribution</div>
-          <div className="ro-dist-bars">
-            {sortedByLeads.map((r, i) => {
-              const pct = maxLeads > 0 ? (r.leadsCount / maxLeads * 100) : 0;
-              return (
-                <div key={r.id} className="ro-dist-row">
-                  <span className="ro-dist-name">{r.name?.split(' ')[0]}</span>
-                  <div className="ro-dist-track">
-                    <div className="ro-dist-fill" style={{ width: `${pct}%`, background: RCOLORS[i % RCOLORS.length] }} />
-                  </div>
-                  <span className="ro-dist-val">{r.leadsCount} Leads</span>
-                  <span className="ro-dist-pct">{maxLeads > 0 ? Math.round(r.leadsCount / maxLeads * 100) : 0}%</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── Fifth Section: Status Breakdown Donut ── */}
-        <div className="ro-card">
-          <div className="ro-card-title">Recruiter Status Breakdown</div>
-          <div className="ro-donut-wrap">
-            <DonutChart data={donutData} size={180} />
-            <div className="ro-donut-legend">
-              {donutData.map(d => (
-                <div key={d.label} className="ro-donut-item">
-                  <span className="ro-donut-dot" style={{ background: d.color }} />
-                  <span className="ro-donut-label">{d.label}</span>
-                  <span className="ro-donut-val">{d.val}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* ── Sixth Section: Monthly Performance Bar Chart ── */}
       <div className="ro-card" style={{ marginTop: 14 }}>
         <div className="ro-card-title">Monthly Recruiter Performance</div>
