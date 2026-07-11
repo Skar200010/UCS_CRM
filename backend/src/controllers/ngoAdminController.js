@@ -2050,7 +2050,7 @@ export const masterSearch = async (req, res) => {
       (async () => {
         let query = supabase
           .from('workers')
-          .select('id, name, login_id, ngo_id, is_active, created_at')
+          .select('id, name, login_id, ngo_id, is_active, created_at, ngos!left(name)')
           .eq('department', 'FRO')
           .or(`name.ilike.${term},login_id.ilike.${term}`)
           .limit(10);
@@ -2889,6 +2889,64 @@ export const createFollowup = async (req, res) => {
 
     if (error) throw error;
     return res.json(data);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const getFroSummary = async (req, res) => {
+  try {
+    const froId = req.params.id;
+    if (!froId) return res.status(400).json({ message: 'Invalid FRO ID' });
+
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+    const [logsRes, asgnRes] = await Promise.all([
+      supabase
+        .from('fro_donor_logs')
+        .select('amount_collected, disposition_detail, action, accounts_status, created_at, call_duration_seconds')
+        .eq('fro_worker_id', froId)
+        .gte('created_at', todayStart.toISOString())
+        .lte('created_at', todayEnd.toISOString()),
+      supabase
+        .from('fro_assignments')
+        .select('status')
+        .eq('fro_worker_id', froId)
+        .not('status', 'eq', 'reassigned'),
+    ]);
+
+    const logs = logsRes.data || [];
+    const assignments = asgnRes.data || [];
+
+    const todayCollection = logs.reduce((s, l) => {
+      const amt = parseFloat(l.amount_collected || 0);
+      if (l.action === 'donation') return s + amt;
+      if (l.action === 'disposition' && l.disposition_detail === 'lead_done') return s + amt;
+      return s;
+    }, 0);
+
+    const talkSeconds = logs.reduce((s, l) => s + (parseInt(l.call_duration_seconds) || 0), 0);
+
+    const dispositionBreakdown = {};
+    for (const l of logs) {
+      const d = l.disposition_detail || 'unknown';
+      dispositionBreakdown[d] = (dispositionBreakdown[d] || 0) + 1;
+    }
+
+    const statusBreakdown = {};
+    for (const a of assignments) {
+      statusBreakdown[a.status] = (statusBreakdown[a.status] || 0) + 1;
+    }
+
+    return res.json({
+      todayCollection,
+      todayCalls: logs.length,
+      talkSeconds,
+      dispositionBreakdown,
+      totalAssigned: assignments.length,
+      statusBreakdown,
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

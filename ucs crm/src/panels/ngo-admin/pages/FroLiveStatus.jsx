@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useUcs } from '../../../store'
 import { supabase } from '../../../config/supabase'
 import { api } from '../../../api/auth'
@@ -20,10 +21,17 @@ const STATUS_META = {
 
 export default function FroLiveStatus() {
   const { user } = useUcs()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const froId = searchParams.get('fro_id')
+
   const [statuses, setStatuses] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedNgoId, setSelectedNgoId] = useState('all')
   const [accessibleNgos, setAccessibleNgos] = useState([])
+
+  const [extraData, setExtraData] = useState(null)
+  const [loadingExtra, setLoadingExtra] = useState(false)
 
   useEffect(() => {
     api('/ngo-admin/ngos', { _prefix: 'ucs' }).then(setAccessibleNgos).catch(() => {});
@@ -31,8 +39,11 @@ export default function FroLiveStatus() {
 
   const loadStatuses = async () => {
     try {
-      const ngoParam = selectedNgoId !== 'all' ? `?ngo_id=${selectedNgoId}` : '';
-      const data = await api(`/fro/status${ngoParam}`, { _prefix: 'ucs' })
+      const params = new URLSearchParams()
+      if (selectedNgoId !== 'all' && !froId) params.set('ngo_id', selectedNgoId)
+      if (froId) params.set('fro_id', froId)
+      const qs = params.toString()
+      const data = await api(`/fro/status${qs ? `?${qs}` : ''}`, { _prefix: 'ucs' })
       setStatuses(data || [])
     } catch { setStatuses([]) }
     finally { setLoading(false) }
@@ -42,7 +53,7 @@ export default function FroLiveStatus() {
     loadStatuses()
     const interval = setInterval(loadStatuses, 30000)
     return () => clearInterval(interval)
-  }, [selectedNgoId])
+  }, [selectedNgoId, froId])
 
   useEffect(() => {
     const channel = supabase
@@ -55,10 +66,33 @@ export default function FroLiveStatus() {
     return () => { supabase.removeChannel(channel) }
   }, [])
 
+  useEffect(() => {
+    if (!froId) return
+    setLoadingExtra(true)
+    api(`/ngo-admin/fro/${froId}/summary`, { _prefix: 'ucs' })
+      .then(data => setExtraData(data))
+      .catch(() => setExtraData(null))
+      .finally(() => setLoadingExtra(false))
+  }, [froId])
+
   const onlineCount = statuses.filter(s => s.status === 'on_call' || s.status === 'online').length
 
   if (loading) {
     return <div style={{ padding: 40, textAlign: 'center', fontSize: 12, color: 'var(--ink-soft)' }}>Loading FRO statuses...</div>
+  }
+
+  if (froId && statuses[0]) {
+    const fs = statuses[0]
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <button className="btn btn-sm btn-outline" onClick={() => navigate('/ngo-admin/fro-status')} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            ← Back to All FROs
+          </button>
+        </div>
+        <FroDetailView fs={fs} extraData={extraData} loadingExtra={loadingExtra} />
+      </div>
+    )
   }
 
   return (
@@ -91,16 +125,18 @@ export default function FroLiveStatus() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
           {statuses.map(fs => {
-            const meta = STATUS_META[fs.status] || STATUS_META.offline
             const workerName = fs.workers?.name || 'Unknown'
             const initials = workerName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+            const meta = STATUS_META[fs.status] || STATUS_META.offline
             const totalActive = (fs.today_talk_seconds || 0) + (fs.today_idle_seconds || 0)
             const productivity = totalActive > 0 ? Math.round(((fs.today_talk_seconds || 0) / totalActive) * 100) : null
             return (
               <div key={fs.id} className="card" style={{
                 marginBottom: 0, padding: '14px 16px',
                 borderLeft: `4px solid ${meta.color}`,
-              }}>
+                cursor: 'pointer',
+              }}
+                onClick={() => navigate(`/ngo-admin/fro-status?fro_id=${fs.worker_id}`)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                   <div style={{ width: 36, height: 36, borderRadius: '50%', background: meta.bg, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
                     {initials}
@@ -170,6 +206,195 @@ export default function FroLiveStatus() {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+function FroDetailView({ fs, extraData, loadingExtra }) {
+  const workerName = fs.workers?.name || 'Unknown'
+  const initials = workerName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+  const meta = STATUS_META[fs.status] || STATUS_META.offline
+  const totalActive = (fs.today_talk_seconds || 0) + (fs.today_idle_seconds || 0)
+  const productivity = totalActive > 0 ? Math.round(((fs.today_talk_seconds || 0) / totalActive) * 100) : null
+  const ed = extraData || {}
+
+  return (
+    <div>
+      {/* FRO Header Card */}
+      <div className="card" style={{ marginBottom: 16, padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: meta.bg, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700 }}>
+            {initials}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{workerName}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{fs.workers?.login_id || ''} · ID: {fs.worker_id}</div>
+          </div>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 20, background: meta.bg, border: `1px solid ${meta.border}` }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color, display: 'inline-block',
+              animation: fs.status === 'on_call' || fs.status === 'break' ? 'pulse 1s ease-in-out infinite' : 'none' }} />
+            <span style={{ fontSize: 13, fontWeight: 700, color: meta.color }}>{meta.label}</span>
+          </span>
+        </div>
+
+        {fs.status === 'on_call' && (
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#dc2626' }}>call</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#991b1b', flex: 1 }}>Calling: <strong>{fs.current_donor_name}</strong></span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                {fs.call_started_at ? fmt(Math.floor((Date.now() - new Date(fs.call_started_at).getTime()) / 1000)) : '00:00'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {fs.status === 'break' && (
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: fs.today_break_seconds > 3600 ? '#fef2f2' : '#fefce8', border: `1px solid ${fs.today_break_seconds > 3600 ? '#fecaca' : '#fde68a'}`, marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: fs.today_break_seconds > 3600 ? '#dc2626' : '#d97706' }}>free_breakfast</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: fs.today_break_seconds > 3600 ? '#991b1b' : '#92400e', flex: 1 }}>
+                On Break{fs.today_break_seconds > 3600 ? ' — Exceeded 1 hour!' : ''}
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: fs.today_break_seconds > 3600 ? '#dc2626' : '#d97706', fontVariantNumeric: 'tabular-nums' }}>
+                {fs.break_started_at ? fmt(Math.floor((Date.now() - new Date(fs.break_started_at).getTime()) / 1000)) : '00:00'}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Stats Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+        <div className="card" style={{ marginBottom: 0, padding: '14px 16px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 4 }}>Today's Calls</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>{fs.today_calls || 0}</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>Talk: {fmt(fs.today_talk_seconds || 0)}</div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 0, padding: '14px 16px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 4 }}>Today's Collection</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--sage)' }}>
+            {loadingExtra ? '...' : `₹${(ed.todayCollection || 0).toLocaleString('en-IN')}`}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>{ed.todayCalls || 0} donations</div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 0, padding: '14px 16px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 4 }}>Assigned Leads</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>{loadingExtra ? '...' : (ed.totalAssigned || 0)}</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>Active assignments</div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 0, padding: '14px 16px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 4 }}>Productivity</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: productivity != null && productivity < 50 ? '#dc2626' : '#16a34a' }}>
+            {productivity != null ? `${productivity}%` : '—'}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>Talk / Active time</div>
+        </div>
+      </div>
+
+      {/* Time Breakdown */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-head"><h3>Time Breakdown</h3></div>
+        <div className="card-pad">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Talk Time</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#16a34a' }}>{fmt(fs.today_talk_seconds || 0)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Idle Time</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b' }}>{fmt(fs.today_idle_seconds || 0)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Break Time</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: fs.today_break_seconds > 3600 ? '#dc2626' : '#d97706' }}>{fmt(fs.today_break_seconds || 0)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 2 }}>Skipped</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#6b7280' }}>{fs.today_skipped || 0}</div>
+            </div>
+          </div>
+          {productivity != null && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 10, color: 'var(--ink-soft)', marginBottom: 4 }}>Talk / Active Ratio</div>
+              <div style={{ height: 8, borderRadius: 4, background: '#e5e7eb', overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, productivity)}%`, height: '100%', borderRadius: 4, background: productivity < 50 ? '#dc2626' : productivity < 75 ? '#f59e0b' : '#16a34a', transition: 'width .5s' }} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Disposition & Lead Status */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+        <div className="card" style={{ marginBottom: 0 }}>
+          <div className="card-head"><h3>Today's Dispositions</h3></div>
+          <div className="card-pad" style={{ padding: 0 }}>
+            {loadingExtra ? (
+              <div style={{ padding: 16, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>Loading...</div>
+            ) : Object.keys(ed.dispositionBreakdown || {}).length === 0 ? (
+              <div style={{ padding: 16, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>No dispositions today</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(ed.dispositionBreakdown || {})
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([status, count]) => (
+                      <tr key={status}>
+                        <td style={{ fontSize: 12 }}>{status.replace(/_/g, ' ')}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{count}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 0 }}>
+          <div className="card-head"><h3>Lead Status Breakdown</h3></div>
+          <div className="card-pad" style={{ padding: 0 }}>
+            {loadingExtra ? (
+              <div style={{ padding: 16, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>Loading...</div>
+            ) : Object.keys(ed.statusBreakdown || {}).length === 0 ? (
+              <div style={{ padding: 16, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>No assigned leads</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(ed.statusBreakdown || {})
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([status, count]) => (
+                      <tr key={status}>
+                        <td style={{ fontSize: 12 }}>{status.replace(/_/g, ' ')}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{count}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Last seen */}
+      <div style={{ fontSize: 10, color: '#9ca3af', textAlign: 'center', marginTop: 8 }}>
+        Last updated: {fs.updated_at ? new Date(fs.updated_at).toLocaleString('en-IN') : '—'}
+      </div>
     </div>
   )
 }

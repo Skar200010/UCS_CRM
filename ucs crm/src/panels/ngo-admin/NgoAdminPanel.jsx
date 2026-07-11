@@ -8,6 +8,7 @@ import { requestNotifPermission, showDesktopNotification } from '../../utils/des
 import { masterSearch } from './api/auth'
 import NotificationDrawer from '../../components/NotificationDrawer'
 import SettingsDrawer from '../../components/SettingsDrawer'
+import DonorDetailModal from '../../components/DonorDetailModal'
 import Dashboard from './pages/Dashboard'
 import Donors from './pages/Donors'
 import DonorDetail from './pages/DonorDetail'
@@ -119,6 +120,7 @@ export default function NgoAdminPanel() {
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
   const [searchingMaster, setSearchingMaster] = useState(false)
   const [selectedResult, setSelectedResult] = useState(null)
+  const [showDonorDetail, setShowDonorDetail] = useState(null)
   const searchRef = useRef(null)
   const searchTimer = useRef(null)
   const menuRef = useRef(null)
@@ -483,7 +485,7 @@ export default function NgoAdminPanel() {
                   )}
                   <div style={{ marginTop: 14, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     <button className="btn btn-sm" onClick={close} style={{ background: 'transparent', border: '1px solid var(--line)' }}>Close</button>
-                    <button className="btn btn-primary btn-sm" onClick={() => { close(); navigate(`/ngo-admin/donors/${r.id}`); }}>Open Full Detail →</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => { close(); setShowDonorDetail(r.id); }}>Open Full Detail →</button>
                   </div>
                 </div>
               </div>
@@ -511,14 +513,14 @@ export default function NgoAdminPanel() {
                     <span style={{ fontSize: 10, color: 'var(--ink-soft)' }}>ID: {r.id}</span>
                     <span style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Joined {r.created_at ? new Date(r.created_at).toLocaleDateString('en-GB') : '—'}</span>
                   </div>
-                  {r.ngo_id && (
+                  {r.ngos?.name && (
                     <div style={{ fontSize: 10, color: 'var(--ink-soft)', padding: '6px 10px', background: 'var(--card-bg)', borderRadius: 6 }}>
-                      NGO ID: <strong>{r.ngo_id}</strong>
+                      NGO: <strong>{r.ngos.name}</strong>
                     </div>
                   )}
                   <div style={{ marginTop: 14, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     <button className="btn btn-sm" onClick={close} style={{ background: 'transparent', border: '1px solid var(--line)' }}>Close</button>
-                    <button className="btn btn-primary btn-sm" onClick={() => { close(); navigate('/ngo-admin/fro-status'); }}>View FRO Status →</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => { close(); navigate(`/ngo-admin/fro-status?fro_id=${r.id}`); }}>View FRO Status →</button>
                   </div>
                 </div>
               </div>
@@ -576,6 +578,10 @@ export default function NgoAdminPanel() {
         sections={drawerSections}
         onItemClick={handleDrawerItemClick}
       />
+
+      {showDonorDetail && (
+        <DonorDetailModal donorId={showDonorDetail} onClose={() => setShowDonorDetail(null)} />
+      )}
     </div>
   )
 }

@@ -1591,13 +1591,16 @@ export const getLiveStatuses = async (req, res) => {
   try {
     let query = supabase
       .from('fro_live_status')
-      .select('*, workers!inner(id, name, login_id)')
+      .select('*, workers!inner(id, name, login_id, ngo_id)')
       .order('updated_at', { ascending: false });
 
-    const { ngo_id: filterNgoId } = req.query;
+    const { ngo_id: filterNgoId, fro_id: filterFroId } = req.query;
+    if (filterFroId) {
+      query = query.eq('worker_id', filterFroId);
+    }
     if (filterNgoId && filterNgoId !== 'all') {
       query = query.eq('workers.ngo_id', filterNgoId);
-    } else if (req.user.ngo_id && req.user.role !== 'super_admin') {
+    } else if (req.user.ngo_id && req.user.role !== 'super_admin' && !filterFroId) {
       query = query.eq('workers.ngo_id', req.user.ngo_id);
     }
 

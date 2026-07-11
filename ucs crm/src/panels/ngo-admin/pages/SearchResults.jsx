@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { masterSearch } from '../api/auth'
 import { SkeletonTable } from '../../../components/Skeleton'
+import DonorDetailModal from '../../../components/DonorDetailModal'
 
 const initials = (name) => (name || '').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
@@ -11,6 +12,7 @@ export default function SearchResults() {
   const q = searchParams.get('q') || ''
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showDonorDetail, setShowDonorDetail] = useState(null)
 
   useEffect(() => {
     if (!q || q.trim().length < 2) { setLoading(false); return }
@@ -23,6 +25,7 @@ export default function SearchResults() {
   if (loading) return <SkeletonTable />
 
   return (
+    <>
     <div className="bento-grid" style={{ flex: 1 }}>
       <div className="bento-col-12">
         <div className="bento-card">
@@ -62,7 +65,7 @@ export default function SearchResults() {
                       {results.donors.map(d => {
                         const asgn = d.assignments?.[0]
                         return (
-                          <tr key={d.id} onClick={() => navigate(`/ngo-admin/donors/${d.id}`)}
+                          <tr key={d.id} onClick={() => setShowDonorDetail(d.id)}
                             style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer', transition: 'background .1s' }}
                             onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                             onMouseLeave={e => e.currentTarget.style.background = ''}>
@@ -97,8 +100,8 @@ export default function SearchResults() {
                       </tr>
                     </thead>
                     <tbody>
-                      {results.fros.map(f => (
-                        <tr key={f.id} onClick={() => navigate('/ngo-admin/fro-status')}
+                        {results.fros.map(f => (
+                          <tr key={f.id} onClick={() => navigate(`/ngo-admin/fro-status?fro_id=${f.id}`)}
                           style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer', transition: 'background .1s' }}
                           onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                           onMouseLeave={e => e.currentTarget.style.background = ''}>
@@ -150,5 +153,10 @@ export default function SearchResults() {
         </div>
       </div>
     </div>
+
+      {showDonorDetail && (
+        <DonorDetailModal donorId={showDonorDetail} onClose={() => setShowDonorDetail(null)} />
+      )}
+    </>
   )
 }

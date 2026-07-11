@@ -58,6 +58,7 @@ import {
   getFroPerformance,
   masterSearch,
   getCallAnalytics,
+  getFroSummary,
 } from '../controllers/ngoAdminController.js';
 
 const router = Router();
@@ -80,6 +81,7 @@ router.get('/targets', getTargets);
 router.post('/targets', setTarget);
 router.get('/collections/fro-wise', getFroWiseCollection);
 router.get('/fro-performance', getFroPerformance);
+router.get('/fro/:id/summary', getFroSummary);
 router.post('/achieved-target', setAchievedTarget);
 router.get('/incentives', getIncentives);
 router.post('/incentive', setIncentive);
