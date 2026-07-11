@@ -935,9 +935,10 @@ input,select,textarea { font-family:inherit; font-size:14px; }
 .ro-asym-tooltip { display:none; position:absolute; top:-8px; left:50%; transform:translateX(-50%) translateY(-100%); background:var(--ink); color:#fff; padding:6px 10px; border-radius:6px; font-size:10px; white-space:nowrap; z-index:10; pointer-events:none; line-height:1.5; }
 .ro-asym-col:hover .ro-asym-tooltip { display:block; }
 
-/* Split row: chart 60% + analytics 40% */
+/* Split row: chart 38% + analytics 62% */
 .ro-split-row { display:flex; gap:14px; margin-top:14px; align-items:stretch; }
-.ro-split-chart { flex:0 0 60%; min-width:0; }
+.ro-split-chart { flex:0 0 38%; min-width:0; }
+.ro-split-chart .ro-bar-chart { padding:0 4px; }
 .ro-split-side { flex:1; min-width:0; display:flex; }
 .ro-side-analytics { width:100%; display:flex; flex-direction:column; }
 .ro-side-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
