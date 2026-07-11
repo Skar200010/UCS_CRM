@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateRole } from '../middleware/authMiddleware.js';
 import {
-  listNgoSuspense, assignSuspenseToFro,
+  listNgoSuspense, linkSuspenseToDonor, markSuspenseUnmatched, searchDonorsForSuspense,
 } from '../controllers/bankAuditController.js';
 import {
   listLeads,
@@ -111,7 +111,9 @@ router.get('/database-requests', getDataRequests);
 router.put('/database-requests/:id/resolve', resolveDataRequest);
 
 router.get('/suspense', listNgoSuspense);
-router.put('/suspense/:id/assign-fro', assignSuspenseToFro);
+router.put('/suspense/:id/link-donor', linkSuspenseToDonor);
+router.put('/suspense/:id/no-match', markSuspenseUnmatched);
+router.get('/suspense/search-donors', searchDonorsForSuspense);
 
 // Donor CRM
 router.get('/donor-crm/leads', listLeads);

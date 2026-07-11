@@ -1,0 +1,4 @@
+ALTER TABLE bank_audit_entries
+  ADD COLUMN IF NOT EXISTS donor_id INTEGER REFERENCES donor_profiles(id),
+  ADD COLUMN IF NOT EXISTS matched_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS no_match_by TEXT;

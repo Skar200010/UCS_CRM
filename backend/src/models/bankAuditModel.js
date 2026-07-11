@@ -152,7 +152,8 @@ export const getSuspenseForNgo = async () => {
     .from('bank_audit_entries')
     .select('*, bank_audit_sources(name)')
     .eq('assigned_to_ngo_admin', true)
-    .is('assigned_to_fro_id', null)
+    .is('donor_id', null)
+    .neq('status', 'verified')
     .order('updated_at', { ascending: false });
   if (error) throw error;
   return data || [];
@@ -233,5 +234,73 @@ export const searchFroDispositions = async (froId, searchTerm) => {
     donor_name: r.fro_assignments?.donor_profiles?.name || 'Unknown',
     donor_mobile: r.fro_assignments?.donor_profiles?.mobile_number || '',
     donor_city: r.fro_assignments?.donor_profiles?.city || '',
+  }));
+};
+
+export const linkSuspenseToDonor = async (entryId, donorId) => {
+  const { data, error } = await supabase
+    .from('bank_audit_entries')
+    .update({
+      donor_id: donorId,
+      matched_at: new Date().toISOString(),
+      status: 'verified',
+      assigned_to_ngo_admin: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', entryId)
+    .select('*, bank_audit_sources(name)')
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const markSuspenseUnmatched = async (entryId, markedBy) => {
+  const { data, error } = await supabase
+    .from('bank_audit_entries')
+    .update({
+      status: 'verified',
+      assigned_to_ngo_admin: false,
+      no_match_by: markedBy || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', entryId)
+    .select('*, bank_audit_sources(name)')
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const searchDonorsForSuspense = async (searchTerm, ngoIds) => {
+  if (!searchTerm || searchTerm.trim().length < 2) return [];
+  const term = `%${searchTerm.trim()}%`;
+  const { data, error } = await supabase
+    .from('donor_profiles')
+    .select('id, name, mobile_number, city, amount, total_amount')
+    .or(`name.ilike.${term},mobile_number.ilike.${term}`)
+    .limit(20);
+  if (error) throw error;
+  if (!data || data.length === 0) return [];
+
+  const donorIds = data.map(d => d.id);
+  const { data: assignments } = await supabase
+    .from('fro_assignments')
+    .select('donor_id, fro_worker_id, workers!left(name, login_id)')
+    .in('donor_id', donorIds)
+    .not('status', 'eq', 'reassigned');
+
+  const froMap = {};
+  for (const a of assignments || []) {
+    if (!froMap[a.donor_id]) froMap[a.donor_id] = { name: a.workers?.name || 'Unknown', login_id: a.workers?.login_id || '' };
+  }
+
+  return data.map(d => ({
+    id: d.id,
+    name: d.name,
+    mobile_number: d.mobile_number,
+    city: d.city,
+    amount: d.amount,
+    total_amount: d.total_amount,
+    fro_name: froMap[d.id]?.name || null,
+    fro_login: froMap[d.id]?.login_id || null,
   }));
 };
