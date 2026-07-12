@@ -1170,6 +1170,572 @@ export const getSuperAdminAlerts = async (req, res) => {
       }
     } catch (e) { /* skip */ }
 
+    // ── 11. FRO on Break >30 min (HIGH) ──
+    try {
+      const thirtyMinAgo = new Date(now); thirtyMinAgo.setMinutes(thirtyMinAgo.getMinutes() - 30);
+      const { data: longBreakers } = await supabase
+        .from('fro_live_status')
+        .select('worker_id, break_started_at, today_break_seconds, break_type')
+        .eq('on_break', true)
+        .eq('is_active', true)
+        .lt('break_started_at', thirtyMinAgo.toISOString());
+
+      if ((longBreakers || []).length > 0) {
+        const wIds = longBreakers.map(f => f.worker_id);
+        const { data: bw } = await supabase.from('workers').select('id, name').in('id', wIds);
+        const bwMap = {};
+        for (const w of bw || []) bwMap[w.id] = w.name;
+
+        alerts.push({
+          id: 'fro-long-break',
+          severity: 'critical',
+          category: 'fro',
+          title: `${longBreakers.length} FRO(s) on break for 30+ minutes`,
+          description: `Active FRO workers who have been on break for over half an hour during working hours.`,
+          count: longBreakers.length,
+          actionPanel: 'fro',
+          actionLabel: 'View FRO Live Status',
+          details: longBreakers.slice(0, 8).map(f => ({
+            name: bwMap[f.worker_id] || 'Unknown',
+            value: `Break started: ${new Date(f.break_started_at).toLocaleTimeString('en-IN')} · Type: ${f.break_type || 'N/A'}`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 12. FRO Ghost Login — punched in but zero calls all day (HIGH) ──
+    try {
+      const { data: ghostFros } = await supabase
+        .from('fro_live_status')
+        .select('worker_id, today_calls, today_talk_seconds, status, updated_at')
+        .eq('is_active', true)
+        .eq('on_break', false);
+
+      const ghosts = (ghostFros || []).filter(f =>
+        (f.today_calls || 0) === 0 &&
+        (f.today_talk_seconds || 0) === 0 &&
+        (f.status === 'online' || f.status === 'idle')
+      );
+
+      if (ghosts.length > 0) {
+        const gIds = ghosts.map(f => f.worker_id);
+        const { data: gw } = await supabase.from('workers').select('id, name').in('id', gIds);
+        const gwMap = {};
+        for (const w of gw || []) gwMap[w.id] = w.name;
+
+        alerts.push({
+          id: 'fro-ghost-login',
+          severity: 'critical',
+          category: 'fro',
+          title: `${ghosts.length} FRO(s) logged in with zero activity today`,
+          description: `Active FRO workers showing online/idle status but have made no calls or talks today.`,
+          count: ghosts.length,
+          actionPanel: 'fro',
+          actionLabel: 'View FRO Live Status',
+          details: ghosts.slice(0, 8).map(f => ({
+            name: gwMap[f.worker_id] || 'Unknown',
+            value: `Status: ${f.status} · Last update: ${new Date(f.updated_at).toLocaleTimeString('en-IN')}`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 13. Duplicate UPI Transaction IDs (HIGH) ──
+    try {
+      const { data: upiLogs } = await supabase
+        .from('fro_donor_logs')
+        .select('id, upi_transaction_id, amount_collected, donor_id, fro_worker_id, created_at')
+        .not('upi_transaction_id', 'is', null)
+        .neq('upi_transaction_id', '')
+        .gte('created_at', sevenDaysAgo.toISOString());
+
+      const upiMap = {};
+      for (const log of upiLogs || []) {
+        const txnId = (log.upi_transaction_id || '').trim().toUpperCase();
+        if (!txnId) continue;
+        if (!upiMap[txnId]) upiMap[txnId] = [];
+        upiMap[txnId].push(log);
+      }
+
+      const dupes = Object.entries(upiMap).filter(([_, logs]) => logs.length > 1);
+
+      if (dupes.length > 0) {
+        const allWorkerIds = [...new Set(dupes.flatMap(([_, logs]) => logs.map(l => l.fro_worker_id)).filter(Boolean))];
+        const { data: dw } = allWorkerIds.length > 0
+          ? await supabase.from('workers').select('id, name').in('id', allWorkerIds)
+          : { data: [] };
+        const dwMap = {};
+        for (const w of dw || []) dwMap[w.id] = w.name;
+
+        alerts.push({
+          id: 'duplicate-upi',
+          severity: 'critical',
+          category: 'compliance',
+          title: `${dupes.length} duplicate UPI transaction ID(s) detected`,
+          description: `Same UPI transaction ID used in multiple donation logs — possible duplicate or fraudulent entries.`,
+          count: dupes.length,
+          actionPanel: 'accounts',
+          actionLabel: 'View Accounts',
+          details: dupes.slice(0, 6).map(([txnId, logs]) => ({
+            name: `UPI: ${txnId}`,
+            value: `${logs.length} entries · ₹${logs.reduce((s, l) => s + Number(l.amount_collected || 0), 0).toLocaleString('en-IN')} total`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 14. Consecutive Absences (3+ days) (HIGH) ──
+    try {
+      const sevenDaysAgoDate = new Date(now); sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 7);
+      const { data: recentAbsences } = await supabase
+        .from('attendance')
+        .select('worker_id, date')
+        .eq('status', 'absent')
+        .gte('date', sevenDaysAgoDate.toISOString().slice(0, 10))
+        .order('date', { ascending: true });
+
+      const absByWorker = {};
+      for (const rec of recentAbsences || []) {
+        if (!absByWorker[rec.worker_id]) absByWorker[rec.worker_id] = [];
+        absByWorker[rec.worker_id].push(rec.date);
+      }
+
+      const chronicAbsents = [];
+      for (const [wid, dates] of Object.entries(absByWorker)) {
+        const sorted = [...new Set(dates)].sort();
+        let maxStreak = 1, streak = 1;
+        for (let i = 1; i < sorted.length; i++) {
+          const prev = new Date(sorted[i - 1]);
+          const curr = new Date(sorted[i]);
+          const diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+          if (diffDays <= 1.5) { streak++; maxStreak = Math.max(maxStreak, streak); }
+          else { streak = 1; }
+        }
+        if (maxStreak >= 3) chronicAbsents.push({ wid, days: maxStreak });
+      }
+
+      if (chronicAbsents.length > 0) {
+        const cIds = chronicAbsents.map(c => c.wid);
+        const { data: cw } = await supabase.from('workers').select('id, name').in('id', cIds);
+        const cwMap = {};
+        for (const w of cw || []) cwMap[w.id] = w.name;
+
+        alerts.push({
+          id: 'consecutive-absences',
+          severity: 'critical',
+          category: 'hr',
+          title: `${chronicAbsents.length} worker(s) with 3+ consecutive absent days`,
+          description: `Workers with extended consecutive absences in the last 7 days — possible abandonment or attendance fraud.`,
+          count: chronicAbsents.length,
+          actionPanel: 'hr',
+          actionLabel: 'View HR',
+          details: chronicAbsents.slice(0, 6).map(c => ({
+            name: cwMap[c.wid] || 'Unknown',
+            value: `${c.days} consecutive day(s) absent`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 15. FRO High Idle Time (>50% of work hours) (HIGH) ──
+    try {
+      const workHoursSeconds = 8 * 3600;
+      const { data: idleFros } = await supabase
+        .from('fro_live_status')
+        .select('worker_id, today_idle_seconds, today_skipped, today_calls, is_active')
+        .eq('is_active', true);
+
+      const highIdle = (idleFros || []).filter(f =>
+        (f.today_idle_seconds || 0) > workHoursSeconds * 0.5 &&
+        (f.today_calls || 0) > 0
+      );
+
+      if (highIdle.length > 0) {
+        const iIds = highIdle.map(f => f.worker_id);
+        const { data: iw } = await supabase.from('workers').select('id, name').in('id', iIds);
+        const iwMap = {};
+        for (const w of iw || []) iwMap[w.id] = w.name;
+
+        alerts.push({
+          id: 'fro-high-idle',
+          severity: 'warning',
+          category: 'fro',
+          title: `${highIdle.length} FRO(s) with excessive idle time (>4h today)`,
+          description: `FROs spending over 50% of working hours idle despite being active — possible productivity issue.`,
+          count: highIdle.length,
+          actionPanel: 'fro',
+          actionLabel: 'View FRO Performance',
+          details: highIdle.slice(0, 6).map(f => ({
+            name: iwMap[f.worker_id] || 'Unknown',
+            value: `Idle: ${Math.round((f.today_idle_seconds || 0) / 60)}min · Skipped: ${f.today_skipped || 0} · Calls: ${f.today_calls || 0}`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 16. NGOs with Zero Active FROs (HIGH) ──
+    try {
+      const { data: ngoList } = await supabase.from('ngos').select('id, name');
+      const { data: activeFroByNgo } = await supabase
+        .from('workers')
+        .select('id, ngo_id')
+        .eq('department', 'fro')
+        .eq('is_active', true);
+
+      const frosByNgo = {};
+      for (const w of activeFroByNgo || []) {
+        const ngo = w.ngo_id;
+        if (ngo) frosByNgo[ngo] = (frosByNgo[ngo] || 0) + 1;
+      }
+
+      const ngosWithNoFro = (ngoList || []).filter(n => !frosByNgo[n.id] || frosByNgo[n.id] === 0);
+
+      if (ngosWithNoFro.length > 0) {
+        alerts.push({
+          id: 'ngo-zero-fros',
+          severity: 'warning',
+          category: 'ngo',
+          title: `${ngosWithNoFro.length} NGO(s) with zero active FROs`,
+          description: `NGOs with no active FRO workers assigned — operational coverage gap.`,
+          count: ngosWithNoFro.length,
+          actionPanel: 'fro',
+          actionLabel: 'View FRO Management',
+          details: ngosWithNoFro.slice(0, 6).map(n => ({
+            name: n.name,
+            value: 'No active FRO workers',
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 17. Workers Missing ALL KYC Documents (HIGH) ──
+    try {
+      const { data: kycWorkers, count: kycCount } = await supabase
+        .from('workers')
+        .select('id, name, login_id', { count: 'exact' })
+        .eq('is_active', true)
+        .or('aadhar_number.is.null,aadhar_number.eq.')
+        .or('pan_number.is.null,pan_number.eq.')
+        .or('account_number.is.null,account_number.eq.');
+
+      if ((kycCount || 0) > 0) {
+        alerts.push({
+          id: 'missing-kyc',
+          severity: 'warning',
+          category: 'compliance',
+          title: `${kycCount} active worker(s) missing KYC documents`,
+          description: `Active workers with missing Aadhar, PAN, or bank account details — compliance and payroll risk.`,
+          count: kycCount,
+          actionPanel: 'hr',
+          actionLabel: 'View Workers',
+          details: (kycWorkers || []).slice(0, 6).map(w => ({
+            name: w.name,
+            value: `Login: ${w.login_id}`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 18. Large Unmatched Bank Entries (>₹50K) (HIGH) ──
+    try {
+      const { data: largeUnmatched, count: largeCount } = await supabase
+        .from('bank_audit_entries')
+        .select('id, amount, payment_id, transaction_date, remarks', { count: 'exact' })
+        .eq('status', 'unverified')
+        .gt('amount', 50000);
+
+      if ((largeCount || 0) > 0) {
+        alerts.push({
+          id: 'large-unmatched-bank',
+          severity: 'critical',
+          category: 'account',
+          title: `${largeCount} large bank entry(ies) >₹50K unmatched`,
+          description: `Significant bank entries pending verification — high-value unaccounted transactions.`,
+          count: largeCount,
+          actionPanel: 'accounts',
+          actionLabel: 'View Bank Audit',
+          details: (largeUnmatched || []).slice(0, 6).map(e => ({
+            name: `₹${Number(e.amount).toLocaleString('en-IN')}`,
+            value: `Ref: ${e.payment_id || 'N/A'} · ${e.transaction_date || 'No date'}`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 19. Stale FRO Transfers Not Returned (HIGH) ──
+    try {
+      const { data: staleTransfers, count: transferCount } = await supabase
+        .from('fro_transfers')
+        .select('id, source_fro_worker_id, target_fro_worker_id, donor_count, auto_return_at, created_at', { count: 'exact' })
+        .eq('returned', false)
+        .not('auto_return_at', 'is', null)
+        .lt('auto_return_at', now.toISOString());
+
+      if ((transferCount || 0) > 0) {
+        const allFroIds = [...new Set([
+          ...(staleTransfers || []).map(t => t.source_fro_worker_id).filter(Boolean),
+          ...(staleTransfers || []).map(t => t.target_fro_worker_id).filter(Boolean),
+        ])];
+        const { data: tw } = allFroIds.length > 0
+          ? await supabase.from('workers').select('id, name').in('id', allFroIds)
+          : { data: [] };
+        const twMap = {};
+        for (const w of tw || []) twMap[w.id] = w.name;
+
+        alerts.push({
+          id: 'stale-transfers',
+          severity: 'warning',
+          category: 'fro',
+          title: `${transferCount} FRO transfer(s) past auto-return date`,
+          description: `Temporary donor transfers that were not returned by their scheduled return time.`,
+          count: transferCount,
+          actionPanel: 'fro',
+          actionLabel: 'View FRO Management',
+          details: (staleTransfers || []).slice(0, 6).map(t => ({
+            name: `${twMap[t.source_fro_worker_id] || '?'} → ${twMap[t.target_fro_worker_id] || '?'}`,
+            value: `${t.donor_count || 0} donors · Due: ${new Date(t.auto_return_at).toLocaleDateString('en-IN')}`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 20. Chronic Lateness (3+ late days/month) (MEDIUM) ──
+    try {
+      const monthStart = new Date(now); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+      const { data: lateRecords } = await supabase
+        .from('attendance')
+        .select('worker_id')
+        .eq('status', 'late')
+        .gte('date', monthStart.toISOString().slice(0, 10));
+
+      const lateCountByWorker = {};
+      for (const rec of lateRecords || []) {
+        const wid = rec.worker_id;
+        if (!wid) continue;
+        lateCountByWorker[wid] = (lateCountByWorker[wid] || 0) + 1;
+      }
+
+      const chronicLate = Object.entries(lateCountByWorker)
+        .filter(([_, count]) => count >= 3)
+        .map(([wid, count]) => ({ wid, count }));
+
+      if (chronicLate.length > 0) {
+        const clIds = chronicLate.map(c => c.wid);
+        const { data: clw } = await supabase.from('workers').select('id, name').in('id', clIds);
+        const clwMap = {};
+        for (const w of clw || []) clwMap[w.id] = w.name;
+
+        alerts.push({
+          id: 'chronic-lateness',
+          severity: 'warning',
+          category: 'hr',
+          title: `${chronicLate.length} worker(s) late 3+ times this month`,
+          description: `Workers with chronic lateness pattern — potential attendance discipline issue.`,
+          count: chronicLate.length,
+          actionPanel: 'hr',
+          actionLabel: 'View Attendance',
+          details: chronicLate.slice(0, 6).map(c => ({
+            name: clwMap[c.wid] || 'Unknown',
+            value: `${c.count} time(s) late this month`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 21. Workers with Multiple Active Loans (MEDIUM) ──
+    try {
+      const { data: activeLoans } = await supabase
+        .from('worker_loans')
+        .select('worker_id, id, total_amount, remaining_amount')
+        .eq('status', 'active');
+
+      const loansByWorker = {};
+      for (const loan of activeLoans || []) {
+        if (!loansByWorker[loan.worker_id]) loansByWorker[loan.worker_id] = [];
+        loansByWorker[loan.worker_id].push(loan);
+      }
+
+      const multiLoanWorkers = Object.entries(loansByWorker)
+        .filter(([_, loans]) => loans.length >= 2);
+
+      if (multiLoanWorkers.length > 0) {
+        const mlIds = multiLoanWorkers.map(([wid]) => wid);
+        const { data: mlw } = await supabase.from('workers').select('id, name').in('id', mlIds);
+        const mlwMap = {};
+        for (const w of mlw || []) mlwMap[w.id] = w.name;
+
+        alerts.push({
+          id: 'multiple-active-loans',
+          severity: 'warning',
+          category: 'hr',
+          title: `${multiLoanWorkers.length} worker(s) with 2+ active loans`,
+          description: `Workers carrying multiple concurrent loans — financial over-exposure risk.`,
+          count: multiLoanWorkers.length,
+          actionPanel: 'hr',
+          actionLabel: 'View Loans',
+          details: multiLoanWorkers.slice(0, 6).map(([wid, loans]) => ({
+            name: mlwMap[wid] || 'Unknown',
+            value: `${loans.length} loans · ₹${loans.reduce((s, l) => s + Number(l.remaining_amount || 0), 0).toLocaleString('en-IN')} outstanding`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 22. FRO High Skip Rate (MEDIUM) ──
+    try {
+      const { data: skipFros } = await supabase
+        .from('fro_live_status')
+        .select('worker_id, today_skipped, today_calls, is_active')
+        .eq('is_active', true);
+
+      const highSkip = (skipFros || []).filter(f => {
+        const total = (f.today_skipped || 0) + (f.today_calls || 0);
+        return total > 0 && (f.today_skipped || 0) / total > 0.4 && (f.today_skipped || 0) >= 5;
+      });
+
+      if (highSkip.length > 0) {
+        const sIds = highSkip.map(f => f.worker_id);
+        const { data: sw } = await supabase.from('workers').select('id, name').in('id', sIds);
+        const swMap = {};
+        for (const w of sw || []) swMap[w.id] = w.name;
+
+        alerts.push({
+          id: 'fro-high-skip',
+          severity: 'warning',
+          category: 'fro',
+          title: `${highSkip.length} FRO(s) with high call skip rate (>40%)`,
+          description: `FROs skipping more than 40% of their calls — possible contact avoidance.`,
+          count: highSkip.length,
+          actionPanel: 'fro',
+          actionLabel: 'View FRO Performance',
+          details: highSkip.slice(0, 6).map(f => ({
+            name: swMap[f.worker_id] || 'Unknown',
+            value: `Skipped: ${f.today_skipped} · Called: ${f.today_calls || 0} · Skip rate: ${Math.round((f.today_skipped / ((f.today_skipped || 0) + (f.today_calls || 0))) * 100)}%`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 23. FRO Targets Not Set for Current Month (MEDIUM) ──
+    try {
+      const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+      const { data: fros } = await supabase
+        .from('workers')
+        .select('id, name')
+        .eq('department', 'fro')
+        .eq('is_active', true);
+
+      const { data: targetSet } = await supabase
+        .from('fro_monthly_targets')
+        .select('fro_worker_id')
+        .eq('month', currentMonth);
+
+      const targetWorkerIds = new Set((targetSet || []).map(t => t.fro_worker_id));
+      const noTargetFros = (fros || []).filter(f => !targetWorkerIds.has(f.id));
+
+      if (noTargetFros.length > 0) {
+        alerts.push({
+          id: 'fro-no-target',
+          severity: 'info',
+          category: 'fro',
+          title: `${noTargetFros.length} FRO(s) without monthly target`,
+          description: `Active FRO workers without a collection target set for the current month.`,
+          count: noTargetFros.length,
+          actionPanel: 'fro',
+          actionLabel: 'View FRO Targets',
+          details: noTargetFros.slice(0, 6).map(f => ({
+            name: f.name,
+            value: 'No target set',
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 24. Assets Assigned to Inactive Workers (MEDIUM) ──
+    try {
+      const { data: staleAssets, count: assetCount } = await supabase
+        .from('assets')
+        .select('id, name, assigned_to, assigned_to_name, assigned_date', { count: 'exact' })
+        .not('assigned_to', 'is', null)
+        .eq('status', 'assigned');
+
+      if ((assetCount || 0) > 0) {
+        const assignedWorkerIds = [...new Set((staleAssets || []).map(a => a.assigned_to).filter(Boolean))];
+        const { data: inactiveWorkers } = assignedWorkerIds.length > 0
+          ? await supabase.from('workers').select('id, name').in('id', assignedWorkerIds).eq('is_active', false)
+          : { data: [] };
+
+        const inactiveIds = new Set((inactiveWorkers || []).map(w => w.id));
+        const staleAssetList = (staleAssets || []).filter(a => inactiveIds.has(a.assigned_to));
+
+        if (staleAssetList.length > 0) {
+          alerts.push({
+            id: 'assets-inactive-workers',
+            severity: 'info',
+            category: 'hr',
+            title: `${staleAssetList.length} asset(s) assigned to inactive workers`,
+            description: `Physical assets still assigned to workers who are no longer active — asset recovery needed.`,
+            count: staleAssetList.length,
+            actionPanel: 'hr',
+            actionLabel: 'View Assets',
+            details: staleAssetList.slice(0, 6).map(a => ({
+              name: a.name,
+              value: `Assigned to: ${a.assigned_to_name || 'Unknown'} · Since: ${a.assigned_date || 'N/A'}`,
+            })),
+            createdAt: now.toISOString(),
+          });
+        }
+      }
+    } catch (e) { /* skip */ }
+
+    // ── 25. Donor Name Mismatch with Bank Name (MEDIUM) ──
+    try {
+      const { data: mismatchedDonors, count: mismatchCount } = await supabase
+        .from('donor_profiles')
+        .select('id, name, bank_donor_name, mobile_number', { count: 'exact' })
+        .not('bank_donor_name', 'is', null)
+        .neq('bank_donor_name', '')
+        .not('name', 'is', null)
+        .neq('name', '');
+
+      const mismatches = (mismatchedDonors || []).filter(d => {
+        const a = (d.name || '').trim().toLowerCase();
+        const b = (d.bank_donor_name || '').trim().toLowerCase();
+        return a !== b && a.length > 2 && b.length > 2;
+      });
+
+      if (mismatches.length > 2) {
+        alerts.push({
+          id: 'donor-name-mismatch',
+          severity: 'info',
+          category: 'compliance',
+          title: `${mismatches.length} donor(s) with name ≠ bank name mismatch`,
+          description: `Donor profile names don't match their bank-registered names — possible data entry error or identity issue.`,
+          count: mismatches.length,
+          actionPanel: 'accounts',
+          actionLabel: 'View Donors',
+          details: mismatches.slice(0, 6).map(d => ({
+            name: d.name,
+            value: `Bank shows: ${d.bank_donor_name}`,
+          })),
+          createdAt: now.toISOString(),
+        });
+      }
+    } catch (e) { /* skip */ }
+
     // ── Sort: critical first, then warning, then info ──
     const severityOrder = { critical: 0, warning: 1, info: 2 };
     alerts.sort((a, b) => (severityOrder[a.severity] ?? 3) - (severityOrder[b.severity] ?? 3));
