@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { Router } from 'express';
 import {
   getSuperAdminDashboard,
+  getSuperAdminAlerts,
   getFroLiveStatus,
   getHrDashboard,
   getAdminDashboard,
@@ -33,6 +34,7 @@ const froTelecaller = (req, res, next) => {
 };
 
 router.get('/super-admin', authenticateRole('super_admin'), getSuperAdminDashboard);
+router.get('/super-admin-alerts', authenticateRole('super_admin'), getSuperAdminAlerts);
 router.get('/admin', authenticateRole('admin'), getAdminDashboard);
 router.get('/hr', authenticateRole('hr'), getHrDashboard);
 router.get('/accounts', authenticateRole('super_admin', 'accounts'), getAccountsDashboard);

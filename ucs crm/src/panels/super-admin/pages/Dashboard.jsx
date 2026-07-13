@@ -1,7 +1,7 @@
 ﻿
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getDashboard, getFroLiveStatus, getAccountsLeads, getRecruiterLeads, getWorkers, getAttendance, getHolidays, getUsers, getNgoAdminTargets, setNgoAdminTarget, getLeaves, getAllTickets, getEvents } from '../api/endpoints'
+import { getDashboard, getFroLiveStatus, getAccountsLeads, getRecruiterLeads, getWorkers, getAttendance, getHolidays, getUsers, getNgoAdminTargets, setNgoAdminTarget, getLeaves, getAllTickets, getEvents, getSuperAdminAlerts } from '../api/endpoints'
 import { api } from '../api/auth'
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, RadialBarChart, RadialBar, LineChart, Line, CartesianGrid, Legend } from 'recharts'
 
@@ -1506,6 +1506,8 @@ export default function Dashboard() {
     recruiterPipeline: 0,
   })
   const [acModal, setAcModal] = useState(null)
+  const [alertsData, setAlertsData] = useState({ alerts: [], summary: { critical: 0, warning: 0, info: 0 } })
+  const [alertModal, setAlertModal] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -1610,6 +1612,19 @@ export default function Dashboard() {
     const t = setInterval(fetchActionCenter, 30000)
     return () => clearInterval(t)
   }, [fetchActionCenter])
+
+  /* Risk & Alerts — independent 60s poll */
+  const fetchAlerts = useCallback(() => {
+    getSuperAdminAlerts()
+      .then(d => setAlertsData(d || { alerts: [], summary: { critical: 0, warning: 0, info: 0 } }))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetchAlerts()
+    const t = setInterval(fetchAlerts, 60000)
+    return () => clearInterval(t)
+  }, [fetchAlerts])
 
   if (err) return <div className="sa-err-card">Error: {err}</div>
   if (!data) return (
@@ -2059,6 +2074,39 @@ export default function Dashboard() {
           box-shadow: 0 4px 14px rgba(30,77,59,0.10);
           transform: translateY(-2px);
         }
+
+        /* ─── Risk & Alerts Panel ─── */
+        .nd-alerts-panel { animation: ndUp 0.4s cubic-bezier(0.22,1,0.36,1) forwards; }
+        .nd-alerts-summary { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .nd-alerts-badge {
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 700;
+        }
+        .nd-alerts-badge.critical { background: rgba(239,68,68,0.1); color: #DC2626; }
+        .nd-alerts-badge.warning { background: rgba(245,158,11,0.1); color: #D97706; }
+        .nd-alerts-badge.info { background: rgba(59,130,246,0.1); color: #2563EB; }
+        .nd-alert-item {
+          display: flex; align-items: flex-start; gap: 12px;
+          padding: 12px 14px; border-radius: 12px; margin-bottom: 8px;
+          cursor: pointer; transition: all 0.2s ease;
+        }
+        .nd-alert-item:last-child { margin-bottom: 0; }
+        .nd-alert-item:hover { transform: translateX(3px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+        .nd-alert-item.critical { background: rgba(239,68,68,0.04); border-left: 3px solid #EF4444; }
+        .nd-alert-item.warning { background: rgba(245,158,11,0.04); border-left: 3px solid #F59E0B; }
+        .nd-alert-item.info { background: rgba(59,130,246,0.04); border-left: 3px solid #3B82F6; }
+        .nd-alert-icon {
+          width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .nd-alert-title { font-size: 13px; font-weight: 700; color: #1F332B; margin: 0; line-height: 1.3; }
+        .nd-alert-desc { font-size: 11.5px; color: #64748b; margin: 3px 0 0; line-height: 1.4; }
+        .nd-alert-action {
+          font-size: 10.5px; font-weight: 700; color: #2A6B45; margin-top: 5px;
+          display: inline-flex; align-items: center; gap: 3px; cursor: pointer;
+          transition: color 0.15s; border: none; background: none; padding: 0; font-family: inherit;
+        }
+        .nd-alert-action:hover { color: #1E4D3B; text-decoration: underline; }
       `}</style>
 
       {/* ============ HEADER ============ */}
@@ -2328,6 +2376,75 @@ export default function Dashboard() {
       `}</style>
 
 
+      {/* ============ RISK & ALERTS PANEL ============ */}
+      {alertsData.alerts.length > 0 && (
+        <div className="nd-card nd-alerts-panel" style={{ animationDelay: '0.1s', marginBottom: 20, padding: '16px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#EF4444' }}>warning</span>
+            <h3 className="nd-section-title" style={{ margin: 0, color: '#EF4444' }}>Risk & Alerts</h3>
+            <div className="nd-alerts-summary" style={{ marginLeft: 'auto', gap: 8 }}>
+              {alertsData.summary.critical > 0 && (
+                <span className="nd-alerts-badge critical">
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#DC2626' }} />
+                  {alertsData.summary.critical} Critical
+                </span>
+              )}
+              {alertsData.summary.warning > 0 && (
+                <span className="nd-alerts-badge warning">
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#D97706' }} />
+                  {alertsData.summary.warning} Warning
+                </span>
+              )}
+              {alertsData.summary.info > 0 && (
+                <span className="nd-alerts-badge info">
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#2563EB' }} />
+                  {alertsData.summary.info} Info
+                </span>
+              )}
+            </div>
+            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>Auto-refreshes every 60s</span>
+          </div>
+
+          <div style={{ maxHeight: 340, overflowY: 'auto', paddingRight: 4 }}>
+            {alertsData.alerts.map((alert, i) => (
+              <div
+                key={alert.id || i}
+                className={`nd-alert-item ${alert.severity}`}
+                onClick={() => setAlertModal(alert)}
+              >
+                <div className="nd-alert-icon" style={{
+                  background: alert.severity === 'critical' ? 'rgba(239,68,68,0.12)' :
+                              alert.severity === 'warning' ? 'rgba(245,158,11,0.12)' : 'rgba(59,130,246,0.12)',
+                }}>
+                  <span className="material-symbols-outlined" style={{
+                    fontSize: 17,
+                    color: alert.severity === 'critical' ? '#DC2626' :
+                           alert.severity === 'warning' ? '#D97706' : '#2563EB',
+                  }}>
+                    {alert.severity === 'critical' ? 'error' : alert.severity === 'warning' ? 'warning' : 'info'}
+                  </span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="nd-alert-title">{alert.title}</p>
+                  <p className="nd-alert-desc">{alert.description}</p>
+                  <button className="nd-alert-action">
+                    {alert.actionLabel} →
+                  </button>
+                </div>
+                <span style={{
+                  fontSize: 20, fontWeight: 800, fontVariantNumeric: 'tabular-nums', flexShrink: 0,
+                  color: alert.severity === 'critical' ? '#DC2626' :
+                         alert.severity === 'warning' ? '#D97706' : '#2563EB',
+                }}>
+                  {alert.count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+
       {/* ============ METRIC CARDS ============ */}
       <div className="metrics-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
         {metricCards.map((card, i) => {
@@ -2546,6 +2663,61 @@ export default function Dashboard() {
                 style={{ padding: '7px 12px', border: 'none', borderRadius: 8, background: MINT_DEEP, color: '#fff', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', opacity: savingTarget ? 0.5 : 1 }}>
                 {savingTarget ? 'Saving...' : 'Save Target'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ ALERT DETAIL MODAL ============ */}
+      {alertModal && (
+        <div className="nd-modal-overlay" onClick={() => setAlertModal(null)}>
+          <div className="nd-modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div className="nd-modal-head" style={{
+              borderBottomColor: alertModal.severity === 'critical' ? 'rgba(239,68,68,0.2)' :
+                                alertModal.severity === 'warning' ? 'rgba(245,158,11,0.2)' : 'rgba(59,130,246,0.2)',
+            }}>
+              <span className="nd-modal-badge" style={{
+                background: alertModal.severity === 'critical' ? 'rgba(239,68,68,0.1)' :
+                           alertModal.severity === 'warning' ? 'rgba(245,158,11,0.1)' : 'rgba(59,130,246,0.1)',
+                color: alertModal.severity === 'critical' ? '#DC2626' :
+                       alertModal.severity === 'warning' ? '#D97706' : '#2563EB',
+              }}>
+                {alertModal.severity.toUpperCase()}
+              </span>
+              <h3 className="nd-modal-title">{alertModal.title}</h3>
+              <button className="nd-modal-close" onClick={() => setAlertModal(null)}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+              </button>
+            </div>
+            <div className="nd-modal-body">
+              <p style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>{alertModal.description}</p>
+              <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 14 }}>
+                Category: <strong style={{ color: PRIMARY }}>{alertModal.category?.toUpperCase()}</strong>
+                {' · '}
+                Count: <strong style={{ color: alertModal.severity === 'critical' ? '#DC2626' : alertModal.severity === 'warning' ? '#D97706' : '#2563EB' }}>{alertModal.count}</strong>
+              </p>
+              {alertModal.details && alertModal.details.length > 0 && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Affected Items</p>
+                  {alertModal.details.map((item, i) => (
+                    <div key={i} className="nd-modal-row">
+                      <div className="nd-avatar" style={{
+                        background: alertModal.severity === 'critical' ? 'rgba(239,68,68,0.1)' :
+                                   alertModal.severity === 'warning' ? 'rgba(245,158,11,0.1)' : 'rgba(59,130,246,0.1)',
+                        color: alertModal.severity === 'critical' ? '#DC2626' :
+                               alertModal.severity === 'warning' ? '#D97706' : '#2563EB',
+                        fontSize: 13, fontWeight: 700,
+                      }}>
+                        {item.name?.charAt(0) || '?'}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span className="nd-modal-name">{item.name}</span>
+                        {item.value && <span className="nd-modal-dept">{item.value}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
