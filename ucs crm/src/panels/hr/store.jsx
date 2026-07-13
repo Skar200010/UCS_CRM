@@ -10,7 +10,7 @@ export function useHR() {
     fetchAttendance, fetchLeaves, decideLeave,
     fetchTemplates, generateLetter, fetchWorkerLetters, sendNotif,
     fetchHolidays, addHoliday, removeHoliday,
-    fetchLeads, addLead, updateLead, fetchRecruiters, fetchRecruiterStats, fetchLeadsDashboard,
+    fetchLeads, addLead, updateLead, fetchRecruiters, fetchRecruiterStats, fetchRecruiterOverview, fetchLeadsDashboard,
     fetchWorkerSalaries, addWorkerSalary, updateWorkerSalary,
     fetchWorkerTargets, fetchWorkerTargetForMonth, updateWorkerTarget,
     generateAllTargets, fetchCurrentMonthTargets,
@@ -69,6 +69,7 @@ export const addLead = (leadData) => apiPost('/leads', leadData);
 export const updateLead = (id, updates) => apiPut('/leads/' + id, updates);
 export const fetchRecruiters = () => apiGet('/recruiters');
 export const fetchRecruiterStats = (id) => apiGet('/recruiters/' + id + '/stats');
+export const fetchRecruiterOverview = () => apiGet('/recruiters/overview');
 export const fetchLeadsDashboard = () => apiGet('/leads/dashboard');
 export const fetchWorkerSalaries = (workerId) => apiGet('/salary/worker/' + workerId);
 export const addWorkerSalary = (data) => apiPost('/salary', data);

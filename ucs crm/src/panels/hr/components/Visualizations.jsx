@@ -3,6 +3,7 @@ import { Users, Check, Plane, Bell } from '../icons';
 import { fetchWorkers, fetchAttendance, fetchLeaves, fetchHolidays } from '../store';
 import api from '../api/auth';
 import RecentNotices from '../../../components/RecentNotices';
+import RecruiterOverview from './RecruiterOverview';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://attendance-roan-zeta.vercel.app/api';
 
@@ -311,6 +312,11 @@ export default function Visualizations() {
             </div>
           )) : <div style={{ fontSize: 11, color: 'var(--ink-soft)', textAlign: 'center', padding: 12 }}>No upcoming events</div>}
         </div>
+      </div>
+
+      {/* Recruiter Overview — full width */}
+      <div className="mc w-3" style={{ gridColumn: '1 / -1' }}>
+        <RecruiterOverview />
       </div>
 
       {/* Salary — big (spans 2 cols) */}

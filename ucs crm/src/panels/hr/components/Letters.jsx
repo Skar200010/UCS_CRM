@@ -7,15 +7,23 @@ import jsPDF from 'jspdf';
 
 const TYPES = ['Offer letter','Experience letter','Promotion letter','Warning letter','Relieving letter','Joining letter'];
 
-function buildJoiningLetterHTML(w, dateText, hrNameText, subjectText) {
+const NGO_CONFIG = {
+  BSCT: { name: 'BEING SEVAK CHARITABLE TRUST', logo: '/logo/beingsevak-logo.png', alt: 'Being Sevak Charitable Trust', footer: 'Being Sevak Charitable Trust', address: '506, Sanjar Enclave, Bhadran Nagar, Kandivali (West), Mumbai, Maharashtra 400067.' },
+  AFLF: { name: 'AFLF', logo: '/logo/aflf-logo.png', alt: 'AFLF', footer: 'AFLF', address: '506, Sanjar Enclave, Bhadran Nagar, Kandivali (West), Mumbai, Maharashtra 400067.', logoSize: 140 },
+  MANN: { name: 'MANN', logo: '/logo/mann-logo.png', alt: 'MANN', footer: 'MANN', address: '506, Sanjar Enclave, Bhadran Nagar, Kandivali (West), Mumbai, Maharashtra 400067.', logoSize: 140 },
+};
+
+function getNgo(key) { return NGO_CONFIG[key] || NGO_CONFIG.BSCT; }
+
+function buildJoiningLetterHTML(w, dateText, hrNameText, subjectText, ngoKey) {
+  const ngo = getNgo(ngoKey);
   const r = w.role || w.department || 'Team Member';
   const d = w.dept || w.department || 'General';
   const subj = subjectText || `Joining as ${r}`;
-  const ngoName = w.ngo || 'Our Organization';
   return `<div style="max-width:800px;margin:0 auto;font-family:'Times New Roman',Times,serif;font-size:12px;line-height:1.25;color:#000;background:#fff;padding:25px 35px">
 <div style="display:flex;align-items:center;margin-bottom:4px">
-<img src="/logo/ucs-logo.png" alt="UCS" style="width:65px;height:auto;margin-right:14px" />
-<div><div style="font-size:18px;font-weight:700;color:#082F5A;letter-spacing:2px;line-height:1.1">ULTIMATE CONSULTANCY SOLUTIONS</div><div style="font-size:12px;font-weight:400;color:#0B73C4;letter-spacing:1px">(UCS)</div></div>
+<img src="${ngo.logo}" alt="${ngo.alt}" style="width:${ngo.logoSize || 100}px;height:auto;margin-right:14px" />
+<div><div style="font-size:18px;font-weight:700;color:#082F5A;letter-spacing:2px;line-height:1.1">${ngo.name}</div></div>
 </div>
 <svg width="100%" height="20" viewBox="0 0 700 20" preserveAspectRatio="none" style="display:block"><path d="M0,10 Q175,20 350,10 Q525,0 700,10 L700,20 L0,20 Z" fill="#0B73C4" /></svg>
 <div style="height:2px;background:#F58220;margin-bottom:12px"></div>
@@ -23,7 +31,7 @@ function buildJoiningLetterHTML(w, dateText, hrNameText, subjectText) {
 <table style="width:100%;border-collapse:collapse"><tr><td style="padding:0 0 6px 0;font-size:12px"><strong>Date:</strong> ${dateText}</td></tr></table>
 <div style="margin-bottom:6px"><strong>Dear ${w.name},</strong></div>
 <div style="text-align:justify">
-<p style="margin:0 0 6px 0">We are delighted to welcome you to <strong>Ultimate Consultancy Solutions (UCS)</strong>. This letter confirms your joining as a <strong>${r}</strong> in the <strong>${d}</strong> department.</p>
+<p style="margin:0 0 6px 0">We are delighted to welcome you to <strong>${ngo.name}</strong>. This letter confirms your joining as a <strong>${r}</strong> in the <strong>${d}</strong> department.</p>
 <p style="margin:0 0 6px 0">Your date of joining is <strong>${dateText}</strong>. You will be on a probation period of <strong>one (1) month</strong> from the date of joining, during which your performance will be closely monitored and evaluated.</p>
 <p style="margin:0 0 6px 0">During your probation, you are required to perform all duties and responsibilities assigned to you by your Team Leader or Reporting Manager. Your training will consist of two stages: an initial basic training period of <strong>3 (three) days</strong> from the date of joining, followed by a comprehensive training period of <strong>24 (twenty-four) days</strong>. Please note that <strong>no leave will be permitted</strong> during the training period.</p>
 <p style="margin:0 0 6px 0"><u><strong>Office Timings:</strong></u> All employees are required to maintain office hours from <strong>10:00 a.m. to 7:00 p.m.</strong>, Monday through Saturday.</p>
@@ -37,56 +45,58 @@ function buildJoiningLetterHTML(w, dateText, hrNameText, subjectText) {
 <p style="margin:0 0 6px 0">Please note that during the probation period, you will not be eligible for any other monetary benefits beyond the stipulated stipend. If an employee absconds or voluntarily leaves during the training period, they will not be eligible for any training salary or compensation.</p>
 <p style="margin:0 0 6px 0">We look forward to a long and mutually rewarding association with you. Welcome aboard!</p>
 </div>
-<div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>HR,</strong><br />${hrNameText}<br /><strong>Ultimate Consultancy Solutions (UCS)</strong></p></div>
-<div style="margin-top:14px;padding-top:4px"><svg width="100%" height="14" viewBox="0 0 700 14" preserveAspectRatio="none" style="display:block;margin-bottom:3px"><path d="M0,7 Q175,0 350,7 Q525,14 700,7 L700,14 L0,14 Z" fill="#0B73C4" /></svg><div style="height:2px;background:#F58220;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> 506, Sanjar Enclave, Bhadran Nagar, Kandivali (West), Mumbai, Maharashtra 400067.</div></div>
+<div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>HR,</strong><br />${hrNameText}<br /><strong>${ngo.name}</strong></p></div>
+<div style="margin-top:14px;padding-top:4px"><svg width="100%" height="14" viewBox="0 0 700 14" preserveAspectRatio="none" style="display:block;margin-bottom:3px"><path d="M0,7 Q175,0 350,7 Q525,14 700,7 L700,14 L0,14 Z" fill="#0B73C4" /></svg><div style="height:2px;background:#F58220;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> ${ngo.address}</div></div>
 </div>`;
 }
 
-function buildExperienceLetterHTML(w, joiningDate, lastWorkingDate, hrNameText, subjectText, designation) {
+function buildExperienceLetterHTML(w, joiningDate, lastWorkingDate, hrNameText, subjectText, designation, ngoKey) {
+  const ngo = getNgo(ngoKey);
   const r = designation || 'Team Member';
   return `<div style="max-width:800px;margin:0 auto;font-family:'Times New Roman',Times,serif;font-size:12px;line-height:1.25;color:#000;background:#fff;padding:25px 35px">
 <div style="display:flex;align-items:center;margin-bottom:4px">
-<img src="/logo/beingsevak-logo.png" alt="Being Sevak Charitable Trust" style="width:65px;height:auto;margin-right:14px" />
-<div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:700;color:#082F5A;letter-spacing:2px;line-height:1.1">BEING SEVAK CHARITABLE TRUST</div></div>
+<img src="${ngo.logo}" alt="${ngo.alt}" style="width:${ngo.logoSize || 100}px;height:auto;margin-right:14px" />
+<div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:700;color:#082F5A;letter-spacing:2px;line-height:1.1">${ngo.name}</div></div>
 </div>
 <div style="height:2px;background:#0B73C4;margin-bottom:12px"></div>
 <div style="text-align:center;font-size:14px;font-weight:700;color:#082F5A;margin:0 0 8px 0;text-transform:uppercase">EXPERIENCE LETTER</div>
 <div style="margin-bottom:6px"><strong>TO WHOM IT MAY CONCERN</strong></div>
 <div style="text-align:justify">
-<p style="margin:0 0 6px 0">This is to certify that <strong>${w.name}</strong> was employed with <strong>Being Sevak Charitable Trust</strong> from <strong>${joiningDate}</strong> to <strong>${lastWorkingDate}</strong> as a <strong>${r}</strong>.</p>
+<p style="margin:0 0 6px 0">This is to certify that <strong>${w.name}</strong> was employed with <strong>${ngo.name}</strong> from <strong>${joiningDate}</strong> to <strong>${lastWorkingDate}</strong> as a <strong>${r}</strong>.</p>
 <p style="margin:0 0 6px 0">During the tenure with our organization, they performed the assigned responsibilities with dedication and professionalism. The role involved managing day-to-day tasks, coordinating with clients and team members, preparing necessary documentation, and supporting organizational operations related to the assigned position. They consistently demonstrated sincerity, a positive attitude, and a commitment to delivering quality work.</p>
 <p style="margin:0 0 6px 0">Throughout the period of employment, they maintained good professional conduct, worked effectively as a team member, and carried out the assigned responsibilities to our satisfaction.</p>
-<p style="margin:0 0 6px 0">We appreciate the contributions made to Being Sevak Charitable Trust and thank them for their services. We wish them every success in their future professional endeavors.</p>
+<p style="margin:0 0 6px 0">We appreciate the contributions made to ${ngo.name} and thank them for their services. We wish them every success in their future professional endeavors.</p>
 <p style="margin:0 0 6px 0">Should you require any further information, please feel free to contact us.</p>
 </div>
-<div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>Authorized Signatory</strong><br />Contact No.: +91 8879035035<br />Email: being.sevak@gmail.com</p><p style="margin:8px 0 0 0"><strong>Company Seal &amp; Signature</strong><br /><strong>Being Sevak Charitable Trust</strong></p></div>
-<div style="margin-top:14px;padding-top:4px"><div style="height:2px;background:#0B73C4;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> 506, Sanjar Enclave, Bhadran Nagar, Kandivali (West), Mumbai, Maharashtra 400067.</div></div>
+<div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>Authorized Signatory</strong><br />Contact No.: +91 8879035035<br />Email: being.sevak@gmail.com</p><p style="margin:8px 0 0 0"><strong>Company Seal &amp; Signature</strong><br /><strong>${ngo.name}</strong></p></div>
+<div style="margin-top:14px;padding-top:4px"><div style="height:2px;background:#0B73C4;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> ${ngo.address}</div></div>
 </div>`;
 }
 
-function buildWarningLetterHTML(w, dateText, joiningDate, subjectText) {
+function buildWarningLetterHTML(w, dateText, joiningDate, subjectText, ngoKey) {
+  const ngo = getNgo(ngoKey);
   const r = w.role || w.department || 'Team Member';
-  const body = `<strong>TO WHOM IT MAY CONCERN</strong>\n\nThis is to inform <strong>${w.name}</strong>, serving with <strong>Being Sevak Charitable Trust</strong> as a <strong>${subjectText || r}</strong> since <strong>${joiningDate}</strong>, regarding the following matter.\n\nIt has come to the notice of the management that on <strong>[date of incident]</strong>, the following conduct/issue was observed:\n\n<em>[Brief description of the incident/issue]</em>\n\nThis is a violation of the standards of conduct expected from a Sevak of this organization, specifically with regard to <strong>[nature of violation — e.g., attendance, discipline, work conduct]</strong>. Despite prior guidance/counseling on this matter, the concerned conduct has continued, which is a matter of serious concern to the organization.\n\nThey are hereby cautioned to refrain from such conduct going forward.\n\nThis letter should be treated as a formal warning. Any recurrence of similar conduct, or failure to improve within <strong>[timeframe]</strong>, may result in further action, including but not limited to suspension or removal from the Sevak role.\n\nThe organization values the association and hopes this warning will be taken in the right spirit, with a renewed commitment to sincerity and discipline going forward.`;
+  const body = `<strong>TO WHOM IT MAY CONCERN</strong>\n\nThis is to inform <strong>${w.name}</strong>, serving with <strong>${ngo.name}</strong> as a <strong>${subjectText || r}</strong> since <strong>${joiningDate}</strong>, regarding the following matter.\n\nIt has come to the notice of the management that on <strong>[date of incident]</strong>, the following conduct/issue was observed:\n\nThis is a violation of the standards of conduct expected from a Sevak of this organization, specifically with regard to <strong>[nature of violation — e.g., attendance, discipline, work conduct]</strong>. Despite prior guidance/counseling on this matter, the concerned conduct has continued, which is a matter of serious concern to the organization.\n\nThey are hereby cautioned to refrain from such conduct going forward.\n\nThis letter should be treated as a formal warning. Any recurrence of similar conduct, or failure to improve within <strong>[timeframe]</strong>, may result in further action, including but not limited to suspension or removal from the Sevak role.\n\nThe organization values the association and hopes this warning will be taken in the right spirit, with a renewed commitment to sincerity and discipline going forward.`;
   return `<div style="max-width:800px;margin:0 auto;font-family:'Times New Roman',Times,serif;font-size:12px;line-height:1.25;color:#000;background:#fff;padding:25px 35px">
 <div style="display:flex;align-items:center;margin-bottom:4px">
-<img src="/logo/beingsevak-logo.png" alt="Being Sevak Charitable Trust" style="width:65px;height:auto;margin-right:14px" />
-<div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:700;color:#082F5A;letter-spacing:2px;line-height:1.1">BEING SEVAK CHARITABLE TRUST</div></div>
+<img src="${ngo.logo}" alt="${ngo.alt}" style="width:${ngo.logoSize || 100}px;height:auto;margin-right:14px" />
+<div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:700;color:#082F5A;letter-spacing:2px;line-height:1.1">${ngo.name}</div></div>
 </div>
 <div style="height:2px;background:#0B73C4;margin-bottom:12px"></div>
 <div style="text-align:center;font-size:14px;font-weight:700;color:#082F5A;margin:0 0 8px 0;text-transform:uppercase">WARNING LETTER</div>
-<table style="width:100%;border-collapse:collapse"><tr><td style="padding:0 0 6px 0;font-size:12px"><strong>Date:</strong> ${dateText}</td></tr></table>
 <div style="text-align:justify;white-space:pre-wrap">${body.replace(/\n/g, '<br />')}</div>
-<div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>Authorized Signatory</strong><br />Contact No.: +91 8879035035<br />Email: being.sevak@gmail.com</p><p style="margin:8px 0 0 0"><strong>Company Seal &amp; Signature</strong><br />Being Sevak Charitable Trust</p></div>
-<div style="margin-top:14px;padding-top:4px"><div style="height:2px;background:#0B73C4;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> 506, Sanjar Enclave, Bhadran Nagar, Kandivali (West), Mumbai, Maharashtra 400067.</div></div>
+<div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>Authorized Signatory</strong><br />Contact No.: +91 8879035035<br />Email: being.sevak@gmail.com</p><p style="margin:8px 0 0 0"><strong>Company Seal &amp; Signature</strong><br />${ngo.name}</p></div>
+<div style="margin-top:14px;padding-top:4px"><div style="height:2px;background:#0B73C4;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> ${ngo.address}</div></div>
 </div>`;
 }
 
-function build(type, w, joiningDate = '', designation = '') {
+function build(type, w, joiningDate = '', designation = '', ngoKey = 'BSCT') {
+  const ngo = getNgo(ngoKey);
   const today = new Date().toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' });
   const r = w.role || w.department || 'Team Member';
   const d = w.dept || w.department || 'General';
   const body = {
-    'Offer letter': `To,\n${w.name}\n\n<strong>Designation: ${designation || r}</strong>\n\nDear ${w.name},\n\nWe are pleased to offer you the role of ${designation || r} in the ${d} department of Being Sevak Charitable Trust. Your skills and enthusiasm will be a valuable addition to our mission of serving the community.\n\nTerms of your engagement with the Trust:\n\nRole: You will assist the Trust with duties related to ${d} and other activities assigned from time to time, reporting to the respective Coordinator.\nDuration: Commencing on <strong>${joiningDate}</strong> for a period of <strong>2 months</strong>, extendable by mutual consent.\nNature of Engagement: This is an honorary role undertaken in the spirit of seva and social service. No monetary compensation shall be payable for your services.\nConduct & Confidentiality: You agree to follow the Trust's policies, act with integrity towards beneficiaries and colleagues, and keep all Trust-related information confidential.\nTermination: Either party may end this engagement with [seven days'] written notice.\n\nWe appreciate your willingness to serve and look forward to welcoming you to the Being Sevak family. Kindly sign below to confirm your acceptance.\n\nACCEPTANCE: I, ${w.name}, accept the role offered to me on the terms above.\nSignature: ______________ Date: ______________`,
+    'Offer letter': `To,\n${w.name}\n\n<strong>Designation: ${designation || r}</strong>\n\nDear ${w.name},\n\nWe are pleased to offer you the role of ${designation || r} in the ${d} department of ${ngo.name}. Your skills and enthusiasm will be a valuable addition to our mission of serving the community.\n\nTerms of your engagement with the Trust:\n\nRole: You will assist the Trust with duties related to ${d} and other activities assigned from time to time, reporting to the respective Coordinator.\nDuration: Commencing on <strong>${joiningDate}</strong> for a period of <strong>2 months</strong>, extendable by mutual consent.\nNature of Engagement: This is an honorary role undertaken in the spirit of seva and social service. No monetary compensation shall be payable for your services.\nConduct & Confidentiality: You agree to follow the Trust's policies, act with integrity towards beneficiaries and colleagues, and keep all Trust-related information confidential.\nTermination: Either party may end this engagement with [seven days'] written notice.\n\nWe appreciate your willingness to serve and look forward to welcoming you to the ${ngo.name} family. Kindly sign below to confirm your acceptance.\n\nACCEPTANCE: I, ${w.name}, accept the role offered to me on the terms above.\nSignature: ______________ Date: ______________`,
     'Promotion letter': `Dear ${w.name},\n\nCongratulations. In recognition of your strong contribution to the ${d} team, we are pleased to confirm your promotion, effective immediately. Thank you for the energy you bring to your work.\n\nWarm regards,\nThe People Team`,
     'Warning letter': ``,
     'Relieving letter': `Dear ${w.name},\n\nThis confirms that you have been relieved of your duties as ${r}, ${d}, with all responsibilities duly handed over. Thank you for your contributions — we wish you the very best in what comes next.\n\nWarm regards,\nThe People Team`,
@@ -94,21 +104,22 @@ function build(type, w, joiningDate = '', designation = '') {
   return { today, body };
 }
 
-function buildStyledLetterHTML(w, letterType, bodyText, dateText, hrNameText, subjectText, showDate = true) {
+function buildStyledLetterHTML(w, letterType, bodyText, dateText, hrNameText, subjectText, showDate = true, ngoKey) {
+  const ngo = getNgo(ngoKey);
   const r = w.role || w.department || 'Team Member';
   const title = letterType.charAt(0).toUpperCase() + letterType.slice(1).toLowerCase();
   const bodyHtml = bodyText.replace(/\n/g, '<br />');
   return `<div style="max-width:800px;margin:0 auto;font-family:'Times New Roman',Times,serif;font-size:12px;line-height:1.25;color:#000;background:#fff;padding:25px 35px">
 <div style="display:flex;align-items:center;margin-bottom:4px">
-<img src="/logo/beingsevak-logo.png" alt="Being Sevak Charitable Trust" style="width:65px;height:auto;margin-right:14px" />
-<div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:700;color:#082F5A;letter-spacing:2px;line-height:1.1">BEING SEVAK CHARITABLE TRUST</div></div>
+<img src="${ngo.logo}" alt="${ngo.alt}" style="width:${ngo.logoSize || 100}px;height:auto;margin-right:14px" />
+<div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:700;color:#082F5A;letter-spacing:2px;line-height:1.1">${ngo.name}</div></div>
 </div>
 <div style="height:2px;background:#0B73C4;margin-bottom:12px"></div>
 <div style="text-align:center;font-size:14px;font-weight:700;color:#082F5A;margin:0 0 8px 0;text-transform:uppercase">${title}</div>
 ${showDate ? `<table style="width:100%;border-collapse:collapse"><tr><td style="padding:0 0 6px 0;font-size:12px"><strong>Date:</strong> ${dateText}</td></tr></table>` : ''}
 <div style="text-align:justify;white-space:pre-wrap">${bodyHtml}</div>
-<div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>Authorized Signatory</strong><br />${hrNameText}<br /><strong>Being Sevak Charitable Trust</strong></p></div>
-<div style="margin-top:14px;padding-top:4px"><div style="height:2px;background:#0B73C4;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> 506, Sanjar Enclave, Bhadran Nagar, Kandivali (West), Mumbai, Maharashtra 400067.</div></div>
+<div style="margin-top:12px"><p style="margin:0 0 2px 0">Yours sincerely,</p><p style="margin:10px 0 0 0"><strong>Authorized Signatory</strong><br />${hrNameText}<br /><strong>${ngo.name}</strong></p></div>
+<div style="margin-top:14px;padding-top:4px"><div style="height:2px;background:#0B73C4;margin-bottom:6px"></div><div style="text-align:center;font-size:12px;color:#6b7280">    <strong>Regd. Address:</strong> ${ngo.address}</div></div>
 </div>`;
 }
 
@@ -169,28 +180,28 @@ export default function Letters() {
     if (type === 'Joining letter') {
       const dateText = letterDate ? new Date(letterDate + 'T00:00:00').toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' }) : '{{date}}';
       const hrNameText = hrName || '{{hr_name}}';
-      body = buildJoiningLetterHTML(w, dateText, hrNameText, subject);
+      body = buildJoiningLetterHTML(w, dateText, hrNameText, subject, ngo);
       today = dateText;
     } else if (type === 'Experience letter') {
       const jd = w.date_of_joining || w.created_at || '';
       const joiningDate = jd ? new Date(jd + (jd.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' }) : '{{joining_date}}';
       const lastWorkingDate = letterDate ? new Date(letterDate + 'T00:00:00').toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' }) : '{{last_working_date}}';
       const hrNameText = hrName || '{{hr_name}}';
-      body = buildExperienceLetterHTML(w, joiningDate, lastWorkingDate, hrNameText, subject, subject);
+      body = buildExperienceLetterHTML(w, joiningDate, lastWorkingDate, hrNameText, subject, subject, ngo);
       today = lastWorkingDate;
     } else if (type === 'Warning letter') {
       const dateText = letterDate ? new Date(letterDate + 'T00:00:00').toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' }) : new Date().toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' });
       const jd = w.date_of_joining || w.created_at || '';
       const joiningDate = jd ? new Date(jd + (jd.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' }) : '{{joining_date}}';
-      body = buildWarningLetterHTML(w, dateText, joiningDate, subject);
+      body = buildWarningLetterHTML(w, dateText, joiningDate, subject, ngo);
       today = dateText;
     } else {
       const dateText = letterDate ? new Date(letterDate + 'T00:00:00').toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' }) : new Date().toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' });
       const hrNameText = hrName || '{{hr_name}}';
       const jd = w.date_of_joining || w.created_at || '';
       const joiningDate = jd ? new Date(jd + (jd.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' }) : '{{joining_date}}';
-      const result = build(type, w, joiningDate, subject);
-      body = buildStyledLetterHTML(w, type, result.body, dateText, hrNameText, subject, type !== 'Offer letter');
+      const result = build(type, w, joiningDate, subject, ngo);
+      body = buildStyledLetterHTML(w, type, result.body, dateText, hrNameText, subject, type !== 'Offer letter', ngo);
       today = dateText;
     }
     setOut({ today, body, type });
