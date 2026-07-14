@@ -10,13 +10,9 @@ export default function Template4({ personal }) {
         .t4 .sec{color:#7b2020;font-weight:bold;font-size:15pt;margin-top:14px;page-break-inside:avoid}
         .t4 p{font-size:11pt;line-height:1.45;text-align:justify;margin:6px 0;page-break-inside:avoid}
         .t4 .footer{border-top:2px solid #7b2020;margin-top:18px;padding-top:8px;text-align:center;font-size:10pt}
-        .t4 .logo-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:2mm}
-        .t4 .logo-row img{height:60px;width:auto}
+
       `}</style>
       <div className="t4">
-        <div className="logo-row">
-          <img src="/logo/beingsevak-logo.png" alt="Being Sevak Logo" />
-        </div>
         <h1>Being Sevak Charitable Trust</h1>
         <div className="red"></div>
         <div className="sub">Public Charitable Trust (Reg.) E-31948 No, Income Tax Exempted Under 80G</div>
