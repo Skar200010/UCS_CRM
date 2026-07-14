@@ -1,8 +1,22 @@
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { useAuthStore } from '../../stores/authStore';
 
 export function AppLayout() {
+  const { user } = useAuthStore();
+  const isAgent = user?.role === 'agent';
+
+  if (isAgent) {
+    return (
+      <div className="flex h-screen overflow-hidden">
+        <main className="flex-1 overflow-hidden">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />

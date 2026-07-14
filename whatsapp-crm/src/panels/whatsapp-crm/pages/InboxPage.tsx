@@ -210,7 +210,7 @@ export function InboxPage() {
   const selectedConversation = conversations?.find((c) => c.id === conversationId);
 
   return (<>
-    <div className="flex h-[calc(100vh-12rem)] gap-4">
+    <div className={`flex ${user?.role === 'agent' ? 'h-screen' : 'h-[calc(100vh-12rem)]'} gap-4`}>
       <div className="w-72 flex-shrink-0">
         <div className="mb-2 flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setSearchOpen(true)} className="flex-1 justify-start gap-2 text-muted-foreground">
