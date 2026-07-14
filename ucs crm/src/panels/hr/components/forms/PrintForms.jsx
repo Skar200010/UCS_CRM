@@ -26,7 +26,7 @@ export default function PrintForms({ data, onClose }) {
         @page { size: A4; margin: 0; }
         body { margin: 0; padding: 0; background: #fff; }
         .print-page { page-break-after: always; }
-        .t3, .t4 { height: auto !important; overflow: visible !important; }
+        .t3, .t4 { height: auto !important; page-break-after: auto !important; }
         .t5 { overflow: visible !important; height: auto !important; }
         @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       </style>
