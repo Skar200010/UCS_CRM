@@ -17,11 +17,17 @@ function LoginForm({ onLogin }) {
     setLoading(true);
     setError('');
     try {
-      const result = await api('/fro/whatsapp/login', {
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://ucs-crm-backend.vercel.app/api';
+      const res = await fetch(`${baseUrl}/whatsapp/fro-login`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
-        _prefix: 'ucs',
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Login failed' }));
+        throw new Error(err.message);
+      }
+      const result = await res.json();
       localStorage.setItem('wa_auth', JSON.stringify(result));
       onLogin(result);
     } catch (err) {
@@ -73,9 +79,13 @@ export default function WhatsAppChat() {
   const [loadingConv, setLoadingConv] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
   const [newChatPhone, setNewChatPhone] = useState(null);
   const [newChatText, setNewChatText] = useState('');
   const [sendingNew, setSendingNew] = useState(false);
+  const [showNewConv, setShowNewConv] = useState(false);
+  const [newConvPhone, setNewConvPhone] = useState('');
+  const [newConvText, setNewConvText] = useState('');
 
   const loadConversations = useCallback(async () => {
     setLoadingConv(true);
@@ -171,6 +181,26 @@ export default function WhatsAppChat() {
     }
   };
 
+  const handleNewConv = async () => {
+    if (!newConvPhone.trim()) { alert('Enter a phone number'); return; }
+    setSendingNew(true);
+    try {
+      const result = await sendDirectMessage(newConvPhone.trim(), newConvText.trim() || 'Hello');
+      setShowNewConv(false);
+      setNewConvPhone('');
+      setNewConvText('');
+      await loadConversations();
+      if (result.conversation) {
+        handleSelect(result.conversation);
+        navigate('/fro/whatsapp-chat', { replace: true });
+      }
+    } catch (err) {
+      alert('Failed: ' + err.message);
+    } finally {
+      setSendingNew(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('wa_auth');
     setWaAuth(null);
@@ -183,14 +213,23 @@ export default function WhatsAppChat() {
     return <LoginForm onLogin={(result) => setWaAuth(result)} />;
   }
 
+  const filteredConversations = conversations.filter(c => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const contact = c.contact || {};
+    const name = contact.wa_profile_name || contact.phone || '';
+    return name.toLowerCase().includes(q) || (contact.phone || '').includes(q);
+  });
+
   const contact = activeConv?.contact || {};
   const activeName = contact.wa_profile_name || contact.phone || 'Select a conversation';
 
   return (
+    <>
     <div style={{ display: 'flex', height: 'calc(100vh - 180px)', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
       <div style={{ width: 300, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>
                 WhatsApp Chat
@@ -206,10 +245,21 @@ export default function WhatsAppChat() {
             </div>
             <button onClick={handleLogout} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 11, color: '#dc2626', padding: '4px 8px' }}>Logout</button>
           </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search conversations..."
+            style={{ width: '100%', padding: '6px 10px', fontSize: 12, border: '1px solid #d1d5db', borderRadius: 6, boxSizing: 'border-box', outline: 'none' }}
+          />
+          <button onClick={() => setShowNewConv(true)}
+            style={{ width: '100%', marginTop: 6, padding: '6px 10px', fontSize: 12, fontWeight: 600, background: '#25D366', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+            + New Conversation
+          </button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <ConversationList
-            conversations={conversations}
+            conversations={filteredConversations}
             activeId={activeConv?.id}
             onSelect={handleSelect}
             loading={loadingConv}
@@ -254,5 +304,35 @@ export default function WhatsAppChat() {
         )}
       </div>
     </div>
+
+    {showNewConv && (
+      <div className="modal-overlay" onClick={() => setShowNewConv(false)}>
+        <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3>New Conversation</h3>
+            <button className="btn btn-sm" onClick={() => setShowNewConv(false)}>Close</button>
+          </div>
+          <div className="modal-body" style={{ padding: 16 }}>
+            <label className="field" style={{ marginBottom: 12, display: 'block' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Phone Number</span>
+              <input type="tel" value={newConvPhone} onChange={e => setNewConvPhone(e.target.value)}
+                placeholder="e.g. 917506419340"
+                style={{ width: '100%', marginTop: 4, padding: '8px 10px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 6, boxSizing: 'border-box' }} />
+            </label>
+            <label className="field" style={{ marginBottom: 16, display: 'block' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Message (optional)</span>
+              <textarea value={newConvText} onChange={e => setNewConvText(e.target.value)}
+                placeholder="Type your first message..." rows={3}
+                style={{ width: '100%', marginTop: 4, padding: '8px 10px', fontSize: 13, border: '1px solid #d1d5db', borderRadius: 6, boxSizing: 'border-box', resize: 'vertical' }} />
+            </label>
+            <button onClick={handleNewConv} disabled={sendingNew || !newConvPhone.trim()}
+              style={{ width: '100%', padding: '10px', background: '#25D366', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: sendingNew ? 'not-allowed' : 'pointer' }}>
+              {sendingNew ? 'Starting...' : 'Start Conversation'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
 }

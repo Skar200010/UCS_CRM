@@ -89,18 +89,20 @@ export default function WhatsAppAgents() {
                 <div className="card-pad">
                   {accAgents.length > 0 && (
                     <div style={{ marginBottom: 12 }}>
-                      {accAgents.map(agent => {
+                        {accAgents.map(agent => {
                         const w = agent.workers || {};
+                        const agentName = w.name || w.email || 'Unknown';
+                        const initials = agentName.split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase();
                         return (
                           <div key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
                             <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#5B6B4E20', color: '#5B6B4E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
-                              {(w.name || '?').split(' ').map(s => s[0]).slice(0, 2).join('').toUpperCase()}
+                              {initials || '?'}
                             </div>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{w.name || 'Unknown'}</div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{agentName}</div>
                               <div style={{ fontSize: 11, color: '#6b7280' }}>{w.phone || w.email || ''}</div>
                             </div>
-                            <button className="btn btn-sm" onClick={() => removeAgent(acc.id, agent.fro_worker_id, w.name || 'Unknown')}
+                            <button className="btn btn-sm" onClick={() => removeAgent(acc.id, agent.fro_worker_id, agentName)}
                               style={{ fontSize: 11, padding: '3px 10px', color: '#dc2626', border: '1px solid #fecaca' }}>Remove</button>
                           </div>
                         );
@@ -114,24 +116,27 @@ export default function WhatsAppAgents() {
                         type="text"
                         value={search[acc.id] || ''}
                         onChange={e => handleSearch(acc.id, e.target.value)}
-                        placeholder="Search FRO by name, email, or mobile..."
+                        placeholder="Search worker by name, email, or phone..."
                         style={{ width: '100%', padding: '7px 10px', fontSize: 12, border: '1px solid #d1d5db', borderRadius: 6, boxSizing: 'border-box' }}
                       />
                       {results[acc.id] && results[acc.id].length > 0 && (
                         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, maxHeight: 200, overflowY: 'auto', zIndex: 10, marginTop: 2, boxShadow: '0 4px 12px rgba(0,0,0,.08)' }}>
-                          {results[acc.id].map(w => (
-                            <div key={w.id}
-                              onClick={() => assignAgent(acc.id, w.id)}
-                              style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 8 }}
-                              onMouseOver={e => e.currentTarget.style.background = '#f0fdf4'}
-                              onMouseOut={e => e.currentTarget.style.background = '#fff'}>
-                              <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{w.name}</span>
-                              <span style={{ fontSize: 11, color: '#6b7280' }}>{w.phone || w.email}</span>
-                              <span style={{ fontSize: 11, color: '#25D366', fontWeight: 600, flexShrink: 0 }}>
-                                {assigning[`${acc.id}-${w.id}`] ? '...' : '+ Assign'}
-                              </span>
-                            </div>
-                          ))}
+                          {results[acc.id].map(w => {
+                            const workerName = w.name || w.email || 'Unknown';
+                            return (
+                              <div key={w.id}
+                                onClick={() => assignAgent(acc.id, w.id)}
+                                style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', gap: 8 }}
+                                onMouseOver={e => e.currentTarget.style.background = '#f0fdf4'}
+                                onMouseOut={e => e.currentTarget.style.background = '#fff'}>
+                                <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{workerName}</span>
+                                <span style={{ fontSize: 11, color: '#6b7280' }}>{w.phone || w.email || ''}</span>
+                                <span style={{ fontSize: 11, color: '#25D366', fontWeight: 600, flexShrink: 0 }}>
+                                  {assigning[`${acc.id}-${w.id}`] ? '...' : '+ Assign'}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

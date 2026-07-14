@@ -43,7 +43,7 @@ export async function getAccountForFro(froWorkerId) {
   return data;
 }
 
-export async function searchFroWorkers(query) {
+export async function searchWorkers(query) {
   const { data, error } = await supabase
     .from('workers')
     .select('id, name, email, phone')

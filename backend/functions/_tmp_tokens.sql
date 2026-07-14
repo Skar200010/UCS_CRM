@@ -1,0 +1,5 @@
+UPDATE whatsapp_accounts SET access_token = 'EAAPJSEwmi8sBR1zdk4lJApD7O4om6k2DZBqFLuZBfjfM0OxZB5Yp5unbJxQKUhC4yrnqYfAfO7pAQfXy39ZBgsuqHZBMgtg7Yapp8LmoNAt7BEHCHTOVSDdKSBNJZCz3CNKnH7ZC0NP7TGOQTbeVw5krozDazMPtk4sbAbJBVBqCi1L0sU6Ui2flHWpkZChgz7ZCcOQZDZD' WHERE project = 'bsct';
+
+UPDATE whatsapp_accounts SET access_token = 'EAAjgFNZCk8IABR6kMSqLW6iz1qP2PleOlinJrRYWUTgcxAxH7s8El3JUbh8wSHlHsZCgUV6tWeE299I7X7mOo0efCwPJP1pvSPZBfmwE0ZBCDmG3rpXL0e014p9yvPl36ruEyqeEckv6ad1QXGIb7OH1KZAdMHjtvQO0LTFFyDlLic84tRdSMZCyAoOKdyZBjAZDZD' WHERE project = 'aflf';
+
+SELECT id, project, phone_number_id, waba_id, access_token IS NOT NULL AS has_token, is_active FROM whatsapp_accounts;

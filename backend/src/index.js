@@ -47,6 +47,7 @@ import eventHeadRoutes from './routes/eventHeadRoutes.js';
 import ocrRoutes from './routes/ocrRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 import froWhatsAppRoutes from './routes/froWhatsAppRoutes.js';
+import { whatsappLogin } from './controllers/froWhatsAppAuthController.js';
 
 dotenv.config();
 
@@ -98,6 +99,7 @@ app.use('/api/causes', causeRoutes);
 app.use('/api/data-sources', dataSourceRoutes);
 app.use('/api/data-import', dataImportRoutes);
 app.use('/api/ngo-admin', ngoAdminRoutes);
+app.post('/api/whatsapp/fro-login', whatsappLogin);
 app.use('/api/fro', froRoutes);
 app.use('/api/accounts', accountsRoutes);
 app.use('/api/loans', loanRoutes);

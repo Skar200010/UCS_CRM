@@ -1,4 +1,4 @@
-import { listAgentsForAccount, assignAgentToAccount, removeAgentFromAccount, searchFroWorkers, getAccountForFro } from '../models/froWhatsAppAssignmentModel.js';
+import { listAgentsForAccount, assignAgentToAccount, removeAgentFromAccount, searchWorkers, getAccountForFro } from '../models/froWhatsAppAssignmentModel.js';
 
 export async function listAgents(req, res) {
   try {
@@ -35,7 +35,7 @@ export async function searchAgents(req, res) {
   try {
     const { q } = req.query;
     if (!q || q.length < 2) return res.json([]);
-    const workers = await searchFroWorkers(q);
+    const workers = await searchWorkers(q);
     return res.json(workers);
   } catch (error) {
     return res.status(500).json({ message: error.message });

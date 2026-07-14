@@ -6,6 +6,7 @@ const ALLOWED_ROLES = {
   admin: 'admin',
   hr: 'hr',
   accounts: 'accounts',
+  whatsapp_crm: 'whatsapp_crm',
   recruiter: 'recruiter',
   telecaller: 'telecaller',
   fro: 'fro',

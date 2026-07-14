@@ -1,2 +1,14 @@
+bsct
+
 supabase secrets set WHATSAPP_ACCESS_TOKEN=EAAPJSEwmi8sBR4ZCvlqz99w4ZAS45jx7eDLZAyJXxb0B60AyIMsdTMFFT1fb1TZBp1m0RE7KGV5ema3nN6IkXMpRts2t7ZBFm6YaaogQuxCdJyv5NXw9CZCPCFCm1GZBaP0PYWQ5BZBWMqUnbEDjTUdqexvZBFYvDWKd5A2nZC8FDY0kLICZCp82eiurw6QWG0qJgekr5IqSrcHYJijxZCqWnvKikkIEvDZBuYSWbcTw1gkoiSzhE1vhiGWkZAl6rnumG7rxlFa6hbGLj4H3majXh6Drg5au8h
 supabase secrets set WHATSAPP_VERIFY_TOKEN=ucscompany123
+
+==========================================================================
+
+
+ashrayforlifefoundation
+
+WHATSAPP_ACCESS_TOKEN=EAAjgFNZCk8IABR6kMSqLW6iz1qP2PleOinJrRYWUTgcxAxH7s8El3JUbh8wSHlHsZCgUV6tWeE299I7X7mOo0efCwPJP1pvSPZBfmwE0ZBCDmG3rpXL0e014p9yvPl36ruEyqeEckv6ad1QXGIb7OH1KZAdMHjtvQO0LTFFyDlLic84tRdSMZCyAoOKdyZBjAZDZD
+supabase secrets set WHATSAPP_VERIFY_TOKEN_MANN=ucscompany123
+
+app id 2498180073975936

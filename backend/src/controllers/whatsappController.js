@@ -7,6 +7,7 @@ const TEMPLATE_PROJECT_MAP = {
   bsct_receipt: 'bsct',
   mann_receipt: 'maan',
   aflf_receipt: 'aflf',
+  ashray_receipt: 'aflf',
 };
 
 export async function test(req, res) {
@@ -196,7 +197,7 @@ export async function sendDirect(req, res) {
     const account = await resolveAccount(donorProject);
     if (!account) return res.status(400).json({ message: `No WhatsApp account configured for project "${donorProject}"` });
 
-    const ngoMap = { bsct_receipt:'BeingSevak', mann_receipt:'MannCare', aflf_receipt:'Ashray' }
+    const ngoMap = { bsct_receipt:'BeingSevak', mann_receipt:'MannCare', aflf_receipt:'Ashray', ashray_receipt:'Ashray' }
     const ngoPrefix = ngoMap[tpl] || 'Receipt'
 
     let documentUrl = null;

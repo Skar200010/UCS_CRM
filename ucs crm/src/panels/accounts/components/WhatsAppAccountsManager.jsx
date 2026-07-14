@@ -294,11 +294,12 @@ export default function WhatsAppAccountsManager({ onAccountsChange }) {
                         <div style={{ marginBottom: 8 }}>
                           {agents[acc.id].map(agent => {
                             const w = agent.workers || {};
+                            const agentName = w.name || w.email || 'Unknown';
                             return (
                               <div key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid #f3f4f6' }}>
-                                <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{w.name || 'Unknown'}</span>
-                                <span style={{ fontSize: 10, color: '#6b7280' }}>{w.phone || ''}</span>
-                                <button className="btn btn-sm" onClick={() => removeAgent(acc.id, agent.fro_worker_id, w.name || 'Unknown')}
+                                <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{agentName}</span>
+                                <span style={{ fontSize: 10, color: '#6b7280' }}>{w.phone || w.email || ''}</span>
+                                <button className="btn btn-sm" onClick={() => removeAgent(acc.id, agent.fro_worker_id, agentName)}
                                   style={{ fontSize: 10, padding: '1px 6px', color: '#dc2626' }}>Remove</button>
                               </div>
                             );
@@ -310,22 +311,25 @@ export default function WhatsAppAccountsManager({ onAccountsChange }) {
                           type="text"
                           value={agentSearch[acc.id] || ''}
                           onChange={e => handleAgentSearch(acc.id, e.target.value)}
-                          placeholder="Search FRO by name, email, or mobile..."
+                          placeholder="Search worker by name, email, or phone..."
                           style={{ flex: 1, fontSize: 11, padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 4 }}
                         />
                       </div>
                       {agentResults[acc.id] && agentResults[acc.id].length > 0 && (
                         <div style={{ marginTop: 4, border: '1px solid #e5e7eb', borderRadius: 4, maxHeight: 150, overflowY: 'auto', background: '#fff' }}>
-                          {agentResults[acc.id].map(w => (
-                            <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}
-                              onMouseOver={e => e.currentTarget.style.background = '#f0fdf4'}
-                              onMouseOut={e => e.currentTarget.style.background = '#fff'}
-                              onClick={() => assignAgent(acc.id, w.id)}>
-                              <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{w.name}</span>
-                              <span style={{ fontSize: 10, color: '#6b7280' }}>{w.phone || w.email || ''}</span>
-                              <span style={{ fontSize: 10, color: '#25D366' }}>+ Assign</span>
-                            </div>
-                          ))}
+                          {agentResults[acc.id].map(w => {
+                            const workerName = w.name || w.email || 'Unknown';
+                            return (
+                              <div key={w.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6' }}
+                                onMouseOver={e => e.currentTarget.style.background = '#f0fdf4'}
+                                onMouseOut={e => e.currentTarget.style.background = '#fff'}
+                                onClick={() => assignAgent(acc.id, w.id)}>
+                                <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{workerName}</span>
+                                <span style={{ fontSize: 10, color: '#6b7280' }}>{w.phone || w.email || ''}</span>
+                                <span style={{ fontSize: 10, color: '#25D366' }}>+ Assign</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

@@ -173,7 +173,7 @@ export async function sendReceiptMessage(to, donorName, amount, receiptNo, date,
     }
   }
 
-  const ngoMap = { bsct_receipt:'BeingSevak', mann_receipt:'MannCare', aflf_receipt:'Ashray' }
+  const ngoMap = { bsct_receipt:'BeingSevak', mann_receipt:'MannCare', aflf_receipt:'Ashray', ashray_receipt:'Ashray' }
   const ngoPrefix = ngoMap[tpl] || 'Receipt'
   const safeName = String(donorName || 'Donor').replace(/[<>:"/\\|?*]/g, '_').trim()
   const fileName = `${ngoPrefix}_${safeName}_${receiptNo || 'receipt'}.pdf`

@@ -8,11 +8,8 @@ import {
   markRead,
   unreadCount,
 } from '../controllers/froWhatsAppController.js';
-import { whatsappLogin } from '../controllers/froWhatsAppAuthController.js';
 
 const router = Router();
-
-router.post('/login', whatsappLogin);
 
 router.use(authenticate);
 

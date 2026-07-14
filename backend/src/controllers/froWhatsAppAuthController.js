@@ -9,8 +9,20 @@ export async function whatsappLogin(req, res) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const worker = await getWorkerByLoginId(email);
+    let worker = await getWorkerByLoginId(email);
     if (!worker) {
+      const { data } = await supabase
+        .from('workers')
+        .select('*')
+        .or(`email.eq.${email},login_id.eq.${email}`)
+        .maybeSingle();
+      worker = data;
+    }
+    if (!worker) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    if (!worker.password) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
@@ -36,7 +48,6 @@ export async function whatsappLogin(req, res) {
         id: worker.id,
         name: worker.name,
         email: worker.email,
-        department: worker.department,
       },
       account: assignment.whatsapp_accounts,
     });
