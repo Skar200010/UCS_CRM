@@ -46,8 +46,8 @@ export default function WhatsAppCRMPanel() {
     <QueryClientProvider client={queryClient}>
       <Routes>
         {/* Auth routes */}
-        <Route path="auth/login" element={<LoginPage />} />
-        <Route path="auth/register" element={<RegisterPage />} />
+        <Route path="auth/login" element={<div className="flex min-h-screen items-center justify-center bg-gray-50 px-4"><div className="w-full max-w-sm"><LoginPage /></div></div>} />
+        <Route path="auth/register" element={<div className="flex min-h-screen items-center justify-center bg-gray-50 px-4"><div className="w-full max-w-sm"><RegisterPage /></div></div>} />
 
         {/* Main app routes */}
         <Route element={<ProtectedRoute />}>
