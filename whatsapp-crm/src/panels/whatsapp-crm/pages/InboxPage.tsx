@@ -19,6 +19,43 @@ import { sendWhatsAppMessage } from '../lib/whatsapp';
 import { QuickReplyBar } from '../components/chat/QuickReplyBar';
 import { MediaPreview, MediaFromMeta } from '../components/chat/MediaPreview';
 
+const AVATAR_COLORS = ['#00a884','#5f9ea0','#d4a574','#8b7e74','#c97b84','#6fa8dc','#93c47d','#e69138'];
+function avatarColor(name?: string) {
+  let hash = 0;
+  for (let i = 0; i < (name || '').length; i++) hash = (name || '').charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+function avatarLetter(name?: string) { return (name?.[0] || '?').toUpperCase(); }
+
+function WAAvatar({ waId, name, size = 'md' }: { waId?: string; name?: string; size?: 'sm' | 'md' }) {
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
+  const px = size === 'sm' ? 'h-8 w-8 text-[11px]' : 'h-12 w-12 text-sm';
+  useEffect(() => {
+    if (!waId) return;
+    let cancelled = false;
+    (async () => {
+      const { data: accounts } = await supabase.from('whatsapp_accounts').select('access_token').eq('is_active', true).limit(1);
+      if (!accounts?.[0] || cancelled) return;
+      try {
+        const r = await fetch(`https://graph.facebook.com/v23.0/${waId}/picture?redirect=false&type=small`, {
+          headers: { Authorization: `Bearer ${accounts[0].access_token}` },
+        });
+        const d = await r.json();
+        if (!cancelled && d.data?.url) setImgSrc(d.data.url);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [waId]);
+
+  if (imgSrc) return <img src={imgSrc} alt="" className={`${px} shrink-0 rounded-full object-cover`} />;
+  return (
+    <div className={`${px} shrink-0 flex items-center justify-center rounded-full font-semibold text-white`}
+      style={{ backgroundColor: avatarColor(name) }}>
+      {avatarLetter(name)}
+    </div>
+  );
+}
+
 function MessageStatusIcon({ status }: { status: string }) {
   if (status === 'sent') return <Check className="h-3.5 w-3.5 text-muted-foreground" />;
   if (status === 'delivered') return <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />;
@@ -265,12 +302,7 @@ export function InboxPage() {
                 conversation.id === conversationId ? 'bg-[#f0f2f5]' : ''
               }`}
             >
-              <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                style={{ backgroundColor: avatarColor(conversation.contact?.wa_profile_name) }}
-              >
-                {avatarLetter(conversation.contact?.wa_profile_name)}
-              </div>
+              <WAAvatar waId={conversation.contact?.phone_normalized} name={conversation.contact?.wa_profile_name} size="md" />
               <div className="min-w-0 flex-1" style={{ borderBottom: '1px solid #e9edef', paddingBottom: '12px', marginBottom: '-4px' }}>
                 <div className="flex items-center justify-between">
                   <span className="truncate text-sm font-medium text-[#111b21]">
@@ -292,12 +324,7 @@ export function InboxPage() {
         {selectedConversation ? (
           <>
             <div className="bg-[#f0f2f5] px-4 py-2 flex items-center gap-3 border-l border-gray-200">
-              <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                style={{ backgroundColor: avatarColor(selectedConversation.contact?.wa_profile_name) }}
-              >
-                {avatarLetter(selectedConversation.contact?.wa_profile_name)}
-              </div>
+              <WAAvatar waId={selectedConversation.contact?.phone_normalized} name={selectedConversation.contact?.wa_profile_name} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14.5px] font-medium text-[#111b21]">{selectedConversation.contact?.wa_profile_name || selectedConversation.contact?.phone}</p>
                 <p className="text-[11.5px] text-[#667781]">{selectedConversation.contact?.phone}</p>

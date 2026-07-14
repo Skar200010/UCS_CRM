@@ -1,73 +1,77 @@
 import { supabase } from './supabase';
 import { toast } from 'sonner';
 
-const META_API_VERSION = 'v23.0';
+const META_API = 'https://graph.facebook.com/v23.0';
 
 function isWithin24Hours(dateStr: string | null): boolean {
   if (!dateStr) return false;
-  const diff = Date.now() - new Date(dateStr).getTime();
-  return diff < 24 * 60 * 60 * 1000;
+  return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
+}
+
+async function getAccount() {
+  const { data } = await supabase
+    .from('whatsapp_accounts')
+    .select('phone_number_id, access_token')
+    .eq('is_active', true)
+    .order('is_default', { ascending: false })
+    .limit(1);
+  return data?.[0] || null;
+}
+
+async function uploadMedia(accessToken: string, phoneNumberId: string, file: File): Promise<string | null> {
+  const form = new FormData();
+  form.append('messaging_product', 'whatsapp');
+  form.append('file', file, file.name);
+  form.append('type', file.type);
+  try {
+    const r = await fetch(`${META_API}/${phoneNumberId}/media`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+    });
+    const d = await r.json();
+    return d.id || null;
+  } catch { return null; }
 }
 
 export async function sendWhatsAppMessage(
   conversationId: string,
   contactId: string,
   messageText?: string,
-  mediaUrl?: string | null,
-  mediaMimeType?: string | null
+  mediaFile?: File | null,
 ): Promise<boolean> {
   try {
-    const { data: accounts } = await supabase
-      .from('whatsapp_accounts')
-      .select('phone_number_id, access_token')
-      .eq('is_active', true)
-      .order('is_default', { ascending: false })
-      .limit(1);
+    const account = await getAccount();
+    if (!account) return false;
+    const { phone_number_id, access_token } = account;
 
-    if (!accounts?.[0]) return false;
-
-    const { phone_number_id, access_token } = accounts[0];
-
-    const { data: contact } = await supabase
-      .from('contacts')
-      .select('phone_normalized')
-      .eq('id', contactId)
-      .maybeSingle();
-
+    const { data: contact } = await supabase.from('contacts').select('phone_normalized').eq('id', contactId).maybeSingle();
     if (!contact?.phone_normalized) return false;
 
-    const { data: conv } = await supabase
-      .from('conversations')
-      .select('last_inbound_at')
-      .eq('id', conversationId)
-      .maybeSingle();
-
+    const { data: conv } = await supabase.from('conversations').select('last_inbound_at').eq('id', conversationId).maybeSingle();
     const windowOpen = isWithin24Hours(conv?.last_inbound_at);
 
     let payload: any;
 
-    if (!windowOpen && !mediaUrl) {
+    if (mediaFile) {
+      const mediaId = await uploadMedia(access_token, phone_number_id, mediaFile);
+      if (!mediaId) return false;
+      const fileType = mediaFile.type.startsWith('image/') ? 'image'
+        : mediaFile.type.startsWith('video/') ? 'video' : 'document';
+      payload = {
+        messaging_product: 'whatsapp',
+        to: contact.phone_normalized,
+        type: fileType,
+        [fileType]: { id: mediaId },
+      };
+      if (messageText) payload[fileType].caption = messageText;
+    } else if (!windowOpen) {
       payload = {
         messaging_product: 'whatsapp',
         to: contact.phone_normalized,
         type: 'template',
-        template: {
-          name: 'hello_world',
-          language: { code: 'en_US' },
-        },
+        template: { name: 'hello_world', language: { code: 'en_US' } },
       };
-    } else if (mediaUrl && mediaMimeType) {
-      const type = mediaMimeType.startsWith('image/') ? 'image'
-        : mediaMimeType.startsWith('video/') ? 'video'
-        : mediaMimeType.startsWith('audio/') ? 'audio'
-        : 'document';
-      payload = {
-        messaging_product: 'whatsapp',
-        to: contact.phone_normalized,
-        type,
-        [type]: { link: mediaUrl },
-      };
-      if (messageText) payload[type].caption = messageText;
     } else {
       payload = {
         messaging_product: 'whatsapp',
@@ -77,45 +81,25 @@ export async function sendWhatsAppMessage(
       };
     }
 
-    const res = await fetch(`https://graph.facebook.com/${META_API_VERSION}/${phone_number_id}/messages`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+    const res = await fetch(`${META_API}/${phone_number_id}/messages`, {
+      method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-
     const result = await res.json();
 
     if (res.ok && result.messages?.[0]?.id) {
-      const isTemplate = !!payload.template;
-      await supabase
-        .from('messages')
-        .update({
-          status: isTemplate ? 'sent' : 'sent',
-          wa_message_id: result.messages[0].id,
-          status_updated_at: new Date().toISOString(),
-        })
-        .eq('conversation_id', conversationId)
-        .eq('status', 'queued');
-
-      if (!windowOpen && !mediaUrl) {
-        toast.info('Sent via template (24hr window closed). Ask donor to reply to open chat.');
-      }
-
+      await supabase.from('messages').update({ status: 'sent', wa_message_id: result.messages[0].id, status_updated_at: new Date().toISOString() })
+        .eq('conversation_id', conversationId).eq('status', 'queued');
+      if (!windowOpen && !mediaFile) toast.info('Sent via template. Ask donor to reply to open chat.');
       return true;
     }
 
-    await supabase
-      .from('messages')
-      .update({ status: 'failed', failure_reason: result.error?.message || 'Meta API error' })
-      .eq('conversation_id', conversationId)
-      .eq('status', 'queued');
+    await supabase.from('messages').update({ status: 'failed', failure_reason: result.error?.message || 'Meta API error' })
+      .eq('conversation_id', conversationId).eq('status', 'queued');
     return false;
   } catch {
-    await supabase
-      .from('messages')
-      .update({ status: 'failed', failure_reason: 'Network error' })
-      .eq('conversation_id', conversationId)
-      .eq('status', 'queued');
+    await supabase.from('messages').update({ status: 'failed', failure_reason: 'Network error' })
+      .eq('conversation_id', conversationId).eq('status', 'queued');
     return false;
   }
 }

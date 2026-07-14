@@ -43,7 +43,7 @@ export function QuickReplyBar({ conversationId, onSent }: QuickReplyBarProps) {
   };
 
   return (
-    <div className="border-t bg-card px-4 py-2">
+    <div className="bg-[#f0f2f5] px-3 py-1.5">
       <div className="flex flex-wrap gap-1.5">
         {isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

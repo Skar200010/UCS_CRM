@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Loader2 } from 'lucide-react';
+import { sendWhatsAppMessage } from '../../lib/whatsapp';
 import { MediaUploadPreview } from './MediaPreview';
 import { sendWhatsAppMessage } from '../../lib/whatsapp';
 
@@ -23,44 +24,19 @@ export function MessageComposer({ conversationId, tenantId, contactId, userId, o
     setSending(true);
 
     try {
-      let mediaUrl: string | null = null;
-      let mediaMimeType: string | null = null;
-
-      if (selectedFile) {
-        const fileName = `${tenantId}/${conversationId}/${Date.now()}_${selectedFile.name}`;
-          const { error: uploadError } = await supabase.storage
-          .from('whatsapp-media')
-          .upload(fileName, selectedFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('whatsapp-media')
-          .getPublicUrl(fileName);
-
-        mediaUrl = publicUrl;
-        mediaMimeType = selectedFile.type;
-      }
-
       await supabase.from('messages').insert({
         tenant_id: tenantId,
         conversation_id: conversationId,
         contact_id: contactId,
         user_id: userId,
         direction: 'outbound',
-        message_type: mediaUrl ? (mediaMimeType?.startsWith('image/') ? 'image' : 'document') : 'text',
+        message_type: selectedFile ? (selectedFile.type.startsWith('image/') ? 'image' : 'document') : 'text',
         body_text: text.trim() || null,
-        media_url: mediaUrl,
-        media_mime_type: mediaMimeType,
         status: 'queued',
         message_category: 'service',
       });
 
-      const body = { conversationId, messageText: text.trim() || undefined, mediaUrl, mediaMimeType };
-      const token = localStorage.getItem('ucs_token');
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-
-      sendWhatsAppMessage(conversationId, contactId || '', text.trim() || undefined, mediaUrl, mediaMimeType);
+      sendWhatsAppMessage(conversationId, contactId || '', text.trim() || undefined, selectedFile);
 
       setText('');
       setSelectedFile(null);
