@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #1E293B; margin: 1in; }
+  h1 { font-family: 'Calibri Light', Calibri, sans-serif; font-size: 20pt; color: #1F3A5F; margin-top: 30pt; margin-bottom: 14pt; page-break-before: always; }
+  h1:first-of-type { page-break-before: avoid; }
+  h2 { font-family: 'Calibri Light', Calibri, sans-serif; font-size: 16pt; color: #2563EB; margin-top: 22pt; margin-bottom: 10pt; }
+  h3 { font-family: 'Calibri Light', Calibri, sans-serif; font-size: 13pt; color: #1E293B; margin-top: 16pt; margin-bottom: 8pt; }
+  h4 { font-family: 'Calibri Light', Calibri, sans-serif; font-size: 11pt; color: #334155; margin-top: 12pt; margin-bottom: 6pt; }
+  p { margin: 0 0 6pt 0; text-align: justify; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8pt 0; font-size: 9pt; }
+  th { background-color: #1E3A5F; color: #FFFFFF; font-weight: bold; padding: 5pt 6pt; border: 1pt solid #1E3A5F; text-align: left; }
+  td { padding: 3pt 6pt; border: 1pt solid #CBD5E1; vertical-align: top; }
+  tr:nth-child(even) td { background-color: #F8FAFC; }
+
+  pre { background-color: #1E293B; color: #E2E8F0; font-family: Consolas, monospace; font-size: 8pt; padding: 8pt 10pt; margin: 6pt 0; white-space: pre-wrap; word-break: break-all; }
+  pre code { background: none; color: inherit; padding: 0; font-family: inherit; font-size: inherit; }
+  code { font-family: Consolas, monospace; font-size: 9.5pt; background-color: #F1F5F9; color: #2563EB; padding: 1pt 3pt; }
+  blockquote { border-left: 3pt solid #2563EB; margin: 6pt 0; padding: 4pt 10pt; background-color: #EFF6FF; color: #1E40AF; }
+  ul, ol { margin: 3pt 0 6pt 0; padding-left: 22pt; }
+  li { margin-bottom: 2pt; }
+  hr { border: none; border-top: 1pt solid #CBD5E1; margin: 16pt 0; }
+  a { color: #2563EB; }
+  strong { font-weight: bold; color: #0F172A; }
+</style>
+</head>
+<body>
+<div class="title-page" style="text-align:center;padding-top:120pt;">
+  <h1 style="font-size:28pt;page-break-before:avoid;margin-bottom:4pt;">UCS CRM</h1>
+  <p style="font-size:16pt;color:#2563EB;font-family:'Calibri Light',Calibri,sans-serif;margin-bottom:24pt;">Master Documentation</p>
+  <hr style="width:60%;margin:14pt auto;" />
+  <p style="font-size:10pt;color:#64748B;margin-top:40pt;line-height:2;">
+    <strong>Last Updated:</strong> July 13, 2026<br/>
+    <strong>Project Root:</strong> C:UsersAdministratorDesktopattendanceUCS_CRM<br/>
+    <strong>Live Backend:</strong> https://ucs-crm-backend.vercel.app<br/>
+    <strong>Document Type:</strong> Technical Reference / API Documentation
+  </p>
+</div>
+<div style="page-break-before:always;">
+<h1>Table of Contents</h1>
+</div>
+<h1 id="ucs-crm-master-documentation">UCS CRM — Master Documentation</h1>
+<blockquote>**Last Updated:** July 13, 2026  
+**Project Root:** `C:\Users\Administrator\Desktop\attendance\UCS_CRM`  
+**Live Backend:** `https://ucs-crm-backend.vercel.app` / `https://attendance-roan-zeta.vercel.app`</blockquote>
+<hr />
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>[object Object]</ol>
+<hr />
+<h2 id="1-project-overview">1. Project Overview</h2>
+<p>**UCS CRM** is a comprehensive **attendance tracking + Customer Relationship Management** system for NGOs and non-profit organizations. It enables managing field workers (FROs), donor relationships, attendance with QR-based geo-verification, payment collection, receipt generation, bank reconciliation, HR workflows, event management, and recruitment.</p>
+<h3 id="system-architecture">System Architecture</h3>
+<pre class="code-block"><code class="language-">┌─────────────────────────────────────────────────────────────┐
+│                   End Users / Clients                        │
+│  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌─────────┐  │
+│  │ Flutter   │  │ Web PWA  │  │ CRM SPA  │  │ shon    │  │
+│  │ (Mobile)  │  │ (Worker)  │  │ (Admin)  │  │ (Basic) │  │
+│  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └────┬────┘  │
+│        │               │              │              │       │
+├────────┼───────────────┼──────────────┼──────────────┼───────┤
+│        ▼               ▼              ▼              ▼       │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │            Express.js API (Node.js)                  │   │
+│  │  47 Controllers · 37 Models · 42 Route Files        │   │
+│  └──────────────────────┬───────────────────────────────┘   │
+│                         │                                    │
+│  ┌──────────────────────┼───────────────────────────────┐   │
+│  │         Supabase (PostgreSQL + Realtime)             │   │
+│  │          40+ Tables · Edge Functions                 │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                                                              │
+│  External Services:                                          │
+│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐ │
+│  │Firebase│ │Razorpay│ │ Paytm  │ │WhatsApp│ │  Groq AI │ │
+│  │  FCM   │ │  PGs   │ │  PGs   │ │  Cloud │ │ (LLaMA)  │ │
+│  └────────┘ └────────┘ └────────┘ └────────┘ └──────────┘ │
+└─────────────────────────────────────────────────────────────┘</code></pre>
+<h3 id="tech-stack-summary">Tech Stack Summary</h3>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h2 id="2-directory-structure">2. Directory Structure</h2>
+<pre class="code-block"><code class="language-">UCS_CRM/
+├── .gitignore                          (18 lines - ignores node_modules, .env, dist, etc.)
+├── .vercel/                            (Vercel deployment config)
+│   ├── README.txt                      (11 lines - auto-generated explanation)
+│   └── repo.json                       (11 lines - project ID, org ID)
+│
+├── backend/                            ★ MAIN BACKEND ★
+│   ├── .env                            (environment variables)
+│   ├── package.json                    (dependencies)
+│   ├── vercel.json                     (Vercel deployment config)
+│   ├── functions/                      (Deno/TypeScript Supabase Edge Functions)
+│   │   ├── aflf/webhook-whatsapp.js    (Ashray For Life Foundation)
+│   │   ├── bsct/webhook-whatsapp.js    (Being Sevak Foundation)
+│   │   └── mann/webhook-whatsapp.js    (Mann Care Foundation)
+│   ├── migrations/                     (29 SQL migration files)
+│   │   ├── 001_create_fro_transfers.sql
+│   │   ├── 002_create_worker_loans.sql
+│   │   ├── 003_create_attendance_corrections.sql
+│   │   ├── ... (003–023)
+│   │   └── 023_add_donor_id_to_bank_audit_entries.sql
+│   ├── scripts/                        (5 utility scripts)
+│   │   ├── backfill-notifs-alerts.js
+│   │   ├── backfill-rejected-leads.js
+│   │   ├── cleanup.js
+│   │   ├── reassign-ngos.js
+│   │   └── seed.js
+│   └── src/                            ★ APPLICATION SOURCE ★
+│       ├── index.js                    (Express entry point, CORS, static files, cron routes)
+│       ├── config/                     (6 config files)
+│       │   ├── emailConfig.js          (IMAP settings)
+│       │   ├── firebase.js             (Firebase Admin SDK)
+│       │   ├── groq.js                 (Groq AI SDK)
+│       │   ├── paymentGatewayConfig.js (Razorpay + Paytm)
+│       │   ├── supabase.js             (Supabase client)
+│       │   └── whatsappConfig.js       (WhatsApp Cloud API)
+│       ├── middleware/
+│       │   └── authMiddleware.js       (JWT verify + role-based auth)
+│       ├── controllers/                (47 controllers)
+│       │   ├── accountsController.js
+│       │   ├── achievementController.js
+│       │   ├── attendanceController.js
+│       │   ├── attendanceCorrectionController.js
+│       │   ├── authController.js
+│       │   ├── bankAuditController.js
+│       │   ├── bankStatementController.js
+│       │   ├── callLogController.js
+│       │   ├── causeController.js
+│       │   ├── dashboardController.js
+│       │   ├── dataImportController.js
+│       │   ├── dataSourceController.js
+│       │   ├── emailAccountController.js
+│       │   ├── emailImportController.js
+│       │   ├── eventController.js
+│       │   ├── eventHeadController.js
+│       │   ├── froController.js
+│       │   ├── froWhatsAppAssignmentController.js
+│       │   ├── froWhatsAppAuthController.js
+│       │   ├── froWhatsAppController.js
+│       │   ├── holidayController.js
+│       │   ├── hrController.js
+│       │   ├── incentiveController.js
+│       │   ├── leadController.js
+│       │   ├── leaveController.js
+│       │   ├── letterController.js
+│       │   ├── loanController.js
+│       │   ├── ngoAdminController.js
+│       │   ├── ngoController.js
+│       │   ├── noticeController.js
+│       │   ├── notificationAdminController.js
+│       │   ├── notificationController.js
+│       │   ├── ocrController.js
+│       │   ├── onboardingController.js
+│       │   ├── qrController.js
+│       │   ├── recruiterController.js
+│       │   ├── salaryController.js
+│       │   ├── settingsController.js
+│       │   ├── superAdminController.js
+│       │   ├── taskController.js
+│       │   ├── userController.js
+│       │   ├── webhookController.js
+│       │   ├── whatsappAccountController.js
+│       │   ├── whatsappController.js
+│       │   ├── workerController.js
+│       │   └── index.js               (barrel export)
+│       ├── models/                     (37 model files)
+│       │   ├── achievementModel.js, attendanceCorrectionModel.js
+│       │   ├── attendanceModel.js, bankAuditModel.js
+│       │   ├── callLogModel.js, causeModel.js
+│       │   ├── dailyAchievementModel.js, dataSourceModel.js
+│       │   ├── donorProfileModel.js, emailAccountModel.js
+│       │   ├── emailImportLogModel.js, eventHeadModel.js
+│       │   ├── eventModel.js, froAssignmentModel.js
+│       │   ├── froDonorLogModel.js, froStationAssignmentModel.js
+│       │   ├── froTargetModel.js, froWhatsAppAssignmentModel.js
+│       │   ├── holidayModel.js, hrModel.js
+│       │   ├── incentiveModel.js, leadModel.js
+│       │   ├── leaveModel.js, letterModel.js
+│       │   ├── loanModel.js, newDataModel.js
+│       │   ├── ngoModel.js, noticeModel.js
+│       │   ├── notificationAdminModel.js, notificationModel.js
+│       │   ├── onboardingModel.js, paymentWebhookLogModel.js
+│       │   ├── qrModel.js, razorpayAccountModel.js
+│       │   ├── receiptModel.js, salaryModel.js
+│       │   ├── settingsModel.js, taskModel.js
+│       │   ├── userModel.js, userNgoAccessModel.js
+│       │   ├── whatsappAccountModel.js, workerModel.js
+│       │   └── workerNgoAllocationModel.js
+│       ├── services/                   (10 service files)
+│       │   ├── bankStatementParser.js  (CSV/XLSX parsing, bank auto-detection)
+│       │   ├── emailImporter.js        (IMAP polling + Groq AI extraction)
+│       │   ├── fcmService.js           (Firebase push notifications)
+│       │   ├── fileParser.js           (Import file parsing)
+│       │   ├── froWhatsAppService.js   (FRO WhatsApp via Meta API)
+│       │   ├── notificationScheduler.js (Cron-based scheduler)
+│       │   ├── paymentWebhookService.js (Shared webhook processing)
+│       │   ├── paytmWebhook.js         (Paytm checksum verification)
+│       │   ├── razorpayWebhook.js      (Razorpay signature verification)
+│       │   └── whatsappService.js      (WhatsApp Cloud API messaging)
+│       ├── utils/                      (2 utilities)
+│       │   ├── geo.js                  (Haversine distance for QR validation)
+│       │   └── incentive.js            (AKI incentive calculation)
+│       └── routes/                     (42 route files)
+│           ├── accountsRoutes.js, achievementRoutes.js
+│           ├── assetsRoutes.js, attendanceCorrectionRoutes.js
+│           ├── attendanceRoutes.js, authRoutes.js
+│           ├── bankAuditRoutes.js, bankStatementRoutes.js
+│           ├── calendarRoutes.js, callLogRoutes.js
+│           ├── causeRoutes.js, dashboardRoutes.js
+│           ├── dataImportRoutes.js, dataSourceRoutes.js
+│           ├── emailImportRoutes.js, eventHeadRoutes.js
+│           ├── eventRoutes.js, froRoutes.js
+│           ├── froWhatsAppRoutes.js, holidayRoutes.js
+│           ├── hrRoutes.js, incentiveRoutes.js
+│           ├── leadRoutes.js, leaveRoutes.js
+│           ├── letterRoutes.js, loanRoutes.js
+│           ├── ngoAdminRoutes.js, ngoRoutes.js
+│           ├── noticeRoutes.js, notificationAdminRoutes.js
+│           ├── notificationRoutes.js, ocrRoutes.js
+│           ├── onboardingRoutes.js, qrRoutes.js
+│           ├── recruiterRoutes.js, salaryRoutes.js
+│           ├── settingsRoutes.js, superAdminRoutes.js
+│           ├── taskRoutes.js, userRoutes.js
+│           ├── webhookRoutes.js, whatsappRoutes.js
+│           └── workerRoutes.js
+│
+├── client/                             ★ FLUTTER MOBILE APP (ufs_attendance) ★
+│   ├── pubspec.yaml                    (114 lines - dependencies)
+│   ├── analysis_options.yaml           (28 lines - lint rules)
+│   ├── build.sh                        (24 lines - CI build script)
+│   ├── vercel.json                     (Vercel web deployment)
+│   ├── lib/
+│   │   ├── main.dart                   (501 lines - App entry + theme + routing)
+│   │   ├── config.dart                 (12 lines - API/Supabase URLs)
+│   │   ├── data/
+│   │   │   ├── mock_data.dart          (52 lines - demo data)
+│   │   │   └── volunteer_policies.dart (80 lines - 10 company policies)
+│   │   ├── models/
+│   │   │   ├── attendance_record.dart  (13 lines)
+│   │   │   ├── employee.dart           (21 lines)
+│   │   │   ├── leave_record.dart       (17 lines)
+│   │   │   ├── monthly_breakdown.dart  (17 lines)
+│   │   │   └── punch_log.dart          (7 lines)
+│   │   ├── pages/
+│   │   │   ├── splash_page.dart        (68 lines - animated splash)
+│   │   │   ├── login_page.dart         (226 lines - login with gradient bg)
+│   │   │   ├── onboarding_page.dart    (1944 lines - 11-step wizard)
+│   │   │   ├── home_page.dart          (1260+ lines - dashboard)
+│   │   │   ├── profile_page.dart       (1315 lines - profile + calendar)
+│   │   │   ├── scan_page.dart          (300 lines - legacy QR scanner)
+│   │   │   ├── scanner_page.dart       (272 lines - active QR scanner)
+│   │   │   ├── edit_profile_page.dart  (460 lines - full edit form)
+│   │   │   ├── attendance_list_page.dart (456 lines - history)
+│   │   │   ├── leave_page.dart         (692 lines - leave application)
+│   │   │   ├── advance_page.dart       (249 lines - advance/loan)
+│   │   │   ├── correction_ticket_page.dart (259 lines - correction tickets)
+│   │   │   └── print_form_page.dart    (304 lines - PDF generation)
+│   │   ├── services/
+│   │   │   ├── api_service.dart        (590 lines - complete REST client)
+│   │   │   ├── notification_service.dart (146 lines - FCM push)
+│   │   │   └── supabase_service.dart   (55 lines - realtime)
+│   │   └── widgets/
+│   │       ├── consistency_bar.dart    (53 lines - stacked bar chart)
+│   │       ├── menu_item.dart          (59 lines - list item)
+│   │       ├── mini_calendar.dart      (173 lines - month grid)
+│   │       ├── organic_background.dart (99 lines - blob shapes)
+│   │       ├── progress_circle.dart    (97 lines - circular indicator)
+│   │       └── skeleton_loader.dart    (174 lines - loading skeletons)
+│   ├── android/                        (Android platform config)
+│   │   ├── build.gradle.kts            (24 lines)
+│   │   ├── settings.gradle.kts         (27 lines)
+│   │   └── app/
+│   │       ├── build.gradle.kts        (76 lines)
+│   │       ├── google-services.json    (Firebase config)
+│   │       └── src/main/
+│   │           ├── AndroidManifest.xml  (55 lines - permissions)
+│   │           └── kotlin/.../MainActivity.kt (5 lines)
+│   ├── ios/                            (iOS platform config)
+│   ├── web/                            (Web platform files)
+│   ├── linux/                          (Linux platform)
+│   ├── macos/                          (macOS platform)
+│   ├── windows/                        (Windows platform)
+│   └── test/                           (widget tests)
+│
+├── client-web/                         ★ WORKER WEB PWA ★
+│   ├── index.html                      (23 lines - PWA HTML shell)
+│   ├── package.json                    (28 lines)
+│   ├── vercel.json                     (5 lines - SPA rewrites)
+│   ├── vite.config.js                  (7 lines - React + Tailwind)
+│   ├── public/
+│   │   ├── manifest.json               (23 lines - PWA manifest)
+│   │   ├── sw.js                       (19 lines - service worker)
+│   │   └── logo/logo.png               (app icon)
+│   └── src/
+│       ├── main.jsx                    (22 lines - entry + SW registration)
+│       ├── config.js                   (13 lines - API_BASE, CACHE_KEYS)
+│       ├── api.js                      (82 lines - all API methods)
+│       ├── store.jsx                   (60 lines - AuthContext + AuthProvider)
+│       ├── App.jsx                     (46 lines - routing + guards)
+│       ├── index.css                   (164 lines - Tailwind + iOS safe areas)
+│       └── components/
+│           ├── Splash.jsx              (38 lines)
+│           ├── Login.jsx               (70 lines)
+│           ├── Layout.jsx              (123 lines - sidebar + tab bar)
+│           ├── Home.jsx                (323 lines - dashboard)
+│           ├── HomeModals.jsx          (158 lines - leave/advance modals)
+│           ├── Profile.jsx             (230 lines)
+│           ├── AttendanceList.jsx      (107 lines)
+│           ├── EditProfile.jsx         (65 lines)
+│           ├── Scanner.jsx             (235 lines - QR + geolocation)
+│           ├── CorrectionTicket.jsx    (90 lines)
+│           ├── PrintForm.jsx           (40 lines)
+│           ├── Onboarding.jsx          (258 lines - 11 steps)
+│           ├── MiniCalendar.jsx        (52 lines)
+│           ├── ProgressCircle.jsx      (16 lines)
+│           └── ConsistencyBar.jsx      (18 lines)
+│
+├── ucs crm/                            ★ MAIN CRM SPA ★
+│   ├── index.html                      (16 lines)
+│   ├── package.json                    (34 lines)
+│   ├── vite.config.js                  (7 lines)
+│   ├── .env                            (3 lines - VITE_API_URL, Supabase)
+│   ├── src/
+│   │   ├── main.jsx                    (13 lines - entry)
+│   │   ├── App.jsx                     (146 lines - role-based routing)
+│   │   ├── store.jsx                   (56 lines - UcsContext + auth)
+│   │   ├── theme.js                    (31 lines - 17 themes)
+│   │   ├── icons.jsx                   (38 lines - SVG components)
+│   │   ├── index.css                   (1106+ lines - comprehensive styles)
+│   │   ├── config/supabase.js          (6 lines - Supabase client)
+│   │   ├── hooks/useRealtime.js        (32 lines - Supabase realtime hook)
+│   │   ├── api/auth.js                 (57 lines - API core + login)
+│   │   ├── components/                 (shared components)
+│   │   │   ├── DonorDetailModal.jsx    (186 lines)
+│   │   │   ├── NotificationDrawer.jsx  (127 lines)
+│   │   │   ├── RecentNotices.jsx       (113 lines)
+│   │   │   ├── SettingsDrawer.jsx      (108 lines)
+│   │   │   ├── Skeleton.jsx           (85 lines)
+│   │   │   ├── Toast.jsx              (55 lines)
+│   │   │   └── ui.jsx                 (184 lines - Dropdown, DatePicker, etc.)
+│   │   └── panels/                     ★ 7 ROLE-BASED PANELS ★
+│   │       ├── super-admin/            (24+ files)
+│   │       ├── hr/                     (30+ files)
+│   │       ├── accounts/               (30+ files)
+│   │       ├── fro/                    (28+ files)
+│   │       ├── ngo-admin/              (18+ files)
+│   │       ├── recruiter/              (15+ files)
+│   │       └── event-head/             (25+ files)
+│   ├── public/
+│   │   ├── logo/                       (NGO logos)
+│   │   └── receipt-assets/             (stamp images)
+│   └── dist/                           (built output)
+│
+├── AssertRegister/                     ★ STANDALONE ASSET REGISTER ★
+│   ├── AssetRegister.jsx               (666 lines - React component)
+│   ├── assets_table.sql                (47 lines - PostgreSQL schema)
+│   └── assets.routes.js               (128 lines - Express routes)
+│
+├── shon/                               ★ SIMPLE ATTENDANCE APP ★
+│   ├── .env                            (6 lines - Supabase + test creds)
+│   ├── index.html                      (14 lines)
+│   ├── package.json                    (20 lines)
+│   ├── vite.config.js                  (6 lines)
+│   └── src/
+│       ├── main.jsx                    (10 lines)
+│       ├── App.jsx                     (77 lines - login + routing)
+│       ├── App.css                     (364 lines)
+│       ├── api.js                      (48 lines - Supabase client)
+│       └── AttendanceView.jsx          (456 lines - attendance CRUD)
+│
+└── privacy/                            ★ LEGAL DOCUMENTS ★
+    ├── privacy-policy.html             (383 lines - Privacy + Terms)
+    └── whatsapp.txt                    (2 lines - WhatsApp tokens)</code></pre>
+<hr />
+<h2 id="3-backend-api">3. Backend API</h2>
+<h3 id="3-1-auth-middleware-role-hierarchy">3.1 Auth Middleware & Role Hierarchy</h3>
+<p>**File:** `src/middleware/authMiddleware.js`</p>
+<h4 id="-authenticate-req-res-next-">`authenticate(req, res, next)`</h4>
+<ul>[object Object]</ul>
+<h4 id="-authenticaterole-allowedroles-">`authenticateRole(...allowedRoles)`</h4>
+<ul>[object Object]</ul>
+<h4 id="pre-configured-middleware-instances">Pre-configured Middleware Instances</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="role-hierarchy">Role Hierarchy</h4>
+<pre class="code-block"><code class="language-">super_admin (highest — can access ALL panels)
+  └── admin (NGO admin, department='ngo admin')
+      └── hr
+          └── accounts
+              └── recruiter
+                  └── telecaller
+                      └── team_lead
+                          └── worker / fro (lowest)</code></pre>
+<hr />
+<h3 id="3-2-complete-route-table">3.2 Complete Route Table</h3>
+<p>**Server Entry:** `src/index.js` — Express app with CORS (`origin: '*'`), JSON body parser (`10mb limit`), raw body capture for webhooks.</p>
+<p>**Static File Serving:**</p>
+<ul>[object Object]</ul>
+<p>**Cron Endpoints (POST — unauthenticated, triggered by Vercel Cron):**</p>
+<ul>[object Object]</ul>
+<p>**Base Path:** All routes are mounted under `/api` unless noted.</p>
+<hr />
+<h4 id="3-2-1-auth-routes-authroutes-js-">3.2.1 Auth Routes (`authRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># Worker Login
+curl -X POST https://ucs-crm-backend.vercel.app/api/auth/worker/login \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;identifier&quot;: &quot;worker123&quot;, &quot;password&quot;: &quot;secret&quot;}'
+
+# Response:
+# {&quot;token&quot;:&quot;jwt...&quot;,&quot;user&quot;:{&quot;id&quot;:1,&quot;name&quot;:&quot;John&quot;,&quot;role&quot;:&quot;worker&quot;,&quot;ngo_id&quot;:1,...}}</code></pre>
+<pre class="code-block"><code class="language-bash"># Admin Login
+curl -X POST https://ucs-crm-backend.vercel.app/api/auth/admin/login \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;identifier&quot;: &quot;admin@ufs.com&quot;, &quot;password&quot;: &quot;admin123&quot;}'</code></pre>
+<hr />
+<h4 id="3-2-2-attendance-routes-attendanceroutes-js-">3.2.2 Attendance Routes (`attendanceRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># Punch In
+curl -X POST https://ucs-crm-backend.vercel.app/api/attendance/punch-in \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;code&quot;:&quot;QR-OFFICE-001&quot;,&quot;latitude&quot;:19.0760,&quot;longitude&quot;:72.8777}'
+
+# Response:
+# {&quot;message&quot;:&quot;Punched in successfully&quot;,&quot;lateMinutes&quot;:0}
+
+# Punch Out
+curl -X POST https://ucs-crm-backend.vercel.app/api/attendance/punch-out \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;latitude&quot;:19.0760,&quot;longitude&quot;:72.8777}'
+
+# Get Today Status
+curl -X GET https://ucs-crm-backend.vercel.app/api/attendance/today \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Get History
+curl -X GET https://ucs-crm-backend.vercel.app/api/attendance/history \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<hr />
+<h4 id="3-2-3-worker-routes-workerroutes-js-">3.2.3 Worker Routes (`workerRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># List Workers
+curl -X GET https://ucs-crm-backend.vercel.app/api/workers \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Get My Profile
+curl -X GET https://ucs-crm-backend.vercel.app/api/workers/me \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Update My Profile
+curl -X PUT https://ucs-crm-backend.vercel.app/api/workers/me \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;John Doe&quot;,&quot;phone&quot;:&quot;9876543210&quot;}'</code></pre>
+<hr />
+<h4 id="3-2-4-user-routes-userroutes-js-">3.2.4 User Routes (`userRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-5-qr-code-routes-qrroutes-js-">3.2.5 QR Code Routes (`qrRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># Generate QR Code
+curl -X POST https://ucs-crm-backend.vercel.app/api/qr/generate \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;label&quot;:&quot;Office-Main&quot;,&quot;latitude&quot;:19.0760,&quot;longitude&quot;:72.8777,&quot;radius_meters&quot;:100}'</code></pre>
+<hr />
+<h4 id="3-2-6-settings-routes-settingsroutes-js-">3.2.6 Settings Routes (`settingsRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-7-leave-routes-leaveroutes-js-">3.2.7 Leave Routes (`leaveRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># Apply Leave
+curl -X POST https://ucs-crm-backend.vercel.app/api/leaves/apply \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;type&quot;:&quot;full_day&quot;,&quot;leave_date&quot;:&quot;2026-07-15&quot;,&quot;reason&quot;:&quot;Personal&quot;}'
+
+# Response:
+# {&quot;message&quot;:&quot;Leave applied&quot;,&quot;leave&quot;:{&quot;id&quot;:1,&quot;status&quot;:&quot;pending&quot;,...}}</code></pre>
+<hr />
+<h4 id="3-2-8-ngo-routes-ngoroutes-js-">3.2.8 NGO Routes (`ngoRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-9-hr-routes-hrroutes-js-">3.2.9 HR Routes (`hrRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-10-letter-routes-letterroutes-js-">3.2.10 Letter Routes (`letterRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-11-dashboard-routes-dashboardroutes-js-">3.2.11 Dashboard Routes (`dashboardRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># Super Admin Dashboard
+curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/dashboard/super-admin?period=30d&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Super Admin Alerts
+curl -X GET https://ucs-crm-backend.vercel.app/api/dashboard/super-admin-alerts \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<hr />
+<h4 id="3-2-12-lead-routes-leadroutes-js-">3.2.12 Lead Routes (`leadRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-13-recruiter-routes-recruiterroutes-js-">3.2.13 Recruiter Routes (`recruiterRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-14-event-routes-eventroutes-js-">3.2.14 Event Routes (`eventRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-15-notice-routes-noticeroutes-js-">3.2.15 Notice Routes (`noticeRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-16-achievement-routes-achievementroutes-js-">3.2.16 Achievement Routes (`achievementRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-17-notification-routes-notificationroutes-js-">3.2.17 Notification Routes (`notificationRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-18-admin-notification-routes-notificationadminroutes-js-">3.2.18 Admin Notification Routes (`notificationAdminRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-19-onboarding-routes-onboardingroutes-js-">3.2.19 Onboarding Routes (`onboardingRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># Check Onboarding Status
+curl -X GET https://ucs-crm-backend.vercel.app/api/onboarding/status \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Upload Photo (base64)
+curl -X POST https://ucs-crm-backend.vercel.app/api/onboarding/upload-photo \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;photo_base64&quot;:&quot;/9j/4AAQ...&quot;,&quot;mime_type&quot;:&quot;image/jpeg&quot;}'
+
+# Submit Onboarding
+curl -X POST https://ucs-crm-backend.vercel.app/api/onboarding/submit \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;personal_details&quot;:{&quot;name&quot;:&quot;John&quot;,&quot;email&quot;:&quot;john@test.com&quot;,...},&quot;education&quot;:[...],&quot;family&quot;:[...],&quot;references&quot;:[...]}'</code></pre>
+<hr />
+<h4 id="3-2-20-holiday-routes-holidayroutes-js-">3.2.20 Holiday Routes (`holidayRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-21-calendar-route-calendarroutes-js-">3.2.21 Calendar Route (`calendarRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash">curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/calendar?year=2026&amp;month=7&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<hr />
+<h4 id="3-2-22-salary-routes-salaryroutes-js-">3.2.22 Salary Routes (`salaryRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-23-incentive-routes-incentiveroutes-js-">3.2.23 Incentive Routes (`incentiveRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-24-call-log-routes-calllogroutes-js-">3.2.24 Call Log Routes (`callLogRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-25-cause-routes-causeroutes-js-">3.2.25 Cause Routes (`causeRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-26-data-source-routes-datasourceroutes-js-">3.2.26 Data Source Routes (`dataSourceRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-27-data-import-routes-dataimportroutes-js-">3.2.27 Data Import Routes (`dataImportRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-28-loan-routes-loanroutes-js-advance-routes">3.2.28 Loan Routes (`loanRoutes.js`) & Advance Routes</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># Apply for Loan
+curl -X POST https://ucs-crm-backend.vercel.app/api/loans/apply \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;type&quot;:&quot;loan&quot;,&quot;amount&quot;:5000,&quot;reason&quot;:&quot;Medical expenses&quot;}'
+
+# My Loans
+curl -X GET https://ucs-crm-backend.vercel.app/api/loans/my \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<hr />
+<h4 id="3-2-29-attendance-correction-routes-attendancecorrectionroutes-js-">3.2.29 Attendance Correction Routes (`attendanceCorrectionRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># Raise Correction Ticket
+curl -X POST https://ucs-crm-backend.vercel.app/api/attendance-corrections \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;attendance_id&quot;:123,&quot;date&quot;:&quot;2026-07-10&quot;,&quot;field&quot;:&quot;punch_in&quot;,&quot;requested_time&quot;:&quot;2026-07-10T09:30:00Z&quot;,&quot;reason&quot;:&quot;Forgot to punch in&quot;}'</code></pre>
+<hr />
+<h4 id="3-2-30-ngo-admin-routes-ngoadminroutes-js-">3.2.30 NGO Admin Routes (`ngoAdminRoutes.js`)</h4>
+<p>All routes require `authenticateRole('admin', 'super_admin')`.</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-31-fro-routes-froroutes-js-">3.2.31 FRO Routes (`froRoutes.js`)</h4>
+<p>All routes require `authenticate` + custom `requireFro` middleware (department === 'fro') unless noted.</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># FRO Dashboard
+curl -X GET https://ucs-crm-backend.vercel.app/api/fro/dashboard \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# FRO Donors List
+curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/fro/donors?status=pending&amp;statusGroup=all&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Create Donor Log (Disposition)
+curl -X POST https://ucs-crm-backend.vercel.app/api/fro/donors/123/logs \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;action&quot;:&quot;disposition&quot;,&quot;disposition_category&quot;:&quot;connected&quot;,&quot;disposition_detail&quot;:&quot;lead_done&quot;,&quot;amount_collected&quot;:500,&quot;notes&quot;:&quot;Donor agreed to donate monthly&quot;,&quot;project_name&quot;:&quot;Mission Annapurna&quot;,&quot;pan_number&quot;:&quot;ABCDE1234F&quot;}'
+
+# Upload Payment Screenshot
+curl -X POST https://ucs-crm-backend.vercel.app/api/fro/upload-payment-screenshot \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;file_base64&quot;:&quot;base64data...&quot;,&quot;mime_type&quot;:&quot;image/jpeg&quot;}'</code></pre>
+<hr />
+<h4 id="3-2-32-accounts-routes-accountsroutes-js-">3.2.32 Accounts Routes (`accountsRoutes.js`)</h4>
+<p>All require `authenticateRole('accounts', 'super_admin')`.</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**cURL:**</p>
+<pre class="code-block"><code class="language-bash"># List Leads for Verification
+curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/accounts/leads?status=pending&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Verify Lead (Accounts)
+curl -X POST https://ucs-crm-backend.vercel.app/api/accounts/leads/456/verify \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;collected_amount&quot;:500,&quot;receipt_date&quot;:&quot;2026-07-13&quot;,&quot;payment_mode&quot;:&quot;UPI&quot;}'
+
+# Generate Receipt
+curl -X POST https://ucs-crm-backend.vercel.app/api/accounts/leads/456/receipt \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;ngo_id&quot;:1,&quot;donor_name&quot;:&quot;John&quot;,&quot;amount&quot;:500,&quot;pan&quot;:&quot;ABCDE1234F&quot;}'</code></pre>
+<hr />
+<h4 id="3-2-33-bank-audit-routes-bankauditroutes-js-">3.2.33 Bank Audit Routes (`bankAuditRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-34-email-import-routes-emailimportroutes-js-">3.2.34 Email Import Routes (`emailImportRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-35-webhook-routes-webhookroutes-js-">3.2.35 Webhook Routes (`webhookRoutes.js`)</h4>
+<p>**Public (unauthenticated):**</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**Authenticated (accounts, super_admin):**</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-36-bank-statement-routes-bankstatementroutes-js-">3.2.36 Bank Statement Routes (`bankStatementRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-37-whatsapp-routes-whatsapproutes-js-">3.2.37 WhatsApp Routes (`whatsappRoutes.js`)</h4>
+<p>All require `accounts` or `super_admin` unless noted.</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-38-ocr-routes-ocrroutes-js-">3.2.38 OCR Routes (`ocrRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-39-super-admin-routes-superadminroutes-js-">3.2.39 Super Admin Routes (`superAdminRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-40-event-head-routes-eventheadroutes-js-">3.2.40 Event Head Routes (`eventHeadRoutes.js`)</h4>
+<p>All routes require `authenticate` (any authenticated user).</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h4 id="3-2-41-fro-whatsapp-routes-frowhatsapproutes-js-">3.2.41 FRO WhatsApp Routes (`froWhatsAppRoutes.js`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h3 id="3-3-database-schema">3.3 Database Schema</h3>
+<h4 id="table-workers-">Table: `workers`</h4>
+<p>Core worker/employee table.</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-attendance-">Table: `attendance`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-users-">Table: `users`</h4>
+<p>Panel users (admin, hr, recruiter, telecaller, accounts, etc.)</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-ngos-">Table: `ngos`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-donor_profiles-">Table: `donor_profiles`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-fro_assignments-">Table: `fro_assignments`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-fro_donor_logs-">Table: `fro_donor_logs`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-fro_live_status-">Table: `fro_live_status`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-fro_station_assignments-">Table: `fro_station_assignments`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-fro_transfers-">Table: `fro_transfers`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-fro_targets-">Table: `fro_targets`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-daily_achievements-">Table: `daily_achievements`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-salary_history-">Table: `salary_history`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-worker_loans-">Table: `worker_loans`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-worker_loan_deductions-">Table: `worker_loan_deductions`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-leaves-">Table: `leaves`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-attendance_corrections-">Table: `attendance_corrections`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-events-">Table: `events`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-holidays-">Table: `holidays`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-notices-">Table: `notices`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-achievements-">Table: `achievements`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-tasks-">Table: `tasks`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-leads-">Table: `leads`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-call_logs-">Table: `call_logs`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-qr_codes-">Table: `qr_codes`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-bank_audit_sources-">Table: `bank_audit_sources`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-bank_audit_entries-">Table: `bank_audit_entries`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-razorpay_accounts-">Table: `razorpay_accounts`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-whatsapp_accounts-">Table: `whatsapp_accounts`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="table-email_import_accounts-">Table: `email_import_accounts`</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="additional-tables-">Additional Tables:</h4>
+<ul>[object Object]</ul>
+<hr />
+<h2 id="4-main-crm-spa-panel-documentation">4. Main CRM SPA — Panel Documentation</h2>
+<p>**Location:** `ucs crm/src/`</p>
+<p>**Entry Point:** `src/main.jsx` — Renders `<App />` in `<BrowserRouter>` with `<React.StrictMode>`.</p>
+<p>**Global Auth Context** (`src/store.jsx`): `UcsProvider` manages `user` and `token` state via localStorage keys `ucs_token` and `ucs_user`.</p>
+<p>**Allowed Roles:** `super_admin`, `admin`, `hr`, `accounts`, `recruiter`, `telecaller`, `fro`, `worker`, `event_head`, `event_manager`, `Event Manager`, `Event Head`</p>
+<p>**Core API Module** (`src/api/auth.js`):</p>
+<ul>[object Object]</ul>
+<p>**Routing** (`src/App.jsx`):</p>
+<ul>[object Object]</ul>
+<hr />
+<h3 id="4-1-super-admin-panel">4.1 Super Admin Panel</h3>
+<p>**Location:** `ucs crm/src/panels/super-admin/` (24+ source files)  
+**Base Path:** `/sa/*`  
+**Entry:** `SuperAdminPanel.jsx` (338 lines)</p>
+<h4 id="sidebar-navigation">Sidebar Navigation</h4>
+<pre class="code-block"><code class="language-">Dashboard        /sa/dashboard
+Data Management  /sa/data-management
+Organization     /sa/organization
+Employees        /sa/employees
+Leaves           /sa/leaves
+Tickets          /sa/tickets
+Assets Overview  /sa/assets
+┌─ Organization Group ─┐
+│ Organization         │
+│ Employees            │
+└──────────────────────┘</code></pre>
+<h4 id="internal-routes">Internal Routes</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="api-endpoints-used">API Endpoints Used</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h3 id="4-2-hr-panel">4.2 HR Panel</h3>
+<p>**Location:** `ucs crm/src/panels/hr/` (30+ source files)  
+**Base Path:** `/hr/*`  
+**Entry:** `HRPanel.jsx` (254 lines)  
+**Store:** `store.jsx` (107 lines — extensive API wrapper)</p>
+<h4 id="sidebar-navigation">Sidebar Navigation</h4>
+<pre class="code-block"><code class="language-">Overview       /hr/overview
+Employees      /hr/employees
+Attendance     /hr/attendance
+Leaves         /hr/leaves
+Letters        /hr/letters
+HR Forms       /hr/hr-forms
+Recruiters     /hr/recruiters
+Holidays       /hr/holidays
+QR Codes       /hr/qr
+Loans &amp; Adv.   /hr/loans
+Tickets        /hr/tickets
+Phone Numbers  /hr/phone-numbers</code></pre>
+<h4 id="store-functions-via-usehr-">Store Functions (via `useHR()`)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="components">Components</h4>
+<ul>[object Object]</ul>
+<h4 id="route-structure">Route Structure</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**Letter Templates** (in `components/templates/`):</p>
+<ul>[object Object]</ul>
+<hr />
+<h3 id="4-3-accounts-panel">4.3 Accounts Panel</h3>
+<p>**Location:** `ucs crm/src/panels/accounts/` (30+ source files)  
+**Base Path:** `/accounts/*`  
+**Entry:** `AccountsPanel.jsx` (244 lines)  
+**Store:** `useAccounts()` — re-exports UcsContext</p>
+<h4 id="sidebar-navigation">Sidebar Navigation</h4>
+<pre class="code-block"><code class="language-">Lead Verification  /accounts/leads
+Bank Audit         /accounts/bank-audit
+Receipt History    /accounts/receipts
+Receipts           /accounts/receipt-generator
+Reports            /accounts/reports
+Asset Register     /accounts/asset-register
+WhatsApp Accounts  /accounts/whatsapp-accounts
+WhatsApp Agents    /accounts/whatsapp-agents</code></pre>
+<h4 id="internal-routes">Internal Routes</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="auth-api">Auth API</h4>
+<pre class="code-block"><code class="language-js">apiGet(path), apiPost(path, body), apiPut(path, body), apiPatch(path, body), apiDelete(path)</code></pre>
+<h4 id="key-pages-components">Key Pages & Components</h4>
+<p>**Dashboard (Lead Verification):**</p>
+<ul>[object Object]</ul>
+<p>**Receipt Generator:**</p>
+<ul>[object Object]</ul>
+<p>**Receipt Templates:**</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**Services:**</p>
+<ul>[object Object]</ul>
+<p>**Components:**</p>
+<ul>[object Object]</ul>
+<hr />
+<h3 id="4-4-fro-panel-field-relations-officer-">4.4 FRO Panel (Field Relations Officer)</h3>
+<p>**Location:** `ucs crm/src/panels/fro/` (28+ source files)  
+**Base Path:** `/fro/*`  
+**Entry:** `FROPanel.jsx` (513 lines)  
+**Store:** `useTelecaller()` — re-exports UcsContext</p>
+<h4 id="sidebar-navigation">Sidebar Navigation</h4>
+<pre class="code-block"><code class="language-">Dashboard          /fro/dashboard
+Follow Up/Callback /fro/scheduled
+My Leads           /fro/my-leads
+Transferred        /fro/transferred-leads
+Donors             /fro/donors
+Call Logs          /fro/logs
+Rejected Leads     /fro/rejected-leads
+My Target          /fro/target
+Suspense           /fro/suspense
+WhatsApp Chat      /fro/whatsapp-chat</code></pre>
+<h4 id="internal-routes">Internal Routes</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="api-endpoints-used">API Endpoints Used</h4>
+<p>**Donors API** (`api/donors.js`):</p>
+<ul>[object Object]</ul>
+<h4 id="call-context-callcontext-jsx-">Call Context (`CallContext.jsx`)</h4>
+<p>Manages FRO call lifecycle:</p>
+<ul>[object Object]</ul>
+<h4 id="dispositionmodal-components-dispositionmodal-jsx-">DispositionModal (`components/DispositionModal.jsx`)</h4>
+<p>Central FRO call disposition interface:</p>
+<p>**Connected Dispositions:**</p>
+<ul>[object Object]</ul>
+<p>**Not-Connected Dispositions:**</p>
+<ul>[object Object]</ul>
+<p>**Lead Done Flow:**</p>
+<ol>[object Object]</ol>
+<h4 id="other-components">Other Components</h4>
+<ul>[object Object]</ul>
+<hr />
+<h3 id="4-5-ngo-admin-panel">4.5 NGO Admin Panel</h3>
+<p>**Location:** `ucs crm/src/panels/ngo-admin/` (18+ source files)  
+**Base Path:** `/ngo-admin/*`  
+**Entry:** `NgoAdminPanel.jsx` (587 lines)  
+**Store:** `useNgoAdmin()` — re-exports UcsContext</p>
+<h4 id="sidebar-navigation">Sidebar Navigation</h4>
+<pre class="code-block"><code class="language-">Dashboard          /ngo-admin/dashboard
+Stations &amp; FROs    /ngo-admin/station-mgmt
+FRO Status         /ngo-admin/fro-status
+Call Analytics     /ngo-admin/call-analytics
+Donor CRM          /ngo-admin/donor-crm
+Suspense           /ngo-admin/suspense
+Alerts             /ngo-admin/alerts
+Donors             /ngo-admin/donors
+New Data           /ngo-admin/new-data
+Attendance         /ngo-admin/attendance
+Rejected Leads     /ngo-admin/rejected-leads</code></pre>
+<h4 id="internal-routes">Internal Routes</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="api-endpoints">API Endpoints</h4>
+<ul>[object Object]</ul>
+<hr />
+<h3 id="4-6-recruiter-panel">4.6 Recruiter Panel</h3>
+<p>**Location:** `ucs crm/src/panels/recruiter/` (15+ source files)  
+**Base Path:** `/recruiter/*`  
+**Entry:** `RecruiterPanel.jsx` (180 lines)  
+**Store:** `store.jsx` (157 lines — RecProvider/useRec)</p>
+<h4 id="state-management">State Management</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="constants">Constants</h4>
+<ul>[object Object]</ul>
+<h4 id="actions">Actions</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="sidebar-navigation">Sidebar Navigation</h4>
+<pre class="code-block"><code class="language-">Dashboard   /recruiter/dashboard
+Leads       /recruiter/leads
+Candidates  /recruiter/candidates
+Interviews  /recruiter/interviews</code></pre>
+<h4 id="components">Components</h4>
+<ul>[object Object]</ul>
+<hr />
+<h3 id="4-7-event-head-panel">4.7 Event Head Panel</h3>
+<p>**Location:** `ucs crm/src/panels/event-head/` (25+ source files)  
+**Base Path:** `/event-head/*`  
+**Entry:** `EventHeadPanel.jsx` (268 lines)  
+**Store:** `store.jsx` (131 lines — 40+ API functions)</p>
+<h4 id="sidebar-navigation">Sidebar Navigation</h4>
+<pre class="code-block"><code class="language-">DASHBOARD:
+  Event Dashboard    /event-head/dashboard
+  Monthly Planner    /event-head/monthly-planner
+  Events             /event-head/events-list
+
+PLANNING:
+  Create Event       /event-head/create
+  Event Checklist    /event-head/checklist
+
+RESOURCES:
+  Asset Register     /event-head/assets
+  Material Register  /event-head/materials
+
+EXECUTION:
+  Beneficiary Dist.  /event-head/distribution
+  Volunteer Mgmt     /event-head/volunteers
+  Attendance         /event-head/attendance
+
+REPORTS:
+  All Events         /event-head/events
+  Event Reports      /event-head/reports
+  Approval Workflow  /event-head/approvals
+  Notifications      /event-head/notifications</code></pre>
+<h4 id="internal-routes">Internal Routes</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="store-api-functions-40-">Store API Functions (~40+)</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="constants">Constants</h4>
+<ul>[object Object]</ul>
+<h4 id="components">Components</h4>
+<ul>[object Object]</ul>
+<hr />
+<h3 id="4-8-shared-components">4.8 Shared Components</h3>
+<p>**Location:** `ucs crm/src/components/`</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h3 id="4-9-theme-architecture">4.9 Theme Architecture</h3>
+<p>**Global Themes** (`src/theme.js`) — 17 themes:
+`sage, blue, emerald, purple, rose, amber, teal, ocean, sky, marine, indigo, steel, iceberg, twilight, cerulean, sapphire`</p>
+<p>`applyTheme(themeId)` sets CSS variables on `:root` and persists to localStorage.</p>
+<p>**Panel-Specific Themes** (`panels/hr/theme.js`, `panels/event-head/theme.js`):
+8–10 themes per panel with CSS variable keys: `sand`, `paper`, `ink`, `line`, `sage`, `clay`, `gold`, `danger`, `radius`</p>
+<h3 id="4-10-css-architecture-src-index-css-">4.10 CSS Architecture (`src/index.css`)</h3>
+<p>Single file with scoped classes per panel:</p>
+<ul>[object Object]</ul>
+<p>**Design Tokens:** Each panel defines CSS custom properties for colors, spacing, shadows.</p>
+<p>**Responsive Breakpoints:** 820px (tablet sidebar), 480px (mobile compact)</p>
+<hr />
+<h2 id="5-flutter-mobile-app">5. Flutter Mobile App</h2>
+<p>**Location:** `client/` — Package: `ufs_attendance` (v1.0.0+3)  
+**SDK:** ^3.12.0  
+**Platforms:** Android, iOS, Web, Windows, macOS, Linux</p>
+<h3 id="5-1-dependencies">5.1 Dependencies</h3>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h3 id="5-2-configuration">5.2 Configuration</h3>
+<p>**File:** `lib/config.dart`</p>
+<pre class="code-block"><code class="language-dart">class Config {
+  static const String apiBaseUrl = 'https://attendance-roan-zeta.vercel.app/api';
+  static const String supabaseUrl = 'https://sqlbimnmhdvesudpxtbi.supabase.co';
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+}</code></pre>
+<h3 id="5-3-navigation-flow">5.3 Navigation Flow</h3>
+<pre class="code-block"><code class="language-">SplashPage (loading check)
+  ├── No token → LoginPage
+  │     └── POST /auth/worker/login → saveToken + saveWorkerData
+  │           └── checkOnboardingStatus → OnboardingPage or MainShell
+  ├── Token + onboarding incomplete → OnboardingPage (11-step wizard)
+  │     └── POST /onboarding/submit → MainShell
+  └── Token + onboarding complete → MainShell
+        ├── [Tab 0] HomePage (dashboard, clock, punch, stats, notifications)
+        └── [Tab 1] ProfilePage (profile, calendar, loans, tickets, settings)</code></pre>
+<h3 id="5-4-complete-api-surface">5.4 Complete API Surface</h3>
+<p>**Transport:** Custom DNS-over-HTTPS via Cloudflare (bypasses carrier DNS), 10s connect / 15s request timeout, SharedPreferences caching.</p>
+<h4 id="auth-profile">Auth & Profile</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="attendance">Attendance</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="leave-loans">Leave & Loans</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="notifications">Notifications</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="onboarding">Onboarding</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="other">Other</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h3 id="5-5-data-models-dart-">5.5 Data Models (Dart)</h3>
+<pre class="code-block"><code class="language-dart">// Employee
+{ name, id, shift, role, department, joined, manager, email }
+
+// AttendanceRecord
+{ status, inTime?, outTime?, leaveType? }
+
+// LeaveRecord
+{ type, from, to, days, status, reason }
+
+// MonthlyBreakdown
+{ month, present, absent, late, leave, rate }
+
+// PunchLog
+{ time, label, type }</code></pre>
+<h3 id="5-6-services">5.6 Services</h3>
+<p>**ApiService** (`services/api_service.dart`) — 590 lines:</p>
+<ul>[object Object]</ul>
+<p>**NotificationService** (`services/notification_service.dart`) — 146 lines:</p>
+<ul>[object Object]</ul>
+<p>**SupabaseService** (`services/supabase_service.dart`) — 55 lines:</p>
+<ul>[object Object]</ul>
+<h3 id="5-7-onboarding-wizard-11-steps-">5.7 Onboarding Wizard (11 Steps)</h3>
+<table class="doc-table"><thead><tr>[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h3 id="5-8-key-widgets">5.8 Key Widgets</h3>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h2 id="6-web-pwa-worker-attendance-">6. Web PWA (Worker Attendance)</h2>
+<p>**Location:** `client-web/` — Name: `client-web` (v1.0.0)  
+**Tech:** React 19, Vite 6, Tailwind CSS 4, jsQR, React Router 7</p>
+<h3 id="6-1-configuration">6.1 Configuration</h3>
+<pre class="code-block"><code class="language-">API_BASE = 'https://attendance-roan-zeta.vercel.app/api'
+OFFICE_START = '10:00'
+OFFICE_END = '19:00'
+CACHE_KEYS: TOKEN, WORKER, TODAY, HISTORY, NOTIFICATIONS, UNREAD (localStorage)</code></pre>
+<h3 id="6-2-routing-structure">6.2 Routing Structure</h3>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h3 id="6-3-complete-api-surface">6.3 Complete API Surface</h3>
+<p>**File:** `src/api.js` (82 lines)</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h3 id="6-4-component-catalog">6.4 Component Catalog</h3>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h3 id="6-5-pwa-setup">6.5 PWA Setup</h3>
+<p>**Service Worker** (`public/sw.js`): Network-first with fallback to cache.</p>
+<ul>[object Object]</ul>
+<p>**Manifest** (`public/manifest.json`):</p>
+<ul>[object Object]</ul>
+<p>**iOS Support:**</p>
+<ul>[object Object]</ul>
+<hr />
+<h2 id="7-supporting-components">7. Supporting Components</h2>
+<h3 id="7-1-assertregister-standalone-asset-register-">7.1 AssertRegister (Standalone Asset Register)</h3>
+<p>**Location:** `AssertRegister/`</p>
+<h4 id="sql-schema-assets_table-sql-">SQL Schema (`assets_table.sql`)</h4>
+<p>47 lines — PostgreSQL `assets` table:</p>
+<pre class="code-block"><code class="language-sql">id UUID PK, code TEXT UNIQUE, name TEXT, category TEXT, brand TEXT, model TEXT,
+serial_no TEXT, department TEXT, condition TEXT, status TEXT (available/assigned/repair/not_working/lost/scrapped),
+assigned_to UUID, assigned_to_name TEXT, assigned_date DATE, purchase_date DATE,
+purchase_price DECIMAL, vendor TEXT, warranty_expiry DATE, sim_number TEXT, sim_operator TEXT,
+sim_plan TEXT, repair_shop TEXT, repair_cost DECIMAL, repair_date DATE,
+total_repair_cost DECIMAL, remarks TEXT, history JSONB, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ</code></pre>
+<h4 id="express-routes-assets-routes-js-128-lines">Express Routes (`assets.routes.js`) — 128 lines</h4>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<h4 id="react-component-assetregister-jsx-666-lines">React Component (`AssetRegister.jsx`) — 666 lines</h4>
+<ul>[object Object]</ul>
+<h3 id="7-2-shon-simple-attendance-app">7.2 shon — Simple Attendance App</h3>
+<p>**Location:** `shon/` (gitignored at root level)  
+**Stack:** React 19 + Vite 8 + Supabase (direct DB access)</p>
+<p>**Files:**</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**Hardcoded Credentials** (from `.env`):</p>
+<pre class="code-block"><code class="language-">Admin: admin@ufs.com / 123456  (readWrite)
+User:  user@ufs.com  / 123456  (readOnly)</code></pre>
+<h3 id="7-3-privacy-documents">7.3 Privacy Documents</h3>
+<p>**Location:** `privacy/`</p>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<p>**Privacy Policy covers:** Data collection (location, camera, notifications, devices, activity), usage, sharing, security, retention, third-party services, children's privacy, account deletion.</p>
+<p>**Terms cover:** 15 sections including acceptance, accounts, acceptable use, attendance/location accuracy, IP, liability, jurisdiction (Mumbai, India).</p>
+<h3 id="7-4-vercel-configuration">7.4 Vercel Configuration</h3>
+<p>**File:** `.vercel/repo.json`</p>
+<pre class="code-block"><code class="language-json">{
+  &quot;project&quot;: &quot;ucs-crm&quot;,
+  &quot;projectId&quot;: &quot;prj_l9oYC7xpuYK4f2m3RPbH5Tz7vZix&quot;,
+  &quot;orgId&quot;: &quot;team_ro0E1xXaxaypHjxXrkd5kbDq&quot;,
+  &quot;settings&quot;: { &quot;framework&quot;: null, &quot;directory&quot;: &quot;backend&quot; }
+}</code></pre>
+<p>**Root `.gitignore`** (18 lines): Ignores node_modules, .env, dist, .apk, images, shon/</p>
+<hr />
+<h2 id="8-external-service-integration-summary">8. External Service Integration Summary</h2>
+<table class="doc-table"><thead><tr>[object Object],[object Object],[object Object]</tr></thead>
+<tbody>[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]</tbody>
+</table>
+<hr />
+<h2 id="9-complete-curl-api-reference">9. Complete cURL API Reference</h2>
+<h3 id="auth">AUTH</h3>
+<pre class="code-block"><code class="language-bash"># Worker Login
+curl -X POST https://ucs-crm-backend.vercel.app/api/auth/worker/login \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;identifier&quot;:&quot;worker123&quot;,&quot;password&quot;:&quot;secret&quot;}'
+
+# Admin Login
+curl -X POST https://ucs-crm-backend.vercel.app/api/auth/admin/login \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;identifier&quot;:&quot;admin@ufs.com&quot;,&quot;password&quot;:&quot;admin123&quot;}'</code></pre>
+<h3 id="attendance">ATTENDANCE</h3>
+<pre class="code-block"><code class="language-bash"># Punch In
+curl -X POST https://ucs-crm-backend.vercel.app/api/attendance/punch-in \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;code&quot;:&quot;QR-OFFICE-001&quot;,&quot;latitude&quot;:19.0760,&quot;longitude&quot;:72.8777}'
+
+# Punch Out
+curl -X POST https://ucs-crm-backend.vercel.app/api/attendance/punch-out \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;latitude&quot;:19.0760,&quot;longitude&quot;:72.8777}'
+
+# Today Status
+curl -X GET https://ucs-crm-backend.vercel.app/api/attendance/today \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# History
+curl -X GET https://ucs-crm-backend.vercel.app/api/attendance/history \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# All Records (HR/Admin)
+curl -X GET https://ucs-crm-backend.vercel.app/api/attendance/all \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Worker Monthly Attendance
+curl -X GET https://ucs-crm-backend.vercel.app/api/attendance/worker/123 \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="workers">WORKERS</h3>
+<pre class="code-block"><code class="language-bash"># List Workers
+curl -X GET https://ucs-crm-backend.vercel.app/api/workers \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Get My Profile
+curl -X GET https://ucs-crm-backend.vercel.app/api/workers/me \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Update My Profile
+curl -X PUT https://ucs-crm-backend.vercel.app/api/workers/me \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;John Doe&quot;,&quot;phone&quot;:&quot;9876543210&quot;}'
+
+# Add Worker (HR/Admin)
+curl -X POST https://ucs-crm-backend.vercel.app/api/workers \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;Jane&quot;,&quot;email&quot;:&quot;jane@test.com&quot;,&quot;login_id&quot;:&quot;jane2026&quot;,&quot;password&quot;:&quot;secret&quot;}'
+
+# Worker Detail
+curl -X GET https://ucs-crm-backend.vercel.app/api/workers/123 \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Birthdays
+curl -X GET https://ucs-crm-backend.vercel.app/api/workers/birthdays \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="leaves">LEAVES</h3>
+<pre class="code-block"><code class="language-bash"># Apply Leave
+curl -X POST https://ucs-crm-backend.vercel.app/api/leaves/apply \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;type&quot;:&quot;full_day&quot;,&quot;leave_date&quot;:&quot;2026-07-15&quot;,&quot;reason&quot;:&quot;Personal&quot;}'
+
+# My Leaves
+curl -X GET https://ucs-crm-backend.vercel.app/api/leaves/my \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# All Leaves (HR/Admin)
+curl -X GET https://ucs-crm-backend.vercel.app/api/leaves \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Pending Leaves
+curl -X GET https://ucs-crm-backend.vercel.app/api/leaves/pending \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Approve/Reject Leave
+curl -X PUT https://ucs-crm-backend.vercel.app/api/leaves/1/status \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;status&quot;:&quot;approved&quot;}'</code></pre>
+<h3 id="loans-advances">LOANS / ADVANCES</h3>
+<pre class="code-block"><code class="language-bash"># Apply Loan
+curl -X POST https://ucs-crm-backend.vercel.app/api/loans/apply \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;type&quot;:&quot;loan&quot;,&quot;amount&quot;:5000,&quot;reason&quot;:&quot;Medical&quot;}'
+
+# My Loans
+curl -X GET https://ucs-crm-backend.vercel.app/api/loans/my \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# All Loans (HR/Admin)
+curl -X GET https://ucs-crm-backend.vercel.app/api/loans \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Pending Loans
+curl -X GET https://ucs-crm-backend.vercel.app/api/loans/pending \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Approve/Reject Loan
+curl -X PUT https://ucs-crm-backend.vercel.app/api/loans/1/decide \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;status&quot;:&quot;approved&quot;,&quot;monthly_deduction&quot;:500}'
+
+# Worker Loans
+curl -X GET https://ucs-crm-backend.vercel.app/api/loans/worker/123 \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="attendance-corrections">ATTENDANCE CORRECTIONS</h3>
+<pre class="code-block"><code class="language-bash"># Raise Ticket
+curl -X POST https://ucs-crm-backend.vercel.app/api/attendance-corrections \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;attendance_id&quot;:123,&quot;date&quot;:&quot;2026-07-10&quot;,&quot;field&quot;:&quot;punch_in&quot;,&quot;requested_time&quot;:&quot;2026-07-10T09:30:00Z&quot;,&quot;reason&quot;:&quot;Forgot to punch in&quot;}'
+
+# My Tickets
+curl -X GET https://ucs-crm-backend.vercel.app/api/attendance-corrections/my \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Pending Tickets (HR)
+curl -X GET https://ucs-crm-backend.vercel.app/api/attendance-corrections/pending \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Verify Ticket (HR)
+curl -X PUT https://ucs-crm-backend.vercel.app/api/attendance-corrections/1/verify \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;hr_remark&quot;:&quot;Verified&quot;}'
+
+# Approve Ticket (Super Admin)
+curl -X PUT https://ucs-crm-backend.vercel.app/api/attendance-corrections/1/approve \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;admin_remark&quot;:&quot;Approved&quot;}'</code></pre>
+<h3 id="qr-codes">QR CODES</h3>
+<pre class="code-block"><code class="language-bash"># Generate QR
+curl -X POST https://ucs-crm-backend.vercel.app/api/qr/generate \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;label&quot;:&quot;Office-Main&quot;,&quot;latitude&quot;:19.0760,&quot;longitude&quot;:72.8777,&quot;radius_meters&quot;:100}'
+
+# List QR Codes
+curl -X GET https://ucs-crm-backend.vercel.app/api/qr \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="notifications">NOTIFICATIONS</h3>
+<pre class="code-block"><code class="language-bash"># Register FCM Token
+curl -X POST https://ucs-crm-backend.vercel.app/api/notifications/register-token \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;worker_id&quot;:1,&quot;token&quot;:&quot;fcm_token_here&quot;,&quot;device_type&quot;:&quot;flutter&quot;}'
+
+# Get Notifications
+curl -X GET https://ucs-crm-backend.vercel.app/api/notifications/1 \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Unread Count
+curl -X GET https://ucs-crm-backend.vercel.app/api/notifications/1/unread-count \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Mark Read
+curl -X PUT https://ucs-crm-backend.vercel.app/api/notifications/1/read \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="onboarding">ONBOARDING</h3>
+<pre class="code-block"><code class="language-bash"># Check Status
+curl -X GET https://ucs-crm-backend.vercel.app/api/onboarding/status \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Get Policies
+curl -X GET https://ucs-crm-backend.vercel.app/api/onboarding/policies \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Submit Onboarding
+curl -X POST https://ucs-crm-backend.vercel.app/api/onboarding/submit \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;personal_details&quot;:{&quot;name&quot;:&quot;John&quot;,&quot;email&quot;:&quot;john@test.com&quot;,&quot;phone&quot;:&quot;9876543210&quot;,&quot;gender&quot;:&quot;Male&quot;,&quot;dob&quot;:&quot;1990-01-01&quot;,&quot;address&quot;:&quot;Mumbai&quot;,&quot;city&quot;:&quot;Mumbai&quot;,&quot;state&quot;:&quot;MH&quot;,&quot;pincode&quot;:&quot;400001&quot;},&quot;education&quot;:[{&quot;degree&quot;:&quot;B.Com&quot;,&quot;institution&quot;:&quot;MU&quot;,&quot;university&quot;:&quot;Mumbai&quot;,&quot;year_of_passing&quot;:&quot;2012&quot;,&quot;percentage&quot;:&quot;75&quot;}],&quot;family&quot;:[{&quot;name&quot;:&quot;Jane&quot;,&quot;relationship&quot;:&quot;Spouse&quot;,&quot;occupation&quot;:&quot;Teacher&quot;,&quot;phone&quot;:&quot;9876543211&quot;}],&quot;references&quot;:[{&quot;name&quot;:&quot;Raj&quot;,&quot;designation&quot;:&quot;Manager&quot;,&quot;organization&quot;:&quot;ABC&quot;,&quot;phone&quot;:&quot;9876543212&quot;}],&quot;declaration_date&quot;:&quot;2026-07-13&quot;,&quot;declaration_place&quot;:&quot;Mumbai&quot;}'</code></pre>
+<h3 id="fro">FRO</h3>
+<pre class="code-block"><code class="language-bash"># FRO Dashboard
+curl -X GET https://ucs-crm-backend.vercel.app/api/fro/dashboard \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# My Donors
+curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/fro/donors?status=pending&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Create Donor Log (Disposition)
+curl -X POST https://ucs-crm-backend.vercel.app/api/fro/donors/123/logs \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;action&quot;:&quot;disposition&quot;,&quot;disposition_category&quot;:&quot;connected&quot;,&quot;disposition_detail&quot;:&quot;lead_done&quot;,&quot;amount_collected&quot;:500,&quot;notes&quot;:&quot;Donor agreed&quot;,&quot;project_name&quot;:&quot;Mission Annapurna&quot;,&quot;pan_number&quot;:&quot;ABCDE1234F&quot;}'
+
+# Schedule Contact
+curl -X POST https://ucs-crm-backend.vercel.app/api/fro/donors/123/schedule \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;scheduled_at&quot;:&quot;2026-07-14T10:00:00Z&quot;,&quot;notes&quot;:&quot;Follow up&quot;}'
+
+# My Target
+curl -X GET https://ucs-crm-backend.vercel.app/api/fro/target \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Scheduled
+curl -X GET https://ucs-crm-backend.vercel.app/api/fro/scheduled \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Upload Payment Screenshot
+curl -X POST https://ucs-crm-backend.vercel.app/api/fro/upload-payment-screenshot \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;file_base64&quot;:&quot;base64data...&quot;,&quot;mime_type&quot;:&quot;image/jpeg&quot;}'
+
+# Search Donors
+curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/fro/search-donors?q=9876543210&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="accounts">ACCOUNTS</h3>
+<pre class="code-block"><code class="language-bash"># Lead Verification List
+curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/accounts/leads?status=pending&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Verify Lead
+curl -X POST https://ucs-crm-backend.vercel.app/api/accounts/leads/456/verify \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;collected_amount&quot;:500,&quot;receipt_date&quot;:&quot;2026-07-13&quot;,&quot;payment_mode&quot;:&quot;UPI&quot;}'
+
+# Reject Lead
+curl -X POST https://ucs-crm-backend.vercel.app/api/accounts/leads/456/reject \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;rejection_reason&quot;:&quot;Invalid transaction&quot;}'
+
+# Generate Receipt
+curl -X POST https://ucs-crm-backend.vercel.app/api/accounts/leads/456/receipt \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;ngo_id&quot;:1,&quot;donor_name&quot;:&quot;John&quot;,&quot;amount&quot;:500,&quot;pan&quot;:&quot;ABCDE1234F&quot;}'
+
+# List Receipts
+curl -X GET https://ucs-crm-backend.vercel.app/api/accounts/receipts \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Suspense List
+curl -X GET https://ucs-crm-backend.vercel.app/api/accounts/suspense \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="ngo-admin">NGO ADMIN</h3>
+<pre class="code-block"><code class="language-bash"># Dashboard
+curl -X GET https://ucs-crm-backend.vercel.app/api/ngo-admin/dashboard \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Donors List
+curl -X GET https://ucs-crm-backend.vercel.app/api/ngo-admin/donors \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Donor Detail
+curl -X GET https://ucs-crm-backend.vercel.app/api/ngo-admin/donors/9876543210 \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# FRO Workers
+curl -X GET https://ucs-crm-backend.vercel.app/api/ngo-admin/fro-workers \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Master Search
+curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/ngo-admin/master-search?q=john&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# New Data
+curl -X GET https://ucs-crm-backend.vercel.app/api/ngo-admin/new-data \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Distribute Data
+curl -X POST https://ucs-crm-backend.vercel.app/api/ngo-admin/new-data/distribute \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;fro_worker_id&quot;:1,&quot;donor_ids&quot;:[1,2,3]}'</code></pre>
+<h3 id="dashboards">DASHBOARDS</h3>
+<pre class="code-block"><code class="language-bash"># Super Admin Dashboard
+curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/dashboard/super-admin?period=30d&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Super Admin Alerts
+curl -X GET https://ucs-crm-backend.vercel.app/api/dashboard/super-admin-alerts \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# HR Dashboard
+curl -X GET https://ucs-crm-backend.vercel.app/api/dashboard/hr \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Accounts Dashboard
+curl -X GET https://ucs-crm-backend.vercel.app/api/dashboard/accounts \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Recruiter Dashboard
+curl -X GET https://ucs-crm-backend.vercel.app/api/dashboard/recruiter \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Telecaller Dashboard
+curl -X GET https://ucs-crm-backend.vercel.app/api/dashboard/telecaller \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# FRO Live Status
+curl -X GET https://ucs-crm-backend.vercel.app/api/dashboard/fro-live \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="webhooks">WEBHOOKS</h3>
+<pre class="code-block"><code class="language-bash"># List Razorpay Accounts
+curl -X GET https://ucs-crm-backend.vercel.app/api/webhooks/razorpay/accounts \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Create Razorpay Account
+curl -X POST https://ucs-crm-backend.vercel.app/api/webhooks/razorpay/accounts \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;Main Account&quot;,&quot;key_id&quot;:&quot;rzp_live_xxx&quot;,&quot;key_secret&quot;:&quot;secret&quot;,&quot;webhook_secret&quot;:&quot;whsec_xxx&quot;}'
+
+# Trigger Razorpay Sync
+curl -X POST https://ucs-crm-backend.vercel.app/api/webhooks/razorpay/sync \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="whatsapp">WHATSAPP</h3>
+<pre class="code-block"><code class="language-bash"># List WhatsApp Accounts
+curl -X GET https://ucs-crm-backend.vercel.app/api/whatsapp/accounts \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Create WhatsApp Account
+curl -X POST https://ucs-crm-backend.vercel.app/api/whatsapp/accounts \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;Main&quot;,&quot;phone_number_id&quot;:&quot;123456&quot;,&quot;business_account_id&quot;:&quot;789012&quot;,&quot;access_token&quot;:&quot;EAAx...&quot;}'
+
+# Send Receipt via WhatsApp
+curl -X POST https://ucs-crm-backend.vercel.app/api/whatsapp/send-receipt/456 \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Send Direct Message
+curl -X POST https://ucs-crm-backend.vercel.app/api/whatsapp/send-direct \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;to&quot;:&quot;919876543210&quot;,&quot;message&quot;:&quot;Thank you for your donation!&quot;}'
+
+# Send Template
+curl -X POST https://ucs-crm-backend.vercel.app/api/whatsapp/send-template \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;to&quot;:&quot;919876543210&quot;,&quot;template_name&quot;:&quot;donation_receipt&quot;,&quot;parameters&quot;:[&quot;John&quot;,&quot;500&quot;]}'</code></pre>
+<h3 id="incentives">INCENTIVES</h3>
+<pre class="code-block"><code class="language-bash"># Worker Targets
+curl -X GET https://ucs-crm-backend.vercel.app/api/incentive/worker/1/targets \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Set Target
+curl -X PUT https://ucs-crm-backend.vercel.app/api/incentive/worker/1/month/2026-07-01 \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;target_amount&quot;:50000}'
+
+# Set Daily Achievement
+curl -X PUT https://ucs-crm-backend.vercel.app/api/incentive/worker/1/achievement/2026-07-13 \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;amount&quot;:2000}'
+
+# Incentive Summary
+curl -X GET https://ucs-crm-backend.vercel.app/api/incentive/worker/1/incentive-summary/2026-07 \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Monthly Summary (All FROs)
+curl -X GET https://ucs-crm-backend.vercel.app/api/incentive/monthly-summary \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="salary">SALARY</h3>
+<pre class="code-block"><code class="language-bash"># Workers Summary
+curl -X GET https://ucs-crm-backend.vercel.app/api/salary/workers-summary \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Worker Salary History
+curl -X GET https://ucs-crm-backend.vercel.app/api/salary/worker/123 \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Add Salary
+curl -X POST https://ucs-crm-backend.vercel.app/api/salary \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;worker_id&quot;:123,&quot;salary&quot;:25000,&quot;from_month&quot;:&quot;2026-07&quot;,&quot;to_month&quot;:&quot;2026-07&quot;}'
+
+# My Salary Breakdown (Worker)
+curl -X GET https://ucs-crm-backend.vercel.app/api/salary/my-breakdown \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="leads">LEADS</h3>
+<pre class="code-block"><code class="language-bash"># List Leads
+curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/leads?status=pending&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Create Lead
+curl -X POST https://ucs-crm-backend.vercel.app/api/leads \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;Jane&quot;,&quot;phone&quot;:&quot;9876543210&quot;,&quot;source&quot;:&quot;Walk-in&quot;,&quot;status&quot;:&quot;new&quot;}'
+
+# Update Lead
+curl -X PUT https://ucs-crm-backend.vercel.app/api/leads/1 \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;status&quot;:&quot;contacted&quot;,&quot;notes&quot;:&quot;Called, will visit&quot;}'
+
+# Transfer Lead
+curl -X PUT https://us-crm-backend.vercel.app/api/leads/1/transfer \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;new_owner_id&quot;:2}'
+
+# Leads Dashboard
+curl -X GET https://ucs-crm-backend.vercel.app/api/leads/dashboard \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="users-ngos">USERS & NGOS</h3>
+<pre class="code-block"><code class="language-bash"># List Users
+curl -X GET https://ucs-crm-backend.vercel.app/api/users \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Create User
+curl -X POST https://ucs-crm-backend.vercel.app/api/users \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;HR User&quot;,&quot;email&quot;:&quot;hr@ngo.com&quot;,&quot;password&quot;:&quot;secret&quot;,&quot;role&quot;:&quot;hr&quot;,&quot;ngo_id&quot;:1}'
+
+# List NGOs
+curl -X GET https://ucs-crm-backend.vercel.app/api/ngos \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Create NGO
+curl -X POST https://ucs-crm-backend.vercel.app/api/ngos \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;New NGO Foundation&quot;,&quot;code&quot;:&quot;NNF&quot;,&quot;is_active&quot;:true}'</code></pre>
+<h3 id="bank-audit">BANK AUDIT</h3>
+<pre class="code-block"><code class="language-bash"># List Sources
+curl -X GET https://ucs-crm-backend.vercel.app/api/accounts/bank-audit/sources \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Add Source
+curl -X POST https://ucs-crm-backend.vercel.app/api/accounts/bank-audit/sources \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;HDFC Current&quot;,&quot;type&quot;:&quot;bank&quot;}'
+
+# List Entries
+curl -X GET https://ucs-crm-backend.vercel.app/api/accounts/bank-audit/entries \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Add Entry
+curl -X POST https://ucs-crm-backend.vercel.app/api/accounts/bank-audit/entries \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;source_id&quot;:1,&quot;transaction_date&quot;:&quot;2026-07-13&quot;,&quot;description&quot;:&quot;UPI transfer&quot;,&quot;amount&quot;:500,&quot;type&quot;:&quot;credit&quot;}'
+
+# Verify Entry
+curl -X PUT https://ucs-crm-backend.vercel.app/api/accounts/bank-audit/entries/1/verify \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="event-head">EVENT HEAD</h3>
+<pre class="code-block"><code class="language-bash"># Create Event
+curl -X POST https://ucs-crm-backend.vercel.app/api/event-head/events \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;title&quot;:&quot;Food Drive&quot;,&quot;description&quot;:&quot;Monthly food distribution&quot;,&quot;category&quot;:&quot;Food Distribution&quot;,&quot;start_date&quot;:&quot;2026-07-20&quot;,&quot;end_date&quot;:&quot;2026-07-20&quot;,&quot;location&quot;:&quot;Mumbai&quot;,&quot;ngo_id&quot;:1,&quot;budget&quot;:10000}'
+
+# List Events
+curl -X GET https://ucs-crm-backend.vercel.app/api/event-head/events \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Create Asset
+curl -X POST https://ucs-crm-backend.vercel.app/api/event-head/assets \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;Speakers&quot;,&quot;type&quot;:&quot;Sound System&quot;,&quot;quantity&quot;:2,&quot;condition&quot;:&quot;Good&quot;}'
+
+# Create Volunteer
+curl -X POST https://ucs-crm-backend.vercel.app/api/event-head/volunteers \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;Volunteer 1&quot;,&quot;phone&quot;:&quot;9876543210&quot;,&quot;event_id&quot;:1,&quot;role&quot;:&quot;Coordinator&quot;}'
+
+# Add Expense
+curl -X POST https://ucs-crm-backend.vercel.app/api/event-head/events/1/expenses \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;category&quot;:&quot;Food&quot;,&quot;amount&quot;:5000,&quot;description&quot;:&quot;Food packets&quot;,&quot;vendor&quot;:&quot;Local Catering&quot;}'</code></pre>
+<h3 id="asset-register-assertregister-">ASSET REGISTER (AssertRegister)</h3>
+<pre class="code-block"><code class="language-bash"># List Assets
+curl -X GET https://ucs-crm-backend.vercel.app/assets \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+
+# Create Asset
+curl -X POST https://ucs-crm-backend.vercel.app/assets \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot; \
+  -d '{&quot;name&quot;:&quot;Dell Laptop&quot;,&quot;category&quot;:&quot;Electronics&quot;,&quot;brand&quot;:&quot;Dell&quot;,&quot;model&quot;:&quot;Latitude&quot;,&quot;department&quot;:&quot;FRO&quot;,&quot;purchase_price&quot;:45000}'</code></pre>
+<h3 id="calendar">CALENDAR</h3>
+<pre class="code-block"><code class="language-bash">curl -X GET &quot;https://ucs-crm-backend.vercel.app/api/calendar?year=2026&amp;month=7&quot; \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;</code></pre>
+<h3 id="ocr">OCR</h3>
+<pre class="code-block"><code class="language-bash">curl -X POST https://ucs-crm-backend.vercel.app/api/ocr/parse \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;image_base64&quot;:&quot;base64data...&quot;,&quot;mime_type&quot;:&quot;image/jpeg&quot;}'</code></pre>
+<hr />
+<blockquote>**End of Master Documentation**  
+Generated: July 13, 2026  
+Total Source Files: 300+ across all directories</blockquote>
+
+</body>
+</html>

@@ -8,6 +8,7 @@ import NgoAdminPanel from './panels/ngo-admin/NgoAdminPanel'
 import FROPanel from './panels/fro/FROPanel'
 import RecruiterPanel from './panels/recruiter/RecruiterPanel'
 import EventHeadPanel from './panels/event-head/EventHeadPanel'
+import DocumentationPanel from './panels/documentation/DocumentationPanel'
 
 const ROLE_PATHS = {
   super_admin: '/sa',
@@ -40,6 +41,7 @@ function ProtectedRoute({ role, children }) {
   const { user } = useUcs()
   const allowedRoles = Array.isArray(role) ? role : [role]
   if (!user) return <Navigate to="/login" replace />
+  if (allowedRoles.includes('*')) return children
   if (user.role === 'super_admin') return children
   if (!allowedRoles.includes(user.role) && !allowedRoles.includes(user.department)) {
     return <AccessDenied />
@@ -136,6 +138,12 @@ export default function App() {
         <Route path="/event-head/*" element={
           <ProtectedRoute role={['event_head', 'Event Head', 'Event Manager']}>
             <PanelWrapper roleKey="event_head" />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/docs/*" element={
+          <ProtectedRoute role={['*']}>
+            <DocumentationPanel />
           </ProtectedRoute>
         } />
 
