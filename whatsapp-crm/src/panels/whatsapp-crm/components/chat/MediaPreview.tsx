@@ -109,7 +109,7 @@ export function MediaUploadPreview({ file, onRemove }: MediaUploadPreviewProps) 
 }
 
 export function MediaFromMeta({ mediaId, mimeType }: { mediaId: string; mimeType?: string }) {
-  const [url, setUrl] = useState<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -121,18 +121,23 @@ export function MediaFromMeta({ mediaId, mimeType }: { mediaId: string; mimeType
         .eq('is_active', true)
         .limit(1);
       if (!accounts?.[0] || cancelled) { setLoading(false); return; }
+      const token = accounts[0].access_token;
       try {
-        const res = await fetch(`https://graph.facebook.com/v23.0/${mediaId}`, {
-          headers: { Authorization: `Bearer ${accounts[0].access_token}` },
+        const infoRes = await fetch(`https://graph.facebook.com/v23.0/${mediaId}`, {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
-        if (!cancelled && data.url) setUrl(data.url);
+        const info = await infoRes.json();
+        if (cancelled || !info.url) { setLoading(false); return; }
+        const dlRes = await fetch(info.url, { headers: { Authorization: `Bearer ${token}` } });
+        if (cancelled || !dlRes.ok) { setLoading(false); return; }
+        const blob = await dlRes.blob();
+        if (!cancelled) setBlobUrl(URL.createObjectURL(blob));
       } catch {} finally { if (!cancelled) setLoading(false); }
     })();
-    return () => { cancelled = true; };
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
   }, [mediaId]);
 
   if (loading) return <Loader2 className="mt-1 h-4 w-4 animate-spin text-muted-foreground" />;
-  if (!url) return null;
-  return <MediaPreview url={url} mimeType={mimeType} />;
+  if (!blobUrl) return null;
+  return <MediaPreview url={blobUrl} mimeType={mimeType} />;
 }
