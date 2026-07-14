@@ -126,13 +126,32 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   fetchUser: async () => {
     try {
+      const storedRaw = localStorage.getItem('ucs_user');
+      const token = localStorage.getItem('ucs_token');
+
+      if (storedRaw && token?.startsWith('rpc_')) {
+        try {
+          const parsed = JSON.parse(storedRaw) as User;
+          set({ user: parsed, isAuthenticated: true, isLoading: false });
+          loadMetaCredentials();
+          return;
+        } catch {}
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
+        if (storedRaw) {
+          try {
+            const parsed = JSON.parse(storedRaw) as User;
+            set({ user: parsed, isAuthenticated: true, isLoading: false });
+            loadMetaCredentials();
+            return;
+          } catch {}
+        }
         set({ user: null, isAuthenticated: false, isLoading: false });
         return;
       }
 
-      const storedRaw = localStorage.getItem('ucs_user');
       if (storedRaw) {
         try {
           const parsed = JSON.parse(storedRaw) as User;
