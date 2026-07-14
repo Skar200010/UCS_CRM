@@ -3,6 +3,26 @@ const databaseData = {
   title: 'Database Schema',
   icon: 'Database',
   roles: ['*'],description: 'Complete PostgreSQL database schema across all 40+ tables. All tables live in the public schema on Supabase.',
+  architectureNotes: `The UCS CRM database is hosted on Supabase (PostgreSQL) with the following design principles:
+
+Schema Design:
+- All tables live in the public schema for simplicity and direct client SDK access.
+- Primary keys use SERIAL (integer) for legacy tables and uuid_generate_v4() for newer WhatsApp CRM tables.
+- Foreign keys use ON DELETE CASCADE where appropriate (e.g., deleting a worker cascades to their attendance records).
+- Soft deletes via is_active boolean flag on most entity tables (workers, ngos, users).
+- JSONB columns used for flexible metadata (e.g., tenants.settings, messages.template_params, automation_flows.flow_data).
+- RLS (Row-Level Security) policies enforce multi-tenancy — most tables have a tenant_id column with policies that filter by the authenticated user's tenant.
+- The auth schema (auth.users) is managed by Supabase Auth and linked to public.users via a trigger (handle_new_user).
+
+Key Relationships:
+- workers.ngo_id → ngos.id (each worker belongs to one primary NGO)
+- workers → worker_ngo_allocations → ngos (many-to-many NGO assignments)
+- fro_donor_logs.fro_id → workers.id (FRO who submitted the log)
+- fro_donor_logs.verified_by → users.id (Accounts user who verified)
+- messages.conversation_id → conversations.id → contacts.id (messaging hierarchy)
+- automation_flows.tenant_id → tenants.id (multi-tenant automation isolation)
+
+The database has grown organically — the WhatsApp CRM tables (contacts, conversations, messages) use UUID PKs while the original CRM tables use integer SERIAL PKs.`,
   noSearch: false,
   "keyFeatures": [
     "40+ tables across HR, FRO/donor, finance, event",

@@ -8,8 +8,11 @@ import eventHeadData from './event-head'
 import flutterAppData from './flutter-app'
 import webPwaData from './web-pwa'
 import databaseData from './database'
+import whatsappCrmData from './whatsapp-crm'
+import authData from './auth'
 
 export const panels = [
+  authData,
   superAdminData,
   hrData,
   accountsData,
@@ -20,6 +23,7 @@ export const panels = [
   flutterAppData,
   webPwaData,
   databaseData,
+  whatsappCrmData,
 ]
 
 export function getPanel(id) {
@@ -36,11 +40,11 @@ export function searchAll(query) {
       results.push({ panel: panel.id, type: 'panel', label: panel.title, path: panel.id })
     }
     panel.screens?.forEach(screen => {
-      if (screen.name.toLowerCase().includes(q) || screen.path?.toLowerCase().includes(q)) {
+      if (screen.name.toLowerCase().includes(q) || screen.path?.toLowerCase().includes(q) || screen.logicDescription?.toLowerCase().includes(q)) {
         results.push({ panel: panel.id, type: 'screen', label: `${panel.title} → ${screen.name}`, path: `${panel.id}/${screen.path || screen.name.toLowerCase().replace(/\s+/g, '-')}` })
       }
       screen.features?.forEach(f => {
-        if (f.name.toLowerCase().includes(q) || f.apis?.some(a => a.path?.toLowerCase().includes(q))) {
+        if (f.name.toLowerCase().includes(q) || f.logicDescription?.toLowerCase().includes(q) || f.apis?.some(a => a.path?.toLowerCase().includes(q))) {
           results.push({ panel: panel.id, type: 'feature', label: `${panel.title} → ${screen.name} → ${f.name}`, path: `${panel.id}/${screen.path || screen.name.toLowerCase().replace(/\s+/g, '-')}` })
         }
       })

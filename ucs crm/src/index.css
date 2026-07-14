@@ -1785,6 +1785,8 @@
 .db-badge { background: #D1FAE5; color: #047857; }
 .rule-badge { background: #FEF3C7; color: #B45309; }
 .wf-badge { background: #EDE9FE; color: #7C3AED; }
+.theory-badge { background: #F3E8FF; color: #7C3AED; }
+.diagram-badge { background: #DBEAFE; color: #1D4ED8; }
 
 .doc-desc { font-size: 12px; color: var(--doc-muted); line-height: 1.6; margin: 4px 0; }
 .doc-code-block { background: #1E293B; color: #E2E8F0; font-family: 'Consolas', 'JetBrains Mono', monospace; font-size: 11px; padding: 10px 14px; border-radius: 6px; overflow-x: auto; margin: 6px 0; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
@@ -1824,5 +1826,10 @@
 .doc-search-type.feature { background: #FEF3C7; color: #B45309; }
 
 .doc-empty { padding: 60px 20px; text-align: center; color: var(--doc-muted); font-size: 14px; }
+
+.doc-mermaid-container svg { max-width: 100%; height: auto; }
+.doc-mermaid-container .label { font-family: 'Inter', 'Calibri', sans-serif; font-size: 12px; }
+.doc-logic-content p { margin: 4px 0; }
+.doc-logic-content p + p { margin-top: 8px; }
 
 

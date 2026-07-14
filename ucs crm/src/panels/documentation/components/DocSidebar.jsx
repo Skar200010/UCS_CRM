@@ -1,6 +1,7 @@
 import { useDoc } from '../store'
 
 const ICONS = {
+  'auth': '🔑',
   'super-admin': '⚙️',
   'hr': '👥',
   'accounts': '💰',
@@ -11,6 +12,7 @@ const ICONS = {
   'flutter-app': '📱',
   'web-pwa': '🌐',
   'database': '🗄️',
+  'whatsapp-crm': '💬',
 }
 
 export default function DocSidebar() {

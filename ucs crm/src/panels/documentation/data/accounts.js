@@ -3,6 +3,15 @@ const accountsData = {
   title: 'Accounts Panel',
   icon: 'Dollar',
   roles: ['accounts', 'admin'],description: 'Handles lead verification, receipt generation, bank reconciliation, payment gateway integration, WhatsApp communication, and day-end closing for the Accounts department.',
+  architectureNotes: `The Accounts Panel is the financial backbone of the CRM, handling the complete donation lifecycle from lead verification through receipt generation to bank reconciliation.
+
+Architecture:
+- Lead flow: FRO submits donor log → Accounts verifies/rejects → if verified, receipt is generated → donor receives receipt via WhatsApp/email
+- Payment gateway integration: Multiple Razorpay accounts can be configured (one per NGO project). Auto-sync pulls transaction data for reconciliation.
+- Bank reconciliation: Bank statements (CSV/XLSX) are imported, mapped to bank accounts, and each entry is matched against fro_donor_logs and razorpay transactions.
+- WhatsApp integration: Accounts admins manage WhatsApp Business accounts (Meta API credentials), assign FRO agents to accounts, monitor connection status, and send test messages. WhatsApp is used to send receipts and communicate with donors.
+- Email import: IMAP email accounts are configured for automated import of donation emails. Groq AI (LLaMA) extracts structured data from email content.
+- Day-end closing: Suspense entries are tracked and must be resolved within 48 hours.`,
   databaseTables: [
     {
       name: 'fro_donor_logs',
@@ -2180,6 +2189,141 @@ const accountsData = {
           workflow: [
             { actor: 'Admin', action: 'Deletes an email import account', api: 'N/A' },
             { actor: 'System', action: 'Permanently deletes the account', api: 'DELETE /api/accounts/email-import/accounts/:id' },
+          ],
+        },
+      ],
+    },
+    {
+      name: 'WhatsApp Accounts',
+      path: '/accounts/whatsapp',
+      description: 'Management of WhatsApp Business API accounts, agent assignments, connection status, and template configuration.',
+      logicDescription: `The WhatsApp Accounts module in the Accounts panel is the administrative interface for the WhatsApp CRM integration. It manages the full lifecycle of WhatsApp Business accounts across NGO projects (BSCT — Being Sevak, MAAN — Mann Care, AFLF — Ashray).
+
+Key capabilities:
+1. Account CRUD: Create, read, update, and delete WhatsApp Business accounts. Each account stores: name, project, phone_number_id, access_token, waba_id, template_name, is_active, is_default.
+2. Template Management: Fetch approved WhatsApp templates from Meta for each account via the Graph API. Admin can select which template to use as default for automated messages.
+3. Agent Assignment: A search-and-assign interface allowing Accounts admins to link FRO workers to WhatsApp accounts. Supports debounced search with ILIKE on workers table, assign/remove operations, and per-account agent caching.
+4. Connection Health: Status page showing green/red indicators for each account's Meta API connectivity.
+5. Test Messages: Send test WhatsApp messages to verify account configuration.
+
+The assignment model creates a many-to-many relationship between workers and whatsapp_accounts via the fro_whatsapp_assignments junction table. An FRO can only be assigned to one active account at a time.`,
+      features: [
+        {
+          name: 'WhatsApp Account CRUD',
+          description: 'Create, read, update, and delete WhatsApp Business account configurations.',
+          apis: [
+            {
+              method: 'GET',
+              path: '/api/whatsapp/accounts',
+              auth: 'Bearer token (accounts, admin)',
+              description: 'List all configured WhatsApp Business accounts.',
+              curl: 'curl -X GET "https://ucs-crm-backend.vercel.app/api/whatsapp/accounts" -H "Authorization: Bearer <token>"',
+              requestBody: null,
+              responseBody: [{ id: 1, name: 'Mann Care WhatsApp', project: 'maan', phone_number_id: '123456789', is_active: true, is_default: false }],
+            },
+            {
+              method: 'POST',
+              path: '/api/whatsapp/accounts',
+              auth: 'Bearer token (accounts, admin)',
+              description: 'Create a new WhatsApp Business account.',
+              curl: 'curl -X POST "https://ucs-crm-backend.vercel.app/api/whatsapp/accounts" -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d \'{"name":"Mann Care","project":"maan","phone_number_id":"123456789","access_token":"EA...","waba_id":"987654321"}\'',
+              requestBody: { name: 'Mann Care', project: 'maan', phone_number_id: '123456789', access_token: 'EA...', waba_id: '987654321' },
+              responseBody: { id: 1, name: 'Mann Care', message: 'Account created' },
+            },
+            {
+              method: 'PUT',
+              path: '/api/whatsapp/accounts/:id',
+              auth: 'Bearer token (accounts, admin)',
+              description: 'Update a WhatsApp account. Access token field left blank keeps existing value.',
+              curl: 'curl -X PUT "https://ucs-crm-backend.vercel.app/api/whatsapp/accounts/1" -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d \'{"name":"Updated Name","is_default":true}\'',
+              requestBody: { name: 'Updated Name', is_default: true },
+              responseBody: { message: 'Account updated' },
+            },
+            {
+              method: 'DELETE',
+              path: '/api/whatsapp/accounts/:id',
+              auth: 'Bearer token (accounts, admin)',
+              description: 'Delete a WhatsApp account. Requires confirmation.',
+              curl: 'curl -X DELETE "https://ucs-crm-backend.vercel.app/api/whatsapp/accounts/1" -H "Authorization: Bearer <token>"',
+              requestBody: null,
+              responseBody: { message: 'Account deleted' },
+            },
+            {
+              method: 'GET',
+              path: '/api/whatsapp/status',
+              auth: 'Bearer token (accounts, admin)',
+              description: 'Check connection status for all WhatsApp accounts.',
+              curl: 'curl -X GET "https://ucs-crm-backend.vercel.app/api/whatsapp/status" -H "Authorization: Bearer <token>"',
+              requestBody: null,
+              responseBody: { accounts: [{ id: 1, name: 'Mann Care', status: 'connected', last_checked: '2026-07-14T10:00:00Z' }] },
+            },
+            {
+              method: 'POST',
+              path: '/api/whatsapp/test',
+              auth: 'Bearer token (accounts, admin)',
+              description: 'Send a test WhatsApp message to verify account configuration.',
+              curl: 'curl -X POST "https://ucs-crm-backend.vercel.app/api/whatsapp/test" -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d \'{"to":"919876543210","accountId":1}\'',
+              requestBody: { to: '919876543210', accountId: 1 },
+              responseBody: { success: true, messageId: 'wamid.test123' },
+            },
+          ],
+          businessRules: ['Access token is masked on edit — leave blank to keep existing', 'Only one account per project can be set as default', 'Deletion requires user confirmation dialog', 'Account status checked via Meta Graph API /phone_number_id endpoint'],
+          workflow: [
+            { actor: 'Accounts Admin', action: 'Views all WhatsApp accounts on the WhatsApp Settings page' },
+            { actor: 'Accounts Admin', action: 'Adds new account with Meta API credentials' },
+            { actor: 'System', action: 'Saves account to whatsapp_accounts table' },
+            { actor: 'Accounts Admin', action: 'Tests connection to verify credentials' },
+            { actor: 'Accounts Admin', action: 'Assigns FRO agents to the account' },
+          ],
+        },
+        {
+          name: 'Agent Assignment',
+          description: 'Assign and remove FRO workers as WhatsApp agents for each account.',
+          apis: [
+            {
+              method: 'GET',
+              path: '/api/whatsapp/accounts/:id/agents',
+              auth: 'Bearer token (accounts, admin)',
+              description: 'List all FRO agents assigned to a WhatsApp account.',
+              curl: 'curl -X GET "https://ucs-crm-backend.vercel.app/api/whatsapp/accounts/1/agents" -H "Authorization: Bearer <token>"',
+              requestBody: null,
+              responseBody: [{ id: 1, froWorkerId: 5, name: 'Rajesh Kumar', phone: '9876543210' }],
+            },
+            {
+              method: 'POST',
+              path: '/api/whatsapp/accounts/:id/agents',
+              auth: 'Bearer token (accounts, admin)',
+              description: 'Assign a FRO worker to a WhatsApp account.',
+              curl: 'curl -X POST "https://ucs-crm-backend.vercel.app/api/whatsapp/accounts/1/agents" -H "Authorization: Bearer <token>" -H "Content-Type: application/json" -d \'{"froWorkerId":5}\'',
+              requestBody: { froWorkerId: 5 },
+              responseBody: { id: 1, froWorkerId: 5, message: 'Agent assigned' },
+            },
+            {
+              method: 'DELETE',
+              path: '/api/whatsapp/accounts/:id/agents/:froId',
+              auth: 'Bearer token (accounts, admin)',
+              description: 'Remove a FRO agent from a WhatsApp account.',
+              curl: 'curl -X DELETE "https://ucs-crm-backend.vercel.app/api/whatsapp/accounts/1/agents/5" -H "Authorization: Bearer <token>"',
+              requestBody: null,
+              responseBody: { success: true },
+            },
+            {
+              method: 'GET',
+              path: '/api/whatsapp/accounts/agents/search?q={query}',
+              auth: 'Bearer token (accounts, admin)',
+              description: 'Search for FRO workers to assign (minimum 2 characters).',
+              curl: 'curl -X GET "https://ucs-crm-backend.vercel.app/api/whatsapp/accounts/agents/search?q=raj" -H "Authorization: Bearer <token>"',
+              requestBody: null,
+              responseBody: [{ id: 5, name: 'Rajesh Kumar', email: 'rajesh@ngo.com', phone: '9876543210' }],
+            },
+          ],
+          businessRules: ['Agent search debounced at 300ms', 'Minimum 2 characters for search query', 'Duplicate assignment returns 409 Conflict', 'Each FRO can be assigned to only one active account at a time'],
+          workflow: [
+            { actor: 'Accounts Admin', action: 'Expands agent sub-panel for a WhatsApp account' },
+            { actor: 'System', action: 'Fetches currently assigned agents' },
+            { actor: 'Accounts Admin', action: 'Searches for FRO workers by name/phone/email' },
+            { actor: 'Accounts Admin', action: 'Clicks "+ Assign" to link worker to account' },
+            { actor: 'System', action: 'Creates fro_whatsapp_assignments record' },
           ],
         },
       ],

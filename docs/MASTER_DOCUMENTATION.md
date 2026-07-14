@@ -3262,6 +3262,197 @@ curl -X POST https://ucs-crm-backend.vercel.app/api/ocr/parse \
 
 ---
 
+## 10. WhatsApp CRM (Standalone)
+
+### 10.1 Overview
+
+The **WhatsApp CRM** is a standalone multi-tenant platform for NGO WhatsApp Business communication, built as a React SPA with Supabase and Meta Cloud API. It exists in two variants:
+
+| Variant | Location | Type |
+|---------|----------|------|
+| **whatsapp-crm (Panel)** | `whatsapp-crm/src/panels/whatsapp-crm/` | Embedded panel inside main CRM |
+| **wa (Standalone)** | `wa/` | Full standalone SPA with Vite + TypeScript |
+
+Both share identical core functionality: real-time WhatsApp inbox, contact management, automation flows, template management, analytics, deal pipeline, and admin panel.
+
+### 10.2 Architecture
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                    WhatsApp CRM SPA                        │
+│  React 19 · Vite · TypeScript · Tailwind CSS · Zustand    │
+├────────────────────────────────────────────────────────────┤
+│                        Routes                              │
+│  / → Dashboard, /inbox → Chat, /contacts → CRM            │
+│  /automations → Flow Builder, /templates → Template Mgmt   │
+│  /analytics → Charts, /settings → Config, /admin → Admin  │
+├───────────────────┬────────────────────────────────────────┤
+│   Supabase Auth    │      Meta Graph API v19/v23           │
+│   (email/password) │      (messaging, templates, WABA)     │
+├───────────────────┴────────────────────────────────────────┤
+│                    Edge Functions (Deno)                    │
+│  send-message · send-template · webhook-whatsapp           │
+│  run-automation (flow executor)                            │
+├────────────────────────────────────────────────────────────┤
+│                    Supabase PostgreSQL                      │
+│  contacts, conversations, messages, whatsapp_accounts       │
+│  whatsapp_templates, automation_flows, deals, pipelines    │
+│  quick_replies, api_keys, media_library, tenants           │
+└────────────────────────────────────────────────────────────┘
+```
+
+### 10.3 Authentication Flow
+
+1. Primary auth via `supabase.auth.signInWithPassword()` (Supabase Auth)
+2. Fallback to custom API `{VITE_API_URL}/auth/login` if Supabase unavailable
+3. On success: creates/updates user via RPC (`get_whatsapp_user` / `create_whatsapp_user`)
+4. Auto-promotes agent/viewer to admin on email confirmation
+5. Persists session in localStorage (`ucs_token`, `ucs_user`)
+6. Meta credentials loaded from tenant settings on each login
+
+### 10.4 Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Real-time Inbox** | Supabase Realtime-powered chat with message bubbles, read receipts, file attachments |
+| **Contact Management** | CRUD + CSV import + auto-creation from webhook inbound messages |
+| **Automation Flows** | Visual drag-and-drop builder (React Flow) with send/wait/condition/tag/assign/api nodes |
+| **Message Templates** | 3-step wizard for Meta template creation → submission → approval tracking |
+| **Pipeline** | Kanban board for deal tracking with drag-and-drop stage management |
+| **Analytics** | Recharts: message volume, conversations, contact growth, pipeline distribution |
+| **Team Management** | Role-based access (admin/agent/viewer) with batch user import |
+| **Admin Panel** | Tenant management, system health monitoring, webhook log inspection |
+
+### 10.5 Pages & Routes
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | Dashboard | KPIs, WhatsApp number status, template performance |
+| `/inbox` | Inbox | Real-time chat with conversation list, labels, quick replies |
+| `/contacts` | Contacts | Contact database with search, CRUD, CSV import |
+| `/pipeline` | Pipeline | Kanban deal tracking board |
+| `/automations` | Automations | Flow list + FlowBuilder (drag-and-drop) |
+| `/templates` | Templates | Template list + TemplateEditor (3-step wizard) |
+| `/analytics` | Analytics | 5 Recharts dashboards with 30-day trends |
+| `/settings` | Settings | 6 tabs: General, WhatsApp, Team, API Keys, Quick Replies, Media |
+| `/phone-numbers` | Phone Numbers | WhatsApp Business account management |
+| `/admin` | Admin | Dashboard, Tenants, Metrics, Health, Webhooks, Audit |
+| `/auth/login` | Login | Email/password authentication |
+| `/auth/register` | Register | Organization sign-up with name fields |
+
+---
+
+## 11. Backend Edge Functions (WhatsApp)
+
+### 11.1 send-message (`backend/functions/send-message/index.js`)
+
+**Purpose:** Generic outbound WhatsApp message sender (text + media).
+
+**Input:** `{ conversationId, phone, messageText, mediaUrl, mediaMimeType, project, phoneNumberId }`
+
+**Flow:**
+1. Resolve or create contact and conversation by phone number
+2. Detect message type from media MIME type (image/video/audio/document)
+3. Resolve WhatsApp account credentials (by phone_number_id, project, is_default, or first active)
+4. Insert message record with status `queued`
+5. POST to `https://graph.facebook.com/v23.0/{phoneNumberId}/messages`
+6. Update message status to `sent` or `failed`
+
+### 11.2 send-template (`backend/functions/send-template/index.js`)
+
+**Purpose:** Send pre-approved WhatsApp template messages (required after 24-hour window).
+
+**Input:** `{ templateName, phone, conversationId, language, params, headerMediaUrl, project }`
+
+**Flow:**
+1. Same contact/conversation resolution as send-message
+2. Look up template from `whatsapp_templates` table
+3. Construct Meta-compatible components (HEADER, BODY, BUTTONS) with parameter interpolation
+4. POST template payload to Meta Graph API
+5. Track as `message_type: "template"` in messages table
+
+### 11.3 webhook-whatsapp (`backend/functions/webhook-whatsapp/index.js`)
+
+**Purpose:** Process all incoming Meta WhatsApp Cloud API webhooks.
+
+**Flow:**
+1. **GET** → Webhook verification handshake (verify_token = `ucscompany123`)
+2. **POST** → Process message events and status updates:
+   - **messages**: Upsert contact, upsert conversation, insert inbound message, trigger automation flows
+   - **message_status**: Update message delivery/read status by `wa_message_id`
+
+### 11.4 run-automation (`backend/functions/run-automation/index.js`)
+
+**Purpose:** Execute automation flow graphs triggered by inbound messages.
+
+**Flow:**
+1. Resolve WhatsApp account credentials
+2. Load flow graph from `automation_flows.flow_data` (JSON: nodes + edges)
+3. Find start node (no incoming edges), walk graph sequentially
+4. Supported node types: `send_message`, `condition`, `add_tag`, `assign_agent`, `api_call`, `wait`
+5. Log every step to `automation_run_logs`
+6. Record final run status in `automation_runs`
+
+---
+
+## 12. Database Migrations (WhatsApp)
+
+### 12.1 Migration 022 — Core WhatsApp Tables
+
+Creates the foundational WhatsApp schema in the main database:
+
+| Table | Purpose |
+|-------|---------|
+| `whatsapp_phone_numbers` | WhatsApp Business phone number configurations |
+| `contacts` | Contact records (phone normalized, source tracking) |
+| `conversations` | Message threads linked to contacts and phone numbers |
+| `messages` | Individual messages with direction, status, template support |
+| `whatsapp_webhook_logs` | Raw webhook ingress log |
+
+All use UUID primary keys with `uuid_generate_v4()`.
+
+### 12.2 Migration 023-026 — Role & Auth Simplification
+
+| Migration | Purpose |
+|-----------|---------|
+| `023_add_agent_role_to_users.sql` | Adds `agent` role to existing CHECK constraint |
+| `024_whatsapp_only_roles.sql` | Simplifies to 3 roles: `admin`, `agent`, `viewer` |
+| `025_supabase_auth_flow.sql` | Auto-creates `public.users` record on `auth.users` INSERT |
+| `026_whatsapp_rpc.sql` | Creates RPCs: `get_whatsapp_user`, `create_whatsapp_user`, `promote_to_admin`, `search_whatsapp_users`, `list_whatsapp_users` |
+
+The role migration maps old CRM roles to new WhatsApp roles:
+- `hoadmin`, `super_admin` → `admin`
+- `telecaller`, `hr`, `accounts`, `leads`, `recruiter`, `team_lead` → `agent`
+
+---
+
+## 13. FRO WhatsApp System
+
+The FRO (Field Reporting Officer) WhatsApp system has two authentication flows:
+
+### 13.1 Legacy QR Code Login
+- Uses puppeteer-based WhatsApp Web session management
+- FRO scans QR code to link personal WhatsApp
+- Session persists 24 hours or until logout
+- Endpoints: `POST /api/fro/whatsapp/login`, `GET /api/fro/whatsapp/conversations`, `POST /api/fro/whatsapp/conversations/:id/send`
+
+### 13.2 Meta API Login (Current)
+- Separate bcrypt-based auth: `POST /api/whatsapp/fro-login`
+- Uses CRM worker credentials (email + password)
+- Returns assigned WhatsApp account details
+- Session stored in localStorage (`wa_auth` key)
+- 15-second polling for conversation updates
+- Endpoints: `GET /fro/whatsapp/conversations`, `GET /fro/whatsapp/conversations/:id/messages`, `POST /fro/whatsapp/conversations/:id/send`, `PUT /fro/whatsapp/conversations/:id/read`
+
+### 13.3 Agent Assignment
+Managed by Accounts admins via:
+- `GET/POST /api/whatsapp/accounts/:id/agents` — list/assign
+- `DELETE /api/whatsapp/accounts/:id/agents/:froId` — remove
+- `GET /api/whatsapp/accounts/agents/search?q=` — search workers
+- Junction table: `fro_whatsapp_assignments`
+
+---
+
 > **End of Master Documentation**  
-> Generated: July 13, 2026  
-> Total Source Files: 300+ across all directories
+> Generated: July 14, 2026  
+> Total Source Files: 400+ across all directories

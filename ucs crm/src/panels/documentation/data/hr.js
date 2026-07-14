@@ -3,6 +3,14 @@ const hrData = {
   title: 'HR Panel',
   icon: 'Users',
   roles: ['hr', 'HR'],description: 'Human Resources panel for managing employee lifecycle including worker CRUD, attendance, leaves, letters, loans, correction tickets, recruiters, incentives, and salary.',
+  architectureNotes: `The HR Panel manages the full worker lifecycle within a single NGO scope. Unlike Super Admin which sees all NGOs, HR users are scoped to their assigned NGO.
+
+Architecture:
+- Worker management: Full CRUD with bulk operations. Workers are the central entity referenced by attendance, leaves, loans, and salary records. Each worker belongs to an NGO via NGO_ID and can be assigned to multiple NGOs via worker_ngo_allocations.
+- Leave system: 4 leave types (full_day, half_day, late, absent) with accrual rules. Leave requests go through HR approval. The system checks for overlapping leave periods and balance availability.
+- Document generation: 6 letter templates rendered via jsPDF with NGO-specific branding (logos, stamps). Templates support variable substitution (worker name, date, salary, etc.).
+- QR code system: QR codes encode worker ID + NGO ID + timestamp + geo-location (lat/lng) with Haversine distance validation. The QR expires after a configurable timeout and has a geo-fencing radius check (default 100m).
+- Loan management: Advances are deducted from salary in monthly installments. The system tracks outstanding balance and auto-calculates deduction amounts.`,
   "keyFeatures": [
     "Full worker lifecycle: add, bulk-add, edit, bulk-edit, deactivate",
     "Leave management with approve/reject and 4 leave types",

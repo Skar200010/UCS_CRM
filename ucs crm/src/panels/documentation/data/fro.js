@@ -3,6 +3,15 @@ const froData = {
   title: 'FRO Panel',
   icon: 'Phone',
   roles: ['fro', 'worker', 'FRO'],description: 'Field Relations Officer panel for managing donor outreach, call dispositions, payment collection, and daily field activity tracking. FROs handle lead follow-ups, donor communication, and real-time status reporting.',
+  architectureNotes: `The FRO Panel is the primary operational interface for field workers. It is built as a module within the main CRM SPA (React + Vite).
+
+Architecture:
+- Core workflow: FRO logs in → views dashboard with live status → receives donor assignments → calls donors → records dispositions → uploads payment evidence → manages follow-ups → clocks out
+- Dual WhatsApp system: Two separate WhatsApp integrations exist. The older QR-code-based system uses WhatsApp Web (puppeteer-based) for session management. The newer Meta API-based system uses the Backend Express API (froWhatsAppController) with bcrypt-based custom auth separate from the main CRM login.
+- Real-time updates: Dashboard auto-refreshes every 30 seconds. FRO status (online/on_call/idle/break) is tracked server-side.
+- OCR pipeline: Payment screenshots are uploaded and processed server-side using OCR to extract UPI transaction IDs, amounts, and donor names.
+- Target system: Monthly targets with AKI incentive calculation based on achievement percentage.
+- Disposition state machine: Donor assignments go through a strict state machine: new → seen → contacted → disposition_recorded → lead_done/rejected/callback.`,
   "keyFeatures": [
     "Connected dispositions: lead_done, scheduled, callback, promise_to_pay",
     "Not-connected: busy, unreachable, switched_off, wrong_number",
@@ -853,7 +862,21 @@ const froData = {
     {
       name: 'WhatsApp Chat',
       path: '/fro/whatsapp',
-      description: 'WhatsApp integration for donor communication via QR code login and chat.',
+      description: 'WhatsApp integration for donor communication via QR code login and Meta API chat.',
+      logicDescription: `The FRO WhatsApp Chat system has evolved through two generations:
+
+Generation 1 (Legacy — QR Code): Uses puppeteer-based WhatsApp Web session management. FROs scan a QR code to link their personal WhatsApp, and messages are proxied through the server. Sessions persist for 24 hours.
+
+Generation 2 (Current — Meta API): Uses the Meta/Facebook WhatsApp Cloud API directly. FROs authenticate via a separate login flow (POST /api/whatsapp/fro-login) using their CRM worker credentials (email + password, bcrypt-verified). On success, the system returns the worker's assigned WhatsApp account details (account ID, project, phone_number_id). The session is stored in localStorage (wa_auth key) and persists across page refreshes.
+
+The new system architecture:
+1. FRO opens WhatsApp Chat page → checks localStorage for wa_auth → if missing, shows LoginForm
+2. FRO enters email/password → POST to /api/whatsapp/fro-login → server verifies via bcrypt, checks active WhatsApp account assignment
+3. On success: conversation list loads from /fro/whatsapp/conversations with 15-second polling
+4. Selecting a conversation loads messages; sending inserts via the backend which calls Meta Graph API
+5. New conversations can be started by phone number (via URL deep-link or modal)
+
+Agent assignment is managed by Accounts admins via WhatsAppAccountsManager/WhatsAppAgents components, creating a many-to-many relationship between workers and WhatsApp accounts.`,
       features: [
         {
           name: 'WhatsApp Login',

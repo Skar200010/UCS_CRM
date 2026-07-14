@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import DiagramViewer from './DiagramViewer'
 
 const ICONS = {
+  'auth': '🔑',
   'super-admin': '⚙️',
   'hr': '👥',
   'accounts': '💰',
@@ -11,9 +13,11 @@ const ICONS = {
   'flutter-app': '📱',
   'web-pwa': '🌐',
   'database': '🗄️',
+  'whatsapp-crm': '💬',
 }
 
 const COLORS = {
+  'auth': '#DC2626',
   'super-admin': '#1E3A5F',
   'hr': '#D97706',
   'accounts': '#059669',
@@ -24,10 +28,13 @@ const COLORS = {
   'flutter-app': '#0F766E',
   'web-pwa': '#4F46E5',
   'database': '#64748B',
+  'whatsapp-crm': '#25D366',
 }
 
 export default function PanelInfoCard({ panel }) {
   const [showFeatures, setShowFeatures] = useState(false)
+  const [showArchNotes, setShowArchNotes] = useState(false)
+  const [showDiagrams, setShowDiagrams] = useState(false)
   if (!panel) return null
 
   const screensCount = panel.screens?.length || 0
@@ -36,6 +43,8 @@ export default function PanelInfoCard({ panel }) {
   const features = panel.keyFeatures || []
   const color = COLORS[panel.id] || '#64748B'
   const icon = ICONS[panel.id] || '📄'
+  const hasArchNotes = !!panel.architectureNotes
+  const hasDiagrams = panel.diagrams && Object.keys(panel.diagrams).some(k => panel.diagrams[k])
 
   return (
     <div className="doc-panel-info" style={{
@@ -88,8 +97,8 @@ export default function PanelInfoCard({ panel }) {
         flexWrap: 'wrap',
         padding: '10px 0',
         borderTop: '1px solid #F1F5F9',
-        borderBottom: features.length > 0 ? '1px solid #F1F5F9' : 'none',
-        marginBottom: features.length > 0 ? 12 : 0,
+        borderBottom: (features.length > 0 || hasArchNotes || hasDiagrams) ? '1px solid #F1F5F9' : 'none',
+        marginBottom: (features.length > 0 || hasArchNotes || hasDiagrams) ? 12 : 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ fontSize: 16 }}>📂</span>
@@ -109,6 +118,73 @@ export default function PanelInfoCard({ panel }) {
           </div>
         )}
       </div>
+
+      {/* Architecture Notes */}
+      {hasArchNotes && (
+        <div style={{ marginBottom: features.length > 0 ? 12 : 0 }}>
+          <div
+            onClick={() => setShowArchNotes(!showArchNotes)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#7C3AED',
+              userSelect: 'none',
+            }}
+          >
+            <span style={{ fontSize: 14 }}>🏗️</span>
+            <span>Architecture & Design</span>
+            <span style={{ marginLeft: 'auto', color: '#94A3B8', fontSize: 11 }}>{showArchNotes ? '▲' : '▼'}</span>
+          </div>
+          {showArchNotes && (
+            <div style={{
+              marginTop: 8,
+              padding: '10px 14px',
+              background: '#FAF5FF',
+              borderLeft: '3px solid #7C3AED',
+              borderRadius: '0 6px 6px 0',
+              fontSize: 12,
+              lineHeight: 1.8,
+              color: '#334155',
+            }}>
+              {panel.architectureNotes.split('\n').map((para, i) => (
+                <p key={i} style={{ margin: '4px 0' }}>{para}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Panel Diagrams */}
+      {hasDiagrams && (
+        <div style={{ marginBottom: features.length > 0 ? 12 : 0 }}>
+          <div
+            onClick={() => setShowDiagrams(!showDiagrams)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#2563EB',
+              userSelect: 'none',
+            }}
+          >
+            <span style={{ fontSize: 14 }}>📊</span>
+            <span>Diagrams</span>
+            <span style={{ marginLeft: 'auto', color: '#94A3B8', fontSize: 11 }}>{showDiagrams ? '▲' : '▼'}</span>
+          </div>
+          {showDiagrams && (
+            <div style={{ marginTop: 8 }}>
+              <DiagramViewer diagrams={panel.diagrams} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Key Features */}
       {features.length > 0 && (

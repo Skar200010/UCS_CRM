@@ -6,6 +6,18 @@ const superAdminData = {
     "super_admin"
   ],
   "description": "Central oversight of all NGOs, workers, attendance, salary, incentives, data import, and system-wide configuration.",
+  "architectureNotes": `The Super Admin Panel is the highest-privilege interface in the CRM, providing cross-NGO visibility and control.
+
+Architecture:
+- Permission model: Only users with role 'super_admin' can access. This role bypasses NGO-level data isolation and sees all records across all organizations.
+- Dashboard data aggregation: KPI data (NGOs count, workers, attendance %, events, FRO activity, leads, collections) is aggregated server-side via the superAdminController. The backend queries across all NGO scopes and returns pre-computed metrics for the Recharts visualizations.
+- Risk & Alert System: 14 alert types across attendance, targets, and collections. Each alert has a severity (high/medium/low) and is computed server-side by comparing actual vs expected metrics. The Super Admin sees a consolidated Risk & Alerts panel (expandable from 10 to 25 metrics).
+- FRO Live Monitoring: Real-time FRO activity (online/on_call/break/offline) is tracked via server-side status updates. The dashboard auto-refreshes to show current FRO state across all stations.
+- Data Import Pipeline: XLSX/CSV uploads are parsed server-side using the xlsx library. Each import batch is tracked with status (pending/processing/completed/failed) and error details.`,
+  "diagrams": {
+    "architecture": "graph TB\n    subgraph Frontend[React CRM SPA]\n        SA[Super Admin Panel]\n    end\n    subgraph Backend[Express.js API]\n        SAC[Super Admin Controller]\n        DC[Dashboard Controller]\n        IC[Import Controller]\n    end\n    subgraph DB[(Supabase PostgreSQL)]\n        NGOs[NGOs]\n        Workers[Workers]\n        Attendance[Attendance]\n        FROs[FRO Status]\n    end\n    subgraph External[External Services]\n        Vercel[Vercel Hosting]\n    end\n    SA --> SAC\n    SA --> DC\n    SA --> IC\n    SAC --> DB\n    DC --> DB\n    IC --> DB\n    Frontend --> Vercel",
+    "flowchart": "graph TD\n    A[Super Admin Logs In] --> B{Dashboard}\n    B --> C[View KPIs]\n    B --> D[Manage NGOs]\n    B --> E[Manage Workers]\n    B --> F[View FRO Live Status]\n    B --> G[Risk & Alerts]\n    B --> H[Data Import]\n    E --> I[CRUD Operations]\n    H --> J[Upload XLSX/CSV]\n    J --> K[Batch Processing]\n    K --> L[Success/Failure Report]"
+  },
   "keyFeatures": [
     "KPI dashboards with Recharts visualizations (bar, donut, line charts)",
     "Cross-NGO worker and attendance management",
@@ -217,6 +229,17 @@ const superAdminData = {
         {
           "name": "Ticket Management",
           "description": "",
+          "logicDescription": `The Attendance Correction Ticket system implements a 3-stage approval workflow to ensure data integrity:
+
+Stage 1 (Worker): The worker submits a correction request for a specific attendance record field (punch_in, punch_out, or full day). They provide the corrected value and a reason.
+
+Stage 2 (HR/Admin): HR reviews the request. If approved at this stage, the attendance record is updated directly. If rejected, the ticket is closed with a rejection remark. If the correction is significant (e.g., missing full-day attendance), HR may escalate to Super Admin.
+
+Stage 3 (Super Admin): Only super_admin users can approve tickets at this level. The approval endpoint writes the corrected value directly to the attendance_ correction_requests table and updates the corresponding attendance record.
+
+State machine: pending → hr_approved/super_admin_approved/rejected. Once a ticket reaches a terminal state (approved or rejected), it cannot be modified.
+
+Business implications: Attendance corrections affect salary calculations, incentive payouts, and compliance reporting. The staged approval ensures that corrections go through appropriate scrutiny based on their impact.`,
           "apis": [
             {
               "method": "GET",
@@ -262,7 +285,11 @@ const superAdminData = {
             }
           ],
           "businessRules": [],
-          "workflow": []
+          "workflow": [],
+          "diagrams": {
+            "state": "stateDiagram-v2\n    [*] --> Pending: Worker submits\n    Pending --> HR_Approved: HR approves (simple cases)\n    Pending --> Rejected: HR rejects\n    Pending --> Super_Admin_Pending: HR escalates\n    Super_Admin_Pending --> Approved: Super Admin approves\n    Super_Admin_Pending --> Rejected: Super Admin rejects\n    HR_Approved --> [*]\n    Approved --> [*]\n    Rejected --> [*]",
+            "flowchart": "graph TD\n    A[Worker submits correction ticket] --> B{HR Review}\n    B -->|Approve simple| C[Attendance Updated]\n    B -->|Escalate complex| D[Super Admin Review]\n    B -->|Reject| E[Ticket Closed - Rejected]\n    D -->|Approve| F[Attendance Updated]\n    D -->|Reject| G[Ticket Closed - Rejected]\n    C --> H[Done]\n    F --> H\n    E --> H\n    G --> H"
+          }
         }
       ]
     },

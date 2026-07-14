@@ -1,6 +1,7 @@
 import { useDoc } from '../store'
 import ApiCallBlock from './ApiCallBlock'
 import DatabaseTableCard from './DatabaseTableCard'
+import DiagramViewer from './DiagramViewer'
 
 export default function FeatureCard({ feature, screenPath, featureIdx, panelId }) {
   const { expandedFeatures, toggleFeature } = useDoc()
@@ -13,6 +14,8 @@ export default function FeatureCard({ feature, screenPath, featureIdx, panelId }
   const hasDbTable = feature.dbTable
   const hasRules = feature.businessRules?.length > 0
   const hasWorkflow = feature.workflow?.length > 0
+  const hasLogic = !!feature.logicDescription
+  const hasDiagrams = feature.diagrams && Object.keys(feature.diagrams).some(k => feature.diagrams[k])
 
   return (
     <div className="doc-feature">
@@ -23,6 +26,8 @@ export default function FeatureCard({ feature, screenPath, featureIdx, panelId }
           {hasDbTable && <span className="doc-badge db-badge">DB</span>}
           {hasRules && <span className="doc-badge rule-badge">Rules</span>}
           {hasWorkflow && <span className="doc-badge wf-badge">Flow</span>}
+          {hasLogic && <span className="doc-badge theory-badge">Theory</span>}
+          {hasDiagrams && <span className="doc-badge diagram-badge">Diagrams</span>}
         </span>
         <span style={{ marginLeft: 'auto', color: '#94A3B8', fontSize: 11 }}>{isOpen ? '▲' : '▼'}</span>
       </div>
@@ -30,6 +35,22 @@ export default function FeatureCard({ feature, screenPath, featureIdx, panelId }
       {isOpen && (
         <div className="doc-feature-body">
           {feature.description && <p className="doc-desc">{feature.description}</p>}
+
+          {/* Logic Description (Theory) */}
+          {hasLogic && (
+            <div className="doc-feature-section">
+              <strong style={{ color: '#7C3AED' }}>How It Works:</strong>
+              <div className="doc-logic-content" style={{
+                fontSize: 12, lineHeight: 1.8, color: '#334155',
+                marginTop: 4, padding: '8px 12px', background: '#FAF5FF',
+                borderLeft: '3px solid #7C3AED', borderRadius: '0 6px 6px 0',
+              }}>
+                {feature.logicDescription.split('\n').map((para, i) => (
+                  <p key={i} style={{ margin: '4px 0' }}>{para}</p>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* API Calls */}
           {hasApis && (
@@ -80,6 +101,9 @@ export default function FeatureCard({ feature, screenPath, featureIdx, panelId }
 
           {/* Database Table */}
           {hasDbTable && <DatabaseTableCard table={feature.dbTable} />}
+
+          {/* Diagrams */}
+          {hasDiagrams && <DiagramViewer diagrams={feature.diagrams} />}
         </div>
       )}
     </div>
