@@ -23,7 +23,7 @@ export default function Template2({ organizations, family, references, declarati
         .t2 .line{display:inline-block;width:200px;border-bottom:2px solid #555;font-size:13px;padding-left:4px}
         .t2 .right{width:40%;display:flex;align-items:center;gap:10px}
         .t2 .signbox{width:200px;height:60px;border:2px solid #333;border-radius:12px}
-        .t2 .footer{margin-top:10px;border-top:3px solid #7d1e1e;padding-top:6px;text-align:center;font-size:11px;line-height:1.4}
+        .t2 .footer{border-top:2px solid #7b2020;margin-top:6px;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
       `}</style>
       <div className="t2">
         <div className="header">
@@ -98,7 +98,7 @@ export default function Template2({ organizations, family, references, declarati
 
         <div className="footer">
           Reg. Add.: Office No. 402, 4th Floor, 'A' Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai.<br />
-          Contact Sevak *8879035035 *8879034034 * E-Mail: being.sevak@gmail.com * Website: www.beingsevak.org
+          Contact: 8879035035 / 8879034034 | E-mail: being.sevak@gmail.com | Website: www.beingsevak.org
         </div>
       </div>
     </div>

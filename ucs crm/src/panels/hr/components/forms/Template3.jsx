@@ -3,19 +3,16 @@ export default function Template3({ personal, declarationDate, place }) {
     <div className="print-page">
       <style>{`
         .t3 *{box-sizing:border-box}
-        .t3{width:210mm;height:auto;margin:auto;background:#fff;border:3px solid #222;padding:18mm;font-family:"Times New Roman",serif;page-break-after:always}
-        .t3 h1{text-align:center;margin:0;font-size:24pt}
-        .t3 .sub{text-align:center;font-size:11pt}
-        .t3 .red{height:3px;background:#7b2020;margin:8px 0 14px}
-        .t3 .sec{color:#7b2020;font-weight:bold;font-size:15pt;margin-top:14px;page-break-inside:avoid}
-        .t3 .title{text-align:center;color:#1f3f73;font-size:20pt;font-weight:bold;margin:24px 0}
-        .t3 p{font-size:11pt;line-height:1.45;text-align:justify;margin:6px 0;page-break-inside:avoid}
-        .t3 .row{display:flex;justify-content:space-between;margin:18px 0;page-break-inside:avoid}
-        .t3 .line{display:inline-block;border-bottom:1px solid #000;min-width:180px;height:18px;padding-left:4px}
-        .t3 table{width:100%;border-collapse:collapse;margin:10px 0}
-        .t3 th,.t3 td{border:1px solid #444;padding:6px;font-size:10.5pt}
-        .t3 th{background:#efefef;text-align:left}
-        .t3 .footer{border-top:2px solid #7b2020;margin-top:18px;padding-top:8px;text-align:center;font-size:10pt}
+        .t3{width:210mm;min-height:297mm;height:auto !important;margin:auto;background:#fff;border:3px solid #222;padding:10mm 12mm;font-family:"Times New Roman",serif;page-break-after:always}
+        .t3 h1{text-align:center;margin:0 0 2px;font-size:22pt}
+        .t3 .sub{text-align:center;font-size:9pt;margin:0 0 4px}
+        .t3 .red{height:2px;background:#7b2020;margin:2px 0 6px}
+        .t3 .sec{color:#7b2020;font-weight:bold;font-size:11pt;margin-top:7px}
+        .t3 .title{text-align:center;color:#1f3f73;font-size:14pt;font-weight:bold;margin:10px 0}
+        .t3 p{font-size:9pt;line-height:1.3;text-align:justify;margin:2px 0}
+        .t3 .row{display:flex;justify-content:space-between;margin:6px 0}
+        .t3 .line{display:inline-block;border-bottom:1px solid #000;min-width:120px;height:14px;padding-left:4px}
+        .t3 .footer{border-top:2px solid #7b2020;margin-top:6px;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
       `}</style>
       <div className="t3">
         <h1>Being Sevak Charitable Trust</h1>

@@ -16,7 +16,7 @@ export default function Template1({ personal, education }) {
         .t1 .address{height:80px}
         .t1 .edu th{text-align:center}
         .t1 .edu td{height:55px}
-        .t1 .footer{margin-top:20px;border-top:4px solid #7a2020;padding-top:10px;text-align:center;font-size:16px;line-height:1.5}
+        .t1 .footer{border-top:2px solid #7b2020;margin-top:6px;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
       `}</style>
       <div className="t1">
         <h1>Being Sevak Charitable Trust</h1>
@@ -93,8 +93,7 @@ export default function Template1({ personal, education }) {
         </table>
         <div className="footer">
           Reg. Add.: Office No. 402, 4th Floor, 'A' Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai.<br />
-          Contact Sevak *8879035035 *8879034034<br />
-          E-Mail: being.sevak@gmail.com | Website: www.beingsevak.org
+          Contact: 8879035035 / 8879034034 | E-mail: being.sevak@gmail.com | Website: www.beingsevak.org
         </div>
       </div>
     </div>

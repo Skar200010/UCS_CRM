@@ -4,26 +4,26 @@ export default function Template5({ personal }) {
       <style>{`
         @page{size:A4 portrait;margin:0}
         .t5 *{box-sizing:border-box;font-family:'Times New Roman',Times,serif}
-        .t5{width:210mm;height:297mm !important;margin:0 auto;background:#fff;border:3px solid #000;box-shadow:inset 0 0 0 5px #fff,inset 0 0 0 7px #000;padding:3mm 8mm 16mm 8mm;position:relative;overflow:hidden !important}
-        .t5 h1{margin:0;text-align:center;font-size:34px;font-family:'Times New Roman',Times,serif;font-weight:bold;line-height:1.3}
-        .t5 .sub{text-align:center;font-size:9.5px;margin:0 0 0.5mm 0;line-height:1.3;letter-spacing:0.3px}
-        .t5 .redline{border-top:2.5px solid #7a2020;margin:1mm auto 1mm auto;width:100%}
-        .t5 p{font-size:10pt;line-height:1.3;text-align:justify;margin:2px 0}
-        .t5 .section{color:#7a2020;font-weight:bold;font-size:11pt;margin:5px 0 2px 0}
-        .t5 table{width:100%;border-collapse:collapse;margin:2px 0;page-break-inside:avoid}
-        .t5 th,.t5 td{border:1px solid #000;padding:4px;font-size:10pt;vertical-align:top;text-align:left}
+        .t5{width:210mm;min-height:297mm;height:auto !important;margin:0 auto;background:#fff;border:3px solid #000;box-shadow:inset 0 0 0 5px #fff,inset 0 0 0 7px #000;padding:3mm 8mm 5mm 8mm;position:relative;overflow:visible !important}
+        .t5 h1{margin:0;text-align:center;font-size:30px;font-family:'Times New Roman',Times,serif;font-weight:bold;line-height:1.2}
+        .t5 .sub{text-align:center;font-size:9px;margin:0 0 0.5mm 0;line-height:1.2;letter-spacing:0.3px}
+        .t5 .redline{border-top:2px solid #7a2020;margin:1mm auto 1mm auto;width:100%}
+        .t5 p{font-size:9pt;line-height:1.25;text-align:justify;margin:1.5px 0}
+        .t5 .section{color:#7a2020;font-weight:bold;font-size:10pt;margin:4px 0 1.5px 0}
+        .t5 table{width:100%;border-collapse:collapse;margin:1.5px 0;page-break-inside:avoid}
+        .t5 th,.t5 td{border:1px solid #000;padding:3px;font-size:9pt;vertical-align:top;text-align:left}
         .t5 th{background:#d9d9d9;text-align:left}
-        .t5 .sign{display:flex;justify-content:space-between;gap:12px;margin:4px 0}
+        .t5 .sign{display:flex;justify-content:space-between;gap:8px;margin:3px 0}
         .t5 .sign .field{flex:1}
-        .t5 .sign .field:first-child{margin-right:8px}
-        .t5 .sign .field:last-child{margin-left:8px}
-        .t5 .line{border-bottom:1px solid #000;height:16px;padding-left:4px}
-        .t5 .consent{text-align:center;font-size:12px;font-weight:bold;color:#1f3f73;margin:5px 0 3px 0}
-        .t5 .row{display:flex;align-items:center;margin:2px 0;font-size:10.5pt}
-        .t5 .row .label{font-weight:bold;white-space:nowrap;margin-right:6px}
-        .t5 .row .line{flex:1;border-bottom:1px solid #000;min-height:14px;padding-left:4px}
-        .t5 .footer{position:absolute;bottom:5mm;left:8mm;right:8mm;text-align:center;font-size:10px;line-height:1.5}
-        .t5 .footer-sep{border-top:2.5px solid #7a2020;margin:0 0 1.5mm 0;width:100%}
+        .t5 .sign .field:first-child{margin-right:6px}
+        .t5 .sign .field:last-child{margin-left:6px}
+        .t5 .line{border-bottom:1px solid #000;height:14px;padding-left:4px}
+        .t5 .consent{text-align:center;font-size:11px;font-weight:bold;color:#1f3f73;margin:4px 0 2px 0}
+        .t5 .row{display:flex;align-items:center;margin:1.5px 0;font-size:9pt}
+        .t5 .row .label{font-weight:bold;white-space:nowrap;margin-right:4px}
+        .t5 .row .line{flex:1;border-bottom:1px solid #000;min-height:12px;padding-left:4px}
+        .t5 .footer{border-top:2px solid #7b2020;margin-top:6px;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
+        .t5 .footer-sep{display:none}
       `}</style>
       <div className="t5">
         <h1>Being Sevak Charitable Trust</h1>
@@ -71,8 +71,7 @@ export default function Template5({ personal }) {
         <p><b>3. Editing Rights &amp; Intellectual Property</b><br />The Trust may crop, edit, enhance or translate the material without intentionally misrepresenting my identity. All material remains the exclusive property of Being Sevak Charitable Trust.</p>
 
         <div className="footer">
-          <div className="footer-sep"></div>
-          Reg. Add.: Office No. 402, 4th Floor, A Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai<br />
+          Reg. Add.: Office No. 402, 4th Floor, 'A' Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai.<br />
           Contact: 8879035035 / 8879034034 | E-mail: being.sevak@gmail.com | Website: www.beingsevak.org
         </div>
       </div>
