@@ -1,28 +1,22 @@
-export default function Template4({ personal }) {
+export default function Template8({ personal, declarationDate }) {
   return (
     <div className="print-page">
       <style>{`
-        .t4 *{box-sizing:border-box}
-        .t4{width:210mm;min-height:297mm;margin:auto;background:#fff;border:3px solid #222;padding:18mm;font-family:"Times New Roman",serif;page-break-after:always}
-        .t4 h1{text-align:center;margin:0;font-size:24pt}
-        .t4 .sub{text-align:center;font-size:11pt}
-        .t4 .red{height:3px;background:#7b2020;margin:8px 0 14px}
-        .t4 .sec{color:#7b2020;font-weight:bold;font-size:15pt;margin-top:14px}
-        .t4 p{font-size:11pt;line-height:1.45;text-align:justify;margin:6px 0}
-        .t4 .footer{border-top:2px solid #7b2020;margin-top:18px;padding-top:8px;text-align:center;font-size:10pt}
-        .t4 .logo-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:2mm}
-        .t4 .logo-row img{height:60px;width:auto}
+        @page{size:A4 portrait;margin:0}
+        .t8 *{box-sizing:border-box;font-family:'Times New Roman',Times,serif}
+        .t8{width:210mm;height:297mm;margin:0 auto;background:#fff;border:3px solid #000;box-shadow:inset 0 0 0 5px #fff,inset 0 0 0 7px #000;padding:3mm 8mm 5mm 8mm;display:flex;flex-direction:column;overflow:hidden}
+        .t8 h1{text-align:center;margin:0;font-size:34px;font-family:'Times New Roman',Times,serif;font-weight:bold;line-height:1.2}
+        .t8 .sub{text-align:center;font-size:9.5px;margin:0 0 0.5mm 0;line-height:1.2;letter-spacing:0.3px}
+        .t8 .red{border-top:2.5px solid #7a2020;margin:1mm auto 1mm auto;width:100%}
+        .t8 .sec{color:#7a2020;font-weight:bold;font-size:13pt;margin:8px 0 3px 0}
+        .t8 p{font-size:10.5pt;line-height:1.35;text-align:justify;margin:3px 0}
+        .t8 .footer{text-align:center;font-size:10px;line-height:1.5;margin-top:auto}
+        .t8 .footer-sep{border-top:2.5px solid #7a2020;margin:0 0 1.5mm 0;width:100%}
       `}</style>
-      <div className="t4">
-        <div className="logo-row">
-          <img src="/logo/beingsevak-logo.png" alt="Being Sevak Logo" />
-        </div>
+      <div className="t8">
         <h1>Being Sevak Charitable Trust</h1>
         <div className="red"></div>
         <div className="sub">Public Charitable Trust (Reg.) E-31948 No, Income Tax Exempted Under 80G</div>
-
-        <div className="sec">10. Social Media Policy</div>
-        <p>Volunteers shall not publish, post, upload, or distribute any information, photographs, videos, documents, or confidential material relating to the Trust through personal social media platforms or any public forum without obtaining prior approval from the authorized representatives of the Trust. The Trust may, however, use photographs, videos, names, testimonials, or recordings of volunteers for its official website, social media platforms, awareness campaigns, CSR reports, annual reports, fundraising initiatives, newsletters, brochures, and other promotional or educational purposes unless the volunteer has submitted a written objection in advance.</p>
 
         <div className="sec">11. Child &amp; Beneficiary Protection</div>
         <p>Every volunteer is responsible for ensuring the safety, dignity, and well-being of all beneficiaries associated with the Trust. Volunteers shall treat every child, beneficiary, and community member with respect and shall refrain from any form of abuse, harassment, discrimination, intimidation, exploitation, or inappropriate behavior. The privacy and confidentiality of beneficiaries must always be protected, and any safeguarding concern, misconduct, or suspected abuse must be reported immediately to the appropriate authority within the Trust.</p>
@@ -52,8 +46,9 @@ export default function Template4({ personal }) {
         <p>The Trust may issue a Volunteer Appreciation Certificate or Volunteer Service Certificate to volunteers who have successfully completed their period of service with satisfactory performance and conduct, subject to the applicable policies and approval of the Trust management.</p>
 
         <div className="footer">
+          <div className="footer-sep"></div>
           Reg. Add.: Office No. 402, 4th Floor, 'A' Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai.<br />
-          Contact: 8879035035 / 8879034034 | E-mail: being.sevak@gmail.com | Website: www.beingsevak.org
+          Contact Sevak *8879035035 *8879034034 * E-Mail: being.sevak@gmail.com * Website: www.beingsevak.org
         </div>
       </div>
     </div>

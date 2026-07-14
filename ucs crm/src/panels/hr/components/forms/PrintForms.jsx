@@ -5,6 +5,8 @@ import Template3 from './Template3'
 import Template4 from './Template4'
 import Template5 from './Template5'
 import Template6 from './Template6'
+import Template7 from './Template7'
+import Template8 from './Template8'
 
 export default function PrintForms({ data, onClose }) {
   const ref = useRef(null)
@@ -26,6 +28,8 @@ export default function PrintForms({ data, onClose }) {
         @page { size: A4; margin: 0; }
         body { margin: 0; padding: 0; background: #fff; }
         .print-page { page-break-after: always; }
+        .t3 { height: 297mm !important; }
+        .t5 { overflow: visible !important; height: auto !important; }
         @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       </style>
       </head>
@@ -69,10 +73,12 @@ export default function PrintForms({ data, onClose }) {
           declarationDate={data.declarationDate}
           place={data.place}
         />
-        <Template4 personal={data.personal} declarationDate={data.declarationDate} place={data.place} />
-        <Template3 personal={data.personal} />
-        <Template5 personal={data.personal} declarationDate={data.declarationDate} place={data.place} />
+        <Template3 personal={data.personal} declarationDate={data.declarationDate} place={data.place} />
+        <Template4 personal={data.personal} />
+        <Template5 personal={data.personal} />
         <Template6 personal={data.personal} declarationDate={data.declarationDate} />
+        <Template7 personal={data.personal} declarationDate={data.declarationDate} place={data.place} />
+        <Template8 personal={data.personal} declarationDate={data.declarationDate} />
       </div>
     </div>
   )

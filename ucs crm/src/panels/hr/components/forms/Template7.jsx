@@ -1,37 +1,22 @@
-export default function Template3({ personal, declarationDate, place }) {
+export default function Template7({ personal, declarationDate, place }) {
   return (
     <div className="print-page">
       <style>{`
-        .t3 *{box-sizing:border-box}
-        .t3{width:210mm;min-height:297mm;margin:auto;background:#fff;border:3px solid #222;padding:18mm;font-family:"Times New Roman",serif;page-break-after:always}
-        .t3 h1{text-align:center;margin:0;font-size:24pt}
-        .t3 .sub{text-align:center;font-size:11pt}
-        .t3 .red{height:3px;background:#7b2020;margin:8px 0 14px}
-        .t3 .sec{color:#7b2020;font-weight:bold;font-size:15pt;margin-top:14px}
-        .t3 .title{text-align:center;color:#1f3f73;font-size:20pt;font-weight:bold;margin:24px 0}
-        .t3 p{font-size:11pt;line-height:1.45;text-align:justify;margin:6px 0}
-        .t3 .row{display:flex;justify-content:space-between;margin:18px 0}
-        .t3 .line{display:inline-block;border-bottom:1px solid #000;min-width:180px;height:18px;padding-left:4px}
-        .t3 table{width:100%;border-collapse:collapse;margin:10px 0}
-        .t3 th,.t3 td{border:1px solid #444;padding:6px;font-size:10.5pt}
-        .t3 th{background:#efefef;text-align:left}
-        .t3 .footer{border-top:2px solid #7b2020;margin-top:18px;padding-top:8px;text-align:center;font-size:10pt}
+        @page{size:A4 portrait;margin:0}
+        .t7 *{box-sizing:border-box;font-family:'Times New Roman',Times,serif}
+        .t7{width:210mm;height:297mm;margin:0 auto;background:#fff;border:3px solid #000;box-shadow:inset 0 0 0 5px #fff,inset 0 0 0 7px #000;padding:3mm 8mm 5mm 8mm;display:flex;flex-direction:column;overflow:hidden}
+        .t7 h1{text-align:center;margin:0;font-size:34px;font-family:'Times New Roman',Times,serif;font-weight:bold;line-height:1.2}
+        .t7 .sub{text-align:center;font-size:9.5px;margin:0 0 0.5mm 0;line-height:1.2;letter-spacing:0.3px}
+        .t7 .red{border-top:2.5px solid #7a2020;margin:1mm auto 1mm auto;width:100%}
+        .t7 .sec{color:#7a2020;font-weight:bold;font-size:13pt;margin:8px 0 3px 0}
+        .t7 p{font-size:10.5pt;line-height:1.35;text-align:justify;margin:3px 0}
+        .t7 .footer{text-align:center;font-size:10px;line-height:1.5;margin-top:auto}
+        .t7 .footer-sep{border-top:2.5px solid #7a2020;margin:0 0 1.5mm 0;width:100%}
       `}</style>
-      <div className="t3">
+      <div className="t7">
         <h1>Being Sevak Charitable Trust</h1>
         <div className="red"></div>
         <div className="sub">Public Charitable Trust (Reg.) E-31948 No, Income Tax Exempted Under 80G</div>
-
-        <div className="sec">DECLARATION</div>
-        <p>I hereby declare that the statements made in my application form are true, complete and correct to the best of my knowledge and belief. In the event of any information being found false or incorrect at any stage, my services are liable to be terminated without notice.</p>
-
-        <div className="row">
-          <div>Date: <span className="line">{declarationDate || ''}</span></div>
-          <div>Place: <span className="line">{place || ''}</span></div>
-          <div>Sign: <span className="line"></span></div>
-        </div>
-
-        <div className="title">JOINING HR RULE COPY</div>
 
         <div className="sec">1. Volunteer Engagement</div>
         <p>Welcome to Being Sevak Charitable Trust. We sincerely appreciate your decision to volunteer with our organization. Every volunteer plays a vital role in serving society with honesty, compassion, professionalism, integrity, and dedication. This handbook outlines the policies, responsibilities, expectations, and code of conduct applicable to all volunteers associated with the Trust. Volunteers are engaged based on the requirements of the Trust and their individual skills, qualifications, and suitability for specific projects or activities. Every volunteer shall work under the supervision and guidance of the respective Team Leader, Head of Department (HOD), Project Coordinator, or any authorized representative of the Trust. The Trust reserves the right to assign, transfer, or modify the volunteer's department, project, work location, or responsibilities whenever required in the interest of organizational operations.</p>
@@ -60,9 +45,13 @@ export default function Template3({ personal, declarationDate, place }) {
         <div className="sec">9. Confidentiality</div>
         <p>Volunteers shall maintain strict confidentiality regarding all information obtained during their association with the Trust. Confidential information includes, but is not limited to, donor details, beneficiary records, financial information, internal reports, project documentation, login credentials, CRM data, operational strategies, and any other non-public information belonging to the Trust. Volunteers shall not disclose, copy, share, or use confidential information for personal benefit or disclose it to any third party without prior written authorization from the Trust.</p>
 
+        <div className="sec">10. Social Media Policy</div>
+        <p>Volunteers shall not publish, post, upload, or distribute any information, photographs, videos, documents, or confidential material relating to the Trust through personal social media platforms or any public forum without obtaining prior approval from the authorized representatives of the Trust. The Trust may, however, use photographs, videos, names, testimonials, or recordings of volunteers for its official website, social media platforms, awareness campaigns, CSR reports, annual reports, fundraising initiatives, newsletters, brochures, and other promotional or educational purposes unless the volunteer has submitted a written objection in advance.</p>
+
         <div className="footer">
+          <div className="footer-sep"></div>
           Reg. Add.: Office No. 402, 4th Floor, 'A' Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai.<br />
-          Contact: 8879035035 / 8879034034 | E-mail: being.sevak@gmail.com | Website: www.beingsevak.org
+          Contact Sevak *8879035035 *8879034034 * E-Mail: being.sevak@gmail.com * Website: www.beingsevak.org
         </div>
       </div>
     </div>
