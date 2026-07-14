@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { X, FileText, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, FileText, Download, Loader2 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import { cn } from '../../lib/utils';
 
 interface MediaPreviewProps {
@@ -105,4 +106,33 @@ export function MediaUploadPreview({ file, onRemove }: MediaUploadPreviewProps) 
       </button>
     </div>
   );
+}
+
+export function MediaFromMeta({ mediaId, mimeType }: { mediaId: string; mimeType?: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: accounts } = await supabase
+        .from('whatsapp_accounts')
+        .select('access_token')
+        .eq('is_active', true)
+        .limit(1);
+      if (!accounts?.[0] || cancelled) { setLoading(false); return; }
+      try {
+        const res = await fetch(`https://graph.facebook.com/v23.0/${mediaId}`, {
+          headers: { Authorization: `Bearer ${accounts[0].access_token}` },
+        });
+        const data = await res.json();
+        if (!cancelled && data.url) setUrl(data.url);
+      } catch {} finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [mediaId]);
+
+  if (loading) return <Loader2 className="mt-1 h-4 w-4 animate-spin text-muted-foreground" />;
+  if (!url) return null;
+  return <MediaPreview url={url} mimeType={mimeType} />;
 }

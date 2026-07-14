@@ -47,13 +47,17 @@ export function InboxPage() {
   const { data: conversations, isLoading: loadingConvs } = useQuery({
     queryKey: ['conversations'],
     queryFn: async () => {
-      const query = supabase
+      const { data, error } = await supabase
         .from('conversations')
         .select('*, contact:contacts(*)')
         .order('last_message_at', { ascending: false, nullsFirst: false });
-      const { data, error } = await query;
       if (error) throw error;
-      return data;
+      const seen = new Map<string, any>();
+      for (const c of data || []) {
+        const key = c.contact_id;
+        if (!seen.has(key)) seen.set(key, c);
+      }
+      return Array.from(seen.values());
     },
     refetchInterval: 10000,
   });
@@ -71,6 +75,7 @@ export function InboxPage() {
       return data as Message[];
     },
     enabled: !!conversationId,
+    refetchInterval: 5000,
   });
 
   useEffect(() => {
@@ -331,9 +336,11 @@ export function InboxPage() {
                           )}
                         >
                           <p className="whitespace-pre-wrap break-words">{message.body_text}</p>
-                          {message.media_url && (
+                          {message.media_url ? (
                             <MediaPreview url={message.media_url} mimeType={message.media_mime_type} className="mt-1" />
-                          )}
+                          ) : message.media_id ? (
+                            <MediaFromMeta mediaId={message.media_id} mimeType={message.media_mime_type} />
+                          ) : null}
                           <div className="mt-1 flex items-center justify-end gap-1">
                             <span className="text-xs opacity-70">
                               {format(new Date(message.created_at), 'HH:mm')}
