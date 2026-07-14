@@ -3,8 +3,8 @@ export default function Template2({ organizations, family, references, declarati
     <div className="print-page">
       <style>{`
         .t2 *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
-        .t2{width:210mm;min-height:297mm;margin:auto;background:#fff;border:8px double #000;padding:14px 18px;page-break-after:always}
-        .t2 .header{text-align:center}
+        .t2{width:210mm;height:297mm !important;margin:auto;background:#fff;border:8px double #000;padding:14px 18px;overflow:hidden !important;display:flex;flex-direction:column}
+        .t2 .header{text-align:center;flex-shrink:0}
         .t2 .header h1{font-family:Georgia,serif;font-size:36px}
         .t2 .header p{font-size:11px;margin-bottom:4px}
         .t2 .top-line{border-top:3px solid #7d1e1e;margin:4px 0}
@@ -12,18 +12,19 @@ export default function Template2({ organizations, family, references, declarati
         .t2 th,.t2 td{border:1px solid #666;padding:5px;font-size:12px}
         .t2 .section{background:#d8d8d8;font-weight:bold;font-size:15px;text-transform:uppercase}
         .t2 .center{text-align:center}
-        .t2 .work td{height:32px}
-        .t2 .family td{height:30px}
-        .t2 .reference td{height:28px}
-        .t2 .declaration{border:1px solid #666;border-top:none;padding:12px;min-height:60px}
+        .t2 .work td{height:38px}
+        .t2 .family td{height:34px}
+        .t2 .reference td{height:30px}
+        .t2 .declaration{border:1px solid #666;border-top:none;padding:12px;flex:1}
         .t2 .declaration p{font-size:13px;line-height:1.4;text-align:justify}
-        .t2 .signature{margin-top:12px;display:flex;justify-content:space-between;align-items:flex-end}
+        .t2 .signature{margin-top:auto;padding-top:20px;display:flex;justify-content:space-between;align-items:flex-end}
         .t2 .left{width:45%}
         .t2 .left div{margin:10px 0;font-size:14px;font-weight:bold}
         .t2 .line{display:inline-block;width:200px;border-bottom:2px solid #555;font-size:13px;padding-left:4px}
         .t2 .right{width:40%;display:flex;align-items:center;gap:10px}
         .t2 .signbox{width:200px;height:60px;border:2px solid #333;border-radius:12px}
-        .t2 .footer{border-top:2px solid #7b2020;margin-top:6px;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
+        .t2 .footer{border-top:2px solid #7b2020;margin-top:6px;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4;flex-shrink:0}
+        .t2 .spacer{flex:1}
       `}</style>
       <div className="t2">
         <div className="header">
@@ -95,6 +96,8 @@ export default function Template2({ organizations, family, references, declarati
             </div>
           </div>
         </div>
+
+        <div className="spacer"></div>
 
         <div className="footer">
           Reg. Add.: Office No. 402, 4th Floor, 'A' Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai.<br />
