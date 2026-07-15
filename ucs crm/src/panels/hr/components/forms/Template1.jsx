@@ -113,7 +113,7 @@ export default function Template1({ personal, education }) {
         </table>
         <table>
           <tr><td colSpan="5" className="section">FAMILY DETAILS / PERSONAL REFERENCE</td></tr>
-          <tr><th width="8%">S.No</th><th>Name</th><th>Relation</th><th>Occupation</th><th>Date of Birth</th></tr>
+          <tr><th width="8%">S.No</th><th>Name</th><th>Relation</th><th>Occupation</th><th>Mobile No</th></tr>
           {[...Array(3)].map((_, i) => (
             <tr key={i}>
               <td>{i + 1}</td>
