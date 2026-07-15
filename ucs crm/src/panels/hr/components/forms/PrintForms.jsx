@@ -29,6 +29,7 @@ export default function PrintForms({ data, onClose }) {
         @page { size: A4; margin: 0; }
         body { margin: 0; padding: 0; background: #fff; }
         .print-page { page-break-after: always; }
+        .t2 { height: 297mm !important; overflow: hidden !important; }
         .t3 { min-height: 297mm; height: auto !important; }
         .t3-mobile { font-size: 12pt !important; line-height: 1.6 !important; }
         .t4 { min-height: 297mm; height: auto !important; }
