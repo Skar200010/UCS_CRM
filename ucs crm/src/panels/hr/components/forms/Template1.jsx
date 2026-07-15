@@ -93,14 +93,14 @@ export default function Template1({ personal, education }) {
           ))}
         </table>
         <table>
-          <tr><td colSpan="6" className="section">VOLUNTEER DETAILS (LAST THREE ORGANISATIONS)</td></tr>
+          <tr><td colSpan="6" className="section">VOLUNTEER DETAILS (PREVIOUS ORGANISATIONS / AFFILIATIONS)</td></tr>
           <tr>
             <th width="8%">Sr.No</th>
-            <th>Organization</th>
-            <th>Designation</th>
+            <th>Organisation / Trust</th>
+            <th>Role / Designation</th>
             <th>From</th>
             <th>To</th>
-            <th>Annual CTC</th>
+            <th>Duration</th>
           </tr>
           <tr>
             <td>1</td>
@@ -112,7 +112,7 @@ export default function Template1({ personal, education }) {
           </tr>
         </table>
         <table>
-          <tr><td colSpan="5" className="section">FAMILY DETAILS / PERSIONAL REFERENCE</td></tr>
+          <tr><td colSpan="5" className="section">FAMILY DETAILS / PERSONAL REFERENCE</td></tr>
           <tr><th width="8%">S.No</th><th>Name</th><th>Relation</th><th>Occupation</th><th>Date of Birth</th></tr>
           {[...Array(3)].map((_, i) => (
             <tr key={i}>

@@ -30,36 +30,33 @@ export default function Template5({ personal }) {
         <div className="redline"></div>
         <div className="sub">Public Charitable Trust (Reg.) E-31948 No, Income Tax Exempted Under 80G</div>
 
-        <p>You shall abide by the Trust rules and HR policies as presented in the HR Rule Copy, and by all general or administrative rules, regulations and directives of the Trust made from time to time, so long as they are not inconsistent with this agreement. For any work-related matter, issue or communication, the volunteer must contact the concerned authority directly. <strong>Dress Code:</strong> Monday to Friday [Formals]; Saturday [Casuals].</p>
+        <p>You shall abide by the Trust's guidelines and volunteer policies as presented in the Volunteer Guidelines, and by all general or administrative rules, regulations, and directives of the Trust made from time to time, so long as they are not inconsistent with this agreement. For any work-related matter, issue, or communication, the volunteer must contact the concerned coordinator directly. <strong>Attire Guidelines:</strong> Monday to Friday [Formals]; Saturday [Smart Casuals].</p>
 
-        <div className="section">Holiday &amp; Leave Policy (Clubbing Rule)</div>
-        <p>Volunteer attendance will be considered for the entire month while determining monthly volunteer support. If a volunteer is absent immediately before or after a Sunday, weekly off, or declared public holiday, the intervening day(s) will also be counted as part of the absence. If a volunteer remains absent for more than 6 days in a calendar month, all Sundays, weekly offs, and public holidays during that month will also be considered. Exceptions may be reviewed by the management for genuine reasons.</p>
+        <div className="section">Holiday &amp; Absence Policy (Clubbing Rule)</div>
+        <p>Volunteer attendance will be considered for the entire month while determining monthly volunteer involvement. If a volunteer is absent immediately before or after a Sunday, weekly off, or declared public holiday, the intervening day(s) will also be counted as part of the absence. If a volunteer remains absent for more than 6 days in a calendar month, all Sundays, weekly offs, and public holidays during that month will also be considered. Exceptions may be reviewed by the Trust management for genuine reasons.</p>
 
-        <div className="section">OFFICE TIME</div>
-        <p>Office time is 10.00 am to 7.00 pm OR 9.30 am to 6.30 pm [including break time]; attendance is counted through the attendance system OR manually. Lunch break is 30 minutes, between 1.30 and 2.00 PM. Half day: reporting time is 2.00 pm and leaving time is 3.00 pm; no lunch break is applicable on a half day, and arriving late on a half day will be marked absent. No reimbursement is given for late sitting. A cumulative grace-period of 180 minutes per month is allowed for late entry / early exit, as follows:</p>
+        <div className="section">Volunteer Timings</div>
+        <p>Volunteer timings are 10.00 AM to 7.00 PM OR 9.30 AM to 6.30 PM [including break time]; attendance is recorded through the attendance system OR manually. Lunch break is 30 minutes, between 1.30 and 2.00 PM. Half-day: reporting time is 2.00 PM and departure time is 3.00 PM; no lunch break is applicable on a half-day, and arriving late on a half-day will be recorded as absent. A cumulative grace period of 180 minutes per month is allowed for late arrival / early departure, as follows:</p>
         <table>
-          <tr><th>Late / Early Exit Duration Per Month</th><th>Deduction in Salary</th></tr>
-          <tr><td>Up to 180 minutes</td><td>No deduction in salary</td></tr>
-          <tr><td>181 – 240 minutes</td><td>Half day deduction in salary</td></tr>
-          <tr><td>241 – 480 minutes</td><td>1 day deduction in salary</td></tr>
-          <tr><td>More than 480 minutes</td><td>Salary counted as per attendance policy decided by the Trust</td></tr>
+          <tr><th>Late / Early Departure Duration Per Month</th><th>Attendance Record Impact</th></tr>
+          <tr><td>Up to 180 minutes</td><td>No impact on attendance record</td></tr>
+          <tr><td>181 – 240 minutes</td><td>Recorded as half-day absence</td></tr>
+          <tr><td>241 – 480 minutes</td><td>Recorded as one-day absence</td></tr>
+          <tr><td>More than 480 minutes</td><td>Attendance reviewed by Trust management as per volunteer guidelines</td></tr>
         </table>
 
-        <div className="section">Exit Formation &amp; Separation Policy</div>
-        <p>A resigning volunteer must complete the separation clearance process and hand over all assigned duties. Full &amp; Final settlement is processed in the next salary cycle. A volunteer becomes eligible for an Experience Letter after completing one year.</p>
+        <div className="section">Voluntary Withdrawal &amp; Separation</div>
+        <p>A volunteer who wishes to step down must complete the handover process and return all assigned duties, documents, equipment, and Trust resources. A Letter of Appreciation is issued to volunteers who have completed at least one year of satisfactory association with the Trust.</p>
 
         <table>
-          <tr><th width="28%">Policy</th><th>Description</th></tr>
-          <tr><td><b>Voluntary Resignation</b></td><td>Notice Period: One month during probation and 45 days after confirmation. Leaving without completing the notice period makes the volunteer ineligible for salary.</td></tr>
-          <tr><td><b>Abandonment of Service</b></td><td>Absence from work for seven consecutive days without information will be treated as absconding and salary may be forfeited.</td></tr>
-          <tr><td><b>Termination of Service</b></td><td>Termination may result from non-performance or violation of the Trust Code of Conduct.</td></tr>
+          <tr><th width="28%">Guideline</th><th>Description</th></tr>
+          <tr><td><b>Voluntary Withdrawal</b></td><td>Intimation Period: At least one month's advance notice is requested. Stepping down without completing the intimation period may affect the volunteer's eligibility for a Letter of Appreciation.</td></tr>
+          <tr><td><b>Discontinuation Without Intimation</b></td><td>Absence from Trust activities for seven consecutive days without any communication will be treated as abandonment of volunteer responsibilities.</td></tr>
+          <tr><td><b>Conclusion of Association</b></td><td>The association may be concluded due to non-involvement or violation of the Trust's Code of Conduct.</td></tr>
         </table>
 
-        <div className="section">Incentive</div>
-        <p>Performance Linked Incentive (PLI), where applicable, shall be paid according to performance and HOD approval.</p>
-
-        <div className="section">Legal Indemnification</div>
-        <p>The volunteer agrees to maintain confidentiality and indemnify the Trust from damages, claims or disputes arising from any violation of confidentiality or contractual obligations. Signing below confirms that the volunteer has read, understood and accepted all terms.</p>
+        <div className="section">Acknowledgement</div>
+        <p>The volunteer agrees to maintain confidentiality and indemnify the Trust from damages, claims, or disputes arising from any violation of confidentiality or obligations. Signing below confirms that the volunteer has read, understood, and accepted all terms.</p>
         <p>Yours sincerely,<br /><b>For Being Sevak Charitable Trust – HOD</b></p>
         <p>I accept all the terms and conditions as mentioned in this letter.</p>
 

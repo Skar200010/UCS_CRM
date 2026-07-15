@@ -64,21 +64,21 @@ export default function Template6() {
 
           <div className="blue">DATA RULES &amp; GUIDELINES</div>
 
-          <p><span className="b">Data Ownership &amp; Usage:</span> Data assigned to a volunteer remains strictly under that volunteer&apos;s responsibility. If the volunteer is absent, the HOD may temporarily reassign the data to another volunteer, who may use it for calling and lead generation with one-day follow-up authority; leads generated in this period are credited to the acting volunteer. Working on another volunteer&apos;s data without authorization is not allowed. <span className="b">Follow-Ups During Leave:</span> a maximum of 3 follow-ups by another volunteer is allowed on the assigned data. <span className="b">Lead Clash Policy:</span> a conflicting lead is assigned to the volunteer who originally owns the data; the Admin Department has final authority to decide such cases. <span className="b">Queries &amp; Issues:</span> contact the Operational Manager.</p>
+          <p><span className="b">Data Ownership &amp; Usage:</span> Data assigned to a volunteer remains strictly under that volunteer&apos;s responsibility. If the volunteer is absent, the coordinator may temporarily reassign the data to another volunteer, who may use it for calling and lead generation with one-day follow-up authority; leads generated in this period are credited to the acting volunteer. Working on another volunteer&apos;s data without authorization is not allowed. <span className="b">Follow-Ups During Absence:</span> a maximum of 3 follow-ups by another volunteer is allowed on the assigned data. <span className="b">Lead Clash Policy:</span> a conflicting lead is assigned to the volunteer who originally owns the data; the Coordination Team has final authority to decide such cases. <span className="b">Queries &amp; Issues:</span> contact the Operational Coordinator.</p>
 
           <div className="blue">VOLUNTEER CONFIDENTIALITY / NON-DISCLOSURE AGREEMENT</div>
 
-          <p>This agreement is made between Being Sevak Charitable Trust and the Volunteer on <span className="line med"></span>. While performing services for the Trust, the Volunteer may receive Confidential Information concerning matters affecting or relating to the Trust. The Volunteer agrees as follows:</p>
+          <p>This agreement is made between Being Sevak Charitable Trust and the Volunteer on <span className="line med"></span>. While volunteering with the Trust, the Volunteer may receive Confidential Information concerning matters affecting or relating to the Trust. The Volunteer agrees as follows:</p>
 
-          <p><span className="b">A.</span> Confidential Information and Proprietary Data are secrets of the Trust and its exclusive property. The Volunteer shall keep them confidential, take reasonable steps to protect them and not disclose or use them for personal benefit or the benefit of others during or after association with the Trust.</p>
+          <p><span className="b">A.</span> Confidential Information and Proprietary Data are the Trust's exclusive property. The Volunteer shall keep them confidential, take reasonable steps to protect them, and not disclose or use them for personal benefit or the benefit of others during or after association with the Trust.</p>
 
-          <p><span className="b">B.</span> Notes, notebooks, computer disks, pen drives, documents, equipment and devices containing such information are the property of the Trust and must not be removed from Trust premises. They shall be returned immediately upon termination.</p>
+          <p><span className="b">B.</span> Notes, notebooks, computer disks, pen drives, documents, equipment, and devices containing such information are the property of the Trust and must not be removed from Trust premises. They shall be returned immediately upon conclusion of the volunteer association.</p>
 
-          <p><span className="b">C.</span> The Volunteer shall not reproduce or commercially use Confidential Information for any purpose other than performing duties for the Trust.</p>
+          <p><span className="b">C.</span> The Volunteer shall not reproduce or commercially use Confidential Information for any purpose other than carrying out duties for the Trust.</p>
 
-          <p><span className="b">D.</span> The Trust may take disciplinary action, including termination, and pursue civil or criminal remedies for violations. This agreement is governed by the laws of Maharashtra (Mumbai).</p>
+          <p><span className="b">D.</span> The Trust may take appropriate action, including conclusion of the volunteer association, and pursue civil or criminal remedies for violations. This agreement is governed by the laws of Maharashtra (Mumbai).</p>
 
-          <p><span className="b">E.</span> On resignation, the Volunteer shall surrender all office assets, official WhatsApp, email ID, contact number and other Trust-related items. Failure to comply may result in legal action.</p>
+          <p><span className="b">E.</span> On withdrawal, the Volunteer shall surrender all Trust assets, official WhatsApp, email ID, contact number, and other Trust-related items. Failure to comply may result in appropriate action.</p>
 
           <p><span className="b">F.</span> All provisions apply only to the extent they do not violate applicable law. The Volunteer warrants that no conflicting obligation exists.</p>
 
