@@ -55,7 +55,7 @@ async function trySend(phone_number_id: string, access_token: string, payload: a
     if (res.ok && result.messages?.[0]?.id) {
     const updates: any = { status: 'sent', wa_message_id: result.messages[0].id, status_updated_at: new Date().toISOString() };
     if (mediaId) { updates.media_id = mediaId; updates.media_mime_type = mediaFile?.type; }
-    supabase.from('messages').update(updates).eq('conversation_id', conversationId).eq('status', 'queued').then();
+    await supabase.from('messages').update(updates).eq('conversation_id', conversationId).eq('status', 'queued');
     return true;
   }
   return false;
