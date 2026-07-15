@@ -70,9 +70,9 @@ export default function Template1({ personal, education }) {
             <th>Specialization</th>
           </tr>
           {education.length === 0 ? (
-            <>{[...Array(5)].map((_, i) => <tr key={i}><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}</>
+            <>{[...Array(1)].map((_, i) => <tr key={i}><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}</>
           ) : (
-            education.map((e, i) => (
+            education.slice(0, 1).map((e, i) => (
               <tr key={i}>
                 <td>{e.degree || ''}</td>
                 <td>{e.institution || ''}</td>
@@ -83,7 +83,7 @@ export default function Template1({ personal, education }) {
               </tr>
             ))
           )}
-          {education.length > 0 && education.length < 5 && [...Array(5 - education.length)].map((_, i) => (
+          {education.length > 0 && education.length < 1 && [...Array(1 - education.length)].map((_, i) => (
             <tr key={`empty-${i}`}><td></td><td></td><td></td><td></td><td></td><td></td></tr>
           ))}
         </table>
