@@ -170,7 +170,7 @@ serve(async (req) => {
         }
       }
 
-      if (changes?.field === "message_status" && value?.statuses) {
+      if ((changes?.field === "messages" || changes?.field === "message_status") && value?.statuses) {
         for (const status of value.statuses) {
           await supabase
             .from("messages")
