@@ -9,14 +9,14 @@ export default function Template1({ personal, education }) {
         .t1 .top-line{border-top:3px solid #7d1e1e;margin:3px 0}
         .t1 .form-title{text-align:center;font-size:24px;font-weight:bold;text-decoration:underline;margin-bottom:12px}
         .t1 table{width:100%;border-collapse:collapse}
-        .t1 td,.t1 th{border:1px solid #666;padding:8px 10px;vertical-align:top}
+        .t1 td,.t1 th{border:1px solid #666;padding:7px 8px;vertical-align:top}
         .t1 .section{background:#d8d8d8;font-weight:bold;font-size:18px}
         .t1 .label{font-weight:bold;width:25%;white-space:nowrap}
-        .t1 .photo{width:160px;text-align:center;vertical-align:middle;font-weight:bold;font-size:24px;min-height:170px;height:170px;box-sizing:border-box}
-        .t1 .blank{height:50px}
-        .t1 .address{height:65px}
+        .t1 .photo{width:160px;text-align:center;vertical-align:middle;font-weight:bold;font-size:24px;min-height:160px;height:160px;box-sizing:border-box}
+        .t1 .blank{height:24px}
+        .t1 .address{height:40px}
         .t1 .edu th{text-align:center}
-        .t1 .edu td{height:75px}
+        .t1 .edu td{height:45px}
         .t1 .edu{border-bottom:1px solid #666}
         .t1 .footer{border-top:2px solid #7b2020;margin-top:auto;padding-top:3px;text-align:center;font-size:8pt;line-height:1.3}
       `}</style>
@@ -104,7 +104,7 @@ export default function Template1({ personal, education }) {
           </tr>
           <tr>
             <td>1</td>
-            <td style={{height:70}}></td>
+            <td style={{height:40}}></td>
             <td></td>
             <td></td>
             <td></td>
@@ -117,7 +117,7 @@ export default function Template1({ personal, education }) {
           {[...Array(3)].map((_, i) => (
             <tr key={i}>
               <td>{i + 1}</td>
-              <td style={{height:95}}></td>
+              <td style={{height:35}}></td>
               <td></td>
               <td></td>
               <td></td>
