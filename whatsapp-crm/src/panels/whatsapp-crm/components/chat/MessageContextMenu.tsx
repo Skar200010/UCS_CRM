@@ -1,16 +1,15 @@
 import { useEffect, useRef } from 'react';
-import { Trash2, Trash } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 interface ContextMenuProps {
   x: number;
   y: number;
   messageId: string;
   onDeleteForMe: (id: string) => void;
-  onDeleteForEveryone: (id: string) => void;
   onClose: () => void;
 }
 
-export function MessageContextMenu({ x, y, messageId, onDeleteForMe, onDeleteForEveryone, onClose }: ContextMenuProps) {
+export function MessageContextMenu({ x, y, messageId, onDeleteForMe, onClose }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,7 +30,7 @@ export function MessageContextMenu({ x, y, messageId, onDeleteForMe, onDeleteFor
   return (
     <div
       ref={ref}
-      className="fixed z-50 w-56 rounded-xl border bg-white py-1 shadow-lg"
+      className="fixed z-50 w-52 rounded-xl border bg-white py-1 shadow-lg"
       style={{ left: x, top: y }}
     >
       <button
@@ -39,14 +38,7 @@ export function MessageContextMenu({ x, y, messageId, onDeleteForMe, onDeleteFor
         className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#111b21] hover:bg-[#f0f2f5]"
       >
         <Trash2 className="h-4 w-4 text-[#667781]" />
-        Delete for me
-      </button>
-      <button
-        onClick={() => { onDeleteForEveryone(messageId); onClose(); }}
-        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-[#f0f2f5]"
-      >
-        <Trash className="h-4 w-4" />
-        Delete for everyone
+        Delete message
       </button>
     </div>
   );

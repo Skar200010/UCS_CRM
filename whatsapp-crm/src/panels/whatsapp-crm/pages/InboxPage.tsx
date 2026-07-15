@@ -147,12 +147,6 @@ export function InboxPage() {
     if (!error) queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
   };
 
-  const handleDeleteForEveryone = async (msgId: string) => {
-    await supabase.rpc('delete_message', { p_id: msgId });
-    queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
-    toast.info('Deleted from your chat. Meta does not support recalling messages on recipients\' devices.');
-  };
-
   const handleContextMenu = (e: React.MouseEvent, msgId: string) => {
     e.preventDefault();
     setCtxMenu({ x: e.clientX, y: e.clientY, messageId: msgId });
@@ -532,7 +526,6 @@ export function InboxPage() {
         y={ctxMenu.y}
         messageId={ctxMenu.messageId}
         onDeleteForMe={handleDeleteForMe}
-        onDeleteForEveryone={handleDeleteForEveryone}
         onClose={() => setCtxMenu(null)}
       />
     )}
