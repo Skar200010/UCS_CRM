@@ -76,25 +76,7 @@ export async function sendWhatsAppMessage(
     const windowOpen = isWithin24Hours(conv?.last_inbound_at);
 
     let mediaId: string | null = null;
-    let payload: any;
-    let phone_number_id: string | undefined;
-    let access_token: string | undefined;
 
-    async function buildPayload(acct: { phone_number_id: string; access_token: string }) {
-      phone_number_id = acct.phone_number_id;
-      access_token = acct.access_token;
-      if (mediaFile) {
-        mediaId = await uploadMedia(access_token, phone_number_id, mediaFile);
-        if (!mediaId) return null;
-        const fileType = mediaFile.type.startsWith('image/') ? 'image' : mediaFile.type.startsWith('video/') ? 'video' : 'document';
-        const p: any = { messaging_product: 'whatsapp', to: contact.phone_normalized, type: fileType, [fileType]: { id: mediaId } };
-        if (messageText) p[fileType].caption = messageText;
-        return p;
-      }
-      return { messaging_product: 'whatsapp', to: contact.phone_normalized, type: 'text', text: { body: messageText || '' } };
-    }
-
-    // Try assigned account first, then fallback to any account
     const accounts: { phone_number_id: string; access_token: string }[] = [];
 
     if (userId) {
@@ -117,9 +99,29 @@ export async function sendWhatsAppMessage(
     }
 
     for (const acct of accounts) {
-      const p = await buildPayload(acct);
-      if (!p) continue;
-      if (await trySend(acct.phone_number_id, acct.access_token, p, conversationId, mediaId, mediaFile)) return true;
+      const { phone_number_id, access_token } = acct;
+      const payloads: any[] = [];
+
+      if (mediaFile) {
+        mediaId = await uploadMedia(access_token, phone_number_id, mediaFile);
+        if (mediaId) {
+          const fileType = mediaFile.type.startsWith('image/') ? 'image' : mediaFile.type.startsWith('video/') ? 'video' : 'document';
+          const p: any = { messaging_product: 'whatsapp', to: contact.phone_normalized, type: fileType, [fileType]: { id: mediaId } };
+          if (messageText) p[fileType].caption = messageText;
+          payloads.push(p);
+        }
+      } else if (!windowOpen) {
+        payloads.push(
+          { messaging_product: 'whatsapp', to: contact.phone_normalized, type: 'template', template: { name: 'hello_world', language: { code: 'en_US' } } },
+          { messaging_product: 'whatsapp', to: contact.phone_normalized, type: 'text', text: { body: messageText || '' } }
+        );
+      } else {
+        payloads.push({ messaging_product: 'whatsapp', to: contact.phone_normalized, type: 'text', text: { body: messageText || '' } });
+      }
+
+      for (const p of payloads) {
+        if (await trySend(phone_number_id, access_token, p, conversationId, mediaId, mediaFile)) return true;
+      }
     }
 
     await supabase.from('messages').update({ status: 'failed', failure_reason: 'All accounts failed' }).eq('conversation_id', conversationId).eq('status', 'queued');
