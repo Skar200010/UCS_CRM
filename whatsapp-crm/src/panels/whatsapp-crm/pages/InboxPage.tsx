@@ -214,22 +214,20 @@ export function InboxPage() {
   const { data: phoneNumbers } = useQuery<WhatsAppPhoneNumber[]>({
     queryKey: ['whatsapp-phone-numbers', user?.id],
     queryFn: async () => {
-      let accountIds: number[] | undefined;
       if (user?.role === 'agent') {
         const { data: assignments } = await supabase
           .from('agent_phone_assignments')
           .select('account_id')
           .eq('user_id', user.id);
-        if (assignments && assignments.length > 0) {
-          accountIds = assignments.map((a: any) => a.account_id);
-        }
+        if (!assignments || assignments.length === 0) return [];
+        const accountIds = assignments.map((a: any) => a.account_id);
+        const { data } = await supabase.from('whatsapp_accounts').select('*').in('id', accountIds);
+        return (data || []).map((a: any) => ({ id: a.id, phone_number_id: a.phone_number_id, display_phone_number: a.phone_number_id, label: a.name, is_primary: a.is_default, status: a.is_active ? 'active' : 'inactive', tenant_id: '', verified_name: a.name, quality_rating: '', created_at: a.created_at })) as WhatsAppPhoneNumber[];
       }
-      let query = supabase.from('whatsapp_accounts').select('*');
-      if (accountIds) query = query.in('id', accountIds);
-      query = query.order('id', { ascending: true });
-      const { data } = await query;
+      const { data } = await supabase.from('whatsapp_accounts').select('*');
       return (data || []).map((a: any) => ({ id: a.id, phone_number_id: a.phone_number_id, display_phone_number: a.phone_number_id, label: a.name, is_primary: a.is_default, status: a.is_active ? 'active' : 'inactive', tenant_id: '', verified_name: a.name, quality_rating: '', created_at: a.created_at })) as WhatsAppPhoneNumber[];
     },
+    enabled: !!user,
   });
 
   const handleStartConversation = async () => {
