@@ -35,7 +35,7 @@ export function MessageComposer({ conversationId, tenantId, contactId, userId, o
         message_category: 'service',
       });
 
-      sendWhatsAppMessage(conversationId, contactId || '', text.trim() || undefined, selectedFile);
+      sendWhatsAppMessage(conversationId, contactId || '', text.trim() || undefined, selectedFile, userId);
 
       setText('');
       setSelectedFile(null);

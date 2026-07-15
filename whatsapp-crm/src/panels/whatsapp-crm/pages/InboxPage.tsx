@@ -212,9 +212,22 @@ export function InboxPage() {
   });
 
   const { data: phoneNumbers } = useQuery<WhatsAppPhoneNumber[]>({
-    queryKey: ['whatsapp-phone-numbers'],
+    queryKey: ['whatsapp-phone-numbers', user?.id],
     queryFn: async () => {
-      const { data } = await supabase.from('whatsapp_accounts').select('*').order('is_default', { ascending: false });
+      let accountIds: number[] | undefined;
+      if (user?.role === 'agent') {
+        const { data: assignments } = await supabase
+          .from('agent_phone_assignments')
+          .select('account_id')
+          .eq('user_id', user.id);
+        if (assignments && assignments.length > 0) {
+          accountIds = assignments.map((a: any) => a.account_id);
+        }
+      }
+      let query = supabase.from('whatsapp_accounts').select('*');
+      if (accountIds) query = query.in('id', accountIds);
+      query = query.order('id', { ascending: true });
+      const { data } = await query;
       return (data || []).map((a: any) => ({ id: a.id, phone_number_id: a.phone_number_id, display_phone_number: a.phone_number_id, label: a.name, is_primary: a.is_default, status: a.is_active ? 'active' : 'inactive', tenant_id: '', verified_name: a.name, quality_rating: '', created_at: a.created_at })) as WhatsAppPhoneNumber[];
     },
   });
@@ -264,7 +277,7 @@ export function InboxPage() {
       if (convError) throw convError;
 
       if (newConvMessage.trim()) {
-        sendWhatsAppMessage(conversation.id, contactId, newConvMessage.trim());
+        sendWhatsAppMessage(conversation.id, contactId, newConvMessage.trim(), undefined, user?.id);
       }
 
       setShowNewConv(false);

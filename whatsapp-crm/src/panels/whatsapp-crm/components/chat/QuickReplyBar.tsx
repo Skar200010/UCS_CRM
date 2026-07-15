@@ -5,6 +5,7 @@ import { Loader2, QrCode, FileText, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import type { QuickReply } from 'shared';
 import { sendWhatsAppMessage } from '../../lib/whatsapp';
+import { useAuthStore } from '../../stores/authStore';
 
 interface QuickReplyBarProps {
   conversationId: string;
@@ -12,6 +13,7 @@ interface QuickReplyBarProps {
 }
 
 export function QuickReplyBar({ conversationId, onSent }: QuickReplyBarProps) {
+  const { user } = useAuthStore();
   const [sendingId, setSendingId] = useState<string | null>(null);
 
   const { data: quickReplies, isLoading } = useQuery<QuickReply[]>({
@@ -33,7 +35,7 @@ export function QuickReplyBar({ conversationId, onSent }: QuickReplyBarProps) {
     try {
       const { data: conv } = await supabase.from('conversations').select('contact_id').eq('id', conversationId).maybeSingle();
       if (conv?.contact_id) {
-        sendWhatsAppMessage(conversationId, conv.contact_id, reply.message_text || '', reply.media_url, reply.media_type);
+        sendWhatsAppMessage(conversationId, conv.contact_id, reply.message_text || '', undefined, user?.id);
       }
       onSent();
     } catch {

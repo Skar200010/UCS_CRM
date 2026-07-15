@@ -87,12 +87,7 @@ function AccountCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {account.is_default && <Badge variant="success">Default</Badge>}
-          {account.is_active ? (
-            <Badge variant="success">Active</Badge>
-          ) : (
-            <Badge variant="error">Inactive</Badge>
-          )}
+
         </div>
       </div>
 
@@ -453,16 +448,7 @@ export function PhoneNumbersPage() {
         />
       </div>
 
-      <div className="flex items-center gap-6">
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="rounded" />
-          Active
-        </label>
-        <label className="flex items-center gap-2 text-sm cursor-pointer">
-          <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} className="rounded" />
-          Default Account
-        </label>
-      </div>
+      <div className="text-xs text-muted-foreground">All added numbers are active and usable automatically.</div>
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={() => { setShowAdd(false); setEditingAccount(null); resetForm(); }}>Cancel</Button>

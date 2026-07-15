@@ -46,8 +46,7 @@ export function BatchUserImport() {
     queryFn: async () => {
       const { data } = await supabase
         .from('whatsapp_accounts')
-        .select('id, phone_number_id, name, is_active')
-        .eq('is_active', true);
+        .select('id, phone_number_id, name');
       return (data || []).map((a: any) => ({ ...a, display_phone_number: a.phone_number_id, label: a.name }));
     },
     enabled: !!user?.tenant_id,
@@ -98,6 +97,12 @@ export function BatchUserImport() {
       if (error || !data) {
         setError(error?.message || 'Failed to create agent');
       } else {
+        const userData = typeof data === 'string' ? JSON.parse(data) : data;
+        if (selectedNumbers.length > 0 && userData?.id) {
+          await supabase.from('agent_phone_assignments').insert(
+            selectedNumbers.map((accountId: string) => ({ user_id: userData.id, account_id: parseInt(accountId) || accountId }))
+          );
+        }
         setResult({ success: true, email: payload.email, password: tempPassword });
         setSelected(null);
         setManualName('');

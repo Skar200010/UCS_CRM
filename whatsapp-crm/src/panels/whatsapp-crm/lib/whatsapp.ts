@@ -8,13 +8,25 @@ function isWithin24Hours(dateStr: string | null): boolean {
   return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
 }
 
-async function getAccount(phoneNumberId?: string | null) {
-  let query = supabase
-    .from('whatsapp_accounts')
-    .select('phone_number_id, access_token')
-    .eq('is_active', true);
+async function getAccount(phoneNumberId?: string | null, userId?: string) {
+  if (userId) {
+    const { data: assignments } = await supabase
+      .from('agent_phone_assignments')
+      .select('account_id')
+      .eq('user_id', userId);
+    if (assignments && assignments.length > 0) {
+      const accountIds = assignments.map((a: any) => a.account_id);
+      const { data } = await supabase
+        .from('whatsapp_accounts')
+        .select('phone_number_id, access_token')
+        .in('id', accountIds)
+        .limit(1);
+      if (data?.[0]) return data[0];
+    }
+  }
+  let query = supabase.from('whatsapp_accounts').select('phone_number_id, access_token');
   if (phoneNumberId) query = query.eq('phone_number_id', phoneNumberId);
-  else query = query.order('is_default', { ascending: false });
+  else query = query.limit(1);
   const { data } = await query.limit(1);
   return data?.[0] || null;
 }
@@ -38,10 +50,11 @@ export async function sendWhatsAppMessage(
   contactId: string,
   messageText?: string,
   mediaFile?: File | null,
+  userId?: string,
 ): Promise<boolean> {
   try {
     const { data: conv } = await supabase.from('conversations').select('phone_number_id, last_inbound_at').eq('id', conversationId).maybeSingle();
-    const account = await getAccount(conv?.phone_number_id);
+    const account = await getAccount(conv?.phone_number_id, userId);
     if (!account) return false;
     const { phone_number_id, access_token } = account;
 
@@ -58,23 +71,29 @@ export async function sendWhatsAppMessage(
       const fileType = mediaFile.type.startsWith('image/') ? 'image' : mediaFile.type.startsWith('video/') ? 'video' : 'document';
       payload = { messaging_product: 'whatsapp', to: contact.phone_normalized, type: fileType, [fileType]: { id: mediaId } };
       if (messageText) payload[fileType].caption = messageText;
-    } else if (!windowOpen) {
-      payload = { messaging_product: 'whatsapp', to: contact.phone_normalized, type: 'template', template: { name: 'hello_world', language: { code: 'en_US' } } };
     } else {
       payload = { messaging_product: 'whatsapp', to: contact.phone_normalized, type: 'text', text: { body: messageText || '' } };
     }
 
-    const res = await fetch(`${META_API}/${phone_number_id}/messages`, {
+    let res = await fetch(`${META_API}/${phone_number_id}/messages`, {
       method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const result = await res.json();
+    let result = await res.json();
+
+    if (!res.ok && !windowOpen && !mediaFile) {
+      payload = { messaging_product: 'whatsapp', to: contact.phone_normalized, type: 'text', text: { body: messageText || '' } };
+      res = await fetch(`${META_API}/${phone_number_id}/messages`, {
+        method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      result = await res.json();
+    }
 
     if (res.ok && result.messages?.[0]?.id) {
       const updates: any = { status: 'sent', wa_message_id: result.messages[0].id, status_updated_at: new Date().toISOString() };
       if (mediaId) { updates.media_id = mediaId; updates.media_mime_type = mediaFile?.type; }
       await supabase.from('messages').update(updates).eq('conversation_id', conversationId).eq('status', 'queued');
-      if (!windowOpen && !mediaFile) toast.info('Sent via template. Ask donor to reply to open chat.');
       return true;
     }
 
