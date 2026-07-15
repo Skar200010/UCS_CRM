@@ -139,6 +139,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       const { data: { session } } = await supabase.auth.getSession();
+
       if (!session) {
         if (storedRaw) {
           try {
@@ -152,16 +153,20 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      if (storedRaw) {
+      const dbUser = await fetchDbUser(session.user.id);
+
+      if (storedRaw && dbUser) {
         try {
           const parsed = JSON.parse(storedRaw) as User;
-          set({ user: parsed, isAuthenticated: true, isLoading: false });
-          loadMetaCredentials();
-          return;
+          const dbRole = (['admin', 'agent', 'viewer'].includes(dbUser.role) ? dbUser.role : 'agent') as User['role'];
+          if (parsed.role === dbRole && parsed.id === dbUser.id) {
+            set({ user: parsed, isAuthenticated: true, isLoading: false });
+            loadMetaCredentials();
+            return;
+          }
         } catch {}
       }
 
-      const dbUser = await fetchDbUser(session.user.id);
       if (dbUser) {
         const mappedUser: User = {
           id: dbUser.id,
@@ -176,6 +181,15 @@ export const useAuthStore = create<AuthState>((set) => ({
         localStorage.setItem('ucs_user', JSON.stringify(mappedUser));
         set({ user: mappedUser, isAuthenticated: true, isLoading: false });
         return;
+      }
+
+      if (storedRaw) {
+        try {
+          const parsed = JSON.parse(storedRaw) as User;
+          set({ user: parsed, isAuthenticated: true, isLoading: false });
+          loadMetaCredentials();
+          return;
+        } catch {}
       }
 
       set({ user: null, isAuthenticated: false, isLoading: false });
