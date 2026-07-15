@@ -471,8 +471,8 @@ export function InboxPage() {
               ) : (
                 <div className="space-y-1">
                   {messages?.map((message) => (
-                    <div key={message.id} className={`flex ${message.direction === 'outbound' ? 'justify-end' : 'justify-start'}`} onContextMenu={(e) => handleContextMenu(e, message.id)}>
-                      <div className={`relative max-w-[60%] px-3 py-2 text-[14.2px] shadow-sm leading-[19px] ${
+                    <div key={message.id} className={`flex ${message.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                      <div onContextMenu={(e) => handleContextMenu(e, message.id)} className={`relative max-w-[60%] px-3 py-2 text-[14.2px] shadow-sm leading-[19px] ${
                         message.direction === 'outbound'
                           ? 'bg-[#d9fdd3] rounded-lg rounded-br-sm'
                           : 'bg-white rounded-lg rounded-bl-sm'
