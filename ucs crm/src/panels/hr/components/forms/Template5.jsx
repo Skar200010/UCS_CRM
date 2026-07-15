@@ -1,105 +1,78 @@
-export default function Template6() {
+export default function Template5({ personal }) {
   return (
     <div className="print-page">
       <style>{`
-        .t6 *{box-sizing:border-box}
-        .t6{width:210mm;min-height:297mm;margin:auto;background:#fff;border:8px double #000;position:relative;padding:14px 22px 46px 22px;font-family:"Times New Roman",serif;page-break-after:always;display:flex;flex-direction:column}
-        .t6 .inner{border:1px solid #222;padding:8px 18px 120px 18px;min-height:279mm}
-        .t6 h1{margin:0;text-align:center;font-size:30px;font-weight:700}
-        .t6 .sub{text-align:center;font-size:12px;margin-top:6px}
-        .t6 .red{height:3px;background:#7f2d2d;margin:8px 8px 6px}
-        .t6 p{margin:4px 0;font-size:13px;line-height:1.32;text-align:justify}
-        .t6 .b{font-weight:bold}
-        .t6 .blue{font-size:22px;color:#29446f;text-align:center;font-weight:bold;margin:18px 0 10px}
-        .t6 .row{font-size:13px;margin:2px 0}
-        .t6 .line{display:inline-block;border-bottom:1px solid #000;min-width:120px;height:16px;vertical-align:bottom}
-        .t6 .long{min-width:230px}
-        .t6 .med{min-width:180px}
-        .t6 .small{min-width:80px}
-        .t6 .sigwrap{display:flex;justify-content:space-between;margin-top:45px}
-        .t6 .sig{width:260px}
-        .t6 .sig .l{border-bottom:1px solid #000;height:24px}
-        .t6 .sig div:last-child{text-align:left;font-size:12px;margin-top:4px}
-        .t6 .footer{margin-top:auto;border-top:2px solid #8b3434;padding-top:6px;text-align:center;font-size:11px;color:#333}
+        @page{size:A4 portrait;margin:0}
+        .t5 *{box-sizing:border-box;font-family:'Times New Roman',Times,serif}
+        .t5{width:210mm;height:297mm !important;margin:0 auto;background:#fff;border:3px solid #000;box-shadow:inset 0 0 0 5px #fff,inset 0 0 0 7px #000;padding:2mm 8mm 4mm 8mm;position:relative;overflow:hidden !important;display:flex;flex-direction:column}
+        .t5 h1{margin:0;text-align:center;font-size:26px;font-family:'Times New Roman',Times,serif;font-weight:bold;line-height:1.15}
+        .t5 .sub{text-align:center;font-size:9.5px;margin:0 0 0.5mm 0;line-height:1.15;letter-spacing:0.3px}
+        .t5 .redline{border-top:2px solid #7a2020;margin:0.8mm auto;width:100%}
+        .t5 p{font-size:10pt;line-height:1.3;text-align:justify;margin:2px 0}
+        .t5 .section{color:#7a2020;font-weight:bold;font-size:11pt;margin:4px 0 2px 0}
+        .t5 table{width:100%;border-collapse:collapse;margin:2px 0;page-break-inside:avoid}
+        .t5 th,.t5 td{border:1px solid #000;padding:3px 4px;font-size:9.5pt;vertical-align:top;text-align:left}
+        .t5 th{background:#d9d9d9;text-align:left}
+        .t5 .sign{display:flex;justify-content:space-between;gap:8px;margin:3px 0}
+        .t5 .sign .field{flex:1}
+        .t5 .sign .field:first-child{margin-right:6px}
+        .t5 .sign .field:last-child{margin-left:6px}
+        .t5 .line{border-bottom:1px solid #000;height:14px;padding-left:4px}
+        .t5 .consent{text-align:center;font-size:11px;font-weight:bold;color:#1f3f73;margin:4px 0 2px 0}
+        .t5 .row{display:flex;align-items:center;margin:1.5px 0;font-size:9.5pt}
+        .t5 .row .label{font-weight:bold;white-space:nowrap;margin-right:4px}
+        .t5 .row .line{flex:1;border-bottom:1px solid #000;min-height:12px;padding-left:4px}
+        .t5 .footer{border-top:2px solid #7b2020;margin-top:auto;padding-top:3px;text-align:center;font-size:9pt;line-height:1.35}
+        .t5 .footer-sep{display:none}
       `}</style>
-      <div className="t6">
-        <div className="inner">
-          <h1>Being Sevak Charitable Trust</h1>
-          <div className="red"></div>
-          <div className="sub">Public Charitable Trust (Reg.) E-31948 No, Income Tax Exempted Under 80G</div>
+      <div className="t5">
+        <h1>Being Sevak Charitable Trust</h1>
+        <div className="redline"></div>
+        <div className="sub">Public Charitable Trust (Reg.) E-31948 No, Income Tax Exempted Under 80G</div>
 
-          <p><span className="b">4. Withdrawal of Consent:</span> I may withdraw this consent by written request; withdrawal applies only to future publications where reasonably practicable and does not affect materials already published or archived.</p>
+        <p>You shall abide by the Trust rules and HR policies as presented in the HR Rule Copy, and by all general or administrative rules, regulations and directives of the Trust made from time to time, so long as they are not inconsistent with this agreement. For any work-related matter, issue or communication, the volunteer must contact the concerned authority directly. <strong>Dress Code:</strong> Monday to Friday [Formals]; Saturday [Casuals].</p>
 
-          <p><span className="b">5. Declaration:</span> I am signing voluntarily without pressure or coercion, have read and understood this form, and agree to all its terms. It is governed by the laws of India, with exclusive jurisdiction of the competent courts at Mumbai, Maharashtra.</p>
+        <div className="section">Holiday &amp; Leave Policy (Clubbing Rule)</div>
+        <p>No leave is permitted during the probation period. Taking leave may affect increment and job continuity. Weekly off is Sunday only, subject to change. Outdoor duty and leave both require approval from the HOD. Leave should normally be applied at least three days in advance and half-day leave at least one day in advance.</p>
+        <p><strong>If leave is taken on Saturday, Monday or the day after a Public Holiday, the Sunday weekly off will be deducted from salary. If a volunteer is absent for more than six days in a month, all Sundays of that month will be deducted from salary.</strong></p>
 
-          <div className="row">Full Name: <span className="line med"></span>
-          &nbsp;&nbsp; Mobile: <span className="line"></span>
-          &nbsp;&nbsp; Email: <span className="line med"></span></div>
+        <div className="section">Exit Formation &amp; Separation Policy</div>
+        <p>A resigning volunteer must complete the separation clearance process and hand over all assigned duties. Full &amp; Final settlement is processed in the next salary cycle. A volunteer becomes eligible for an Experience Letter after completing one year.</p>
 
-          <div className="row">Residential Address:
-          <span className="line long" style={{minWidth: 540}}></span></div>
+        <table>
+          <tr><th width="28%">Policy</th><th>Description</th></tr>
+          <tr><td><b>Voluntary Resignation</b></td><td>Notice Period: One month during probation and 45 days after confirmation. Leaving without completing the notice period makes the volunteer ineligible for salary.</td></tr>
+          <tr><td><b>Abandonment of Service</b></td><td>Absence from work for seven consecutive days without information will be treated as absconding and salary may be forfeited.</td></tr>
+          <tr><td><b>Termination of Service</b></td><td>Termination may result from non-performance or violation of the Trust Code of Conduct.</td></tr>
+        </table>
 
-          <div className="row">
-          Signature of Volunteer:
-          <span className="line"></span>
-          &nbsp; Date:
-          <span className="line small"></span>/<span className="line small"></span>/<span className="line small"></span>
-          &nbsp; Place:
-          <span className="line"></span>
-          </div>
+        <div className="section">Incentive</div>
+        <p>Performance Linked Incentive (PLI), where applicable, shall be paid according to performance and HOD approval.</p>
 
-          <div className="row"><span className="b">For Minors (below 18 years):</span>
-          I, <span className="line"></span>, parent/legal guardian of the above volunteer, consent on the minor&apos;s behalf.
-          Signature: <span className="line"></span>
-          Relationship: <span className="line small"></span>
-          </div>
+        <div className="section">Legal Indemnification</div>
+        <p>The volunteer agrees to maintain confidentiality and indemnify the Trust from damages, claims or disputes arising from any violation of confidentiality or contractual obligations. Signing below confirms that the volunteer has read, understood and accepted all terms.</p>
+        <p>Yours sincerely,<br /><b>For Being Sevak Charitable Trust – HOD</b></p>
+        <p>I accept all the terms and conditions as mentioned in this letter.</p>
 
-          <div className="row">
-          <span className="b">For Being Sevak Charitable Trust (Authorized Signatory)</span>
-          &nbsp;—&nbsp; Name:
-          <span className="line"></span>
-          Designation:
-          <span className="line"></span>
-          </div>
-
-          <div className="blue">DATA RULES &amp; GUIDELINES</div>
-
-          <p><span className="b">Data Ownership &amp; Usage:</span> Data assigned to a volunteer remains strictly under that volunteer&apos;s responsibility. If the volunteer is absent, the HOD may temporarily reassign the data to another volunteer, who may use it for calling and lead generation with one-day follow-up authority; leads generated in this period are credited to the acting volunteer. Working on another volunteer&apos;s data without authorization is not allowed. <span className="b">Follow-Ups During Leave:</span> a maximum of 3 follow-ups by another volunteer is allowed on the assigned data. <span className="b">Lead Clash Policy:</span> a conflicting lead is assigned to the volunteer who originally owns the data; the Admin Department has final authority to decide such cases. <span className="b">Queries &amp; Issues:</span> contact the Operational Manager.</p>
-
-          <div className="blue">VOLUNTEER CONFIDENTIALITY / NON-DISCLOSURE AGREEMENT</div>
-
-          <p>This agreement is made between Being Sevak Charitable Trust and the Volunteer on <span className="line med"></span>. While performing services for the Trust, the Volunteer may receive Confidential Information concerning matters affecting or relating to the Trust. The Volunteer agrees as follows:</p>
-
-          <p><span className="b">A.</span> Confidential Information and Proprietary Data are secrets of the Trust and its exclusive property. The Volunteer shall keep them confidential, take reasonable steps to protect them and not disclose or use them for personal benefit or the benefit of others during or after association with the Trust.</p>
-
-          <p><span className="b">B.</span> Notes, notebooks, computer disks, pen drives, documents, equipment and devices containing such information are the property of the Trust and must not be removed from Trust premises. They shall be returned immediately upon termination.</p>
-
-          <p><span className="b">C.</span> The Volunteer shall not reproduce or commercially use Confidential Information for any purpose other than performing duties for the Trust.</p>
-
-          <p><span className="b">D.</span> The Trust may take disciplinary action, including termination, and pursue civil or criminal remedies for violations. This agreement is governed by the laws of Maharashtra (Mumbai).</p>
-
-          <p><span className="b">E.</span> On resignation, the Volunteer shall surrender all office assets, official WhatsApp, email ID, contact number and other Trust-related items. Failure to comply may result in legal action.</p>
-
-          <p><span className="b">F.</span> All provisions apply only to the extent they do not violate applicable law. The Volunteer warrants that no conflicting obligation exists.</p>
-
-          <p>Signing below signifies that the Volunteer agrees to the terms and conditions stated above.</p>
-
-          <div className="sigwrap">
-            <div className="sig">
-              <div className="l"></div>
-              <div>Volunteer Name &amp; Signature</div>
-            </div>
-
-            <div className="sig">
-              <div className="l"></div>
-              <div>For Being Sevak Charitable Trust (Authorized Signatory)</div>
-            </div>
-          </div>
+        <div className="sign">
+          <div className="field">Volunteer Name <div className="line">{personal.fullName || ''}</div></div>
+          <div className="field">Signature <div className="line"></div></div>
+        </div>
+        <div className="sign">
+          <div className="field">Manager Name / HOD <div className="line"></div></div>
+          <div className="field">Signature <div className="line"></div></div>
         </div>
 
+        <div className="consent">VOLUNTEER PHOTO, VIDEO, NAME &amp; PUBLICITY CONSENT AND RELEASE FORM</div>
+        <p>I, <b>{personal.fullName || '________________________'}</b> son/daughter/spouse of <b>{personal.fatherHusband || '________________________'}</b> residing at <b>{personal.address || '________________________'}</b> hereby voluntarily grant my free, informed and unconditional consent to Being Sevak Charitable Trust to photograph, film, record and otherwise capture my image, likeness, voice and statements during my association with the Trust.</p>
+
+        <p><b>1. Grant of Permission &amp; Permitted Use</b><br />The Trust may use, reproduce, publish, distribute, edit, display and archive photographs, videos, recordings, testimonials and statements for educational, awareness, fundraising, promotional, branding, documentation and reporting purposes.</p>
+        <p><b>2. No Objection &amp; No Financial Claim</b><br />I shall not claim any royalty, fee, compensation or financial benefit for such use.</p>
+        <p><b>3. Editing Rights &amp; Intellectual Property</b><br />The Trust may crop, edit, enhance or translate the material without intentionally misrepresenting my identity. All material remains the exclusive property of Being Sevak Charitable Trust.</p>
+
         <div className="footer">
-          Reg. Add.: Office No. 402, 4th Floor, &apos;A&apos; Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai.<br />
-          Contact Sevak: 8879035035 / 8879034034 &nbsp;|&nbsp; E-Mail: being.sevak@gmail.com &nbsp;|&nbsp; Website: www.beingsevak.org
+          Reg. Add.: Office No. 402, 4th Floor, 'A' Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai.<br />
+          Contact: 8879035035 / 8879034034 | E-mail: being.sevak@gmail.com | Website: www.beingsevak.org
         </div>
       </div>
     </div>
