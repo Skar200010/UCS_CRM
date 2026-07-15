@@ -3,22 +3,22 @@ export default function Template1({ personal, education }) {
     <div className="print-page">
       <style>{`
         .t1 *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
-        .t1{width:210mm;min-height:297mm;margin:auto;background:#fff;border:8px double #000;padding:18px;page-break-after:always;display:flex;flex-direction:column}
-        .t1 h1{text-align:center;font-size:36px;font-family:Georgia,serif;margin-bottom:0}
-        .t1 .subtitle{text-align:center;font-size:11px;margin-bottom:4px}
-        .t1 .top-line{border-top:3px solid #7d1e1e;margin:4px 0}
-        .t1 .form-title{text-align:center;font-size:26px;font-weight:bold;text-decoration:underline;margin-bottom:20px}
+        .t1{width:210mm;height:297mm;margin:auto;background:#fff;border:8px double #000;padding:12px 14px;overflow:hidden;display:flex;flex-direction:column}
+        .t1 h1{text-align:center;font-size:34px;font-family:Georgia,serif;margin-bottom:0}
+        .t1 .subtitle{text-align:center;font-size:10px;margin-bottom:2px}
+        .t1 .top-line{border-top:3px solid #7d1e1e;margin:3px 0}
+        .t1 .form-title{text-align:center;font-size:24px;font-weight:bold;text-decoration:underline;margin-bottom:12px}
         .t1 table{width:100%;border-collapse:collapse}
-        .t1 td,.t1 th{border:1px solid #666;padding:10px;vertical-align:top}
-        .t1 .section{background:#d8d8d8;font-weight:bold;font-size:20px}
+        .t1 td,.t1 th{border:1px solid #666;padding:7px 8px;vertical-align:top}
+        .t1 .section{background:#d8d8d8;font-weight:bold;font-size:18px}
         .t1 .label{font-weight:bold;width:25%;white-space:nowrap}
-        .t1 .photo{width:180px;text-align:center;vertical-align:middle;font-weight:bold;font-size:26px;min-height:200px;height:200px;box-sizing:border-box}
-        .t1 .blank{height:30px}
-        .t1 .address{height:50px}
+        .t1 .photo{width:160px;text-align:center;vertical-align:middle;font-weight:bold;font-size:24px;min-height:160px;height:160px;box-sizing:border-box}
+        .t1 .blank{height:24px}
+        .t1 .address{height:40px}
         .t1 .edu th{text-align:center}
-        .t1 .edu td{height:55px}
+        .t1 .edu td{height:45px}
         .t1 .edu{border-bottom:1px solid #666}
-        .t1 .footer{border-top:2px solid #7b2020;margin-top:auto;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
+        .t1 .footer{border-top:2px solid #7b2020;margin-top:auto;padding-top:3px;text-align:center;font-size:8pt;line-height:1.3}
       `}</style>
       <div className="t1">
         <div className="header">

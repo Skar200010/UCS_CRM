@@ -3,14 +3,14 @@ export default function Template2() {
     <div className="print-page">
       <style>{`
         .t2 *{box-sizing:border-box}
-        .t2{width:210mm;height:297mm;margin:auto;background:#fff;border:8px double #000;padding:10mm 12mm;font-family:"Times New Roman",serif;overflow:hidden;display:flex;flex-direction:column}
-        .t2 h1{text-align:center;margin:0 0 2px;font-size:24pt}
-        .t2 .sub{text-align:center;font-size:10pt;margin:0 0 5px}
-        .t2 .red{height:2px;background:#7b2020;margin:3px 0 8px}
-        .t2 .sec{color:#7b2020;font-weight:bold;font-size:12pt;margin-top:9px}
-        .t2 .title{text-align:center;color:#1f3f73;font-size:15pt;font-weight:bold;margin:12px 0}
-        .t2 p{font-size:10pt;line-height:1.45;text-align:justify;margin:3px 0}
-        .t2 .footer{border-top:2px solid #7b2020;margin-top:auto;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
+        .t2{width:210mm;height:297mm;margin:auto;background:#fff;border:8px double #000;padding:8mm 12mm;font-family:"Times New Roman",serif;overflow:hidden;display:flex;flex-direction:column}
+        .t2 h1{text-align:center;margin:0 0 1px;font-size:24pt}
+        .t2 .sub{text-align:center;font-size:10pt;margin:0 0 3px}
+        .t2 .red{height:2px;background:#7b2020;margin:2px 0 6px}
+        .t2 .sec{color:#7b2020;font-weight:bold;font-size:12pt;margin-top:7px}
+        .t2 .title{text-align:center;color:#1f3f73;font-size:15pt;font-weight:bold;margin:8px 0}
+        .t2 p{font-size:10pt;line-height:1.4;text-align:justify;margin:2px 0}
+        .t2 .footer{border-top:2px solid #7b2020;margin-top:auto;padding-top:3px;text-align:center;font-size:9pt;line-height:1.3}
       `}</style>
       <div className="t2">
         <h1>Being Sevak Charitable Trust</h1>

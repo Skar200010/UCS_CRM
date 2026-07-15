@@ -3,24 +3,24 @@ export default function Template6() {
     <div className="print-page">
       <style>{`
         .t6 *{box-sizing:border-box}
-        .t6{width:210mm;min-height:297mm;margin:auto;background:#fff;border:8px double #000;position:relative;padding:14px 22px 46px 22px;font-family:"Times New Roman",serif;page-break-after:always;display:flex;flex-direction:column}
-        .t6 .inner{border:1px solid #222;padding:8px 18px 120px 18px;min-height:279mm}
-        .t6 h1{margin:0;text-align:center;font-size:30px;font-weight:700}
-        .t6 .sub{text-align:center;font-size:12px;margin-top:6px}
-        .t6 .red{height:3px;background:#7f2d2d;margin:8px 8px 6px}
-        .t6 p{margin:4px 0;font-size:13px;line-height:1.32;text-align:justify}
+        .t6{width:210mm;height:297mm;margin:auto;background:#fff;border:8px double #000;position:relative;padding:10px 18px 12px 18px;overflow:hidden;font-family:"Times New Roman",serif;display:flex;flex-direction:column}
+        .t6 .inner{border:1px solid #222;padding:6px 16px 10px 16px;flex:1;display:flex;flex-direction:column}
+        .t6 h1{margin:0;text-align:center;font-size:28px;font-weight:700}
+        .t6 .sub{text-align:center;font-size:11px;margin-top:4px}
+        .t6 .red{height:3px;background:#7f2d2d;margin:5px 8px 4px}
+        .t6 p{margin:2px 0;font-size:12px;line-height:1.3;text-align:justify}
         .t6 .b{font-weight:bold}
-        .t6 .blue{font-size:22px;color:#29446f;text-align:center;font-weight:bold;margin:18px 0 10px}
-        .t6 .row{font-size:13px;margin:2px 0}
-        .t6 .line{display:inline-block;border-bottom:1px solid #000;min-width:120px;height:16px;vertical-align:bottom}
+        .t6 .blue{font-size:20px;color:#29446f;text-align:center;font-weight:bold;margin:10px 0 6px}
+        .t6 .row{font-size:12px;margin:1.5px 0}
+        .t6 .line{display:inline-block;border-bottom:1px solid #000;min-width:120px;height:15px;vertical-align:bottom}
         .t6 .long{min-width:230px}
         .t6 .med{min-width:180px}
         .t6 .small{min-width:80px}
-        .t6 .sigwrap{display:flex;justify-content:space-between;margin-top:45px}
+        .t6 .sigwrap{display:flex;justify-content:space-between;margin-top:20px}
         .t6 .sig{width:260px}
-        .t6 .sig .l{border-bottom:1px solid #000;height:24px}
-        .t6 .sig div:last-child{text-align:left;font-size:12px;margin-top:4px}
-        .t6 .footer{margin-top:auto;border-top:2px solid #8b3434;padding-top:6px;text-align:center;font-size:11px;color:#333}
+        .t6 .sig .l{border-bottom:1px solid #000;height:22px}
+        .t6 .sig div:last-child{text-align:left;font-size:11px;margin-top:3px}
+        .t6 .footer{margin-top:auto;border-top:2px solid #8b3434;padding-top:4px;text-align:center;font-size:10px;color:#333}
       `}</style>
       <div className="t6">
         <div className="inner">
