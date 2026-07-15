@@ -39,16 +39,25 @@ export function Header() {
   const [phoneNumber, setPhoneNumber] = useState<PhoneNumber | null>(null);
 
   useEffect(() => {
-    supabase
-      .from('whatsapp_accounts')
-      .select('name, phone_number_id, is_default')
-      .order('is_default', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data) setPhoneNumber(data);
-      })
-      .catch(() => {});
+    (async () => {
+      const { data: acct } = await supabase
+        .from('whatsapp_accounts')
+        .select('phone_number_id, access_token')
+        .eq('is_active', true)
+        .order('is_default', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!acct) return;
+      try {
+        const r = await fetch(`https://graph.facebook.com/v23.0/${acct.phone_number_id}?fields=display_phone_number,quality_rating,verified_name,code_verification_status`, {
+          headers: { Authorization: `Bearer ${acct.access_token}` },
+        });
+        const data = await r.json();
+        if (data.display_phone_number) {
+          setPhoneNumber({ status: data.code_verification_status || 'verified', display_phone_number: data.display_phone_number, quality_rating: data.quality_rating });
+        }
+      } catch {}
+    })();
   }, []);
 
   const config = phoneNumber ? statusConfig[phoneNumber.status] : null;
