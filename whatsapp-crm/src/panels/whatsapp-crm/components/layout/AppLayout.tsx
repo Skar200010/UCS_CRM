@@ -10,7 +10,7 @@ export function AppLayout() {
   if (isAgent) {
     return (
       <div className="flex h-screen overflow-hidden">
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-y-auto scrollbar-thin">
           <Outlet />
         </main>
       </div>
@@ -22,7 +22,7 @@ export function AppLayout() {
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-y-auto scrollbar-thin">
           <Outlet />
         </main>
       </div>

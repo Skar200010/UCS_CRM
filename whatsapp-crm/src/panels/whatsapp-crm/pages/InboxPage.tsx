@@ -256,7 +256,7 @@ export function InboxPage() {
       const { data: conversation, error: convError } = await supabase.from('conversations').insert({
         tenant_id: user?.tenant_id,
         contact_id: contactId,
-        phone_number_id: pn.id,
+        phone_number_id: pn.phone_number_id,
         status: 'open',
         source: 'manual',
         last_message_at: new Date().toISOString(),

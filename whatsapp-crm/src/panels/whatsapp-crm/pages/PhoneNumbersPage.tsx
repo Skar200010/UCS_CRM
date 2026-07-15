@@ -250,7 +250,7 @@ export function PhoneNumbersPage() {
     setLoadingLiveMap((prev) => ({ ...prev, [account.id]: true }));
     try {
       const res = await fetch(
-        `https://graph.facebook.com/v23.0/${account.phone_number_id}?fields=verified_name,display_phone_number,quality_rating,status,throughput.level&access_token=${account.access_token}`
+        `https://graph.facebook.com/v23.0/${account.phone_number_id}?fields=verified_name,display_phone_number,quality_rating,status,throughput{level}&access_token=${account.access_token}`
       );
       const result = await res.json();
       if (!res.ok) throw new Error(result.error?.message || 'Failed to fetch');
@@ -295,8 +295,8 @@ export function PhoneNumbersPage() {
   };
 
   const handleAdd = async () => {
-    if (!form.name || !form.project || !form.phone_number_id || !form.access_token || !form.waba_id) {
-      toast.error('Name, project, phone number ID, WABA ID, and access token are required');
+    if (!form.name || !form.project || !form.phone_number_id || !form.access_token) {
+      toast.error('Name, project, phone number ID, and access token are required');
       return;
     }
     try {
@@ -437,7 +437,7 @@ export function PhoneNumbersPage() {
           <Input value={form.phone_number_id} onChange={(e) => setForm({ ...form, phone_number_id: e.target.value })} placeholder="1136059359599752" className="font-mono text-sm" />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">WABA ID *</Label>
+          <Label className="text-xs">WABA ID (optional)</Label>
           <Input value={form.waba_id} onChange={(e) => setForm({ ...form, waba_id: e.target.value })} placeholder="1577122394424280" className="font-mono text-sm" />
         </div>
       </div>
