@@ -62,7 +62,7 @@ export default function Template6() {
           <span className="line"></span>
           </div>
 
-          <div className="blue">VOLUNTEER CONFIDENTIALITY / NON-DISCLOSURE AGREEMENT</div>
+          <div className="blue" style={{marginTop: 20}}>VOLUNTEER CONFIDENTIALITY / NON-DISCLOSURE AGREEMENT</div>
 
           <p>This agreement is made between Being Sevak Charitable Trust and the Volunteer on <span className="line med"></span>. While volunteering with the Trust, the Volunteer may receive Confidential Information concerning matters affecting or relating to the Trust. The Volunteer agrees as follows:</p>
 
