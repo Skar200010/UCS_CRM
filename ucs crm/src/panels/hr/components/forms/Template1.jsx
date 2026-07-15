@@ -111,6 +111,19 @@ export default function Template1({ personal, education }) {
             <td></td>
           </tr>
         </table>
+        <table>
+          <tr><td colSpan="5" className="section">FAMILY DETAILS</td></tr>
+          <tr><th width="8%">S.No</th><th>Name</th><th>Relation</th><th>Occupation</th><th>Date of Birth</th></tr>
+          {[...Array(3)].map((_, i) => (
+            <tr key={i}>
+              <td>{i + 1}</td>
+              <td style={{height:35}}></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+          ))}
+        </table>
         <div className="footer">
           Reg. Add.: Office No. 402, 4th Floor, 'A' Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai.<br />
           Contact: 8879035035 / 8879034034 | E-mail: being.sevak@gmail.com | Website: www.beingsevak.org
