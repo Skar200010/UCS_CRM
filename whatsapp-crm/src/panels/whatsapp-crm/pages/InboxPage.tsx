@@ -294,7 +294,7 @@ export function InboxPage() {
   const avatarLetter = (name?: string) => (name?.[0] || '?').toUpperCase();
 
   return (<>
-    <div className="flex h-screen w-full">
+    <div className={`flex w-full ${isAgent ? 'h-screen' : 'h-full'}`}>
       {/* Conversation List */}
       <div className="w-80 max-md:w-16 border-r border-gray-200 bg-white flex-shrink-0 flex flex-col">
         <div className="bg-[#f0f2f5] px-4 py-3.5 flex items-center justify-between">
