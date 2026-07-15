@@ -3,7 +3,7 @@ export default function Template3({ personal, declarationDate, place }) {
     <div className="print-page">
       <style>{`
         .t3 *{box-sizing:border-box}
-        .t3{width:210mm;min-height:297mm;height:auto !important;margin:auto;background:#fff;border:8px double #000;padding:10mm 12mm;font-family:"Times New Roman",serif;page-break-after:always}
+        .t3{width:210mm;min-height:297mm;height:auto !important;margin:auto;background:#fff;border:8px double #000;padding:10mm 12mm;font-family:"Times New Roman",serif;page-break-after:always;display:flex;flex-direction:column}
         .t3 h1{text-align:center;margin:0 0 2px;font-size:22pt}
         .t3 .sub{text-align:center;font-size:9pt;margin:0 0 4px}
         .t3 .red{height:2px;background:#7b2020;margin:2px 0 6px}
@@ -12,7 +12,7 @@ export default function Template3({ personal, declarationDate, place }) {
         .t3 p{font-size:9pt;line-height:1.3;text-align:justify;margin:2px 0}
         .t3 .row{display:flex;justify-content:space-between;margin:6px 0}
         .t3 .line{display:inline-block;border-bottom:1px solid #000;min-width:120px;height:14px;padding-left:4px}
-        .t3 .footer{border-top:2px solid #7b2020;margin-top:6px;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
+        .t3 .footer{border-top:2px solid #7b2020;margin-top:auto;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
       `}</style>
       <div className="t3">
         <h1>Being Sevak Charitable Trust</h1>

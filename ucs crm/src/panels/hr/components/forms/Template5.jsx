@@ -4,7 +4,7 @@ export default function Template5({ personal }) {
       <style>{`
         @page{size:A4 portrait;margin:0}
         .t5 *{box-sizing:border-box;font-family:'Times New Roman',Times,serif}
-        .t5{width:210mm;height:297mm !important;margin:0 auto;background:#fff;border:3px solid #000;box-shadow:inset 0 0 0 5px #fff,inset 0 0 0 7px #000;padding:2mm 8mm 4mm 8mm;position:relative;overflow:hidden !important}
+        .t5{width:210mm;height:297mm !important;margin:0 auto;background:#fff;border:3px solid #000;box-shadow:inset 0 0 0 5px #fff,inset 0 0 0 7px #000;padding:2mm 8mm 4mm 8mm;position:relative;overflow:hidden !important;display:flex;flex-direction:column}
         .t5 h1{margin:0;text-align:center;font-size:26px;font-family:'Times New Roman',Times,serif;font-weight:bold;line-height:1.15}
         .t5 .sub{text-align:center;font-size:9.5px;margin:0 0 0.5mm 0;line-height:1.15;letter-spacing:0.3px}
         .t5 .redline{border-top:2px solid #7a2020;margin:0.8mm auto;width:100%}
@@ -22,7 +22,7 @@ export default function Template5({ personal }) {
         .t5 .row{display:flex;align-items:center;margin:1.5px 0;font-size:9.5pt}
         .t5 .row .label{font-weight:bold;white-space:nowrap;margin-right:4px}
         .t5 .row .line{flex:1;border-bottom:1px solid #000;min-height:12px;padding-left:4px}
-        .t5 .footer{border-top:2px solid #7b2020;margin-top:4px;padding-top:3px;text-align:center;font-size:9pt;line-height:1.35}
+        .t5 .footer{border-top:2px solid #7b2020;margin-top:auto;padding-top:3px;text-align:center;font-size:9pt;line-height:1.35}
         .t5 .footer-sep{display:none}
       `}</style>
       <div className="t5">

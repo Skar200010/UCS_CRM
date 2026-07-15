@@ -3,13 +3,13 @@ export default function Template4({ personal }) {
     <div className="print-page">
       <style>{`
         .t4 *{box-sizing:border-box}
-        .t4{width:210mm;min-height:297mm;height:auto !important;margin:auto;background:#fff;border:8px double #000;padding:10mm 12mm;font-family:"Times New Roman",serif;page-break-after:always}
+        .t4{width:210mm;min-height:297mm;height:auto !important;margin:auto;background:#fff;border:8px double #000;padding:10mm 12mm;font-family:"Times New Roman",serif;page-break-after:always;display:flex;flex-direction:column}
         .t4 h1{text-align:center;margin:0 0 2px;font-size:22pt}
         .t4 .sub{text-align:center;font-size:9pt;margin:0 0 4px}
         .t4 .red{height:2px;background:#7b2020;margin:2px 0 6px}
         .t4 .sec{color:#7b2020;font-weight:bold;font-size:11pt;margin-top:7px}
         .t4 p{font-size:9pt;line-height:1.3;text-align:justify;margin:2px 0}
-        .t4 .footer{border-top:2px solid #7b2020;margin-top:6px;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
+        .t4 .footer{border-top:2px solid #7b2020;margin-top:auto;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
       `}</style>
       <div className="t4">
         <h1>Being Sevak Charitable Trust</h1>

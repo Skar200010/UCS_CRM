@@ -3,7 +3,7 @@ export default function Template6() {
     <div className="print-page">
       <style>{`
         .t6 *{box-sizing:border-box}
-        .t6{width:210mm;min-height:297mm;margin:auto;background:#fff;border:8px double #000;position:relative;padding:14px 22px 46px 22px;font-family:"Times New Roman",serif;page-break-after:always}
+        .t6{width:210mm;min-height:297mm;margin:auto;background:#fff;border:8px double #000;position:relative;padding:14px 22px 46px 22px;font-family:"Times New Roman",serif;page-break-after:always;display:flex;flex-direction:column}
         .t6 .inner{border:1px solid #222;padding:8px 18px 120px 18px;min-height:279mm}
         .t6 h1{margin:0;text-align:center;font-size:30px;font-weight:700}
         .t6 .sub{text-align:center;font-size:12px;margin-top:6px}
@@ -20,7 +20,7 @@ export default function Template6() {
         .t6 .sig{width:260px}
         .t6 .sig .l{border-bottom:1px solid #000;height:24px}
         .t6 .sig div:last-child{text-align:left;font-size:12px;margin-top:4px}
-        .t6 .footer{position:absolute;left:28px;right:28px;bottom:12px;border-top:2px solid #8b3434;padding-top:6px;text-align:center;font-size:11px;color:#333}
+        .t6 .footer{margin-top:auto;border-top:2px solid #8b3434;padding-top:6px;text-align:center;font-size:11px;color:#333}
       `}</style>
       <div className="t6">
         <div className="inner">
