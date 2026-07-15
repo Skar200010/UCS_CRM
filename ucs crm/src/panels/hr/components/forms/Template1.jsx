@@ -9,7 +9,7 @@ export default function Template1({ personal, education }) {
         .t1 .top-line{border-top:3px solid #7d1e1e;margin:3px 0}
         .t1 .form-title{text-align:center;font-size:24px;font-weight:bold;text-decoration:underline;margin-bottom:12px}
         .t1 table{width:100%;border-collapse:collapse}
-        .t1 td,.t1 th{border:1px solid #666;padding:10px 8px;vertical-align:top}
+        .t1 td,.t1 th{border:1px solid #666;padding:12px 8px;vertical-align:top}
         .t1 .section{background:#d8d8d8;font-weight:bold;font-size:18px}
         .t1 .label{font-weight:bold;width:25%;white-space:nowrap}
         .t1 .photo{width:160px;text-align:center;vertical-align:middle;font-weight:bold;font-size:24px;min-height:160px;height:160px;box-sizing:border-box}
