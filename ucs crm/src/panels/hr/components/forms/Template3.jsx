@@ -3,16 +3,16 @@ export default function Template3({ personal, declarationDate, place }) {
     <div className="print-page">
       <style>{`
         .t3 *{box-sizing:border-box}
-        .t3{width:210mm;height:297mm;margin:auto;background:#fff;border:3px solid #222;padding:8mm 14mm;font-family:"Times New Roman",serif;overflow:hidden;display:flex;flex-direction:column}
-        .t3 h1{text-align:center;margin:0 0 3px;font-size:26pt}
-        .t3 .sub{text-align:center;font-size:11pt;margin:0 0 6px}
-        .t3 .red{height:2px;background:#7b2020;margin:2px 0 8px}
-        .t3 .sec{color:#7b2020;font-weight:bold;font-size:13pt;margin-top:12px}
-        .t3 .title{text-align:center;color:#1f3f73;font-size:16pt;font-weight:bold;margin:14px 0 8px}
-        .t3 p{font-size:11pt;line-height:1.55;text-align:justify;margin:3px 0}
-        .t3 .row{display:flex;justify-content:space-between;margin:10px 0}
-        .t3 .line{display:inline-block;border-bottom:1px solid #000;min-width:140px;height:16px;padding-left:4px}
-        .t3 .footer{border-top:2px solid #7b2020;margin-top:auto;padding-top:6px;text-align:center;font-size:10pt;line-height:1.5}
+        .t3{width:210mm;min-height:297mm;height:auto !important;margin:auto;background:#fff;border:3px solid #222;padding:10mm 12mm;font-family:"Times New Roman",serif;page-break-after:always}
+        .t3 h1{text-align:center;margin:0 0 2px;font-size:22pt}
+        .t3 .sub{text-align:center;font-size:9pt;margin:0 0 4px}
+        .t3 .red{height:2px;background:#7b2020;margin:2px 0 6px}
+        .t3 .sec{color:#7b2020;font-weight:bold;font-size:11pt;margin-top:7px}
+        .t3 .title{text-align:center;color:#1f3f73;font-size:14pt;font-weight:bold;margin:10px 0}
+        .t3 p{font-size:9pt;line-height:1.3;text-align:justify;margin:2px 0}
+        .t3 .row{display:flex;justify-content:space-between;margin:6px 0}
+        .t3 .line{display:inline-block;border-bottom:1px solid #000;min-width:120px;height:14px;padding-left:4px}
+        .t3 .footer{border-top:2px solid #7b2020;margin-top:6px;padding-top:4px;text-align:center;font-size:9pt;line-height:1.4}
       `}</style>
       <div className="t3">
         <h1>Being Sevak Charitable Trust</h1>
