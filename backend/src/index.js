@@ -51,6 +51,12 @@ import { whatsappLogin } from './controllers/froWhatsAppAuthController.js';
 
 dotenv.config();
 
+const _log = console.log;
+if (process.env.LOG_LEVEL !== 'debug') {
+  console.log = () => {};
+  console.warn = () => {};
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -218,7 +224,7 @@ async function checkLeavesTable() {
 
 if (!process.env.VERCEL) {
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on port ${PORT}`);
+    _log(`Server running on port ${PORT}`);
     checkLeavesTable();
     import('./services/notificationScheduler.js');
   });
