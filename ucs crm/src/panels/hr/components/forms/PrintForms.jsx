@@ -69,7 +69,7 @@ export default function PrintForms({ data, onClose }) {
         </div>
       </div>
       <div ref={ref}>
-        <Template1 personal={data.personal} education={data.education} />
+        <Template1 personal={data.personal} education={data.education} photo_url={data.photo_url || ''} />
         <Template2 />
         <Template3 personal={data.personal} declarationDate={data.declarationDate} place={data.place} />
         <Template4 personal={data.personal} />

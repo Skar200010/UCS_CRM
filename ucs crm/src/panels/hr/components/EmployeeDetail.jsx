@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useHR, avatarColor, avatarTint, initials, DEPTS } from '../store';
+import { api } from '../../../api/auth';
 import { ArrowLeft, ArrowRight, Pencil, Trash } from '../icons';
 import { Dropdown, DatePicker } from './ui';
 
@@ -62,6 +63,35 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
   const [editNgoAllocations, setEditNgoAllocations] = useState([]);
   const [sundayBonus, setSundayBonus] = useState(null);
   const [workerLoans, setWorkerLoans] = useState([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const photoInputRef = useRef(null);
+
+  const handlePhotoSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result.split(',')[1];
+        const mime_type = file.type;
+        const res = await api(`/onboarding/admin/upload-photo/${worker.id}`, {
+          method: 'POST',
+          body: JSON.stringify({ photo_base64: base64, mime_type }),
+          _prefix: 'ucs',
+        });
+        if (res.photo_url) {
+          setData(prev => prev ? { ...prev, photo_url: res.photo_url } : prev);
+          setImgErr(false);
+        }
+        setPhotoUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setPhotoUploading(false);
+    }
+    e.target.value = '';
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -469,7 +499,9 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
       <div className="detail-split">
         <div className="detail-sidebar-wrap">
         <div className="card detail-sidebar">
-          <div style={{ textAlign:'center', padding:'24px 0 12px' }}>
+          <div style={{ textAlign:'center', padding:'24px 0 12px', position:'relative' }}>
+            <input ref={photoInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handlePhotoSelect} />
+            <div onClick={() => editing && photoInputRef.current?.click()} style={{ cursor: editing ? 'pointer' : 'default', display:'inline-block' }}>
             {data.photo_url && !imgErr ? (
               <img src={data.photo_url} alt={data.name}
                 style={{ width:80, height:80, borderRadius:20, objectFit:'cover', margin:'0 auto', display:'block' }}
@@ -480,6 +512,9 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                 {initials(data.name)}
               </div>
             )}
+            {photoUploading && <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', background:'rgba(0,0,0,0.5)', color:'#fff', borderRadius:20, padding:'4px 12px', fontSize:12 }}>Uploading...</div>}
+            {editing && <div style={{ fontSize:11, color:'var(--ink-soft)', marginTop:4 }}>Click to change photo</div>}
+            </div>
             {editing ? (
               <input value={form.name} onChange={setField('name')}
                 style={{ marginTop:12, fontSize:16, fontWeight:600, textAlign:'center', border:'1px solid var(--line)', borderRadius:'var(--radius-sm)', padding:'6px 10px', width:'100%' }} />

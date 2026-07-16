@@ -101,12 +101,22 @@ function ReferenceEntry({ entry, index, onChange, onRemove }) {
   );
 }
 
+const PALETTE = ['#5B6B4E','#B5603A','#C08A2E','#4F6472','#7A5C7E','#88693D'];
+const avatarColor = (name) => {
+  let h = 0; for (const c of name) h = c.charCodeAt(0) + ((h << 5) - h);
+  return PALETTE[Math.abs(h) % PALETTE.length];
+};
+const tint = (hex) => hex + '22';
+const initials = (n) => n.trim().split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase();
+
 export default function HRForms() {
   const { fetchWorkers, fetchWorkerById } = useHR();
   const [section, setSection] = useState(SECTIONS[0]);
   const [workers, setWorkers] = useState([]);
   const [filteredWorkers, setFilteredWorkers] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [workerPhotoUrl, setWorkerPhotoUrl] = useState('');
+  const [workerPhotoErr, setWorkerPhotoErr] = useState(false);
 
   useEffect(() => {
     fetchWorkers().then(setWorkers).catch(() => {});
@@ -129,8 +139,10 @@ export default function HRForms() {
   const handleSelectWorker = async (worker) => {
     setSearch(worker.name);
     setShowDropdown(false);
+    setWorkerPhotoErr(false);
     try {
       const data = await fetchWorkerById(worker.id);
+      setWorkerPhotoUrl(data.photo_url || '');
       setPersonal({
         fullName: data.name || '',
         email: data.email || '',
@@ -261,6 +273,11 @@ export default function HRForms() {
         return (
           <>
             <div className="card-head"><h3>Basic Information</h3>
+              {workerPhotoUrl && !workerPhotoErr && (
+                <img src={workerPhotoUrl} alt=""
+                  style={{ width:36, height:36, borderRadius:'50%', objectFit:'cover', flexShrink:0 }}
+                  onError={() => setWorkerPhotoErr(true)} />
+              )}
               <div style={{ position:'relative' }}>
                 <input type="text" value={search} onChange={e => handleSearchChange(e.target.value)} placeholder="Search employee..." style={{ padding:'5px 9px', border:'1px solid var(--line)', borderRadius:'var(--radius-sm)', fontSize:13, fontFamily:'inherit', outline:'none', background:'var(--paper)', color:'var(--ink)', width:200 }} />
                 {showDropdown && filteredWorkers.length > 0 && (
@@ -549,7 +566,18 @@ export default function HRForms() {
 
         {showPreview ? (
           <div className="card-pad" style={{ maxHeight: 500, overflowY: 'auto' }}>
-            <h3 style={{ marginBottom: 16 }}>Personal Details</h3>
+            <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
+              {workerPhotoUrl && !workerPhotoErr ? (
+                <img src={workerPhotoUrl} alt=""
+                  style={{ width:60, height:60, borderRadius:12, objectFit:'cover', flexShrink:0 }}
+                  onError={() => setWorkerPhotoErr(true)} />
+              ) : workerPhotoUrl ? (
+                <div style={{ width:60, height:60, borderRadius:12, background:tint(avatarColor(personal.fullName)), color:avatarColor(personal.fullName), display:'flex', alignItems:'center', justifyContent:'center', fontWeight:600, fontSize:20, flexShrink:0 }}>
+                  {initials(personal.fullName)}
+                </div>
+              ) : null}
+              <h3 style={{ margin:0 }}>Personal Details</h3>
+            </div>
             <div className="form-row">
               <Field label="Full Name" value={personal.fullName} readOnly />
               <Field label="Email" value={personal.email} readOnly />
@@ -695,6 +723,7 @@ export default function HRForms() {
             bank,
             declarationDate,
             place,
+            photo_url: workerPhotoUrl,
           }}
           onClose={() => setShowPrint(false)}
         />

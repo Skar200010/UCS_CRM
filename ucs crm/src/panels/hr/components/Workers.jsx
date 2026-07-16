@@ -13,6 +13,18 @@ function save(v) {
   try { const d = load(); sessionStorage.setItem('wrk', JSON.stringify({ ...d, ...v })); } catch {}
 }
 
+function WhoWithPhoto({ name, role, photo_url }) {
+  const [photoErr, setPhotoErr] = useState(false);
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+      {photo_url && !photoErr ? (
+        <img src={photo_url} alt="" style={{ width:36, height:36, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} onError={() => setPhotoErr(true)} />
+      ) : null}
+      <Who name={name} role={role} />
+    </div>
+  );
+}
+
 export default function Workers({ onSelect, onOffboard }) {
   const { addWorker, DEPTS, fetchWorkers, fetchNGOs } = useHR();
   const [workers, setWorkers] = useState([]);
@@ -295,7 +307,7 @@ export default function Workers({ onSelect, onOffboard }) {
               return (
                 <tr key={w.id} className="clickable-row" onClick={() => { if (onSelect) onSelect(w); }}
                   style={{ cursor:'pointer' }}>
-                  <td><Who name={w.name} role={w.department || 'Team Member'} /></td>
+                  <td><WhoWithPhoto name={w.name} role={w.department || 'Team Member'} photo_url={w.photo_url} /></td>
                   <td style={{ color:'var(--ink-soft)' }}>{new Date(w.created_at).toLocaleDateString('en-GB',{month:'short',year:'numeric'})}</td>
                   <td>
                     {sw?.current_salary ? (

@@ -10,6 +10,7 @@ import {
   adminAddPolicy,
   adminEditPolicy,
   adminRemovePolicy,
+  adminUploadPhoto,
 } from '../controllers/onboardingController.js';
 import { authenticate, authenticateRole } from '../middleware/authMiddleware.js';
 
@@ -29,5 +30,8 @@ router.get('/admin/policies', adminAuth, adminGetPolicies);
 router.post('/admin/policies', adminAuth, adminAddPolicy);
 router.put('/admin/policies/:id', adminAuth, adminEditPolicy);
 router.delete('/admin/policies/:id', adminAuth, adminRemovePolicy);
+
+// Admin: upload photo for any worker
+router.post('/admin/upload-photo/:workerId', adminAuth, adminUploadPhoto);
 
 export default router;

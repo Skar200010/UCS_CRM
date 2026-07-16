@@ -274,6 +274,7 @@ export const editWorker = async (req, res) => {
       emergency_contact_name, emergency_contact_relation, emergency_contact_phone,
       account_holder_name, bank_name, ifsc_code, account_number, created_at,
       shift_start_time, shift_end_time,
+      photo_url,
     } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = name;
@@ -305,6 +306,7 @@ export const editWorker = async (req, res) => {
     if (created_at !== undefined) updates.created_at = created_at.includes('T') ? created_at : created_at + 'T00:00:00.000Z';
     if (shift_start_time !== undefined) updates.shift_start_time = shift_start_time;
     if (shift_end_time !== undefined) updates.shift_end_time = shift_end_time;
+    if (photo_url !== undefined) updates.photo_url = photo_url;
     const worker = await updateWorker(req.params.id, updates);
     return res.json({ message: 'Worker updated successfully', worker });
   } catch (error) {

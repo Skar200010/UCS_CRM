@@ -1,4 +1,4 @@
-export default function Template1({ personal, education }) {
+export default function Template1({ personal, education, photo_url }) {
   return (
     <div className="print-page">
       <style>{`
@@ -12,7 +12,7 @@ export default function Template1({ personal, education }) {
         .t1 td,.t1 th{border:1px solid #666;padding:12px 8px;vertical-align:top}
         .t1 .section{background:#d8d8d8;font-weight:bold;font-size:18px}
         .t1 .label{font-weight:bold;width:25%;white-space:nowrap}
-        .t1 .photo{width:160px;text-align:center;vertical-align:middle;font-weight:bold;font-size:24px;min-height:160px;height:160px;box-sizing:border-box}
+        .t1 .photo{width:100px;text-align:center;vertical-align:middle;font-weight:bold;font-size:24px;min-height:220px;height:220px;box-sizing:border-box}
         .t1 .blank{height:24px}
         .t1 .address{height:40px}
         .t1 .edu th{text-align:center}
@@ -32,22 +32,20 @@ export default function Template1({ personal, education }) {
           <tr>
             <td className="label">Name :</td>
             <td style={{fontWeight:600}}>{personal.fullName || ''}</td>
-            <td rowSpan="5" className="photo">PHOTOGRAPH</td>
+            <td rowSpan="4" className="photo">{photo_url ? <img src={photo_url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', margin:'auto' }} /> : 'PHOTOGRAPH'}</td>
           </tr>
           <tr>
             <td className="label">Father's / Husband Name :</td>
             <td style={{fontWeight:600}}>{personal.fatherHusband || ''}</td>
           </tr>
           <tr>
-            <td className="label">Correspondence Address :</td>
-            <td style={{fontWeight:600}}>{personal.address || ''}</td>
+            <td className="label" style={{height:65}}>Correspondence Address :</td>
+            <td style={{fontWeight:600, height:65}}>{personal.address || ''}</td>
           </tr>
-          <tr><td colSpan="2" className="address"></td></tr>
           <tr>
-            <td className="label">Permanent Address :</td>
-            <td style={{fontWeight:600}}>{personal.permanentAddress || personal.address || ''}</td>
+            <td className="label" style={{height:65}}>Permanent Address :</td>
+            <td style={{fontWeight:600, height:65}}>{personal.permanentAddress || personal.address || ''}</td>
           </tr>
-          <tr><td colSpan="2" className="address"></td></tr>
           <tr>
             <td><strong>Mobile 1 :</strong> {personal.altPhone || ''}</td>
             <td><strong>Mobile 2:</strong> {personal.phone || ''}</td>

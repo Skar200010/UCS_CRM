@@ -215,6 +215,62 @@ export const uploadDocument = async (req, res) => {
   }
 };
 
+// ---- Admin: Upload photo for a specific worker ----
+
+export const adminUploadPhoto = async (req, res) => {
+  try {
+    await ensureWorkerDocumentsBucket();
+    const workerId = req.params.workerId;
+    const { photo_base64, mime_type } = req.body;
+
+    if (!photo_base64) {
+      return res.status(400).json({ message: 'Photo data is required' });
+    }
+
+    const buffer = Buffer.from(photo_base64, 'base64');
+    const contentType = mime_type || 'image/jpeg';
+    const ext = contentType.split('/')[1] || 'jpg';
+    const fileName = `worker_photos/${workerId}_${Date.now()}.${ext}`;
+
+    let { data: uploadData, error: uploadError } = await supabase.storage
+      .from('worker-documents')
+      .upload(fileName, buffer, { contentType, upsert: true });
+
+    if (uploadError) {
+      if (uploadError.message?.includes('bucket')) {
+        const { error: bucketError } = await supabase.storage.createBucket('worker-documents', { public: true });
+        if (bucketError) {
+          return res.status(500).json({ message: 'Failed to create storage bucket: ' + bucketError.message });
+        }
+        const { data: retryData, error: retryError } = await supabase.storage
+          .from('worker-documents')
+          .upload(fileName, buffer, { contentType, upsert: true });
+        if (retryError) {
+          return res.status(500).json({ message: 'Upload failed: ' + retryError.message });
+        }
+        uploadData = retryData;
+      } else {
+        return res.status(500).json({ message: 'Upload failed: ' + uploadError.message });
+      }
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('worker-documents')
+      .getPublicUrl(fileName);
+
+    const photoUrl = publicUrlData?.publicUrl || `${process.env.SUPABASE_URL}/storage/v1/object/public/worker-documents/${fileName}`;
+
+    await updateWorkerPersonalDetails(workerId, { photo_url: photoUrl });
+
+    return res.json({
+      message: 'Photo uploaded successfully',
+      photo_url: photoUrl,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 // ---- Get Company Policies (worker-facing) ----
 
 export const getPolicies = async (req, res) => {
