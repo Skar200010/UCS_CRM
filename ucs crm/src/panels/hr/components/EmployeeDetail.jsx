@@ -181,6 +181,10 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
       bank_name: data.bank_name || '',
       ifsc_code: data.ifsc_code || '',
       account_number: data.account_number || '',
+      correspondence_address: data.correspondence_address || '',
+      correspondence_city: data.correspondence_city || '',
+      correspondence_state: data.correspondence_state || '',
+      correspondence_pincode: data.correspondence_pincode || '',
     });
     setEditNgoAllocations(allocations.map(a => a.ngo_id));
     setEditing(true);
@@ -602,6 +606,10 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                   {editing ? <EditField label="City" value={form.city} onChange={setField('city')} /> : <Field label="City" value={data.city} />}
                   {editing ? <EditField label="State" value={form.state} onChange={setField('state')} /> : <Field label="State" value={data.state} />}
                   {editing ? <EditField label="Pincode" value={form.pincode} onChange={setField('pincode')} /> : <Field label="Pincode" value={data.pincode} />}
+                  {editing ? <EditField label="Correspondence Address" value={form.correspondence_address} onChange={setField('correspondence_address')} /> : <Field label="Correspondence Address" value={data.correspondence_address} />}
+                  {editing ? <EditField label="Corr. City" value={form.correspondence_city} onChange={setField('correspondence_city')} /> : <Field label="Corr. City" value={data.correspondence_city} />}
+                  {editing ? <EditField label="Corr. State" value={form.correspondence_state} onChange={setField('correspondence_state')} /> : <Field label="Corr. State" value={data.correspondence_state} />}
+                  {editing ? <EditField label="Corr. Pincode" value={form.correspondence_pincode} onChange={setField('correspondence_pincode')} /> : <Field label="Corr. Pincode" value={data.correspondence_pincode} />}
                   {editing && (
                     <div className="detail-field">
                       <span className="detail-label">Active</span>

@@ -92,45 +92,56 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _fetchStatus() async {
-    final worker = await ApiService.getWorkerData();
-    _workerName = worker?['name'] ?? '';
-    _workerId = worker?['id']?.toString() ?? '';
+    try {
+      final worker = await ApiService.getWorkerData();
+      _workerName = worker?['name'] ?? '';
+      _workerId = worker?['id']?.toString() ?? '';
 
-    if (_workerId.isNotEmpty) {
-      RealtimeService.instance.init(_workerId);
-    }
-    RealtimeService.instance.removeListener(_onRealtimeChange);
-    RealtimeService.instance.addListener(_onRealtimeChange);
+      if (_workerId.isNotEmpty) {
+        try {
+          RealtimeService.instance.init(_workerId);
+        } catch (_) {}
+      }
+      RealtimeService.instance.removeListener(_onRealtimeChange);
+      RealtimeService.instance.addListener(_onRealtimeChange);
 
-    // Load cached data instantly
-    final cachedStatus = await ApiService.getCachedTodayStatus();
-    final cachedHistory = await ApiService.getCachedHistory();
-    if (cachedStatus != null) _applyTodayStatus(cachedStatus);
-    if (cachedHistory != null) {
-      int p = 0, a = 0, l = 0, lv = 0;
-      for (final rec in cachedHistory) {
-        switch (rec['status']?.toString() ?? '') {
-          case 'present': p++; break;
-          case 'absent': a++; break;
-          case 'late': l++; p++; break;
-          case 'leave': lv++; break;
+      // Load cached data instantly
+      try {
+        final cachedStatus = await ApiService.getCachedTodayStatus();
+        if (cachedStatus != null) _applyTodayStatus(cachedStatus);
+      } catch (_) {}
+
+      try {
+        final cachedHistory = await ApiService.getCachedHistory();
+        if (cachedHistory != null) {
+          int p = 0, a = 0, l = 0, lv = 0;
+          for (final rec in cachedHistory) {
+            switch (rec['status']?.toString() ?? '') {
+              case 'present': p++; break;
+              case 'absent': a++; break;
+              case 'late': l++; p++; break;
+              case 'leave': lv++; break;
+            }
+          }
+          setState(() { _present = p; _absent = a; _late = l; _leave = lv; });
         }
-      }
-      setState(() { _present = p; _absent = a; _late = l; _leave = lv; });
-    }
+      } catch (_) {}
 
-    if (_workerId.isNotEmpty) {
-      final cachedNotifs = await ApiService.getCachedNotifications(_workerId);
-      final cachedUnread = await ApiService.getCachedUnreadCount(_workerId);
-      if (cachedNotifs != null) {
-        setState(() {
-          _notifications = cachedNotifs.cast<Map<String, dynamic>>();
-          _unreadCount = cachedUnread;
-        });
-      }
-    }
+      try {
+        if (_workerId.isNotEmpty) {
+          final cachedNotifs = await ApiService.getCachedNotifications(_workerId);
+          final cachedUnread = await ApiService.getCachedUnreadCount(_workerId);
+          if (cachedNotifs != null) {
+            setState(() {
+              _notifications = cachedNotifs.cast<Map<String, dynamic>>();
+              _unreadCount = cachedUnread;
+            });
+          }
+        }
+      } catch (_) {}
+    } catch (_) {}
 
-    setState(() => _loading = false);
+    if (mounted) setState(() => _loading = false);
 
     try {
       final res = await Future.wait([
@@ -144,27 +155,29 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _officeEndTime = (today['officeEndTime'] ?? '19:00') as String;
 
       final att = today['attendance'];
-      setState(() {
-        _lateUsed = today['lateUsed'] ?? 0;
-        if (att != null) {
-          _isPunchedIn = att['punch_in_time'] != null;
-          _isPunchedOut = att['punch_out_time'] != null;
-          _punchInTime = att['punch_in_time'] != null
-              ? DateTime.tryParse(att['punch_in_time'].toString())
-              : null;
-          _punchOutTime = att['punch_out_time'] != null
-              ? DateTime.tryParse(att['punch_out_time'].toString())
-              : null;
-          if (_isPunchedIn && !_isPunchedOut) _updateWorked();
-          if (_isPunchedOut && _punchInTime != null && _punchOutTime != null) {
-            final diff = _punchOutTime!.difference(_punchInTime!);
-            final h = diff.inHours.toString().padLeft(2, '0');
-            final m = (diff.inMinutes % 60).toString().padLeft(2, '0');
-            final s = (diff.inSeconds % 60).toString().padLeft(2, '0');
-            _workedDisplay = '$h:$m:$s';
+      if (mounted) {
+        setState(() {
+          _lateUsed = today['lateUsed'] ?? 0;
+          if (att != null) {
+            _isPunchedIn = att['punch_in_time'] != null;
+            _isPunchedOut = att['punch_out_time'] != null;
+            _punchInTime = att['punch_in_time'] != null
+                ? DateTime.tryParse(att['punch_in_time'].toString())
+                : null;
+            _punchOutTime = att['punch_out_time'] != null
+                ? DateTime.tryParse(att['punch_out_time'].toString())
+                : null;
+            if (_isPunchedIn && !_isPunchedOut) _updateWorked();
+            if (_isPunchedOut && _punchInTime != null && _punchOutTime != null) {
+              final diff = _punchOutTime!.difference(_punchInTime!);
+              final h = diff.inHours.toString().padLeft(2, '0');
+              final m = (diff.inMinutes % 60).toString().padLeft(2, '0');
+              final s = (diff.inSeconds % 60).toString().padLeft(2, '0');
+              _workedDisplay = '$h:$m:$s';
+            }
           }
-        }
-      });
+        });
+      }
       int p = 0, a = 0, l = 0, lv = 0;
       for (final rec in history) {
         final s = rec['status']?.toString() ?? '';
@@ -179,22 +192,26 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           lv++;
         }
       }
-      setState(() {
-        _present = p;
-        _absent = a;
-        _late = l;
-        _leave = lv;
-      });
+      if (mounted) {
+        setState(() {
+          _present = p;
+          _absent = a;
+          _late = l;
+          _leave = lv;
+        });
+      }
     } catch (_) {}
 
     try {
       if (_workerId.isNotEmpty) {
         final notifs = await ApiService.getNotifications(_workerId);
         final unread = await ApiService.getUnreadNotificationCount(_workerId);
-        setState(() {
-          _notifications = notifs.cast<Map<String, dynamic>>();
-          _unreadCount = unread;
-        });
+        if (mounted) {
+          setState(() {
+            _notifications = notifs.cast<Map<String, dynamic>>();
+            _unreadCount = unread;
+          });
+        }
       }
     } catch (_) {}
   }

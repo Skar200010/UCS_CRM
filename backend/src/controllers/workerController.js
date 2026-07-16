@@ -244,6 +244,7 @@ export const getWorker = async (req, res) => {
       bank_proof_url: p.bank_proof_url,
       light_bill_url: p.light_bill_url,
       account_holder_name: p.account_holder_name,
+      bank_name: p.bank_name,
       ifsc_code: p.ifsc_code,
       account_number: p.account_number,
       emergency_contact_name: p.emergency_contact_name,
@@ -252,6 +253,10 @@ export const getWorker = async (req, res) => {
       declaration_date: p.declaration_date,
       declaration_place: p.declaration_place,
       previous_organizations: p.previous_organizations,
+      correspondence_address: p.correspondence_address,
+      correspondence_city: p.correspondence_city,
+      correspondence_state: p.correspondence_state,
+      correspondence_pincode: p.correspondence_pincode,
       education: p.education || [],
       family: p.family || [],
       references: p.references || [],
@@ -275,6 +280,7 @@ export const editWorker = async (req, res) => {
       account_holder_name, bank_name, ifsc_code, account_number, created_at,
       shift_start_time, shift_end_time,
       photo_url,
+      correspondence_address, correspondence_city, correspondence_state, correspondence_pincode,
     } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = name;
@@ -307,6 +313,10 @@ export const editWorker = async (req, res) => {
     if (shift_start_time !== undefined) updates.shift_start_time = shift_start_time;
     if (shift_end_time !== undefined) updates.shift_end_time = shift_end_time;
     if (photo_url !== undefined) updates.photo_url = photo_url;
+    if (correspondence_address !== undefined) updates.correspondence_address = correspondence_address;
+    if (correspondence_city !== undefined) updates.correspondence_city = correspondence_city;
+    if (correspondence_state !== undefined) updates.correspondence_state = correspondence_state;
+    if (correspondence_pincode !== undefined) updates.correspondence_pincode = correspondence_pincode;
     const worker = await updateWorker(req.params.id, updates);
     return res.json({ message: 'Worker updated successfully', worker });
   } catch (error) {

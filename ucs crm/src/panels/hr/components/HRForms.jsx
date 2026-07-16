@@ -38,6 +38,10 @@ function EducationEntry({ entry, index, onChange, onRemove }) {
         <Field label="University" value={entry.university} onChange={e => onChange(index, 'university', e.target.value)} placeholder="University name" />
         <Field label="Year" value={entry.year} onChange={e => onChange(index, 'year', e.target.value)} placeholder="e.g., 2020" />
       </div>
+      <div className="form-row">
+        <Field label="From Year" value={entry.fromYear} onChange={e => onChange(index, 'fromYear', e.target.value)} placeholder="e.g., 2018" />
+        <Field label="To Year" value={entry.toYear} onChange={e => onChange(index, 'toYear', e.target.value)} placeholder="e.g., 2022" />
+      </div>
       <Field label="Percentage / Grade" value={entry.percentage} onChange={e => onChange(index, 'percentage', e.target.value)} placeholder="e.g., 85% or A+" />
     </div>
   );
@@ -162,9 +166,13 @@ export default function HRForms() {
         emergencyName: data.emergency_contact_name || '',
         emergencyRelation: data.emergency_contact_relation || '',
         emergencyPhone: data.emergency_contact_phone || '',
+        corrAddress: data.correspondence_address || '',
+        corrCity: data.correspondence_city || '',
+        corrState: data.correspondence_state || '',
+        corrPincode: data.correspondence_pincode || '',
       });
       setBank({
-        bankName: '',
+        bankName: data.bank_name || '',
         accountHolder: data.account_holder_name || '',
         ifsc: data.ifsc_code || '',
         accountNo: data.account_number || '',
@@ -184,7 +192,9 @@ export default function HRForms() {
           degree: e.degree || '',
           institution: e.institution || '',
           university: e.university || '',
-          year: e.year?.toString() || '',
+          year: e.year_of_passing?.toString() || e.year?.toString() || '',
+          fromYear: e.from_year?.toString() || '',
+          toYear: e.to_year?.toString() || '',
           percentage: e.percentage?.toString() || '',
         })));
       } else {
@@ -220,6 +230,7 @@ export default function HRForms() {
     address: '', city: '', state: '', pincode: '',
     panNumber: '', aadhaarNumber: '', permanentAddress: '',
     emergencyName: '', emergencyRelation: '', emergencyPhone: '',
+    corrAddress: '', corrCity: '', corrState: '', corrPincode: '',
   });
 
   const [education, setEducation] = useState([]);
@@ -331,6 +342,16 @@ export default function HRForms() {
               <Field label="Permanent Address" value={personal.permanentAddress} onChange={e => handlePersonalChange('permanentAddress', e.target.value)} placeholder="If different from current address" />
             </div>
 
+            <div className="card-head"><h3>Correspondence Address</h3></div>
+            <div className="card-pad">
+              <Field label="Address" value={personal.corrAddress || ''} onChange={e => handlePersonalChange('corrAddress', e.target.value)} placeholder="Street, area, landmark" />
+              <div className="form-row">
+                <Field label="City" value={personal.corrCity || ''} onChange={e => handlePersonalChange('corrCity', e.target.value)} placeholder="City" />
+                <Field label="State" value={personal.corrState || ''} onChange={e => handlePersonalChange('corrState', e.target.value)} placeholder="State" />
+              </div>
+              <Field label="Pincode" value={personal.corrPincode || ''} onChange={e => handlePersonalChange('corrPincode', e.target.value)} placeholder="6-digit pincode" />
+            </div>
+
             <div className="card-head"><h3>Emergency Contact</h3></div>
             <div className="card-pad">
               <Field label="Contact Person Name" value={personal.emergencyName} onChange={e => handlePersonalChange('emergencyName', e.target.value)} placeholder="Full name" />
@@ -370,7 +391,7 @@ export default function HRForms() {
                 <EducationEntry key={i} entry={entry} index={i} onChange={handleEducationChange} onRemove={education.length > 1 ? () => setEducation(prev => prev.filter((_, idx) => idx !== i)) : undefined} />
               ))}
               <div style={{ textAlign: 'center', marginTop: 8 }}>
-                <button className="btn" onClick={() => setEducation(prev => [...prev, { degree: '', institution: '', university: '', year: '', percentage: '' }])} style={{ gap: 6 }}>
+                <button className="btn" onClick={() => setEducation(prev => [...prev, { degree: '', institution: '', university: '', year: '', fromYear: '', toYear: '', percentage: '' }])} style={{ gap: 6 }}>
                   <Plus width={14} /> Add Education
                 </button>
               </div>
@@ -603,6 +624,13 @@ export default function HRForms() {
               <Field label="Aadhaar Number" value={personal.aadhaarNumber} readOnly />
             </div>
             <Field label="Permanent Address" value={personal.permanentAddress} readOnly />
+            <h3 style={{ marginTop: 24, marginBottom: 16 }}>Correspondence Address</h3>
+            <Field label="Address" value={personal.corrAddress} readOnly />
+            <div className="form-row">
+              <Field label="City" value={personal.corrCity} readOnly />
+              <Field label="State" value={personal.corrState} readOnly />
+            </div>
+            <Field label="Pincode" value={personal.corrPincode} readOnly />
             <Field label="Emergency Contact Person" value={personal.emergencyName} readOnly />
             <div className="form-row">
               <Field label="Emergency Relationship" value={personal.emergencyRelation} readOnly />
@@ -620,6 +648,10 @@ export default function HRForms() {
                 <div className="form-row">
                   <Field label="University" value={e.university} readOnly />
                   <Field label="Year" value={e.year} readOnly />
+                </div>
+                <div className="form-row">
+                  <Field label="From Year" value={e.fromYear} readOnly />
+                  <Field label="To Year" value={e.toYear} readOnly />
                 </div>
                 <Field label="Percentage / Grade" value={e.percentage} readOnly />
               </div>

@@ -198,6 +198,11 @@ export const updateWorkerPersonalDetails = async (workerId, details) => {
   if (details.marital_status !== undefined) updates.marital_status = details.marital_status;
   if (details.pan_number !== undefined) updates.pan_number = details.pan_number;
   if (details.aadhar_number !== undefined) updates.aadhar_number = details.aadhar_number;
+  if (details.bank_name !== undefined) updates.bank_name = details.bank_name;
+  if (details.correspondence_address !== undefined) updates.correspondence_address = details.correspondence_address;
+  if (details.correspondence_city !== undefined) updates.correspondence_city = details.correspondence_city;
+  if (details.correspondence_state !== undefined) updates.correspondence_state = details.correspondence_state;
+  if (details.correspondence_pincode !== undefined) updates.correspondence_pincode = details.correspondence_pincode;
   if (details.emergency_contact_name !== undefined) updates.emergency_contact_name = details.emergency_contact_name;
   if (details.emergency_contact_relation !== undefined) updates.emergency_contact_relation = details.emergency_contact_relation;
   if (details.emergency_contact_phone !== undefined) updates.emergency_contact_phone = details.emergency_contact_phone;
