@@ -64,7 +64,12 @@ const PERIODS = [
 
 /* ================= CSV / EXCEL EXPORT ================= */
 function exportToExcel(data, period) {
-  const { stats = {}, deptWorkers = {}, attendanceStatus = {}, attendancePercent = 0, froAssignments = [], ngoUserCounts = [] } = data
+  const { ngos: ngosE = {}, workers: workersE = {}, attendance: attE = {}, froAssignments = [] } = data
+  const stats = { totalNgos: ngosE.total ?? 0, totalWorkers: workersE.total ?? 0, activeWorkers: workersE.active ?? 0 }
+  const deptWorkers = workersE.by_department || {}
+  const attendanceStatus = attE.by_status || {}
+  const attendancePercent = attE.percent || 0
+  const ngoUserCounts = ngosE.per_ngo || []
   const rows = []
   rows.push(['DASHBOARD REPORT'])
   rows.push(['Generated', new Date().toLocaleString('en-IN')])
@@ -1319,17 +1324,48 @@ export default function Dashboard() {
   )
 
   const {
-    stats = {}, deptWorkers = {}, ngoUserCounts = [],
-    attendanceStatus = {}, attendanceWorkerCounts = {}, todayAttendance = {},
-    kpiChanges = {}, attendancePercent = 0,
-    recentNotices = [], upcomingEvents = [],
-    // NEW data (backend can provide; safe defaults otherwise)
-    attendanceDetails = {}, todayAttendanceDetails = {},
-    froAssignments = [],      // [{ name: 'Ramesh', ngos: ['MAN', 'AFLF'] }]
-    accountsSummary = {}, recruiterSummary = {},
-    monthlyRevenue = [], topFros = [], topRecruiters = [], recentActivities = [],
-    roleDistribution = {}, allTimeRoleDistribution = {}, totalSalaryPayable = 0,
+    ngos: ngosD = {}, users: usersD = {}, workers: workersD = {},
+    hr: hrD = {}, recruiters: recruitersD = {},
+    attendance: attD = {}, salary_payable = 0,
+    accounts: accountsD = {}, recruiting: recruitingD = {},
+    monthly_revenue = [], top_fros = [], top_recruiters = [],
+    recent_notices = [], upcoming_events = [], recent_activities = [],
+    froAssignments = [],
   } = data
+
+  const stats = { totalNgos: ngosD.total ?? 0, totalWorkers: workersD.total ?? 0, activeWorkers: workersD.active ?? 0, totalHr: hrD.total ?? 0, totalRecruiters: recruitersD.total ?? 0, totalUsers: usersD.total ?? 0, activeUsers: usersD.active ?? 0, workersJoinedThisMonth: workersD.joined_this_month ?? 0 }
+  const kpiChanges = { totalNgos: ngosD.change ?? 0, totalUsers: usersD.change_total ?? 0, activeUsers: usersD.change_active ?? 0, totalWorkers: workersD.change ?? 0, totalHr: hrD.change ?? 0, totalRecruiters: recruitersD.change ?? 0, attendancePercent: attD.percent_change ?? 0 }
+  const ngoUserCounts = ngosD.per_ngo || []
+  const deptWorkers = workersD.by_department || {}
+  const attendanceStatus = attD.by_status || {}
+  const attendanceWorkerCounts = attD.by_worker || {}
+  const todayAttendance = attD.today || {}
+  const attendancePercent = attD.percent || 0
+  const attendanceDetails = attD.details || {}
+  const todayAttendanceDetails = attD.today_details || {}
+  const recentNotices = recent_notices
+  const upcomingEvents = upcoming_events
+  const monthlyRevenue = monthly_revenue
+  const topFros = top_fros
+  const topRecruiters = top_recruiters
+  const recentActivities = recent_activities
+  const roleDistribution = usersD.role_distribution || {}
+  const allTimeRoleDistribution = usersD.all_time_role_distribution || {}
+  const totalSalaryPayable = salary_payable
+  const accountsSummary = {
+    pending: accountsD.pending?.count ?? 0, pendingAmount: accountsD.pending?.amount ?? 0,
+    verified: accountsD.verified?.count ?? 0, verifiedAmount: accountsD.verified?.amount ?? 0,
+    rejected: accountsD.rejected?.count ?? 0, rejectedAmount: accountsD.rejected?.amount ?? 0,
+    verifiedToday: accountsD.verified_today?.count ?? 0, verifiedTodayAmount: accountsD.verified_today?.amount ?? 0,
+  }
+  const recruiterSummary = {
+    totalLeads: recruitingD.total_leads ?? 0,
+    newToday: recruitingD.new_today ?? 0,
+    conversionRate: recruitingD.conversion_rate ?? 0,
+  }
+  // keep stats.totalFroDonors and accountsSummary.bankAudits accessible via fallback
+  stats.totalFroDonors = (stats.totalFroDonors || 0)
+  accountsSummary.bankAudits = (accountsSummary.bankAudits ?? 0)
 
   const today = new Date()
   const hour = today.getHours()

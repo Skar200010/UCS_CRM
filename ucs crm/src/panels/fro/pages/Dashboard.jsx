@@ -83,8 +83,41 @@ export default function Dashboard() {
 
   if (loading) return <SkeletonDashboard />
 
-  const ds = dashData || {}
   const ts = targetData || {}
+  let ds = dashData || {}
+
+  // Map new nested structure to old flat field names for backward compat
+  if (ds.worker || ds.target?.amount != null || ds.connected || ds.donations || ds.verification || ds.data) {
+    const d = ds
+    ds = {
+      is_active: d.worker?.is_active,
+      is_punched_in: d.worker?.is_punched_in,
+      target: d.target?.amount,
+      collected: d.target?.collected,
+      achieved_target: d.target?.achieved,
+      monthly_connected: d.connected?.monthly,
+      daily_connected: d.connected?.daily,
+      daily_donations: d.donations?.daily,
+      new_donors_today: d.donations?.new_donors?.today,
+      new_donors_monthly: d.donations?.new_donors?.monthly,
+      reactivated_today: d.reactivations?.today,
+      reactivated_monthly: d.reactivations?.monthly,
+      data_used: d.data?.used,
+      data_unused: d.data?.unused,
+      total_donations: d.donations?.total,
+      active_donors: d.donors?.active,
+      inactive_donors: d.donors?.inactive,
+      verified_month_amount: d.verification?.month?.verified?.amount,
+      verified_month_count: d.verification?.month?.verified?.count,
+      unverified_month_amount: d.verification?.month?.unverified?.amount,
+      unverified_month_count: d.verification?.month?.unverified?.count,
+      verified_today_amount: d.verification?.today?.verified?.amount,
+      verified_today_count: d.verification?.today?.verified?.count,
+      unverified_today_amount: d.verification?.today?.unverified?.amount,
+      unverified_today_count: d.verification?.today?.unverified?.count,
+      stats: d.stats,
+    }
+  }
   const { stats = {} } = ds
   const target = ts.target || ds.target || 0
   const collected = ts.collected ?? ds.collected ?? 0

@@ -307,37 +307,55 @@ export const getDashboard = async (req, res) => {
     const is_punched_in = myAtt && (myAtt.status === 'present' || myAtt.status === 'late');
 
     return res.json({
+      worker: {
+        is_active: worker.is_active !== false,
+        is_punched_in,
+      },
+      target: {
+        amount: target,
+        source: targetSource,
+        collected,
+        achieved: achieved_target,
+        salary: currentSalary,
+        months_employed: monthsEmployed,
+      },
       stats,
-      target,
-      target_source: targetSource,
-      collected,
-      achieved_target,
-      salary: currentSalary,
-      months_employed: monthsEmployed,
-      monthly_connected: monthlyDonorIds.size,
-      daily_connected: dailyDonorIds.size,
-      daily_donations: dailyDonations,
-      new_donors_today: newDonorsToday,
-      new_donors_monthly: newDonorsMonthly,
-      reactivated_today: reactivatedToday,
-      reactivated_monthly: reactivatedMonthly,
-      fro_reactivated_today: froReactivatedToday,
-      fro_reactivated_monthly: froReactivatedMonthly,
-      data_used: dataUsed,
-      data_unused: dataUnused,
-      total_donations: totalDonations,
-      active_donors: activeDonors,
-      inactive_donors: inactiveDonors,
-      verified_month_amount: verifiedMonth.amount,
-      verified_month_count: verifiedMonth.count,
-      unverified_month_amount: unverifiedMonth.amount,
-      unverified_month_count: unverifiedMonth.count,
-      verified_today_amount: verifiedToday.amount,
-      verified_today_count: verifiedToday.count,
-      unverified_today_amount: unverifiedToday.amount,
-      unverified_today_count: unverifiedToday.count,
-      is_active: worker.is_active !== false,
-      is_punched_in,
+      connected: {
+        monthly: monthlyDonorIds.size,
+        daily: dailyDonorIds.size,
+      },
+      donations: {
+        daily: dailyDonations,
+        total: totalDonations,
+        new_donors: {
+          today: newDonorsToday,
+          monthly: newDonorsMonthly,
+        },
+      },
+      reactivations: {
+        today: reactivatedToday,
+        monthly: reactivatedMonthly,
+        fro_today: froReactivatedToday,
+        fro_monthly: froReactivatedMonthly,
+      },
+      donors: {
+        active: activeDonors,
+        inactive: inactiveDonors,
+      },
+      verification: {
+        month: {
+          verified: { amount: verifiedMonth.amount, count: verifiedMonth.count },
+          unverified: { amount: unverifiedMonth.amount, count: unverifiedMonth.count },
+        },
+        today: {
+          verified: { amount: verifiedToday.amount, count: verifiedToday.count },
+          unverified: { amount: unverifiedToday.amount, count: unverifiedToday.count },
+        },
+      },
+      data: {
+        used: dataUsed,
+        unused: dataUnused,
+      },
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
