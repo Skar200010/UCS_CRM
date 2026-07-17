@@ -405,10 +405,8 @@ export const getMyDonors = async (req, res) => {
         .in('donor_id', donorIds)
         .eq('accounts_status', 'verified');
       const verifiedDonorIds = new Set((verifiedLogs || []).map(l => l.donor_id));
-      if (verifiedDonorIds.size > 0) {
-        assignments = assignments.filter(a => verifiedDonorIds.has(a.donor_id));
-        donorIds = [...new Set(assignments.map(a => a.donor_id))];
-      }
+      assignments = assignments.filter(a => verifiedDonorIds.has(a.donor_id));
+      donorIds = [...new Set(assignments.map(a => a.donor_id))];
     }
     const { data: donors } = await supabase
       .from('donor_profiles')
@@ -444,6 +442,15 @@ export const getMyDonors = async (req, res) => {
     if (recentError) throw recentError;
 
     const activeDonorIds = new Set((recentActivity || []).map(l => l.donor_id));
+
+    // Filter by active/inactive status
+    if (req.query.active_only === 'true') {
+      assignments = assignments.filter(a => activeDonorIds.has(a.donor_id));
+      donorIds = [...new Set(assignments.map(a => a.donor_id))];
+    } else if (req.query.inactive_only === 'true') {
+      assignments = assignments.filter(a => !activeDonorIds.has(a.donor_id));
+      donorIds = [...new Set(assignments.map(a => a.donor_id))];
+    }
 
     // Sort assignments so completed/connected statuses come before pending
     // (dedup picks the first occurrence)
@@ -484,6 +491,7 @@ export const getMyDonors = async (req, res) => {
         last_donation_date: d.last_donation_date || null,
         first_donation_date: d.first_donation_date || null,
         has_donated_current_fy: activeDonorIds.has(a.donor_id),
+        is_active: activeDonorIds.has(a.donor_id),
         status: a.status || 'pending',
         notes: a.notes || null,
         last_contacted_at: a.last_contacted_at || null,

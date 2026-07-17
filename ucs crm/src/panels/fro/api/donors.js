@@ -10,6 +10,8 @@ export async function getMyDonors(status, statusGroup, options = {}) {
   else if (status) params.set('status', status);
   if (options.verifiedOnly) params.set('verified_only', 'true');
   if (options.period) params.set('period', options.period);
+  if (options.activeOnly) params.set('active_only', 'true');
+  if (options.inactiveOnly) params.set('inactive_only', 'true');
   const qs = params.toString();
   return api(`/fro/donors${qs ? '?' + qs : ''}`, { _prefix: 'ucs' })
 }
