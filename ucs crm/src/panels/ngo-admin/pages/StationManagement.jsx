@@ -315,6 +315,12 @@ export default function StationManagement() {
     fetchData();
   }, [selectedNgoId]);
 
+  useEffect(() => {
+    if (allNgos.length > 0 && selectedNgoId === 'all') {
+      setSelectedNgoId(allNgos[0].id);
+    }
+  }, [allNgos]);
+
   const activeTransfers = transfers.filter(t => !t.returned);
   const historyTransfers = transfers.filter(t => t.returned);
 
@@ -447,10 +453,6 @@ export default function StationManagement() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 4, background: 'var(--bg)', borderRadius: 8, padding: 2 }}>
-            <button onClick={() => setSelectedNgoId('all')}
-              style={{ padding: '5px 14px', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', background: selectedNgoId === 'all' ? 'var(--sage)' : 'transparent', color: selectedNgoId === 'all' ? '#fff' : 'var(--ink-soft)' }}>
-              All
-            </button>
             {allNgos.map(ngo => (
               <button key={ngo.id} onClick={() => setSelectedNgoId(ngo.id)}
                 style={{ padding: '5px 14px', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', background: selectedNgoId === ngo.id ? 'var(--sage)' : 'transparent', color: selectedNgoId === ngo.id ? '#fff' : 'var(--ink-soft)' }}>
