@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
-
+import '../main.dart';
 
 class OnboardingPage extends StatefulWidget {
   final VoidCallback onComplete;
@@ -14,7 +14,7 @@ class OnboardingPage extends StatefulWidget {
   State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProviderStateMixin {
+class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
   bool _submitting = false;
@@ -68,9 +68,6 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   // Family / References entries (max 3)
   final List<_PersonEntry> _personList = [];
 
-  late final AnimationController _animCtrl;
-  late final Animation<double> _anim;
-
   final List<String> _steps = [
     'Personal Details',
     'Education',
@@ -84,25 +81,12 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _animCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 8));
-    _anim = Tween<double>(begin: 0, end: 1).animate(_animCtrl);
-    _animCtrl.repeat(reverse: true);
     _initOnboarding();
   }
 
   Future<void> _initOnboarding() async {
     await _loadWorkerData();
     setState(() => _loadingData = false);
-  }
-
-  Future<void> _checkServerStatus() async {
-    try {
-      final status = await ApiService.checkOnboardingStatus();
-      if (status['onboarding_completed'] == true) {
-        setState(() => _alreadyCompleted = true);
-        widget.onComplete();
-      }
-    } catch (_) {}
   }
 
   @override
@@ -136,7 +120,6 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
     _percentageCtrl.dispose();
     for (final o in _organizationList) o.dispose();
     for (final p in _personList) p.dispose();
-    _animCtrl.dispose();
     super.dispose();
   }
 
@@ -376,125 +359,78 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final scale = (screenWidth / 375).clamp(0.85, 1.3);
+    final sc = Theme.of(context).colorScheme;
 
     if (_loadingData) {
       return Scaffold(
-        body: _buildBackground(
-          child: SafeArea(child: _buildLoadingSkeleton()),
-        ),
+        backgroundColor: sc.surface,
+        body: SafeArea(child: _buildLoadingSkeleton()),
       );
     }
 
     if (_alreadyCompleted) {
       return Scaffold(
-        body: _buildBackground(
-          child: const SafeArea(child: SizedBox.shrink()),
-        ),
+        backgroundColor: sc.surface,
+        body: const SafeArea(child: SizedBox.shrink()),
       );
     }
 
     return Scaffold(
-      body: _buildBackground(
-        child: SafeArea(
-          child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(scale),
-            ),
-            child: Column(
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    onPageChanged: (i) => setState(() => _currentStep = i),
-                    physics: const NeverScrollableScrollPhysics(),
-                    children: [
-                      _buildPersonalDetails(),
-                      _buildEducation(),
-                      _buildPreviousOrganizations(),
-                      _buildFamilyDetails(),
-                      _buildPhotoUpload(),
-                      _buildReview(),
-                      _buildSuccessScreen(),
-                    ],
-                  ),
+      backgroundColor: sc.surface,
+      body: SafeArea(
+        child: MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+          ),
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (i) => setState(() => _currentStep = i),
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    _buildPersonalDetails(),
+                    _buildEducation(),
+                    _buildPreviousOrganizations(),
+                    _buildFamilyDetails(),
+                    _buildPhotoUpload(),
+                    _buildReview(),
+                    _buildSuccessScreen(),
+                  ],
                 ),
-                if (_currentStep < _steps.length - 2)
-                  _buildBottomNav()
-                else if (_currentStep == _steps.length - 2)
-                  _buildSubmitButton()
-                else
-                  _buildSuccessButtons(),
-              ],
-            ),
+              ),
+              if (_currentStep < _steps.length - 2)
+                _buildBottomNav()
+              else if (_currentStep == _steps.length - 2)
+                _buildSubmitButton()
+              else
+                _buildSuccessButtons(),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildBackground({required Widget child}) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, child) {
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color.lerp(const Color(0xFF0f172a), const Color(0xFF1a2744), _anim.value)!,
-                Color.lerp(const Color(0xFF1e293b), const Color(0xFF162136), _anim.value)!,
-              ],
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: -80 + _anim.value * 10,
-                right: -60,
-                child: Container(
-                  width: 200, height: 200,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF3b82f6).withValues(alpha: 0.08),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 100 - _anim.value * 10,
-                left: -80,
-                child: Container(
-                  width: 180, height: 180,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF60a5fa).withValues(alpha: 0.06),
-                  ),
-                ),
-              ),
-              child!,
-            ],
-          ),
-        );
-      },
-      child: child,
-    );
-  }
-
   Widget _buildLoadingSkeleton() {
+    final sc = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(color: Colors.white),
+          CircularProgressIndicator(color: sc.secondary),
           const SizedBox(height: 20),
-          Text('Loading...', style: GoogleFonts.manrope(fontSize: 16, color: Colors.white.withValues(alpha: 0.7))),
+          Text('Loading...', style: GoogleFonts.manrope(fontSize: 16, color: sc.onSurfaceVariant)),
         ],
       ),
     );
   }
 
   Widget _buildHeader() {
+    final sc = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<AppColors>()!;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Column(
@@ -510,12 +446,13 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                 child: Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: _currentStep > 0 ? Colors.white.withValues(alpha: 0.12) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
+                    color: _currentStep > 0 ? colors.surfaceContainerLow : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: _currentStep > 0 ? Border.all(color: colors.outline) : null,
                   ),
                   child: Icon(
                     Icons.arrow_back_ios_new_rounded,
-                    color: _currentStep > 0 ? Colors.white70 : Colors.transparent,
+                    color: _currentStep > 0 ? sc.onSurfaceVariant : Colors.transparent,
                     size: 18,
                   ),
                 ),
@@ -526,8 +463,8 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                   _steps[_currentStep],
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    color: sc.onSurface,
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -535,23 +472,23 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
+                  color: colors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '${_currentStep + 1}/${_steps.length}',
-                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70),
+                  style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w600, color: sc.onSurfaceVariant),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           ClipRRect(
-            borderRadius: BorderRadius.circular(3),
+            borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: (_currentStep + 1) / _steps.length,
-              backgroundColor: Colors.white.withValues(alpha: 0.12),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF60a5fa)),
+              backgroundColor: colors.surfaceContainerHigh,
+              valueColor: AlwaysStoppedAnimation<Color>(sc.secondary),
               minHeight: 4,
             ),
           ),
@@ -562,6 +499,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   }
 
   Widget _buildBottomNav() {
+    final sc = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       child: SizedBox(
@@ -570,11 +508,10 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
         child: ElevatedButton(
           onPressed: _goNext,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF60a5fa),
+            backgroundColor: sc.secondary,
             foregroundColor: Colors.white,
             elevation: 0,
-            shadowColor: const Color(0xFF60a5fa).withValues(alpha: 0.3),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           child: Text('Continue', style: GoogleFonts.hankenGrotesk(
             fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.2,
@@ -585,6 +522,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   }
 
   Widget _buildSubmitButton() {
+    final sc = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       child: SizedBox(
@@ -593,11 +531,10 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
         child: ElevatedButton(
           onPressed: _submitting ? null : _submitOnboarding,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563eb),
+            backgroundColor: sc.secondary,
             foregroundColor: Colors.white,
             elevation: 0,
-            shadowColor: const Color(0xFF2563eb).withValues(alpha: 0.3),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
           child: _submitting
               ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -619,6 +556,8 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   // ---- STEP 1: PERSONAL DETAILS ----
 
   Widget _buildPersonalDetails() {
+    final sc = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<AppColors>()!;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Column(
@@ -663,19 +602,17 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                     height: 52,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
-                      ],
+                      color: colors.surfaceContainerLowest,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: colors.outline),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, size: 19, color: Color(0xFF64748b)),
+                        Icon(Icons.calendar_today, size: 19, color: sc.onSurfaceVariant),
                         const SizedBox(width: 10),
                         Text(
                           _dob != null ? '${_dob!.day}/${_dob!.month}/${_dob!.year}' : 'Date of Birth',
-                          style: TextStyle(fontSize: 14, color: _dob != null ? const Color(0xFF1a1a2e) : const Color(0xFF94a3b8)),
+                          style: TextStyle(fontSize: 14, color: _dob != null ? sc.onSurface : sc.outline),
                         ),
                       ],
                     ),
@@ -708,13 +645,13 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                 Icon(
                   _hasCorrespondenceAddress ? Icons.check_box : Icons.check_box_outline_blank,
                   size: 22,
-                  color: const Color(0xFF2563eb),
+                  color: sc.secondary,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Add correspondence address (if different)',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.7)),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: sc.onSurfaceVariant),
                   ),
                 ),
               ],
@@ -758,7 +695,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
           _textField(_accountNoCtrl, 'Account Number *', Icons.pin, 'Your bank account number', keyboardType: TextInputType.number),
           const SizedBox(height: 8),
           Text('These details will be used for salary disbursement',
-            style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5))),
+            style: TextStyle(fontSize: 12, color: sc.outline)),
         ],
       ),
     );
@@ -767,6 +704,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   // ---- STEP 2: EDUCATION ----
 
   Widget _buildEducation() {
+    final sc = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Column(
@@ -774,7 +712,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
         children: [
           _sectionTitle('Highest Qualification'),
           const SizedBox(height: 4),
-          Text('Enter your highest educational qualification', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6))),
+          Text('Enter your highest educational qualification', style: TextStyle(fontSize: 13, color: sc.onSurfaceVariant)),
           const SizedBox(height: 12),
           _textField(_degreeCtrl, 'Degree / Qualification *', Icons.school, 'e.g., B.Sc, B.Com, MBA, 12th'),
           const SizedBox(height: 12),
@@ -805,6 +743,8 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   // ---- STEP 3: PREVIOUS ORGANIZATIONS ----
 
   Widget _buildPreviousOrganizations() {
+    final sc = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<AppColors>()!;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Column(
@@ -812,22 +752,22 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
         children: [
           _sectionTitle('Previous Organization'),
           const SizedBox(height: 4),
-          Text('Add your previous work experience (optional)', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6))),
+          Text('Add your previous work experience (optional)', style: TextStyle(fontSize: 13, color: sc.onSurfaceVariant)),
           const SizedBox(height: 14),
           if (_organizationList.isEmpty)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 36),
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                color: colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colors.outline),
               ),
               child: Column(
                 children: [
-                  Icon(Icons.work_history_outlined, size: 40, color: Colors.white.withValues(alpha: 0.3)),
+                  Icon(Icons.work_history_outlined, size: 40, color: sc.outline),
                   const SizedBox(height: 10),
-                  Text('No previous organization added', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.5))),
+                  Text('No previous organization added', style: TextStyle(fontSize: 13, color: sc.onSurfaceVariant)),
                 ],
               ),
             )
@@ -839,11 +779,9 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                 margin: const EdgeInsets.only(bottom: 14),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 3)),
-                  ],
+                  color: sc.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.outline),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -853,14 +791,14 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                         Container(
                           padding: const EdgeInsets.all(5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1e3a8a).withValues(alpha: 0.1),
+                            color: sc.secondary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(7),
                           ),
-                          child: const Icon(Icons.business_center, size: 15, color: Color(0xFF2563eb)),
+                          child: Icon(Icons.business_center, size: 15, color: sc.secondary),
                         ),
                         const SizedBox(width: 8),
                         Text('Organization', style: GoogleFonts.hankenGrotesk(
-                          fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0f172a),
+                          fontSize: 14, fontWeight: FontWeight.w700, color: sc.onSurface,
                         )),
                         const Spacer(),
                         GestureDetector(
@@ -899,9 +837,9 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
             Center(
               child: TextButton.icon(
                 onPressed: () => setState(() => _organizationList.add(_OrganizationEntry())),
-                icon: const Icon(Icons.add_circle_outline, color: Color(0xFF60a5fa)),
+                icon: Icon(Icons.add_circle_outline, color: sc.secondary),
                 label: Text('Add Previous Organization',
-                  style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF60a5fa))),
+                  style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: sc.secondary)),
               ),
             ),
         ],
@@ -912,6 +850,8 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   // ---- STEP 4: FAMILY DETAILS / REFERENCES ----
 
   Widget _buildFamilyDetails() {
+    final sc = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<AppColors>()!;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Column(
@@ -919,22 +859,22 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
         children: [
           _sectionTitle('Family Details / References'),
           const SizedBox(height: 4),
-          Text('Add up to 3 family members or references', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6))),
+          Text('Add up to 3 family members or references', style: TextStyle(fontSize: 13, color: sc.onSurfaceVariant)),
           const SizedBox(height: 14),
           if (_personList.isEmpty)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 36),
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                color: colors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colors.outline),
               ),
               child: Column(
                 children: [
-                  Icon(Icons.family_restroom_outlined, size: 40, color: Colors.white.withValues(alpha: 0.3)),
+                  Icon(Icons.family_restroom_outlined, size: 40, color: sc.outline),
                   const SizedBox(height: 10),
-                  Text('No entries added yet', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.5))),
+                  Text('No entries added yet', style: TextStyle(fontSize: 13, color: sc.onSurfaceVariant)),
                 ],
               ),
             )
@@ -946,11 +886,9 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                 margin: const EdgeInsets.only(bottom: 14),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 3)),
-                  ],
+                  color: sc.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: colors.outline),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -960,14 +898,14 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                         Container(
                           padding: const EdgeInsets.all(5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1e3a8a).withValues(alpha: 0.1),
+                            color: sc.secondary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(7),
                           ),
-                          child: const Icon(Icons.person_outline_rounded, size: 15, color: Color(0xFF2563eb)),
+                          child: Icon(Icons.person_outline_rounded, size: 15, color: sc.secondary),
                         ),
                         const SizedBox(width: 8),
                         Text('Entry ${i + 1}', style: GoogleFonts.hankenGrotesk(
-                          fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF0f172a),
+                          fontSize: 14, fontWeight: FontWeight.w700, color: sc.onSurface,
                         )),
                         const Spacer(),
                         GestureDetector(
@@ -1006,9 +944,9 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
             Center(
               child: TextButton.icon(
                 onPressed: () => setState(() => _personList.add(_PersonEntry())),
-                icon: const Icon(Icons.add_circle_outline, color: Color(0xFF60a5fa)),
+                icon: Icon(Icons.add_circle_outline, color: sc.secondary),
                 label: Text('Add Entry (${_personList.length}/3)',
-                  style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF60a5fa))),
+                  style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: sc.secondary)),
               ),
             ),
         ],
@@ -1019,6 +957,8 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   // ---- STEP 5: PHOTO UPLOAD ----
 
   Widget _buildPhotoUpload() {
+    final sc = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<AppColors>()!;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Column(
@@ -1026,7 +966,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
         children: [
           _sectionTitle('Profile Photo'),
           const SizedBox(height: 4),
-          Text('Take a recent passport-size photograph', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6))),
+          Text('Take a recent passport-size photograph', style: TextStyle(fontSize: 13, color: sc.onSurfaceVariant)),
           const SizedBox(height: 28),
           Center(
             child: GestureDetector(
@@ -1035,20 +975,17 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                 width: 180,
                 height: 180,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: colors.surfaceContainerLow,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: _uploadedPhotoUrl != null ? const Color(0xFF60a5fa) : Colors.white.withValues(alpha: 0.25),
+                    color: _uploadedPhotoUrl != null ? sc.secondary : colors.outline,
                     width: 3,
                   ),
-                  boxShadow: [
-                    BoxShadow(color: const Color(0xFF60a5fa).withValues(alpha: 0.15), blurRadius: 24, spreadRadius: 2),
-                  ],
                 ),
                 child: ClipOval(
                   child: _photoUploading
                       ? Container(
-                          color: Colors.black.withValues(alpha: 0.3),
+                          color: sc.inverseSurface.withValues(alpha: 0.3),
                           child: const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)),
                         )
                       : _uploadedPhotoUrl != null
@@ -1066,11 +1003,11 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
             child: TextButton.icon(
               onPressed: _photoUploading ? null : _pickPhoto,
               icon: _photoUploading
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF60a5fa)))
-                  : Icon(Icons.camera_alt_rounded, color: Colors.white.withValues(alpha: 0.8)),
+                  ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: sc.secondary))
+                  : Icon(Icons.camera_alt_rounded, color: sc.onSurfaceVariant),
               label: Text(
                 _photoUploading ? 'Uploading...' : (_uploadedPhotoUrl != null ? 'Retake Photo' : 'Tap to Take Photo'),
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.8)),
+                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: sc.onSurfaceVariant),
               ),
             ),
           ),
@@ -1080,13 +1017,14 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   }
 
   Widget _photoPlaceholder() {
+    final sc = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.person_outline_rounded, size: 52, color: Colors.white.withValues(alpha: 0.3)),
+          Icon(Icons.person_outline_rounded, size: 52, color: sc.outline),
           const SizedBox(height: 4),
-          Text('Photo', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
+          Text('Photo', style: TextStyle(fontSize: 12, color: sc.outline)),
         ],
       ),
     );
@@ -1095,6 +1033,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   // ---- STEP 6: REVIEW & SUBMIT ----
 
   Widget _buildReview() {
+    final sc = Theme.of(context).colorScheme;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -1102,7 +1041,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
         children: [
           _sectionTitle('Review Your Information'),
           const SizedBox(height: 4),
-          Text('Please verify everything before submitting', style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6))),
+          Text('Please verify everything before submitting', style: TextStyle(fontSize: 13, color: sc.onSurfaceVariant)),
           const SizedBox(height: 16),
           _reviewCard('Personal Details', Icons.person, [
             _reviewItem('Name', _nameCtrl.text),
@@ -1167,6 +1106,8 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   // ---- SUCCESS SCREEN ----
 
   Widget _buildSuccessScreen() {
+    final sc = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<AppColors>()!;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -1177,18 +1118,16 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
             width: 110,
             height: 110,
             decoration: BoxDecoration(
-              color: const Color(0xFF22c55e).withValues(alpha: 0.15),
+              color: colors.surfaceContainerLow,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: const Color(0xFF22c55e).withValues(alpha: 0.2), blurRadius: 30, spreadRadius: 5),
-              ],
+              border: Border.all(color: const Color(0xFF22c55e), width: 3),
             ),
             child: const Icon(Icons.check_circle_rounded, size: 60, color: Color(0xFF22c55e)),
           ),
           const SizedBox(height: 28),
           Text('Onboarding Complete!',
             style: GoogleFonts.hankenGrotesk(
-              fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white,
+              fontSize: 24, fontWeight: FontWeight.w700, color: sc.onSurface,
               letterSpacing: -0.5,
             ),
           ),
@@ -1196,7 +1135,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
           Text(
             'Your information has been submitted successfully.\nYou can now start marking your attendance.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, height: 1.6, color: Colors.white.withValues(alpha: 0.7)),
+            style: TextStyle(fontSize: 14, height: 1.6, color: sc.onSurfaceVariant),
           ),
         ],
       ),
@@ -1217,8 +1156,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
               backgroundColor: const Color(0xFF22c55e),
               foregroundColor: Colors.white,
               elevation: 0,
-              shadowColor: const Color(0xFF22c55e).withValues(alpha: 0.3),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             child: Text('Go to Dashboard', style: GoogleFonts.hankenGrotesk(
               fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.2,
@@ -1232,18 +1170,19 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   // ---- Helper Widgets ----
 
   Widget _sectionTitle(String title) {
+    final sc = Theme.of(context).colorScheme;
     return Row(
       children: [
         Container(
           width: 3, height: 18,
           decoration: BoxDecoration(
-            color: const Color(0xFF60a5fa),
+            color: sc.secondary,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
         const SizedBox(width: 10),
         Text(title, style: GoogleFonts.hankenGrotesk(
-          fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFFe2e8f0),
+          fontSize: 16, fontWeight: FontWeight.w600, color: sc.onSurface,
           letterSpacing: -0.3,
         )),
       ],
@@ -1251,52 +1190,52 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   }
 
   Widget _textField(TextEditingController ctrl, String label, IconData icon, String hint, {TextInputType? keyboardType, int? maxLength}) {
+    final sc = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<AppColors>()!;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
+        color: colors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outline),
       ),
       child: TextField(
         controller: ctrl,
         keyboardType: keyboardType,
         maxLength: maxLength,
-        style: const TextStyle(fontSize: 14, color: Color(0xFF1a1a2e)),
+        style: TextStyle(fontSize: 14, color: sc.onSurface),
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
-          hintStyle: TextStyle(fontSize: 13, color: const Color(0xFF94a3b8)),
-          prefixIcon: Icon(icon, size: 19, color: const Color(0xFF64748b)),
+          hintStyle: TextStyle(fontSize: 13, color: sc.outline),
+          prefixIcon: Icon(icon, size: 19, color: sc.onSurfaceVariant),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
           counterText: '',
-          labelStyle: TextStyle(fontSize: 13, color: const Color(0xFF64748b)),
+          labelStyle: TextStyle(fontSize: 13, color: sc.onSurfaceVariant),
         ),
       ),
     );
   }
 
   Widget _dropdownField(String label, String value, List<String> items, ValueChanged<String?> onChanged) {
+    final sc = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<AppColors>()!;
     final allItems = ['', ...items];
     final effectiveValue = items.contains(value) ? value : '';
     return Container(
       height: 52,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
+        color: colors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outline),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: effectiveValue,
           isExpanded: true,
-          icon: const Icon(Icons.expand_more, size: 20, color: Color(0xFF64748b)),
-          style: const TextStyle(fontSize: 14, color: Color(0xFF1a1a2e)),
+          icon: Icon(Icons.expand_more, size: 20, color: sc.outline),
+          style: TextStyle(fontSize: 14, color: sc.onSurface),
           items: allItems.map((item) => DropdownMenuItem(
             value: item,
             child: Text(item.isEmpty ? label : item),
@@ -1308,15 +1247,15 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   }
 
   Widget _reviewCard(String title, IconData icon, List<Widget> items) {
+    final sc = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<AppColors>()!;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 2)),
-        ],
+        color: sc.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1326,14 +1265,14 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1e3a8a).withValues(alpha: 0.1),
+                  color: sc.secondary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, size: 16, color: const Color(0xFF2563eb)),
+                child: Icon(icon, size: 16, color: sc.secondary),
               ),
               const SizedBox(width: 10),
               Text(title, style: GoogleFonts.hankenGrotesk(
-                fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF0f172a),
+                fontSize: 15, fontWeight: FontWeight.w700, color: sc.onSurface,
                 letterSpacing: -0.2,
               )),
             ],
@@ -1346,6 +1285,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   }
 
   Widget _reviewItem(String label, String value) {
+    final sc = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -1353,10 +1293,10 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF64748b))),
+            child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: sc.outline)),
           ),
           Expanded(
-            child: Text(value.isEmpty ? '—' : value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1a1a2e))),
+            child: Text(value.isEmpty ? '—' : value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: sc.onSurface)),
           ),
         ],
       ),

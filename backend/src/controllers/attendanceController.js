@@ -7,6 +7,7 @@ import {
   getAttendanceHistory,
   deleteAttendance,
   getMonthlyAttendance,
+  getFirstQRCode,
 } from '../models/attendanceModel.js';
 import { getQRByCode } from '../models/qrModel.js';
 import { getDailyCodeByCode } from '../models/dailyCodeModel.js';
@@ -15,6 +16,9 @@ import { getApprovedHalfDayLeave, getApprovedLeaves } from '../models/leaveModel
 import { getAllAttendance } from '../models/attendanceModel.js';
 import { getAllWorkers, getWorkerById } from '../models/workerModel.js';
 import { haversineDistance } from '../utils/geo.js';
+import { sendPushNotification } from '../services/fcmService.js';
+import { logNotification } from '../models/notificationModel.js';
+import supabase from '../config/supabase.js';
 
 const MAX_LATE_MINUTES = 180;
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -415,6 +419,146 @@ export const deleteAttendanceRecord = async (req, res) => {
     }
     const result = await deleteAttendance(id);
     return res.json({ message: 'Attendance deleted', attendance: result });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const GEOEXIT_HOURS = 4;
+
+async function notifyHRAndAdmin(workerName, exitTime, action) {
+  try {
+    const title = action === 'exit'
+      ? `Worker Left Work Area`
+      : `Worker Auto Punch-Out`;
+    const body = action === 'exit'
+      ? `${workerName} has left the work area at ${new Date(exitTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}. Return within ${GEOEXIT_HOURS} hours.`
+      : `${workerName} did not return within ${GEOEXIT_HOURS} hours and has been auto punch-out.`;
+
+    const { data: hrUsers } = await supabase
+      .from('hrs')
+      .select('id');
+    const { data: adminUsers } = await supabase
+      .from('users')
+      .select('id')
+      .in('role', ['hoadmin', 'hr']);
+
+    const userIds = [
+      ...(hrUsers || []).map(u => u.id),
+      ...(adminUsers || []).map(u => u.id),
+    ];
+
+    for (const uid of userIds) {
+      try {
+        await logNotification({
+          worker_id: uid,
+          type: action === 'exit' ? 'geofence_exit' : 'geofence_auto_punchout',
+          title,
+          body,
+          sent_at: new Date().toISOString(),
+        });
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+
+export const reportGeofenceLocation = async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ message: 'latitude and longitude are required' });
+    }
+
+    const existing = await getTodayAttendance(req.user.id);
+    if (!existing || !existing.punch_in_time || existing.punch_out_time) {
+      return res.json({ isOutside: false, action: 'none' });
+    }
+
+    const qr = await getFirstQRCode();
+    if (!qr) {
+      return res.json({ isOutside: false, action: 'none' });
+    }
+
+    const distance = haversineDistance(qr.latitude, qr.longitude, latitude, longitude);
+    const isOutside = distance > qr.radius_meters;
+
+    if (isOutside) {
+      if (!existing.is_out_of_geofence) {
+        const now = new Date().toISOString();
+        const updated = await updateAttendance(existing.id, {
+          is_out_of_geofence: true,
+          geofence_exit_time: now,
+        });
+
+        const worker = await getWorkerById(req.user.id);
+        const workerName = worker?.name || 'Unknown Worker';
+
+        try {
+          await sendPushNotification(
+            req.user.id,
+            'Outside Work Area',
+            `You have left the work area. Return within ${GEOEXIT_HOURS} hours to avoid auto punch-out.`,
+            'geofence_exit'
+          );
+        } catch (_) {}
+
+        notifyHRAndAdmin(workerName, now, 'exit');
+
+        return res.json({
+          isOutside: true,
+          exitTime: now,
+          action: 'exited',
+          isFirstExit: true,
+          distance: Math.round(distance),
+          radius: qr.radius_meters,
+        });
+      }
+
+      const exitTime = new Date(existing.geofence_exit_time);
+      const now = new Date();
+      const hoursOutside = (now - exitTime) / (1000 * 60 * 60);
+
+      if (hoursOutside >= GEOEXIT_HOURS) {
+        const updated = await updateAttendance(existing.id, {
+          punch_out_time: existing.geofence_exit_time,
+          punch_out_lat: latitude,
+          punch_out_lng: longitude,
+          is_out_of_geofence: false,
+          geofence_exit_time: null,
+        });
+
+        const worker = await getWorkerById(req.user.id);
+        const workerName = worker?.name || 'Unknown Worker';
+        notifyHRAndAdmin(workerName, existing.geofence_exit_time, 'auto_punchout');
+
+        return res.json({
+          isOutside: true,
+          autoPunchedOut: true,
+          punchOutTime: existing.geofence_exit_time,
+          action: 'auto_punchout',
+        });
+      }
+
+      const remaining = GEOEXIT_HOURS - hoursOutside;
+      return res.json({
+        isOutside: true,
+        exitTime: existing.geofence_exit_time,
+        action: 'still_outside',
+        remainingHours: Math.round(remaining * 10) / 10,
+        distance: Math.round(distance),
+        radius: qr.radius_meters,
+      });
+    }
+
+    if (existing.is_out_of_geofence) {
+      await updateAttendance(existing.id, {
+        is_out_of_geofence: false,
+        geofence_exit_time: null,
+      });
+      return res.json({ isOutside: false, action: 'returned' });
+    }
+
+    return res.json({ isOutside: false, action: 'inside' });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
