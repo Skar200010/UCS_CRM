@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api/auth'
+import * as XLSX from 'xlsx'
 
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
@@ -74,9 +75,6 @@ function ImportForm({ dataSources, onError, onBatchUpdate, endpoint, showSample,
     // New data: parse client-side, chunk, upload with progress
     setImporting(true); onError(''); setResult(null)
     try {
-      const XLSX = window.XLSX;
-      if (!XLSX) { onError('XLSX library not loaded. Please refresh.'); setImporting(false); return }
-
       const reader = new FileReader();
       reader.onload = async (evt) => {
         try {
