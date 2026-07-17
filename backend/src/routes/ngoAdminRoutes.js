@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { authenticateRole } from '../middleware/authMiddleware.js';
 import {
   listNgoSuspense, linkSuspenseToDonor, markSuspenseUnmatched, searchDonorsForSuspense,
@@ -59,7 +60,11 @@ import {
   masterSearch,
   getCallAnalytics,
   getFroSummary,
+  seedStations,
+  uploadOldData,
 } from '../controllers/ngoAdminController.js';
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = Router();
 
@@ -131,5 +136,8 @@ router.post('/donor-crm/followups', createFollowup);
 
 router.get('/master-search', masterSearch);
 router.get('/call-analytics', getCallAnalytics);
+
+router.post('/stations/seed', seedStations);
+router.post('/old-data/upload', upload.single('file'), uploadOldData);
 
 export default router;

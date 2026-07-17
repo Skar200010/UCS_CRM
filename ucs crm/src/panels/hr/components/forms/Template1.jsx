@@ -12,7 +12,7 @@ export default function Template1({ personal, education, family, photo_url }) {
         .t1 td,.t1 th{border:1px solid #666;padding:12px 8px;vertical-align:top}
         .t1 .section{background:#d8d8d8;font-weight:bold;font-size:18px}
         .t1 .label{font-weight:bold;width:25%;white-space:nowrap}
-        .t1 .photo{width:60px;text-align:center;vertical-align:middle;font-weight:bold;font-size:24px;min-height:220px;height:220px;box-sizing:border-box}
+        .t1 .photo{width:100px;text-align:center;vertical-align:middle;font-weight:bold;font-size:27px;min-height:220px;height:220px;box-sizing:border-box}
         .t1 .blank{height:24px}
         .t1 .address{height:40px}
         .t1 .edu th{text-align:center}
@@ -70,12 +70,12 @@ export default function Template1({ personal, education, family, photo_url }) {
           <tr>
             <th>Degree</th>
             <th>University / Institute</th>
-            <th colSpan="2">Year of Passing</th>
-            <th>Percentage / Grade</th>
-            <th>Specialization</th>
+            <th width="14%">From</th>
+            <th width="14%">To</th>
+            <th width="10%">%</th>
           </tr>
           {education.length === 0 ? (
-            <>{[...Array(1)].map((_, i) => <tr key={i}><td></td><td></td><td></td><td></td><td></td><td></td></tr>)}</>
+            <>{[...Array(1)].map((_, i) => <tr key={i}><td></td><td></td><td></td><td></td><td></td></tr>)}</>
           ) : (
             education.slice(0, 1).map((e, i) => (
               <tr key={i}>
@@ -83,12 +83,11 @@ export default function Template1({ personal, education, family, photo_url }) {
                 <td>{e.institution || ''}</td>
                 <td colSpan="2">{(e.year_of_passing || e.year || '').toString()}</td>
                 <td>{e.percentage || ''}</td>
-                <td>{(e.specialization || '').toString()}</td>
               </tr>
             ))
           )}
           {education.length > 0 && education.length < 1 && [...Array(1 - education.length)].map((_, i) => (
-            <tr key={`empty-${i}`}><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr key={`empty-${i}`}><td></td><td></td><td></td><td></td><td></td></tr>
           ))}
           </tbody>
         </table>
@@ -99,12 +98,12 @@ export default function Template1({ personal, education, family, photo_url }) {
             <th width="8%">Sr.No</th>
             <th>Organisation / Trust</th>
             <th>Role / Designation</th>
-            <th>From</th>
-            <th>To</th>
+            <th width="14%">From</th>
+            <th width="14%">To</th>
             <th>Duration</th>
           </tr>
           <tr>
-            <td>1</td>
+            <td style={{textAlign:'center'}}>1</td>
             <td style={{height:40}}></td>
             <td></td>
             <td></td>
@@ -119,11 +118,11 @@ export default function Template1({ personal, education, family, photo_url }) {
           <tr><th width="8%">S.No</th><th>Name</th><th>Relation</th><th>Occupation</th><th>Mobile No</th></tr>
           {(family && family.length > 0 ? family.slice(0, 3) : [...Array(3)]).map((f, i) => (
             <tr key={i}>
-              <td>{i + 1}</td>
-              <td style={{height:35}}>{f?.name || ''}</td>
-              <td>{f?.relationship || ''}</td>
-              <td>{f?.occupation || ''}</td>
-              <td>{f?.phone || ''}</td>
+              <td style={{textAlign:'center'}}>{i + 1}</td>
+              <td style={{height:35}}></td>
+              <td></td>
+              <td></td>
+              <td></td>
             </tr>
           ))}
           </tbody>

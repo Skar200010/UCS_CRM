@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { apiGet, apiPost } from '../api/auth'
+import { api } from '../../../api/auth'
 
 function StationSelectModal({ stations, onClose, onDistribute }) {
   const [selected, setSelected] = useState(() => new Set(stations.map(s => s.station)))
@@ -70,7 +71,127 @@ function StationSelectModal({ stations, onClose, onDistribute }) {
   )
 }
 
+function OldDataTab() {
+  const [file, setFile] = useState(null)
+  const [preview, setPreview] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
+
+  const handleFileChange = (e) => {
+    const f = e.target.files[0]
+    if (!f) return
+    setFile(f)
+    setResult(null)
+    setError('')
+
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const XLSX = window.XLSX
+        if (!XLSX) {
+          setError('XLSX library not loaded. Please refresh.')
+          return
+        }
+        const wb = XLSX.read(evt.target.result, { type: 'array' })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const json = XLSX.utils.sheet_to_json(ws, { defval: '' })
+        setPreview(json.slice(0, 20))
+      } catch {
+        setError('Failed to parse file. Ensure it is a valid .xlsx file.')
+      }
+    }
+    reader.readAsArrayBuffer(f)
+  }
+
+  const handleUpload = async () => {
+    if (!file) return
+    setUploading(true)
+    setError('')
+    setResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api('/ngo-admin/old-data/upload', { method: 'POST', body: fd, _prefix: 'ucs' })
+      setResult(res)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const validRows = preview.length
+
+  return (
+    <div>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-head"><h3>Upload Old Data</h3></div>
+        <div className="card-pad">
+          <p style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 12 }}>
+            Upload an Excel file with donor data. Each row is replicated to <strong>all 3 NGOs</strong> (BSCT, AFLF, MANN) in the specified station.
+          </p>
+          <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginBottom: 12, background: 'var(--bg)', padding: '10px 12px', borderRadius: 6, border: '1px solid var(--line)' }}>
+            <strong>Required columns:</strong> <code>mobile</code>, <code>station</code><br />
+            <strong>Optional:</strong> <code>name</code>, <code>amount</code>, <code>city</code><br />
+            <strong>Valid stations:</strong> ND-1 to ND-8, DH-1 to DH-14
+          </div>
+          <label className="field">
+            File
+            <input type="file" accept=".xlsx,.xls" onChange={handleFileChange} />
+          </label>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ padding: '10px 14px', marginBottom: 16, borderRadius: 6, background: '#fef2f2', border: '1px solid #fecaca', fontSize: 13, color: '#991b1b' }}>
+          {error}
+        </div>
+      )}
+
+      {result && (
+        <div style={{ padding: '12px 14px', marginBottom: 16, borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 13, color: '#166534' }}>
+          <strong>{result.message}</strong><br />
+          <span style={{ fontSize: 11 }}>
+            {result.total_rows} rows · {result.created_profiles} new profiles · {result.created_assignments} assignments created
+            {result.skipped_duplicate_assignments > 0 && ` · ${result.skipped_duplicate_assignments} skipped (duplicates)`}
+            {result.invalid_stations > 0 && ` · ${result.invalid_stations} invalid stations`}
+          </span>
+        </div>
+      )}
+
+      {preview.length > 0 && (
+        <div className="card">
+          <div className="card-head">
+            <h3>Preview ({preview.length} rows shown of {file?.name})</h3>
+            <button className="btn btn-primary btn-sm" onClick={handleUpload} disabled={uploading || !file}>
+              {uploading ? 'Uploading...' : 'Upload & Assign (×3 NGOs)'}
+            </button>
+          </div>
+          <div className="card-pad" style={{ overflowX: 'auto' }}>
+            <table>
+              <thead>
+                <tr>
+                  {Object.keys(preview[0]).map(k => <th key={k}>{k}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {preview.map((row, i) => (
+                  <tr key={i}>
+                    {Object.values(row).map((v, j) => <td key={j}>{String(v).slice(0, 50)}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function NewData() {
+  const [tab, setTab] = useState('new')
   const [donors, setDonors] = useState([])
   const [loading, setLoading] = useState(true)
   const [distributing, setDistributing] = useState(false)
@@ -97,6 +218,8 @@ export default function NewData() {
   }
 
   useEffect(load, [selectedNgoId])
+
+  useEffect(() => { if (tab === 'new') load() }, [tab])
 
   const handleDistributeAll = async () => {
     const count = donors.length
@@ -125,65 +248,80 @@ export default function NewData() {
             <option key={ngo.id} value={ngo.id}>{ngo.name}</option>
           ))}
         </select>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, background: 'var(--bg)', borderRadius: 8, padding: 2 }}>
+          <button onClick={() => setTab('new')} style={{ padding: '5px 14px', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', background: tab === 'new' ? 'var(--sage)' : 'transparent', color: tab === 'new' ? '#fff' : 'var(--ink-soft)' }}>
+            New Data
+          </button>
+          <button onClick={() => setTab('old')} style={{ padding: '5px 14px', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', background: tab === 'old' ? 'var(--sage)' : 'transparent', color: tab === 'old' ? '#fff' : 'var(--ink-soft)' }}>
+            Old Data
+          </button>
+        </div>
       </div>
-      {result && (
-        <div style={{ padding: '10px 14px', marginBottom: 16, borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 13, color: '#166534' }}>
-          {result.message}
-        </div>
-      )}
 
-      <div className="card">
-        <div className="card-head">
-          <h3>New Data</h3>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span className="count">{donors.length} donors</span>
-            <button className="btn btn-primary btn-sm" onClick={handleDistributeAll} disabled={distributing || donors.length === 0}>
-              {distributing ? 'Distributing...' : 'Distribute to All Stations'}
-            </button>
-            <button className="btn btn-outline btn-sm" onClick={() => setShowStationSelect(true)} disabled={donors.length === 0}>
-              Select Stations & Distribute
-            </button>
-          </div>
-        </div>
-        <div className="card-pad">
-          {loading ? (
-            <div className="loading">Loading new data...</div>
-          ) : donors.length === 0 ? (
-            <div className="empty-state"><p>No unassigned data. Import new data via the Data Import page.</p></div>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Mobile</th>
-                  <th>Category</th>
-                  <th>Amount</th>
-                  <th>Imported</th>
-                </tr>
-              </thead>
-              <tbody>
-                {donors.map((d, i) => (
-                  <tr key={d.id || d.mobile_number || i}>
-                    <td><strong>{d.name || '\u2014'}</strong></td>
-                    <td><code>{d.mobile_number}</code></td>
-                    <td><span className="pill">{d.category || '\u2014'}</span></td>
-                    <td>{'\u20B9'}{Number(d.amount || 0).toLocaleString()}</td>
-                    <td className="muted">{d.created_at ? new Date(d.created_at).toLocaleDateString() : '\u2014'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {tab === 'new' && (
+        <>
+          {result && (
+            <div style={{ padding: '10px 14px', marginBottom: 16, borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 13, color: '#166534' }}>
+              {result.message}
+            </div>
           )}
-        </div>
-      </div>
 
-      {showStationSelect && (
-        <StationSelectModal
-          stations={stations}
-          onClose={() => setShowStationSelect(false)}
-          onDistribute={(res) => { setShowStationSelect(false); setResult(res); load() }}
-        />
+          <div className="card">
+            <div className="card-head">
+              <h3>New Data</h3>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span className="count">{donors.length} donors</span>
+                <button className="btn btn-primary btn-sm" onClick={handleDistributeAll} disabled={distributing || donors.length === 0}>
+                  {distributing ? 'Distributing...' : 'Distribute to All Stations'}
+                </button>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowStationSelect(true)} disabled={donors.length === 0}>
+                  Select Stations & Distribute
+                </button>
+              </div>
+            </div>
+            <div className="card-pad">
+              {loading ? (
+                <div className="loading">Loading new data...</div>
+              ) : donors.length === 0 ? (
+                <div className="empty-state"><p>No unassigned data. Import new data via the Data Import page.</p></div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Mobile</th>
+                      <th>Category</th>
+                      <th>Amount</th>
+                      <th>Imported</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {donors.map((d, i) => (
+                      <tr key={d.id || d.mobile_number || i}>
+                        <td><strong>{d.name || '\u2014'}</strong></td>
+                        <td><code>{d.mobile_number}</code></td>
+                        <td><span className="pill">{d.category || '\u2014'}</span></td>
+                        <td>{'\u20B9'}{Number(d.amount || 0).toLocaleString()}</td>
+                        <td className="muted">{d.created_at ? new Date(d.created_at).toLocaleDateString() : '\u2014'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {showStationSelect && (
+            <StationSelectModal
+              stations={stations}
+              onClose={() => setShowStationSelect(false)}
+              onDistribute={(res) => { setShowStationSelect(false); setResult(res); load() }}
+            />
+          )}
+        </>
       )}
+
+      {tab === 'old' && <OldDataTab />}
     </div>
   )
 }

@@ -161,15 +161,14 @@ export default function Template6() {
           <span className="line"></span>
         </div>
 
-        <div className="two">
-          <div className="field">
-            <span className="label">Signature:</span>
-            <span className="line"></span>
-          </div>
-          <div className="field">
-            <span className="label">Date:</span>
-            <span className="line"></span>
-          </div>
+        <div className="field">
+          <span className="label">Signature:</span>
+          <span className="line"></span>
+        </div>
+
+        <div className="field">
+          <span className="label">Date:</span>
+          <span className="line"></span>
         </div>
 
         <div className="field">
@@ -195,9 +194,11 @@ export default function Template6() {
 
         <div className="section">FOR BEING SEVAK CHARITABLE TRUST</div>
 
+        <div style={{flex: 0.5}}></div>
+
         <div className="field">
           <span className="label">Authorized Signatory:</span>
-          <span className="line"></span>
+          <span className="line" style={{flex: 'none', width: '200px'}}></span>
         </div>
 
         <div className="footer">

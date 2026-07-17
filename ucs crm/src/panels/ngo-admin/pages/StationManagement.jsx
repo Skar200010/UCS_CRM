@@ -298,6 +298,17 @@ export default function StationManagement() {
           <h3>Stations</h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span className="count">{stations.length} stations</span>
+            <button className="btn btn-sm btn-outline" onClick={async () => {
+              try {
+                const res = await apiPost('/ngo-admin/stations/seed', {})
+                setMsg(res.message || 'Stations seeded')
+                loadStations()
+              } catch (err) {
+                setMsg('Error: ' + err.message)
+              }
+            }} style={{ fontSize: 11 }}>
+              Seed Default Stations
+            </button>
             <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
               style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', width: 150 }} />
           </div>
