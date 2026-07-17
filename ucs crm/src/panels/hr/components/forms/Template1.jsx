@@ -70,8 +70,7 @@ export default function Template1({ personal, education, family, photo_url }) {
           <tr>
             <th>Degree</th>
             <th>University / Institute</th>
-            <th width="14%">From</th>
-            <th width="14%">To</th>
+            <th colSpan="2" width="28%">Year of Passing</th>
             <th width="10%">%</th>
           </tr>
           {education.length === 0 ? (
@@ -116,15 +115,18 @@ export default function Template1({ personal, education, family, photo_url }) {
           <tbody>
           <tr><td colSpan="5" className="section">FAMILY DETAILS / PERSONAL REFERENCE</td></tr>
           <tr><th width="8%">S.No</th><th>Name</th><th>Relation</th><th>Occupation</th><th>Mobile No</th></tr>
-          {(family && family.length > 0 ? family.slice(0, 3) : [...Array(3)]).map((f, i) => (
-            <tr key={i}>
-              <td style={{textAlign:'center'}}>{i + 1}</td>
-              <td style={{height:35}}></td>
-              <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-          ))}
+          {[...Array(3)].map((_, i) => {
+            const f = (family && family.length > i) ? family[i] : null;
+            return (
+              <tr key={i}>
+                <td style={{textAlign:'center'}}>{i + 1}</td>
+                <td style={{height:35, textAlign:'center'}}>{f ? (f.name || '-') : '-'}</td>
+                <td style={{textAlign:'center'}}>{f ? (f.relationship || '-') : '-'}</td>
+                <td style={{textAlign:'center'}}>{f ? (f.occupation || '-') : '-'}</td>
+                <td style={{textAlign:'center'}}>{f ? (f.phone || '-') : '-'}</td>
+              </tr>
+            );
+          })}
           </tbody>
         </table>
         <div className="footer">
