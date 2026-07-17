@@ -1542,6 +1542,7 @@ export const distributeNewData = async (req, res) => {
     const messages = [];
 
     for (const { ngoId, ngoName } of ngoEntries) {
+      try {
       console.log(`[${ngoName}] === Processing NGO: ${ngoName} (id=${ngoId}) ===`);
       // Step 1: Create donor_profiles from new_data
       const { data: importedRows, error: irErr } = await supabase
@@ -1553,6 +1554,7 @@ export const distributeNewData = async (req, res) => {
       console.log(`[${ngoName}] importedRows count:`, importedRows?.length, 'error:', irErr);
 
       let newProfileIds = [];
+      let allMobiles = [];
       if (importedRows && importedRows.length > 0) {
         const latest = {};
         for (const row of importedRows) {
@@ -1560,13 +1562,17 @@ export const distributeNewData = async (req, res) => {
         }
         const mobiles = Object.keys(latest);
 
-        const { data: existingProfiles } = await supabase
-          .from('donor_profiles')
-          .select('id, mobile_number')
-          .in('mobile_number', mobiles);
-
+        // Batch existing profile check to avoid 414
         const existingMap = {};
-        for (const p of existingProfiles || []) existingMap[p.mobile_number] = p.id;
+        const BATCH = 500;
+        for (let i = 0; i < mobiles.length; i += BATCH) {
+          const batch = mobiles.slice(i, i + BATCH);
+          const { data: profiles } = await supabase
+            .from('donor_profiles')
+            .select('id, mobile_number')
+            .in('mobile_number', batch);
+          for (const p of profiles || []) existingMap[p.mobile_number] = p.id;
+        }
 
         const toInsert = [];
         for (const mobile of mobiles) {
@@ -1590,11 +1596,10 @@ export const distributeNewData = async (req, res) => {
             .insert(toInsert)
             .select('id');
           newProfileIds = (newProfiles || []).map(p => p.id);
-          const convertedCount = toInsert.length;
-          await updateNewDataStatusByNgoAndMobiles(ngoName, mobiles, 'converted');
-          totalConverted += convertedCount;
-          messages.push(`${convertedCount} new donors converted to profiles (${ngoName})`);
+          totalConverted += toInsert.length;
+          messages.push(`${toInsert.length} new donors converted to profiles (${ngoName})`);
         }
+        allMobiles = mobiles;
       }
 
       // Step 2: Determine which stations to use
@@ -1633,16 +1638,16 @@ export const distributeNewData = async (req, res) => {
       console.log(`[${ngoName}] targetStations:`, targetStations.length, targetStations.map(s => s.station).join(', '));
 
       // Step 3: Find unassigned donor profiles for this NGO
-      // Find profiles by mobile numbers (profiles are mobile-unique, not NGO-unique)
       let existingProfileIds = [];
-      if (importedRows && importedRows.length > 0) {
-        const allMobiles = [...new Set(importedRows.map(r => r.mobile_number).filter(Boolean))];
-        if (allMobiles.length > 0) {
+      if (allMobiles.length > 0) {
+        const BATCH = 500;
+        for (let i = 0; i < allMobiles.length; i += BATCH) {
+          const batch = allMobiles.slice(i, i + BATCH);
           const { data: profiles } = await supabase
             .from('donor_profiles')
             .select('id')
-            .in('mobile_number', allMobiles);
-          existingProfileIds = (profiles || []).map(p => p.id);
+            .in('mobile_number', batch);
+          if (profiles) existingProfileIds.push(...profiles.map(p => p.id));
         }
       }
       const allIds = [...new Set([...newProfileIds, ...existingProfileIds])];
@@ -1700,6 +1705,10 @@ export const distributeNewData = async (req, res) => {
         console.log(`[${ngoName}] creating ${newAssignments.length} fro_assignments`);
         await batchCreateAssignments(newAssignments);
         totalAssigned += newAssignments.length;
+        // Mark as converted only AFTER assignments succeed
+        if (allMobiles.length > 0) {
+          await updateNewDataStatusByNgoAndMobiles(ngoName, allMobiles, 'converted');
+        }
         console.log(`[${ngoName}] batchCreateAssignments OK`);
       } else {
         console.log(`[${ngoName}] no newAssignments to create`);
@@ -1714,6 +1723,10 @@ export const distributeNewData = async (req, res) => {
         .join(', ');
       messages.push(`Distributed ${Object.keys(donorStationMap).length} donors: ${perStation} (${ngoName})`);
       console.log(`[${ngoName}] DONE — ${Object.keys(donorStationMap).length} donors distributed`);
+      } catch (err) {
+        console.error(`[${ngoName}] distribution error:`, err.message);
+        messages.push(`Error for ${ngoName}: ${err.message}`);
+      }
     }
 
     console.log('--- distributeNewData end ---');
