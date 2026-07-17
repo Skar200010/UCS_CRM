@@ -1448,8 +1448,7 @@ export const getNewData = async (req, res) => {
       .in('ngo', ngoNames)
       .not('mobile_number', 'is', null)
       .or('status.eq.pending,status.is.null')
-      .order('created_at', { ascending: false })
-      .limit(1000000);
+      .order('created_at', { ascending: false });
 
     if (iErr) throw iErr;
 
@@ -1480,8 +1479,7 @@ export const getNewData = async (req, res) => {
       .from('donor_profiles')
       .select('id, name, mobile_number, category, amount, first_imported_at, ngo')
       .in('ngo', ngoNames)
-      .order('first_imported_at', { ascending: false })
-      .limit(1000000);
+      .order('first_imported_at', { ascending: false });
 
     if (npErr) throw npErr;
 
@@ -1499,7 +1497,15 @@ export const getNewData = async (req, res) => {
       }));
     }
 
-    return res.json({ unassigned, ngo_data: ngoData });
+    return res.json({
+      unassigned,
+      ngo_data: ngoData,
+      _debug: {
+        ngoNames,
+        imported_rows_raw: importedRows?.length || 0,
+        unassigned_count: unassigned.length,
+      },
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
