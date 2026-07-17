@@ -4,7 +4,7 @@ export default function Template5({ personal }) {
       <style>{`
         @page{size:A4 portrait;margin:0}
         .t5 *{box-sizing:border-box;font-family:'Times New Roman',Times,serif}
-        .t5{width:210mm;height:297mm !important;margin:40px auto;background:#fff;border:3px solid #000;box-shadow:inset 0 0 0 5px #fff,inset 0 0 0 7px #000;padding:2mm 8mm 4mm 8mm;position:relative;overflow:hidden !important;display:flex;flex-direction:column}
+        .t5{width:210mm;height:297mm !important;margin:40px auto;background:#fff;border:8px double #000;padding:2mm 8mm 4mm 8mm;position:relative;overflow:hidden !important;display:flex;flex-direction:column}
         .t5 h1{margin:0;text-align:center;font-size:25px;font-family:'Times New Roman',Times,serif;font-weight:bold;line-height:1.1}
         .t5 .sub{text-align:center;font-size:9px;margin:0 0 0.3mm 0;line-height:1.1;letter-spacing:0.3px}
         .t5 .redline{border-top:2px solid #7a2020;margin:0.5mm auto;width:100%}
