@@ -1,4 +1,4 @@
-export default function Template1({ personal, education, photo_url }) {
+export default function Template1({ personal, education, family, photo_url }) {
   return (
     <div className="print-page">
       <style>{`
@@ -28,6 +28,7 @@ export default function Template1({ personal, education, photo_url }) {
         </div>
         <div className="form-title">VOLUNTEER JOINING FORM</div>
         <table>
+          <tbody>
           <tr><td colSpan="3" className="section">PERSONAL DETAILS</td></tr>
           <tr>
             <td className="label">Name :</td>
@@ -62,33 +63,35 @@ export default function Template1({ personal, education, photo_url }) {
             <td></td>
           </tr>
           <tr><td colSpan="3" className="section">EDUCATIONAL DETAILS (higher education)</td></tr>
+          </tbody>
         </table>
         <table className="edu">
+          <tbody>
           <tr>
             <th>Degree</th>
             <th>University / Institute</th>
-            <th width="14%">From</th>
-            <th width="14%">To</th>
+            <th colSpan="2" width="28%">Year of Passing</th>
             <th width="10%">%</th>
           </tr>
           {education.length === 0 ? (
-            <>{[...Array(1)].map((_, i) => <tr key={i}><td></td><td></td><td></td><td></td><td></td></tr>)}</>
+            <>{[...Array(1)].map((_, i) => <tr key={i}><td></td><td></td><td colSpan="2"></td><td></td></tr>)}</>
           ) : (
             education.slice(0, 1).map((e, i) => (
               <tr key={i}>
                 <td>{e.degree || ''}</td>
                 <td>{e.institution || ''}</td>
-                <td>{e.year || ''}</td>
-                <td></td>
+                <td colSpan="2">{(e.year_of_passing || e.year || '').toString()}</td>
                 <td>{e.percentage || ''}</td>
               </tr>
             ))
           )}
           {education.length > 0 && education.length < 1 && [...Array(1 - education.length)].map((_, i) => (
-            <tr key={`empty-${i}`}><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr key={`empty-${i}`}><td></td><td></td><td colSpan="2"></td><td></td></tr>
           ))}
+          </tbody>
         </table>
         <table>
+          <tbody>
           <tr><td colSpan="6" className="section">VOLUNTEER DETAILS (PREVIOUS ORGANISATIONS / AFFILIATIONS)</td></tr>
           <tr>
             <th width="8%">Sr.No</th>
@@ -106,19 +109,25 @@ export default function Template1({ personal, education, photo_url }) {
             <td></td>
             <td></td>
           </tr>
+          </tbody>
         </table>
         <table>
+          <tbody>
           <tr><td colSpan="5" className="section">FAMILY DETAILS / PERSONAL REFERENCE</td></tr>
           <tr><th width="8%">S.No</th><th>Name</th><th>Relation</th><th>Occupation</th><th>Mobile No</th></tr>
-          {[...Array(3)].map((_, i) => (
-            <tr key={i}>
-              <td style={{textAlign:'center'}}>{i + 1}</td>
-              <td style={{height:35}}></td>
-              <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-          ))}
+          {[...Array(3)].map((_, i) => {
+            const f = (family && family.length > i) ? family[i] : null;
+            return (
+              <tr key={i}>
+                <td style={{textAlign:'center'}}>{i + 1}</td>
+                <td style={{height:35, textAlign:'center'}}>{f ? (f.name || '-') : '-'}</td>
+                <td style={{textAlign:'center'}}>{f ? (f.relationship || '-') : '-'}</td>
+                <td style={{textAlign:'center'}}>{f ? (f.occupation || '-') : '-'}</td>
+                <td style={{textAlign:'center'}}>{f ? (f.phone || '-') : '-'}</td>
+              </tr>
+            );
+          })}
+          </tbody>
         </table>
         <div className="footer">
           Reg. Add.: Office No. 402, 4th Floor, 'A' Wing, New Delite Apartment, Near Chandavarkar Lane, Borivali (West), Mumbai.<br />
