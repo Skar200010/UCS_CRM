@@ -1695,7 +1695,6 @@ export const distributeNewData = async (req, res) => {
           fro_worker_id: workerId || null,
           ngo_id: ngoId,
           station: station,
-          assigned_by: req.user.id,
           status: 'pending',
           assigned_at: new Date().toISOString(),
         });
@@ -3148,7 +3147,6 @@ export const uploadOldData = async (req, res) => {
             fro_worker_id: stationAssign?.fro_worker_id || null,
             ngo_id: ngoId,
             station: row.station,
-            assigned_by: req.user.id,
             status: 'pending',
             assigned_at: new Date().toISOString(),
           }]);
@@ -3268,7 +3266,6 @@ export const uploadOldDataForStation = async (req, res) => {
             fro_worker_id: stationAssign?.fro_worker_id || null,
             ngo_id: ngoId,
             station,
-            assigned_by: req.user.id,
             status: 'pending',
             assigned_at: new Date().toISOString(),
           }]);
