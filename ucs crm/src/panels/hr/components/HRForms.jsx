@@ -342,7 +342,14 @@ export default function HRForms() {
 
             <div className="card-head"><h3>Correspondence Address</h3></div>
             <div className="card-pad">
-              <Field label="Address" value={personal.corrAddress || ''} onChange={e => handlePersonalChange('corrAddress', e.target.value)} placeholder="Street, area, landmark" />
+              <Field label="Address" type="textarea" rows={3} value={personal.corrAddress || ''} onChange={e => {
+                const raw = e.target.value.replace(/\n/g, '');
+                const lines = [];
+                for (let i = 0; i < raw.length; i += 25) {
+                  lines.push(raw.substring(i, i + 25));
+                }
+                handlePersonalChange('corrAddress', lines.join('\n'));
+              }} placeholder="Street, area, landmark" />
               <div className="form-row">
                 <Field label="City" value={personal.corrCity || ''} onChange={e => handlePersonalChange('corrCity', e.target.value)} placeholder="City" />
                 <Field label="State" value={personal.corrState || ''} onChange={e => handlePersonalChange('corrState', e.target.value)} placeholder="State" />
