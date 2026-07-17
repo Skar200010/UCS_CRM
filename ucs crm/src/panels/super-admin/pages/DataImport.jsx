@@ -18,6 +18,15 @@ export default function DataImport() {
   const [sheets, setSheets] = useState([])
   const [selectedSheets, setSelectedSheets] = useState({})
   const [inspecting, setInspecting] = useState(false)
+  const [ngos, setNgos] = useState([])
+  const [selectedNgoIds, setSelectedNgoIds] = useState([])
+
+  const [copySourceNgo, setCopySourceNgo] = useState('')
+  const [copyTargetNgoIds, setCopyTargetNgoIds] = useState([])
+  const [copyFilter, setCopyFilter] = useState('all')
+  const [copyMobileFile, setCopyMobileFile] = useState(null)
+  const [copying, setCopying] = useState(false)
+  const [copyResult, setCopyResult] = useState(null)
 
   const [oldFile, setOldFile] = useState(null)
   const [oldDate, setOldDate] = useState(() => {
@@ -32,6 +41,11 @@ export default function DataImport() {
   useEffect(() => {
     api('/data-sources').then(setDataSources).catch(e => setErr(e.message))
     api('/data-import/batches').then(setBatches).catch(() => {})
+    api('/ngos').then(n => {
+      const list = Array.isArray(n) ? n : []
+      setNgos(list)
+      setSelectedNgoIds(list.map(ngo => ngo.id))
+    }).catch(() => {})
   }, [])
 
   const loadBatches = () => {
@@ -82,6 +96,7 @@ export default function DataImport() {
       if (selected.length > 0 && selected.length < sheets.length) {
         selected.forEach(s => fd.append('sheets', s))
       }
+      selectedNgoIds.forEach(id => fd.append('ngo_ids', id))
       const res = await api('/data-import/upload', { method: 'POST', body: fd })
       setResult(res)
       loadBatches()
@@ -215,6 +230,7 @@ export default function DataImport() {
         <button className={`sa-tab${tab === 'import' ? ' active' : ''}`} onClick={() => setTab('import')}>Import</button>
         <button className={`sa-tab${tab === 'history' ? ' active' : ''}`} onClick={() => { setTab('history'); loadBatches() }}>History ({batches.length})</button>
         <button className={`sa-tab${tab === 'old' ? ' active' : ''}`} onClick={() => setTab('old')}>Old Data</button>
+        <button className={`sa-tab${tab === 'copy' ? ' active' : ''}`} onClick={() => setTab('copy')}>Copy to NGOs</button>
       </div>
 
       {tab === 'import' && (
@@ -250,6 +266,20 @@ export default function DataImport() {
                   ))}
                 </div>
               )}
+              <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
+                <span style={{fontSize:12,color:'var(--ink-soft)',fontWeight:500}}>NGOs:</span>
+                {ngos.map(ngo => (
+                  <label key={ngo.id} style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:13,
+                    background: selectedNgoIds.includes(ngo.id) ? '#eef2ff' : '#f5f5f5',
+                    padding:'4px 10px', borderRadius:'var(--radius-sm, 6px)', border:'1px solid var(--line, #e5e7eb)'}}>
+                    <input type="checkbox" checked={selectedNgoIds.includes(ngo.id)}
+                      onChange={() => setSelectedNgoIds(prev =>
+                        prev.includes(ngo.id) ? prev.filter(id => id !== ngo.id) : [...prev, ngo.id]
+                      )} />
+                    {ngo.name}
+                  </label>
+                ))}
+              </div>
               <div className="sa-filters" style={{marginTop:8}}>
                 <button className="btn btn-primary" onClick={handleImport} disabled={importing || !file || !dataSourceId}>
                   {importing ? 'Importing…' : 'Upload & Import'}
@@ -287,6 +317,15 @@ export default function DataImport() {
                   <div className="sa-stat-value" style={{color:'#3b82f6'}}>{result.ngos_used}</div>
                 </div>
               </div>
+              {result.ngo_counts && (
+                <div style={{marginTop:10, display:'flex', gap:10, flexWrap:'wrap'}}>
+                  {Object.entries(result.ngo_counts).map(([name, count]) => (
+                    <span key={name} className="sa-badge" style={{background:'#eef2ff', color:'#4338ca', padding:'4px 10px', borderRadius:6, fontSize:12}}>
+                      {count} → {name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </>
@@ -378,6 +417,97 @@ export default function DataImport() {
               {oldResult.errors && oldResult.errors.length > 0 && (
                 <div style={{marginTop:12}}>
                   <p className="sa-muted">{oldResult.errors.length} rows failed</p>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'copy' && (
+        <>
+          <div className="sa-card">
+            <h3 className="sa-card-title">Copy Donors to Other NGOs</h3>
+            <p className="sa-muted" style={{marginBottom:12}}>
+              Copy donor records from one NGO to another as <strong>new data</strong>. The copied donors will appear in the target NGO's "New Data" tab for distribution to stations.
+            </p>
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              <label className="field">
+                Source NGO
+                <select value={copySourceNgo} onChange={e => setCopySourceNgo(e.target.value)}>
+                  <option value="">— Select —</option>
+                  {ngos.map(ngo => (
+                    <option key={ngo.id} value={ngo.id}>{ngo.name}</option>
+                  ))}
+                </select>
+              </label>
+              <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
+                <span style={{fontSize:12,color:'var(--ink-soft)',fontWeight:500}}>Target NGOs:</span>
+                {ngos.filter(n => n.id !== Number(copySourceNgo)).map(ngo => (
+                  <label key={ngo.id} style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:13,
+                    background: copyTargetNgoIds.includes(ngo.id) ? '#eef2ff' : '#f5f5f5',
+                    padding:'4px 10px', borderRadius:'var(--radius-sm, 6px)', border:'1px solid var(--line, #e5e7eb)'}}>
+                    <input type="checkbox" checked={copyTargetNgoIds.includes(ngo.id)}
+                      onChange={() => setCopyTargetNgoIds(prev =>
+                        prev.includes(ngo.id) ? prev.filter(id => id !== ngo.id) : [...prev, ngo.id]
+                      )} />
+                    {ngo.name}
+                  </label>
+                ))}
+              </div>
+              <label className="field">
+                Filter
+                <select value={copyFilter} onChange={e => setCopyFilter(e.target.value)}>
+                  <option value="all">All Donors</option>
+                  <option value="assigned">Donors with donations only</option>
+                  <option value="new">New/Unassigned only</option>
+                </select>
+              </label>
+              <label className="field" style={{fontSize:12}}>
+                Or upload a file with mobile numbers (one per row)
+                <input type="file" accept=".txt,.csv,.xlsx" onChange={e => setCopyMobileFile(e.target.files[0])} />
+              </label>
+              <div className="sa-filters" style={{marginTop:8}}>
+                <button className="btn btn-primary" onClick={async () => {
+                  if (!copySourceNgo || copyTargetNgoIds.length === 0) return
+                  setCopying(true)
+                  setErr('')
+                  setCopyResult(null)
+                  try {
+                    const body = {
+                      source_ngo_id: Number(copySourceNgo),
+                      target_ngo_ids: copyTargetNgoIds,
+                      filter: copyFilter,
+                    }
+                    if (copyMobileFile) {
+                      const text = await copyMobileFile.text()
+                      body.mobile_numbers = text.split('\n').map(s => s.trim()).filter(Boolean)
+                    }
+                    const res = await api('/data-import/copy-to-ngos', { method: 'POST', body: JSON.stringify(body) })
+                    setCopyResult(res)
+                  } catch (e) {
+                    setErr(e.message)
+                  } finally {
+                    setCopying(false)
+                  }
+                }} disabled={copying || !copySourceNgo || copyTargetNgoIds.length === 0}>
+                  {copying ? 'Copying...' : 'Copy to Selected NGOs'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {copyResult && (
+            <div className="sa-card">
+              <h3 className="sa-card-title" style={{color:'#10b981'}}>Copy Complete</h3>
+              <p style={{fontSize:13, marginBottom:8}}>{copyResult.message}</p>
+              {copyResult.details && (
+                <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
+                  {copyResult.details.map(d => (
+                    <span key={d.ngo} className="sa-badge" style={{background:'#eef2ff', color:'#4338ca', padding:'4px 10px', borderRadius:6, fontSize:12}}>
+                      {d.copied} → {d.ngo}
+                    </span>
+                  ))}
                 </div>
               )}
             </div>

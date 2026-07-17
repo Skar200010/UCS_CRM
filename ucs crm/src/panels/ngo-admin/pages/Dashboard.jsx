@@ -479,7 +479,7 @@ export default function Dashboard() {
     const dateParam = stationDateFrom || stationDateTo
       ? `${ngoParam ? '&' : '?'}from=${stationDateFrom}&to=${stationDateTo}`
       : '';
-    const opts = { signal: controller.signal, timeout: 45000 };
+    const opts = { signal: controller.signal, timeout: 180000 };
     Promise.all([
       apiGet(`/ngo-admin/dashboard${ngoParam}`, opts),
       apiGet(`/ngo-admin/dashboard/station-stats${ngoParam}${dateParam}`, opts),

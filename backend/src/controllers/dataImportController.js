@@ -26,7 +26,7 @@ export const uploadImport = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ message: 'File is required' });
     }
-    const { date, data_source_id, sheets } = req.body;
+    const { date, data_source_id, sheets, ngo_ids } = req.body;
     if (!date || !data_source_id) {
       return res.status(400).json({ message: 'Date and data source are required' });
     }
@@ -52,16 +52,23 @@ export const uploadImport = async (req, res) => {
     const trulyNew = deduped.filter(r => !existingMobiles.has(r.mobile_number));
     const crossBatchDups = deduped.length - trulyNew.length;
 
-    const { data: ngos, error: nErr } = await supabase
+    const { data: allNgos, error: nErr } = await supabase
       .from('ngos')
       .select('id, name')
       .eq('is_active', true);
     if (nErr) throw nErr;
 
+    // Filter NGOs by selected ngo_ids if provided
+    let selectedNgos = allNgos;
+    if (ngo_ids) {
+      const ids = Array.isArray(ngo_ids) ? ngo_ids : ngo_ids.split(',').map(s => s.trim());
+      selectedNgos = allNgos.filter(n => ids.includes(n.id));
+    }
+
     const importBatchId = uuidv4();
 
-    // Send each record to ALL active NGOs (one row per NGO)
-    const ngoNames = ngos && ngos.length > 0 ? ngos.map(n => n.name) : ['Default'];
+    // Send each record to selected NGOs (one row per NGO)
+    const ngoNames = selectedNgos.length > 0 ? selectedNgos.map(n => n.name) : ['Default'];
     const dbRows = [];
 
     for (const r of trulyNew) {
@@ -109,7 +116,18 @@ export const uploadImport = async (req, res) => {
       }
     }
 
-    const inserted = await insertNewDataBatch(dbRows);
+    // Insert in batches of 500 to avoid statement timeout
+    const BATCH_SIZE = 500;
+    let totalInserted = 0;
+    for (let i = 0; i < dbRows.length; i += BATCH_SIZE) {
+      const batch = dbRows.slice(i, i + BATCH_SIZE);
+      const { data, error: insErr } = await supabase
+        .from('new_data')
+        .insert(batch)
+        .select();
+      if (insErr) throw insErr;
+      totalInserted += (data || []).length;
+    }
 
     // Build per-NGO stats
     const ngoCounts = {};
@@ -119,16 +137,91 @@ export const uploadImport = async (req, res) => {
     const distribution = Object.entries(ngoCounts).map(([name, count]) => `${count} → ${name}`);
 
     return res.status(201).json({
-      message: 'Data imported and replicated to all active NGOs successfully',
+      message: selectedNgos.length < allNgos.length
+        ? `Data imported for ${selectedNgos.length} NGO(s) successfully`
+        : 'Data imported and replicated to all active NGOs successfully',
       batch_id: importBatchId,
       total_in_file: extracted.length,
       duplicates_removed: duplicatesRemoved,
       cross_batch_duplicates: crossBatchDups,
-      imported: inserted.length,
+      imported: totalInserted,
       distribution: distribution.join('; '),
       ngo_counts: ngoCounts,
       ngos_used: ngoNames.length,
       per_ngo_count: trulyNew.length,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const uploadChunk = async (req, res) => {
+  try {
+    const { rows, ngo_ids, data_source_id, import_date, chunk_index, total_chunks } = req.body;
+    if (!rows || rows.length === 0 || !data_source_id || !import_date) {
+      return res.status(400).json({ message: 'rows, data_source_id, and import_date are required' });
+    }
+
+    // Get selected NGOs
+    const { data: allNgos } = await supabase.from('ngos').select('id, name').eq('is_active', true);
+    let selectedNgos = allNgos || [];
+    if (ngo_ids && ngo_ids.length > 0) {
+      selectedNgos = (allNgos || []).filter(n => ngo_ids.includes(n.id));
+    }
+
+    const importBatchId = req.body.batch_id || uuidv4();
+    const ngoNames = selectedNgos.length > 0 ? selectedNgos.map(n => n.name) : ['Default'];
+
+    const dbRows = [];
+    for (const r of rows) {
+      for (const ngo of ngoNames) {
+        dbRows.push({
+          data_source_id,
+          import_date,
+          import_batch_id: importBatchId,
+          mobile_number: r.mobile_number,
+          name: r.name || null,
+          category: r.category || '',
+          amount: parseFloat(r.amount) || 0,
+          ngo,
+        });
+      }
+    }
+
+    // Dedup within chunk
+    const seen = new Set();
+    const deduped = dbRows.filter(r => {
+      const key = `${r.mobile_number}_${r.ngo}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Insert in batches of 500
+    const BATCH_SIZE = 500;
+    let inserted = 0;
+    for (let i = 0; i < deduped.length; i += BATCH_SIZE) {
+      const batch = deduped.slice(i, i + BATCH_SIZE);
+      const { data, error: insErr } = await supabase
+        .from('new_data')
+        .insert(batch)
+        .select();
+      if (insErr) throw insErr;
+      inserted += (data || []).length;
+    }
+
+    const ngoCounts = {};
+    for (const row of deduped) {
+      ngoCounts[row.ngo] = (ngoCounts[row.ngo] || 0) + 1;
+    }
+
+    return res.json({
+      inserted,
+      batch_id: importBatchId,
+      chunk_index,
+      total_chunks,
+      ngo_counts: ngoCounts,
+      done: chunk_index === total_chunks - 1,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -391,6 +484,146 @@ export const downloadTestSheet = async (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=data-import-test.xlsx');
     return res.send(buf);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const copyDonorsToNgos = async (req, res) => {
+  try {
+    const { source_ngo_id, target_ngo_ids, filter, mobile_numbers } = req.body;
+    if (!source_ngo_id || !target_ngo_ids || target_ngo_ids.length === 0) {
+      return res.status(400).json({ message: 'source_ngo_id and target_ngo_ids are required' });
+    }
+
+    // Get source NGO name
+    const { data: sourceNgo } = await supabase.from('ngos').select('name').eq('id', source_ngo_id).single();
+    if (!sourceNgo) return res.status(404).json({ message: 'Source NGO not found' });
+    const sourceNgoName = sourceNgo.name;
+
+    // Get target NGO names
+    const { data: targetNgos } = await supabase.from('ngos').select('id, name').in('id', target_ngo_ids.map(Number));
+    if (!targetNgos || targetNgos.length === 0) {
+      return res.status(400).json({ message: 'No valid target NGOs found' });
+    }
+
+    // Determine which mobiles to copy
+    let mobilesToCopy = [];
+
+    if (mobile_numbers && mobile_numbers.length > 0) {
+      mobilesToCopy = mobile_numbers;
+    } else {
+      // Fetch from donor_profiles that have fro_assignments for source NGO
+      const { data: donorProfiles } = await supabase
+        .from('donor_profiles')
+        .select('mobile_number');
+
+      if (!donorProfiles || donorProfiles.length === 0) {
+        return res.json({ message: 'No donors found in source NGO', copied: 0, details: [] });
+      }
+
+      const allMobiles = donorProfiles.map(d => d.mobile_number).filter(Boolean);
+      const uniqueMobiles = [...new Set(allMobiles)];
+
+      if (uniqueMobiles.length === 0) {
+        return res.json({ message: 'No donors with mobile numbers found', copied: 0, details: [] });
+      }
+
+      // If filter is 'assigned', only include mobiles with fro_assignments for source NGO
+      if (filter === 'assigned') {
+        const { data: sourceAssignments } = await supabase
+          .from('fro_assignments')
+          .select('donor_id')
+          .eq('ngo_id', source_ngo_id)
+          .not('status', 'eq', 'reassigned');
+
+        const assignedDonorIds = new Set((sourceAssignments || []).map(a => a.donor_id));
+        const { data: assignedProfiles } = await supabase
+          .from('donor_profiles')
+          .select('mobile_number')
+          .in('id', [...assignedDonorIds]);
+
+        mobilesToCopy = [...new Set((assignedProfiles || []).map(d => d.mobile_number).filter(Boolean))];
+      } else if (filter === 'new') {
+        const { data: sourceAssignments } = await supabase
+          .from('fro_assignments')
+          .select('donor_id')
+          .eq('ngo_id', source_ngo_id)
+          .not('status', 'eq', 'reassigned');
+
+        const assignedDonorIds = new Set((sourceAssignments || []).map(a => a.donor_id));
+        const { data: unassignedProfiles } = await supabase
+          .from('donor_profiles')
+          .select('mobile_number')
+          .not('id', 'in', [...assignedDonorIds]);
+
+        mobilesToCopy = [...new Set((unassignedProfiles || []).map(d => d.mobile_number).filter(Boolean))];
+      } else {
+        mobilesToCopy = uniqueMobiles;
+      }
+    }
+
+    if (mobilesToCopy.length === 0) {
+      return res.json({ message: 'No donors to copy', copied: 0, details: [] });
+    }
+
+    // Fetch source new_data rows for these mobiles
+    const { data: sourceRows } = await supabase
+      .from('new_data')
+      .select('*')
+      .eq('ngo', sourceNgoName)
+      .in('mobile_number', mobilesToCopy);
+
+    if (!sourceRows || sourceRows.length === 0) {
+      return res.json({ message: 'No new_data rows found for source NGO', copied: 0, details: [] });
+    }
+
+    // Group by mobile to dedup (keep latest row per mobile)
+    const latestPerMobile = {};
+    for (const row of sourceRows) {
+      if (!latestPerMobile[row.mobile_number]) latestPerMobile[row.mobile_number] = row;
+    }
+
+    const importBatchId = uuidv4();
+    const results = [];
+
+    for (const targetNgo of targetNgos) {
+      // Check which mobiles already exist for target NGO
+      const { data: existingTarget } = await supabase
+        .from('new_data')
+        .select('mobile_number')
+        .eq('ngo', targetNgo.name);
+
+      const existingTargetMobiles = new Set((existingTarget || []).map(r => r.mobile_number));
+
+      const toInsert = [];
+      for (const mobile of mobilesToCopy) {
+        if (!existingTargetMobiles.has(mobile)) {
+          const sourceRow = latestPerMobile[mobile];
+          if (sourceRow) {
+            const row = { ...sourceRow };
+            delete row.id;
+            delete row.created_at;
+            row.ngo = targetNgo.name;
+            row.import_batch_id = importBatchId;
+            row.status = null;
+            toInsert.push(row);
+          }
+        }
+      }
+
+      if (toInsert.length > 0) {
+        await insertNewDataBatch(toInsert);
+      }
+      results.push({ ngo: targetNgo.name, ngo_id: targetNgo.id, copied: toInsert.length });
+    }
+
+    return res.json({
+      message: `Copied donors to ${targetNgos.length} NGO(s)`,
+      batch_id: importBatchId,
+      total_mobiles: mobilesToCopy.length,
+      details: results,
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

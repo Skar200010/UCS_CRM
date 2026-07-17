@@ -167,13 +167,31 @@ export const getDonorProfilesByImportNgo = async (ngoList, limit = 1000) => {
   const uniqueMobiles = [...new Set(mobiles.map(r => r.mobile_number))];
   if (uniqueMobiles.length === 0) return [];
 
-  const { data, error } = await supabase
-    .from('donor_profiles')
-    .select('*')
-    .in('mobile_number', uniqueMobiles)
-    .order('first_imported_at', { ascending: false })
-    .limit(limit);
+  // Batch into groups of 500 to avoid Cloudflare 414 URI too large
+  const BATCH = 500;
+  const batchQueries = [];
+  for (let i = 0; i < uniqueMobiles.length; i += BATCH) {
+    const batch = uniqueMobiles.slice(i, i + BATCH);
+    batchQueries.push(
+      supabase
+        .from('donor_profiles')
+        .select('*')
+        .in('mobile_number', batch)
+        .order('first_imported_at', { ascending: false })
+    );
+  }
 
-  if (error) throw error;
-  return data;
+  // Run all batches in parallel
+  const batchResults = await Promise.allSettled(batchQueries);
+  const results = [];
+  for (const r of batchResults) {
+    if (r.status === 'fulfilled' && r.value.data) {
+      results.push(...r.value.data);
+    }
+  }
+
+  // Dedup by id and apply limit
+  const seen = new Set();
+  const deduped = results.filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; });
+  return deduped.slice(0, limit);
 };

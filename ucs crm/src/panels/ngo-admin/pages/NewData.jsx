@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { apiGet, apiPost } from '../api/auth'
 import { api } from '../../../api/auth'
 
-function StationSelectModal({ stations, onClose, onDistribute }) {
+const PAGE_SIZES = [100, 500, 1000]
+
+function StationSelectModal({ stations, onClose, onDistribute, ngoId }) {
   const [selected, setSelected] = useState(() => new Set(stations.map(s => s.station)))
   const [loading, setLoading] = useState(false)
 
@@ -25,7 +27,9 @@ function StationSelectModal({ stations, onClose, onDistribute }) {
     if (selected.size === 0) return
     setLoading(true)
     try {
-      const res = await apiPost('/ngo-admin/new-data/distribute', { stations: Array.from(selected) })
+      const body = { stations: Array.from(selected) }
+      if (ngoId && ngoId !== 'all') body.ngo_id = ngoId
+      const res = await apiPost('/ngo-admin/new-data/distribute', body)
       onDistribute(res)
     } catch (err) {
       alert(err.message)
@@ -190,6 +194,12 @@ function OldDataTab() {
   )
 }
 
+const NGO_COLORS = {
+  bsct: '#2563eb',
+  aflf: '#16a34a',
+  mann: '#ec4899',
+};
+
 export default function NewData() {
   const [tab, setTab] = useState('new')
   const [donors, setDonors] = useState([])
@@ -200,35 +210,49 @@ export default function NewData() {
   const [stations, setStations] = useState([])
   const [selectedNgoId, setSelectedNgoId] = useState('all')
   const [accessibleNgos, setAccessibleNgos] = useState([])
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [perPage, setPerPage] = useState(500)
 
   useEffect(() => {
     apiGet('/ngo-admin/ngos').then(setAccessibleNgos).catch(() => {});
   }, []);
 
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const startRow = (page - 1) * perPage + 1;
+  const endRow = Math.min(page * perPage, total);
+
   const load = () => {
     setLoading(true)
-    const ngoParam = selectedNgoId !== 'all' ? `?ngo_id=${selectedNgoId}` : '';
+    const params = [];
+    if (selectedNgoId !== 'all') params.push(`ngo_id=${selectedNgoId}`);
+    params.push(`page=${page}`, `per_page=${perPage}`);
+    const query = params.length > 0 ? `?${params.join('&')}` : '';
     Promise.all([
-      apiGet(`/ngo-admin/new-data${ngoParam}`),
+      apiGet(`/ngo-admin/new-data${query}`),
       apiGet('/ngo-admin/stations'),
     ]).then(([d, s]) => {
       setDonors(Array.isArray(d) ? d : d?.unassigned || [])
+      setTotal(d?.total || 0)
       setStations(Array.isArray(s) ? s : [])
     }).catch(() => {}).finally(() => setLoading(false))
   }
 
-  useEffect(load, [selectedNgoId])
+  useEffect(() => { setPage(1) }, [selectedNgoId])
+  useEffect(load, [selectedNgoId, page, perPage])
 
   useEffect(() => { if (tab === 'new') load() }, [tab])
 
   const handleDistributeAll = async () => {
-    const count = donors.length
+    const count = total
     if (count === 0) return
     if (!confirm(`Distribute ${count} donor(s) equally among all stations?`)) return
     setDistributing(true)
     setResult(null)
     try {
-      const res = await apiPost('/ngo-admin/new-data/distribute', {})
+      const body = {}
+      if (selectedNgoId !== 'all') body.ngo_id = selectedNgoId
+      const res = await apiPost('/ngo-admin/new-data/distribute', body)
       setResult(res)
       load()
     } catch (err) {
@@ -270,11 +294,11 @@ export default function NewData() {
             <div className="card-head">
               <h3>New Data</h3>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span className="count">{donors.length} donors</span>
-                <button className="btn btn-primary btn-sm" onClick={handleDistributeAll} disabled={distributing || donors.length === 0}>
+                <span className="count">{total > 0 ? `Showing ${startRow}-${endRow} of ${total} donors` : `${total} donors`}</span>
+                <button className="btn btn-primary btn-sm" onClick={handleDistributeAll} disabled={distributing || total === 0}>
                   {distributing ? 'Distributing...' : 'Distribute to All Stations'}
                 </button>
-                <button className="btn btn-outline btn-sm" onClick={() => setShowStationSelect(true)} disabled={donors.length === 0}>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowStationSelect(true)} disabled={total === 0}>
                   Select Stations & Distribute
                 </button>
               </div>
@@ -290,6 +314,7 @@ export default function NewData() {
                     <tr>
                       <th>Name</th>
                       <th>Mobile</th>
+                      <th>NGO</th>
                       <th>Category</th>
                       <th>Amount</th>
                       <th>Imported</th>
@@ -300,6 +325,16 @@ export default function NewData() {
                       <tr key={d.id || d.mobile_number || i}>
                         <td><strong>{d.name || '\u2014'}</strong></td>
                         <td><code>{d.mobile_number}</code></td>
+                        <td>
+                          {d.ngo ? (
+                            <span style={{
+                              display:'inline-block', padding:'2px 8px', borderRadius:4, fontSize:11, fontWeight:600,
+                              color:'#fff', background: NGO_COLORS[d.ngo.toLowerCase()] || '#6b7280'
+                            }}>
+                              {d.ngo}
+                            </span>
+                          ) : '\u2014'}
+                        </td>
                         <td><span className="pill">{d.category || '\u2014'}</span></td>
                         <td>{'\u20B9'}{Number(d.amount || 0).toLocaleString()}</td>
                         <td className="muted">{d.created_at ? new Date(d.created_at).toLocaleDateString() : '\u2014'}</td>
@@ -307,6 +342,39 @@ export default function NewData() {
                     ))}
                   </tbody>
                 </table>
+              )}
+              {total > 0 && !loading && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 0', fontSize: 13 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: 'var(--ink-soft)' }}>Rows per page:</span>
+                    <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1) }}
+                      style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--line)' }}>
+                      {PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button className="btn btn-sm btn-outline" disabled={page <= 1} onClick={() => setPage(1)} style={{ fontSize: 11 }}>«</button>
+                    <button className="btn btn-sm btn-outline" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ fontSize: 11 }}>‹</button>
+                    {(() => {
+                      const pages = [];
+                      const maxVisible = 7;
+                      let startP = Math.max(1, page - Math.floor(maxVisible / 2));
+                      let endP = Math.min(totalPages, startP + maxVisible - 1);
+                      if (endP - startP < maxVisible - 1) startP = Math.max(1, endP - maxVisible + 1);
+                      for (let p = startP; p <= endP; p++) {
+                        pages.push(
+                          <button key={p} className="btn btn-sm" onClick={() => setPage(p)}
+                            style={{ fontSize: 11, fontWeight: p === page ? 700 : 400, background: p === page ? 'var(--sage)' : 'transparent', color: p === page ? '#fff' : 'inherit', border: p === page ? 'none' : '1px solid var(--line)' }}>
+                            {p}
+                          </button>
+                        );
+                      }
+                      return pages;
+                    })()}
+                    <button className="btn btn-sm btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} style={{ fontSize: 11 }}>›</button>
+                    <button className="btn btn-sm btn-outline" disabled={page >= totalPages} onClick={() => setPage(totalPages)} style={{ fontSize: 11 }}>»</button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -316,6 +384,7 @@ export default function NewData() {
               stations={stations}
               onClose={() => setShowStationSelect(false)}
               onDistribute={(res) => { setShowStationSelect(false); setResult(res); load() }}
+              ngoId={selectedNgoId}
             />
           )}
         </>

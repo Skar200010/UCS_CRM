@@ -233,6 +233,17 @@ class ApiService {
     return body;
   }
 
+  static Future<Map<String, dynamic>> reportGeofence(double lat, double lng) async {
+    final res = await _post(
+      Uri.parse('$baseUrl/attendance/geofence-report'),
+      headers: await _headers(),
+      body: jsonEncode({'latitude': lat, 'longitude': lng}),
+    );
+    final body = jsonDecode(res.body);
+    if (res.statusCode != 200) throw Exception(body['message'] ?? 'Geofence report failed');
+    return body;
+  }
+
   static Future<List<Map<String, dynamic>>> getTodayCodes() async {
     final res = await _get(
       Uri.parse('$baseUrl/qr/today-codes'),

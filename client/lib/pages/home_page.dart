@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import '../services/realtime_service.dart';
+import '../services/geofence_service.dart';
 import '../widgets/skeleton_loader.dart';
 import '../main.dart';
 
@@ -24,6 +25,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
+  final GeofenceService _geofence = GeofenceService();
   Timer? _clockTimer;
   DateTime _now = DateTime.now();
   DateTime? _punchInTime;
@@ -60,6 +62,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _updateWorked();
       }
     });
+    _geofence.addListener(_onGeofenceChange);
     _fetchStatus();
   }
 
@@ -75,6 +78,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   @override
   void dispose() {
+    _geofence.removeListener(_onGeofenceChange);
     _clockTimer?.cancel();
     _scrollController.dispose();
     _pulseCtrl.dispose();
@@ -167,7 +171,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             _punchOutTime = att['punch_out_time'] != null
                 ? DateTime.tryParse(att['punch_out_time'].toString())
                 : null;
-            if (_isPunchedIn && !_isPunchedOut) _updateWorked();
+            if (_isPunchedIn && !_isPunchedOut) {
+              _updateWorked();
+              _geofence.start();
+            }
             if (_isPunchedOut && _punchInTime != null && _punchOutTime != null) {
               final diff = _punchOutTime!.difference(_punchInTime!);
               final h = diff.inHours.toString().padLeft(2, '0');
@@ -315,6 +322,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         if (lm > 0) _lateUsed += lm;
         _updateWorked();
       });
+      _geofence.start();
       if (mounted) {
         HapticFeedback.vibrate();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -370,6 +378,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _punchOutTime = DateTime.now();
         _updateWorked();
       });
+      _geofence.stop();
       if (mounted) {
         HapticFeedback.vibrate();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -389,6 +398,25 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         );
       }
+    }
+  }
+
+  void _onGeofenceChange() {
+    if (!mounted) return;
+    if (_geofence.autoPunchedOut) {
+      _geofence.resetAutoPunchedOut();
+      _fetchStatus();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Auto punch-out: you were outside the work area for over 4 hours.'),
+            backgroundColor: Color(0xFFd97706),
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    } else {
+      setState(() {});
     }
   }
 
@@ -706,6 +734,33 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         ],
                       ),
                     ),
+                    if (_geofence.isOutside) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFf59e0b).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFf59e0b).withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFd97706)),
+                            const SizedBox(width: 8),
+                            Text(
+                              _geofence.remainingHours != null
+                                  ? 'Outside work area · ${_geofence.remainingHours!.toStringAsFixed(1)}h until auto punch-out'
+                                  : 'Outside work area',
+                              style: GoogleFonts.manrope(
+                                fontSize: 13, fontWeight: FontWeight.w600,
+                                color: const Color(0xFF92400e),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                       const SizedBox(height: 40),
                     if (_isPunchedOut)
                       Column(

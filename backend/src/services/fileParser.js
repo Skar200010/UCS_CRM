@@ -53,6 +53,7 @@ const COLUMN_MAP = {
   datacategory: 'category',
   category: 'category',
   data_category: 'category',
+  data: 'category',
   ngocode: 'ngo',
   ngo: 'ngo',
   team: 'team',
@@ -206,10 +207,11 @@ export function extractFullRowData(normalized) {
 }
 
 export function extractQuickRowData(normalized) {
-  const name = normalized.name || normalized['fullname'] || normalized['full name'] || '';
-  const mobile = normalized.mobilenumber || normalized['mobilenumber'] || normalized.mobile || normalized.phone || normalized['mobile number'] || normalized['phone number'] || '';
-  const category = normalized.category || normalized['datacategory'] || normalized['data category'] || normalized.ngocode || normalized['ngo code'] || normalized.ngoshortname || normalized['ngo short name'] || '';
-  const amount = parseFloat(normalized.amount || normalized['dummyamount'] || normalized['dummy amount'] || 0) || 0;
+  const name = normalized.name || normalized['fullname'] || normalized['full name'] || normalized.donorname || normalized['donor name'] || '';
+  const mobile = normalized.mobilenumber || normalized['mobilenumber'] || normalized.mobile || normalized.phone || normalized['mobile number'] || normalized['phone number'] || normalized.mobileno || normalized['mobile no'] || normalized['mobile no.'] || '';
+  const category = normalized.category || normalized['datacategory'] || normalized['data category'] || normalized.ngocode || normalized['ngo code'] || normalized.ngoshortname || normalized['ngo short name'] || normalized.data || '';
+  const rawAmount = (normalized.amount || normalized['dummyamount'] || normalized['dummy amount'] || '0').toString().replace(/,/g, '');
+  const amount = parseFloat(rawAmount) || 0;
 
   if (!name || !mobile) return null;
 

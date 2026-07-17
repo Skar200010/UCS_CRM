@@ -115,3 +115,14 @@ export const deleteAttendance = async (id) => {
   if (error) throw error;
   return data;
 };
+
+export const getFirstQRCode = async () => {
+  const { data, error } = await supabase
+    .from('qr_codes')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  if (error && error.code !== 'PGRST116') throw error;
+  return data;
+};

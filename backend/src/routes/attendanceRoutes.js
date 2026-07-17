@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { punchIn, punchOut, todayStatus, myHistory, listAll, updateAttendanceRecord, createAttendanceByHR, deleteAttendanceRecord, getWorkerMonthlyAttendance } from '../controllers/attendanceController.js';
+import { punchIn, punchOut, todayStatus, myHistory, listAll, updateAttendanceRecord, createAttendanceByHR, deleteAttendanceRecord, getWorkerMonthlyAttendance, reportGeofenceLocation } from '../controllers/attendanceController.js';
 import { authenticateRole, authenticate } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
 router.post('/punch-in', authenticate, punchIn);
 router.post('/punch-out', authenticate, punchOut);
+router.post('/geofence-report', authenticate, reportGeofenceLocation);
 router.get('/today', authenticate, todayStatus);
 router.get('/history', authenticate, myHistory);
 router.get('/all', authenticateRole('super_admin', 'admin', 'hr'), listAll);
