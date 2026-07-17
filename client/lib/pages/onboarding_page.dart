@@ -19,6 +19,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
   int _currentStep = 0;
   bool _submitting = false;
   bool _loadingData = true;
+  bool _photoUploading = false;
   String? _uploadedPhotoUrl;
   File? _selectedImage;
   bool _alreadyCompleted = false;
@@ -224,7 +225,10 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
       );
       if (image == null) return;
 
-      setState(() => _selectedImage = File(image.path));
+      setState(() {
+        _selectedImage = File(image.path);
+        _photoUploading = true;
+      });
       await _uploadPhoto();
 
       if (mounted && _currentStep != prevStep) {
@@ -238,6 +242,8 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
           SnackBar(content: Text('Failed to capture image: $e'), backgroundColor: Colors.red.shade700),
         );
       }
+    } finally {
+      if (mounted) setState(() => _photoUploading = false);
     }
   }
 
@@ -333,7 +339,6 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
               'relationship': p.roleCtrl.text.trim(),
               'occupation': p.orgCtrl.text.trim(),
               'phone': p.phoneCtrl.text.trim(),
-              'dob': p.dob?.toIso8601String().split('T')[0],
             })
             .toList(),
         references: const [],
@@ -890,6 +895,15 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                 ),
               );
             }),
+          if (_organizationList.isEmpty)
+            Center(
+              child: TextButton.icon(
+                onPressed: () => setState(() => _organizationList.add(_OrganizationEntry())),
+                icon: const Icon(Icons.add_circle_outline, color: Color(0xFF60a5fa)),
+                label: Text('Add Previous Organization',
+                  style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF60a5fa))),
+              ),
+            ),
         ],
       ),
     );
@@ -984,39 +998,6 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                     ),
                     const SizedBox(height: 10),
                     _textField(p.phoneCtrl, 'Phone', Icons.phone, 'Optional', keyboardType: TextInputType.phone),
-                    const SizedBox(height: 10),
-                    GestureDetector(
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: p.dob ?? DateTime(2000, 1, 1),
-                          firstDate: DateTime(1950),
-                          lastDate: DateTime.now(),
-                        );
-                        if (date != null) setState(() => p.dob = date);
-                      },
-                      child: Container(
-                        height: 52,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today, size: 19, color: Color(0xFF64748b)),
-                            const SizedBox(width: 10),
-                            Text(
-                              p.dob != null ? '${p.dob!.day}/${p.dob!.month}/${p.dob!.year}' : 'Date of Birth (optional)',
-                              style: TextStyle(fontSize: 14, color: p.dob != null ? const Color(0xFF1a1a2e) : const Color(0xFF94a3b8)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               );
@@ -1049,7 +1030,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
           const SizedBox(height: 28),
           Center(
             child: GestureDetector(
-              onTap: _pickPhoto,
+              onTap: _photoUploading ? null : _pickPhoto,
               child: Container(
                 width: 180,
                 height: 180,
@@ -1065,12 +1046,17 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
                   ],
                 ),
                 child: ClipOval(
-                  child: _uploadedPhotoUrl != null
-                      ? Image.network(_uploadedPhotoUrl!, fit: BoxFit.cover, width: 180, height: 180,
-                          errorBuilder: (_, __, ___) => _photoPlaceholder())
-                      : _selectedImage != null
-                          ? Image.file(_selectedImage!, fit: BoxFit.cover, width: 180, height: 180)
-                          : _photoPlaceholder(),
+                  child: _photoUploading
+                      ? Container(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          child: const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)),
+                        )
+                      : _uploadedPhotoUrl != null
+                          ? Image.network(_uploadedPhotoUrl!, fit: BoxFit.cover, width: 180, height: 180,
+                              errorBuilder: (_, __, ___) => _photoPlaceholder())
+                          : _selectedImage != null
+                              ? Image.file(_selectedImage!, fit: BoxFit.cover, width: 180, height: 180)
+                              : _photoPlaceholder(),
                 ),
               ),
             ),
@@ -1078,10 +1064,12 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
           const SizedBox(height: 20),
           Center(
             child: TextButton.icon(
-              onPressed: _pickPhoto,
-              icon: Icon(Icons.camera_alt_rounded, color: Colors.white.withValues(alpha: 0.8)),
+              onPressed: _photoUploading ? null : _pickPhoto,
+              icon: _photoUploading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF60a5fa)))
+                  : Icon(Icons.camera_alt_rounded, color: Colors.white.withValues(alpha: 0.8)),
               label: Text(
-                _uploadedPhotoUrl != null ? 'Retake Photo' : 'Tap to Take Photo',
+                _photoUploading ? 'Uploading...' : (_uploadedPhotoUrl != null ? 'Retake Photo' : 'Tap to Take Photo'),
                 style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.8)),
               ),
             ),
@@ -1164,7 +1152,7 @@ class _OnboardingPageState extends State<OnboardingPage> with SingleTickerProvid
             _reviewCard('Family / References', Icons.family_restroom,
               _personList.where((p) => p.nameCtrl.text.isNotEmpty).map((p) => _reviewItem(
                 p.nameCtrl.text,
-                '${p.roleCtrl.text}${p.orgCtrl.text.isNotEmpty ? ' · ${p.orgCtrl.text}' : ''}${p.dob != null ? ' · ${p.dob!.day}/${p.dob!.month}/${p.dob!.year}' : ''}',
+                '${p.roleCtrl.text}${p.orgCtrl.text.isNotEmpty ? ' · ${p.orgCtrl.text}' : ''}',
               )).toList(),
             ),
           const SizedBox(height: 12),
