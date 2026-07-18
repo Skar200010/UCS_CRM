@@ -197,6 +197,10 @@ export const getWorkers = async (req, res) => {
         bank_name: w.bank_name,
         ifsc_code: w.ifsc_code,
         account_number: w.account_number,
+        correspondence: w.correspondence || {},
+        education: w.education_details || [],
+        family: w.family_details || [],
+        previous_organizations: w.previous_organizations || [],
       };
       if (full) {
         return {

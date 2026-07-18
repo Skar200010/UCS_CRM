@@ -171,7 +171,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
       marital_status: data.marital_status || '',
       pan_number: data.pan_number || '',
       aadhar_number: data.aadhar_number || '',
-      created_at: data.created_at ? data.created_at.slice(0, 10) : '',
+      created_at: data.created_at ? new Date(data.created_at).toLocaleDateString('en-CA') : '',
       is_active: data.is_active !== false,
       account_holder_name: data.account_holder_name || '',
       bank_name: data.bank_name || '',
