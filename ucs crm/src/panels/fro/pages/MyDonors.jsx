@@ -55,6 +55,16 @@ const STATUS_PILL_MAP = {
   query_complaint: 'pill-yellow', receipt_request: 'pill-blue', payment_rejected: 'pill-red',
 };
 
+const WALKTHROUGH_STEPS = [
+  { icon: 'call', title: 'Start Call', desc: 'Click the green Call button to initiate a call with the donor. The call timer starts automatically.', color: '#16a34a' },
+  { icon: 'call_end', title: 'End Call', desc: 'Click End Call when your conversation is finished. Your call duration is tracked.', color: '#dc2626' },
+  { icon: 'free_cancellation', title: 'Take Break', desc: 'Use the break button in the top bar when you need a break. Break time is limited to 1 hour per day.', color: '#d97706' },
+  { icon: 'list_alt', title: 'Select Disposition', desc: 'Choose a Connected or Not Connected status from the dropdowns based on the call outcome.', color: '#7c3aed' },
+  { icon: 'skip_next', title: 'Log & Next', desc: 'Save the disposition and auto-advance to the next donor in your list.', color: '#0891b2' },
+  { icon: 'search', title: 'Search Donors', desc: 'Search for any donor by name or mobile number using the search bar above the disposition form.', color: '#2563eb' },
+  { icon: 'chat', title: 'WhatsApp Chat', desc: 'Send a WhatsApp message directly to the donor using the green chat button next to the call button.', color: '#25D366' },
+];
+
 const initials = (name) => (name || '').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
 export default function MyDonors() {
@@ -95,6 +105,8 @@ export default function MyDonors() {
   const [searchingAll, setSearchingAll] = useState(false);
   const [returnToDonor, setReturnToDonor] = useState(null);
   const [showAllLogs, setShowAllLogs] = useState(false);
+  const [showWalkthrough, setShowWalkthrough] = useState(() => !localStorage.getItem('fro_walkthrough_seen'));
+  const [walkthroughStep, setWalkthroughStep] = useState(0);
   const searchRef = useRef(null);
   const { isOnCall, activeCall, startCall, endCall, todayStats, startDonorView, endDonorView } = useCall();
 
@@ -412,7 +424,75 @@ export default function MyDonors() {
     return <span className={`pill ${STATUS_PILL_MAP[status] || 'pill-gray'}`}>{label}</span>;
   };
 
+  const dismissWalkthrough = () => {
+    localStorage.setItem('fro_walkthrough_seen', '1');
+    setShowWalkthrough(false);
+  };
+
+  const step = WALKTHROUGH_STEPS[walkthroughStep];
+
   return (<>
+    {showWalkthrough && (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(3px)' }} onClick={dismissWalkthrough}>
+        <div className="walkthrough-card" onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, width: 420, maxWidth: '92vw', boxShadow: '0 20px 60px rgba(0,0,0,.25)', overflow: 'hidden', position: 'relative' }}>
+          <span onClick={dismissWalkthrough} style={{ position: 'absolute', top: 12, right: 12, cursor: 'pointer', color: 'var(--ink-soft)', fontSize: 18, zIndex: 1, lineHeight: 1, padding: 4, borderRadius: 6, transition: 'background .12s' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+          </span>
+
+          <div style={{ padding: '32px 32px 24px', textAlign: 'center' }}>
+            <div className="walkthrough-icon-ring" style={{ width: 72, height: 72, borderRadius: '50%', background: `${step.color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', border: `2px solid ${step.color}30` }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 32, color: step.color }}>{step.icon}</span>
+            </div>
+
+            <div key={walkthroughStep} className="walkthrough-content-enter" style={{ minHeight: 90 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                Step {walkthroughStep + 1} of {WALKTHROUGH_STEPS.length}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', marginBottom: 8 }}>{step.title}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-soft)', lineHeight: 1.6, maxWidth: 320, margin: '0 auto' }}>{step.desc}</div>
+            </div>
+          </div>
+
+          <div style={{ padding: '16px 32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {WALKTHROUGH_STEPS.map((s, i) => (
+                <div key={i} style={{ position: 'relative', width: i === walkthroughStep ? 24 : 8, height: 8, borderRadius: 999, background: '#e5e7eb', overflow: 'hidden', transition: 'width .25s ease' }}>
+                  {i === walkthroughStep && (
+                    <div className="walkthrough-dot-fill" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 999, background: s.color }} />
+                  )}
+                  {i < walkthroughStep && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, right: 0, borderRadius: 999, background: s.color }} />}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'space-between' }}>
+              {walkthroughStep > 0 ? (
+                <button onClick={() => setWalkthroughStep(s => s - 1)}
+                  style={{ padding: '8px 18px', border: '1px solid var(--line)', borderRadius: 8, background: '#fff', color: 'var(--ink)', fontSize: 11, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .12s' }}>
+                  ← Back
+                </button>
+              ) : (
+                <span onClick={dismissWalkthrough} style={{ fontSize: 11, color: 'var(--ink-soft)', cursor: 'pointer', padding: '8px 10px', textDecoration: 'underline' }}>Skip tour</span>
+              )}
+
+              {walkthroughStep < WALKTHROUGH_STEPS.length - 1 ? (
+                <button onClick={() => setWalkthroughStep(s => s + 1)}
+                  style={{ padding: '8px 22px', border: 'none', borderRadius: 8, background: 'var(--sage)', color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .12s' }}>
+                  Next →
+                </button>
+              ) : (
+                <button onClick={dismissWalkthrough}
+                  style={{ padding: '8px 22px', border: 'none', borderRadius: 8, background: 'var(--sage)', color: '#fff', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .12s' }}>
+                  Get Started ✓
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="detail-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div className="detail-split" style={{ flex: 1, minHeight: 0 }}>
         {/* LEFT PANEL — merged profile + details */}

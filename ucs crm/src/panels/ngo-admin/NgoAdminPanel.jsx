@@ -582,6 +582,7 @@ export default function NgoAdminPanel() {
       {showDonorDetail && (
         <DonorDetailModal donorId={showDonorDetail} onClose={() => setShowDonorDetail(null)} />
       )}
+
     </div>
   )
 }

@@ -126,6 +126,8 @@ export default function FROPanel() {
   const seenNotifIds = useRef(new Set(JSON.parse(localStorage.getItem('fro_seen_notifs') || '[]')));
   const notifRef = useRef(null);
   const pollRef = useRef(null);
+  const poppedIds = useRef(new Set());
+  const [autoPopTick, setAutoPopTick] = useState(0);
 
   const markRead = async (notifId) => {
     try { await api(`/notifications/${notifId}/read`, { method: 'PUT', _prefix: 'ucs' }); }
@@ -150,6 +152,7 @@ export default function FROPanel() {
   };
 
   const handlePopDone = async () => {
+    if (modalDonor?.id) poppedIds.current.add(modalDonor.id);
     if (modalNotifId) await markRead(modalNotifId);
     setModalNotifId(null);
     setModalDonor(null);
@@ -237,6 +240,18 @@ export default function FROPanel() {
   const dedupedRows = rows.filter((r, i, a) => i === a.findIndex(x => x.id === r.id));
   const dueItems = dedupedRows.filter(r => r.scheduled_at && new Date(r.scheduled_at) <= new Date());
   const dueCount = dueItems.length;
+
+  useEffect(() => { const i = setInterval(() => setAutoPopTick(t => t + 1), 5000); return () => clearInterval(i); }, []);
+
+  useEffect(() => {
+    if (modalDonor) return;
+    const due = dueItems.filter(r => !poppedIds.current.has(r.id))
+      .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+    if (due.length > 0) {
+      poppedIds.current.add(due[0].id);
+      setModalDonor(due[0]);
+    }
+  }, [autoPopTick, dueItems, modalDonor]);
 
   const rejectedToShow = rejectedItems.slice(0, MAX_DROPDOWN);
   const verifiedToShow = verifiedItems.slice(0, MAX_DROPDOWN - rejectedToShow.length);
@@ -496,7 +511,7 @@ export default function FROPanel() {
           donorName={modalDonor.donor_name}
           donorMobile={modalDonor.donor_mobile}
           scheduledAt={modalDonor.scheduled_at}
-          onClose={() => { setModalNotifId(null); setModalDonor(null); }}
+          onClose={() => { setModalNotifId(null); setModalDonor(null); poppedIds.current.clear(); }}
           onDone={handlePopDone}
         />
       )}
