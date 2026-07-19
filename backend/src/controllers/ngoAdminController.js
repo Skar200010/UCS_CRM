@@ -573,16 +573,16 @@ export const getDashboard = async (req, res) => {
       ? await Promise.all([
           supabase.from('fro_donor_logs').select('donor_id, created_at, fro_assignments!inner(ngo_id)')
             .in('fro_assignments.ngo_id', ngoIds)
-            .or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition)')
+            .or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition,accounts_status.eq.verified)')
             .gte('created_at', fyStart.toISOString()),
           supabase.from('fro_donor_logs').select('donor_id, fro_assignments!inner(ngo_id)')
             .in('fro_assignments.ngo_id', ngoIds)
-            .or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition)')
+            .or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition,accounts_status.eq.verified)')
             .gte('created_at', todayStart.toISOString())
             .lte('created_at', todayEnd.toISOString()),
           supabase.from('fro_donor_logs').select('donor_id, fro_assignments!inner(ngo_id)')
             .in('fro_assignments.ngo_id', ngoIds)
-            .or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition)')
+            .or('action.eq.donation,and(disposition_detail.eq.lead_done,action.eq.disposition,accounts_status.eq.verified)')
             .gte('created_at', monthStart)
             .lte('created_at', monthEnd),
         ])
@@ -604,18 +604,19 @@ export const getDashboard = async (req, res) => {
 
     // Attendance metrics
     const activeFroIds = froWorkers.filter(w => w.is_active !== false).map(w => w.id);
-    let workersPresent = 0, workersAbsent = 0;
+    let workersPresent = 0, workersAbsent = 0, workersLate = 0;
     if (activeFroIds.length > 0) {
       const { data: attendanceData } = await supabase
         .from('attendance')
         .select('status')
         .eq('date', todayStr)
         .in('worker_id', activeFroIds);
-      workersPresent = (attendanceData || []).filter(a => a.status === 'present' || a.status === 'late').length;
+      workersPresent = (attendanceData || []).filter(a => a.status === 'present').length;
+      workersLate = (attendanceData || []).filter(a => a.status === 'late').length;
       workersAbsent = (attendanceData || []).filter(a => a.status === 'absent').length;
     }
     const activeFroCount = froWorkers.filter(w => w.is_active !== false).length;
-    const attendancePct = activeFroCount > 0 ? Math.round((workersPresent / activeFroCount) * 1000) / 10 : 0;
+    const attendancePct = activeFroCount > 0 ? Math.round(((workersPresent + workersLate) / activeFroCount) * 1000) / 10 : 0;
 
     const assignedWorkerIds = new Set(allAssignments.map(a => a.fro_worker_id).filter(Boolean));
     const assignedFroCount = assignedWorkerIds.size;
@@ -647,7 +648,7 @@ export const getDashboard = async (req, res) => {
       .maybeSingle();
     if (workerRec) daily_target = Number(workerRec.daily_collection_target) || 0;
 
-    const noMarkCount = Math.max(0, activeFroCount - workersPresent - workersAbsent);
+    const noMarkCount = Math.max(0, activeFroCount - workersPresent - workersLate - workersAbsent);
 
     return res.json({
       ngos: origNgoNames,
@@ -691,6 +692,7 @@ export const getDashboard = async (req, res) => {
         },
         attendance: {
           present: workersPresent,
+          late: workersLate,
           absent: workersAbsent,
           no_mark: noMarkCount,
           pct: attendancePct,
@@ -873,15 +875,24 @@ export const getFroPerformance = async (req, res) => {
     const maxTalk = Math.max(...performance.map(p => p.avg_talk_seconds), 1);
     const maxData = Math.max(...performance.map(p => p.data_used), 1);
 
+    const isSingleWorker = performance.length <= 1;
     const scored = performance.map(p => ({
       ...p,
-      score: Math.round((
-        (p.collection_amount / maxColl) * 0.30 +
-        (p.lead_done_count / maxLeads) * 0.25 +
-        (p.avg_talk_seconds / maxTalk) * 0.15 +
-        (p.data_used / maxData) * 0.15 +
-        ((p.attendance_pct != null ? p.attendance_pct : 0) / 100) * 0.15
-      ) * 100) / 100,
+      score: isSingleWorker
+        ? Math.round((
+            (p.collection_amount > 0 ? 0.4 : 0) +
+            (p.lead_done_count > 0 ? 0.25 : 0) +
+            (p.avg_talk_seconds > 0 ? 0.1 : 0) +
+            (p.data_used > 0 ? 0.1 : 0) +
+            ((p.attendance_pct != null && p.attendance_pct > 0) ? 0.15 : 0)
+          ) * 100) / 100
+        : Math.round((
+            (p.collection_amount / maxColl) * 0.30 +
+            (p.lead_done_count / maxLeads) * 0.25 +
+            (p.avg_talk_seconds / maxTalk) * 0.15 +
+            (p.data_used / maxData) * 0.15 +
+            ((p.attendance_pct != null ? p.attendance_pct : 0) / 100) * 0.15
+          ) * 100) / 100,
     }));
 
     scored.sort((a, b) => a.score - b.score);
@@ -1226,10 +1237,15 @@ export const removeStationAssignment = async (req, res) => {
 export const removeStationByName = async (req, res) => {
   try {
     const { station } = req.params;
-    const { error } = await supabase
+    const { ngo_id } = req.query;
+
+    let delQuery = supabase
       .from('fro_station_assignments')
       .delete()
       .eq('station', station.trim());
+    if (ngo_id) delQuery = delQuery.eq('ngo_id', ngo_id);
+
+    const { error } = await delQuery;
     if (error) throw error;
 
     return res.json({ message: 'Station deleted' });
@@ -1279,11 +1295,12 @@ export const updateStationNgos = async (req, res) => {
     // Verify the NGO is accessible
     const validNgoId = ngo_id && allowedNgoIds.has(ngo_id) ? ngo_id : null;
 
-    // Delete all existing rows for this station (including null-ngo)
+    // Delete only this NGO's row for this station (not other NGOs)
     const { error: delErr } = await supabase
       .from('fro_station_assignments')
       .delete()
-      .eq('station', station.trim());
+      .eq('station', station.trim())
+      .eq('ngo_id', validNgoId);
     if (delErr) throw delErr;
 
     // Insert single assignment
@@ -1367,6 +1384,7 @@ export const getStationStats = async (req, res) => {
 
     const stationMap = {};
     const summary = {};
+    const summaryDonors = new Set();
 
     const allStats = await Promise.all(ngoIds.map(ngoId => getStationDispositionStats(ngoId, from, to)));
     for (const stats of allStats) {
@@ -1374,9 +1392,21 @@ export const getStationStats = async (req, res) => {
         if (!stationMap[station]) stationMap[station] = {};
         for (const [status, count] of Object.entries(statuses)) {
           stationMap[station][status] = (stationMap[station][status] || 0) + count;
-          summary[status] = (summary[status] || 0) + count;
         }
       }
+    }
+
+    const allAssignForSummary = await supabase
+      .from('fro_assignments')
+      .select('donor_id, status')
+      .in('ngo_id', ngoIds)
+      .not('station', 'is', null)
+      .not('status', 'eq', 'reassigned');
+    for (const a of allAssignForSummary.data || []) {
+      const key = `${a.donor_id}_${a.status}`;
+      if (summaryDonors.has(key)) continue;
+      summaryDonors.add(key);
+      summary[a.status] = (summary[a.status] || 0) + 1;
     }
 
     // Get all stations for this NGO (including empty ones)
@@ -1972,7 +2002,7 @@ export const acknowledgeAlert = async (req, res) => {
       .eq('id', alertId);
 
     if (error) throw error;
-    return res.json(data);
+    return res.json({ message: 'Alert acknowledged' });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -2113,7 +2143,7 @@ export const resolveDataRequest = async (req, res) => {
       .eq('id', requestId);
 
     if (error) throw error;
-    return res.json(data);
+    return res.json({ message: 'Request resolved' });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -2938,16 +2968,18 @@ export const getDonorReceipts = async (req, res) => {
 export const getDonorFollowups = async (req, res) => {
   try {
     const { id } = req.params;
+    const ngoIds = await getUserNgoIds(req.user);
+    if (ngoIds.length === 0) return res.json([]);
 
     let donorId;
     const numId = parseInt(id);
     if (!isNaN(numId)) {
       const { data: fa } = await supabase
         .from('fro_assignments')
-        .select('id')
+        .select('id, ngo_id')
         .eq('donor_id', numId)
         .maybeSingle();
-      if (fa) donorId = fa.id;
+      if (fa && ngoIds.includes(fa.ngo_id)) donorId = fa.id;
     }
 
     if (!donorId) return res.json([]);
@@ -3004,6 +3036,18 @@ export const getFroSummary = async (req, res) => {
   try {
     const froId = req.params.id;
     if (!froId) return res.status(400).json({ message: 'Invalid FRO ID' });
+
+    const ngoIds = await getUserNgoIds(req.user);
+    if (ngoIds.length === 0) return res.status(403).json({ message: 'Access denied' });
+
+    const { data: worker } = await supabase
+      .from('workers')
+      .select('id, ngo_id')
+      .eq('id', froId)
+      .maybeSingle();
+    if (!worker || !ngoIds.includes(worker.ngo_id)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
 
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);

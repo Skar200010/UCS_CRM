@@ -296,7 +296,7 @@ function CollectionDetailModal({ period: defaultPeriod, totalAmount, onClose, st
   const displayAmount = isVerification
     ? (period === 'month' ? (monthAmount || 0) : (todayAmount || 0))
     : (totalAmount || 0);
-  const totalLeads = filtered.reduce((s, r) => s + (r.count || 0), 0);
+  const totalLeads = rows.reduce((s, r) => s + (r.count || 0), 0);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -539,7 +539,6 @@ export default function Dashboard() {
 
   const getCell = (station, status) => stations[station]?.[status] || 0;
   const getStationTotal = (station) => Object.values(stations[station] || {}).reduce((t, v) => t + v, 0);
-  const grandTotal = stationNames.reduce((t, s) => t + getStationTotal(s), 0);
 
   const stationInfoMap = {};
   for (const st of stationsData) {
@@ -573,7 +572,9 @@ export default function Dashboard() {
   const unverified_today_count = Number(ct.unverified?.count) || 0;
   const total_workers = Number(f.total) || 0;
   const workers_present = Number(att.present) || 0;
+  const workers_late = Number(att.late) || 0;
   const workers_absent = Number(att.absent) || 0;
+  const workers_no_mark = Number(att.no_mark) || 0;
   const attendance_pct = Number(att.pct) || 0;
   const data_used = Number(a.data_connected) || 0;
   const data_unused = Number(a.data_unconnected) || 0;
@@ -586,6 +587,8 @@ export default function Dashboard() {
   const stations_per_ngo = data.stations_per_ngo || {};
   const unassigned = Math.max(0, total_donors - assigned_donors);
   const assignPct = Number(d.assigned_pct) || 0;
+  const direct_donation_month = Math.max(0, month_collection - verified_month_amount - unverified_month_amount);
+  const direct_donation_today = Math.max(0, today_collection - verified_today_amount - unverified_today_amount);
 
   const pieData = DISPOSITION_GROUPS.map(g => ({
     name: g.label,
@@ -652,9 +655,9 @@ export default function Dashboard() {
                 <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Unused</div>
               </div>
             </div>
-            {total_donors > 0 && (
+            {(data_used + data_unused) > 0 && (
               <div style={{ height: 4, borderRadius: 2, background: '#fee2e2', marginTop: 8, overflow: 'hidden' }}>
-                <div style={{ width: `${(data_used / total_donors) * 100}%`, height: '100%', borderRadius: 2, background: '#16a34a' }} />
+                <div style={{ width: `${(data_used / (data_used + data_unused)) * 100}%`, height: '100%', borderRadius: 2, background: '#16a34a' }} />
               </div>
             )}
           </div>
@@ -795,10 +798,14 @@ export default function Dashboard() {
                   <PieChart>
                     <Pie data={[
                       { name: 'Present', value: Math.max(0, workers_present), color: '#22c55e' },
+                      { name: 'Late', value: Math.max(0, workers_late), color: '#f59e0b' },
                       { name: 'Absent', value: Math.max(0, workers_absent), color: '#ef4444' },
-                    ]} cx="50%" cy="50%" innerRadius={20} outerRadius={30} dataKey="value" startAngle={90} endAngle={-270}>
+                      { name: 'No Show', value: Math.max(0, workers_no_mark), color: '#d1d5db' },
+                    ].filter(d => d.value > 0)} cx="50%" cy="50%" innerRadius={20} outerRadius={30} dataKey="value" startAngle={90} endAngle={-270}>
                       <Cell fill="#22c55e" />
+                      <Cell fill="#f59e0b" />
                       <Cell fill="#ef4444" />
+                      <Cell fill="#d1d5db" />
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
@@ -807,6 +814,10 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
                   <span style={{ color: '#22c55e', fontWeight: 600 }}>Present</span>
                   <span style={{ fontWeight: 600 }}>{workers_present}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
+                  <span style={{ color: '#f59e0b', fontWeight: 500 }}>Late</span>
+                  <span style={{ fontWeight: 500, color: '#f59e0b' }}>{workers_late}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                   <span style={{ color: '#ef4444', fontWeight: 500 }}>Absent</span>
@@ -819,20 +830,25 @@ export default function Dashboard() {
               <div style={{ display: 'flex', gap: 12 }}>
                 <div style={{ flex: 1, background: '#f0fdf4', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#22c55e' }}>{workers_present}</div>
-                  <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Present Today</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Present</div>
+                </div>
+                <div style={{ flex: 1, background: '#fffbeb', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#f59e0b' }}>{workers_late}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Late</div>
                 </div>
                 <div style={{ flex: 1, background: '#fef2f2', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#ef4444' }}>{workers_absent}</div>
-                  <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Absent Today</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Absent</div>
                 </div>
-                <div style={{ flex: 1, background: '#fffbeb', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#f59e0b' }}>{attendance_pct}%</div>
-                  <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Attendance</div>
+                <div style={{ flex: 1, background: '#f3f4f6', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#6b7280' }}>{workers_no_mark}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>No Show</div>
                 </div>
               </div>
               {total_workers > 0 && (
-                <div style={{ height: 4, borderRadius: 2, background: '#fef2f2', marginTop: 8, overflow: 'hidden' }}>
-                  <div style={{ width: `${(workers_present / total_workers) * 100}%`, height: '100%', borderRadius: 2, background: '#22c55e' }} />
+                <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', marginTop: 8, overflow: 'hidden', display: 'flex' }}>
+                  <div style={{ width: `${(workers_present / total_workers) * 100}%`, height: '100%', background: '#22c55e' }} />
+                  <div style={{ width: `${(workers_late / total_workers) * 100}%`, height: '100%', background: '#f59e0b' }} />
                 </div>
               )}
             </div>
@@ -848,7 +864,12 @@ export default function Dashboard() {
               <span>Month: {verified_month_count} leads</span>
               <span>Today: ₹{verified_today_amount.toLocaleString('en-IN')} ({verified_today_count})</span>
             </div>
-            <div style={{ fontSize: 10, color: '#16a34a', marginTop: 4 }}>Verified by Accounts panel</div>
+            {direct_donation_month > 0 && (
+              <div style={{ fontSize: 10, color: 'var(--ink-soft)', marginTop: 4 }}>
+                + ₹{direct_donation_month.toLocaleString('en-IN')} in direct donations (total ₹{month_collection.toLocaleString('en-IN')})
+              </div>
+            )}
+            <div style={{ fontSize: 10, color: '#16a34a', marginTop: direct_donation_month > 0 ? 2 : 4 }}>Verified by Accounts panel</div>
           </div>
 
           <div className="card" style={{ marginBottom: 0, padding: '16px 18px', cursor: 'pointer', border: '1px solid #f59e0b33' }} onClick={() => setSelectedStatus('unverified')}>
