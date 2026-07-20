@@ -19,7 +19,7 @@ export const createWorkers = async (workersData) => {
   return data;
 };
 
-export const getAllWorkers = async (ngo_id) => {
+export const getAllWorkers = async (ngo_id, status) => {
   let query = supabase
     .from('workers')
     .select('*')
@@ -37,6 +37,10 @@ export const getAllWorkers = async (ngo_id) => {
     } else {
       query = query.eq('id', null);
     }
+  }
+
+  if (status === 'active') {
+    query = query.eq('employment_status', 'active');
   }
 
   const { data, error } = await query;
@@ -100,4 +104,26 @@ export const deleteWorker = async (id) => {
     .eq('id', id);
   if (error) throw error;
   return { message: 'Worker deleted successfully' };
+};
+
+export const abscondWorker = async (id) => {
+  const { data, error } = await supabase
+    .from('workers')
+    .update({ employment_status: 'absconded', is_active: false })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const offboardWorker = async (id) => {
+  const { data, error } = await supabase
+    .from('workers')
+    .update({ employment_status: 'offboarded', is_active: false })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 };

@@ -108,6 +108,7 @@ export default function Workers({ onSelect, onOffboard }) {
   const [err, setErr] = useState('');
   const [search, setSearch] = useState(load().search || '');
   const [roleFilter, setRoleFilter] = useState(load().roleFilter || '');
+  const [statusFilter, setStatusFilter] = useState(load().statusFilter || 'active');
   const [page, setPage] = useState(load().page || 1);
   const [created, setCreated] = useState(null);
   const [salaryMap, setSalaryMap] = useState({});
@@ -118,7 +119,7 @@ export default function Workers({ onSelect, onOffboard }) {
   const tableRef = useRef(null);
 
   useEffect(() => {
-    fetchWorkers().then(list => {
+    fetchWorkers('all').then(list => {
       setWorkers(list);
       Promise.all((list || []).map(w =>
         api('/workers/' + w.id, { _prefix: 'ucs' }).catch(() => null)
@@ -142,6 +143,8 @@ export default function Workers({ onSelect, onOffboard }) {
   const filtered = workers.filter(w => {
     const role = w.department || 'Team Member';
     if (roleFilter && role !== roleFilter) return false;
+    const empStatus = w.employment_status || 'active';
+    if (statusFilter && statusFilter !== 'all' && empStatus !== statusFilter) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return w.name.toLowerCase().includes(q) ||
@@ -157,6 +160,8 @@ export default function Workers({ onSelect, onOffboard }) {
   useEffect(() => { if (!mountedSearch.current) { mountedSearch.current = true; return; } save({ search, page: 1 }); setPage(1); }, [search]);
   const mountedRole = useRef(false);
   useEffect(() => { if (!mountedRole.current) { mountedRole.current = true; return; } save({ roleFilter, page: 1 }); setPage(1); }, [roleFilter]);
+  const mountedStatus = useRef(false);
+  useEffect(() => { if (!mountedStatus.current) { mountedStatus.current = true; return; } save({ statusFilter, page: 1 }); setPage(1); }, [statusFilter]);
   useEffect(() => { save({ page }); }, [page]);
   useEffect(() => {
     if (tableRef.current) tableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -176,7 +181,7 @@ export default function Workers({ onSelect, onOffboard }) {
       setName('');
       setDept(DEPTS?.[0] || '');
       setSelectedNgos([]);
-      fetchWorkers().then(setWorkers).catch(() => {});
+      fetchWorkers('all').then(setWorkers).catch(() => {});
     } catch (e) {
       setErr(e.message);
     }
@@ -517,13 +522,20 @@ export default function Workers({ onSelect, onOffboard }) {
             <span className="sub">{filtered.length} total</span>
             <Dropdown className="role-filter" value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}
               options={[{value:'',label:'All members'}, ...roles.map(r => ({value:r, label:r}))]} />
+            <Dropdown className="status-filter" value={statusFilter} onChange={e=>{ setStatusFilter(e.target.value); save({ statusFilter: e.target.value }); }}
+              options={[
+                {value:'active', label:'Active'},
+                {value:'absconded', label:'Absconded'},
+                {value:'offboarded', label:'Offboarded'},
+                {value:'all', label:'All'},
+              ]} />
             <input className="search-input" value={search} onChange={e=>setSearch(e.target.value)}
               placeholder="Search by name, email, or team…"
               style={{ marginTop:0, maxWidth:200 }} />
           </div>
         </div>
         <table>
-          <thead><tr><th>Name</th><th>Joined</th><th>Salary</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Joined</th><th>Salary</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {paginated.map(w => {
               const sw = salaryMap[w.id];
@@ -549,13 +561,20 @@ export default function Workers({ onSelect, onOffboard }) {
                       </span>
                     ) : <span style={{ color:'var(--ink-soft)', fontSize:12 }}>—</span>}
                   </td>
+                  <td>
+                    <span style={{ fontSize:11, padding:'2px 8px', borderRadius:4, fontWeight:600, display:'inline-block',
+                      background: w.employment_status === 'absconded' ? '#fff3e0' : w.employment_status === 'offboarded' ? '#fce4ec' : '#e8f5e9',
+                      color: w.employment_status === 'absconded' ? '#e65100' : w.employment_status === 'offboarded' ? '#c62828' : '#2e7d32' }}>
+                      {w.employment_status === 'absconded' ? 'Absconded' : w.employment_status === 'offboarded' ? 'Offboarded' : 'Active'}
+                    </span>
+                  </td>
                   <td style={{ textAlign:'right' }}>
                     <button className="btn btn-icon" onClick={(e)=>handleOffboard(e, w)} aria-label="Offboard employee"><Trash width={16}/></button>
                   </td>
                 </tr>
               );
             })}
-            {!filtered.length && <tr><td colSpan={4}><div className="empty">No employees found.</div></td></tr>}
+            {!filtered.length && <tr><td colSpan={5}><div className="empty">No employees found.</div></td></tr>}
           </tbody>
         </table>
         {totalPages > 1 && (

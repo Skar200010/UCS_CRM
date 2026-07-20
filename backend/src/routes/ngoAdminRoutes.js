@@ -61,6 +61,7 @@ import {
   getCallAnalytics,
   getFroSummary,
   seedStations,
+  cleanupOrphanedStations,
   uploadOldData,
   uploadOldDataForStation,
 } from '../controllers/ngoAdminController.js';
@@ -139,6 +140,7 @@ router.get('/master-search', masterSearch);
 router.get('/call-analytics', getCallAnalytics);
 
 router.post('/stations/seed', seedStations);
+router.post('/stations/cleanup', cleanupOrphanedStations);
 router.post('/stations/:station/upload-old-data', upload.single('file'), uploadOldDataForStation);
 router.post('/old-data/upload', upload.single('file'), uploadOldData);
 

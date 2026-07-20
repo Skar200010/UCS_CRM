@@ -439,7 +439,7 @@ export default function StationManagement() {
               <span className="count">{stations.length} stations</span>
               <button className="btn btn-sm btn-outline" onClick={async () => {
                 try {
-                  const res = await apiPost('/ngo-admin/stations/seed', {})
+                  const res = await apiPost('/ngo-admin/stations/seed', { ngo_id: selectedNgoId })
                   setMsg(res.message || 'Stations seeded')
                   fetchData()
                 } catch (err) {
@@ -447,6 +447,17 @@ export default function StationManagement() {
                 }
               }} style={{ fontSize: 11 }}>
                 Seed Default Stations
+              </button>
+              <button className="btn btn-sm btn-outline" onClick={async () => {
+                try {
+                  const res = await apiPost('/ngo-admin/stations/cleanup', { ngo_id: selectedNgoId })
+                  setMsg(res.message || 'Cleanup done')
+                  fetchData()
+                } catch (err) {
+                  setMsg('Error: ' + err.message)
+                }
+              }} style={{ fontSize: 11, color: '#dc2626', borderColor: '#fca5a5' }}>
+                Cleanup Orphaned
               </button>
               <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                 style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', width: 150 }} />

@@ -1,3 +1,0 @@
-ALTER TABLE fro_donor_logs
-ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS verified_by TEXT;

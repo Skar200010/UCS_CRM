@@ -832,3 +832,41 @@ export const getDayEndReport = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
+export const importReceipts = async (req, res) => {
+  try {
+    const { receipts } = req.body;
+    if (!receipts || !Array.isArray(receipts) || receipts.length === 0) {
+      return res.status(400).json({ message: 'No receipts data provided' });
+    }
+
+    const rows = receipts.map(r => ({
+      receipt_no: r.receipt_no || r['Receipt No.'] || '',
+      project_id: r.project_id || r['Project'] || 'bsct',
+      donor_name: r.donor_name || r['Donor Name'] || 'Unknown',
+      donor_mobile: r.donor_mobile || r['Donor Mobile'] || r['Mobile No.'] || null,
+      amount: Number(r.amount || r['Amount'] || 0),
+      pan_number: r.pan_number || r['PAN No.'] || null,
+      address: r.address || r['Address 1'] || null,
+      mode: r.mode || r['Mode of Payment (MOP)'] || null,
+      purpose: r.purpose || r['Purpose'] || 'General Donation',
+      receipt_date: r.receipt_date || r['Receipt Date'] || null,
+      generated_by: r.generated_by || req.user.id,
+    }));
+
+    const { data, error } = await supabase
+      .from('receipts')
+      .insert(rows)
+      .select();
+
+    if (error) throw error;
+
+    return res.status(201).json({
+      message: `${data.length} receipts imported successfully`,
+      imported: data.length,
+      receipts: data,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};

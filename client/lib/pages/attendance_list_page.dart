@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,23 +14,37 @@ class AttendanceListPage extends StatefulWidget {
   State<AttendanceListPage> createState() => _AttendanceListPageState();
 }
 
-class _AttendanceListPageState extends State<AttendanceListPage> {
+class _AttendanceListPageState extends State<AttendanceListPage> with WidgetsBindingObserver {
   List<dynamic> _allRecords = [];
   bool _loading = true;
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
   int _listKey = 0;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     RealtimeService.instance.addListener(_onRealtimeChange);
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _load();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     RealtimeService.instance.removeListener(_onRealtimeChange);
+    _refreshTimer?.cancel();
     super.dispose();
   }
 

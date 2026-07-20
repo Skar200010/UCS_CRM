@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom'
 import { useUcs } from '../../store'
+import { useHR } from './store'
 import { Grid, Users, Plane, Clock, FileTxt, Cal, Bell } from './icons'
 import { themes, applyTheme } from './theme'
 import SettingsDrawer from '../../components/SettingsDrawer'
@@ -215,12 +216,28 @@ function HRPageShell({ children }) {
 function EmployeeDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  return <EmployeeDetail worker={{ id }} onBack={() => navigate('/hr/employees')} onOffboard={() => {}} />
+  return <EmployeeDetail worker={{ id }} onBack={() => navigate('/hr/employees')} onOffboard={() => navigate(`/hr/employees/${id}/offboard`)} />
 }
 
 function EmployeeListPage() {
   const navigate = useNavigate()
-  return <Workers onSelect={(w) => navigate(`/hr/employees/${w.id}`)} onOffboard={() => {}} />
+  return <Workers onSelect={(w) => navigate(`/hr/employees/${w.id}`)} onOffboard={(w) => navigate(`/hr/employees/${w.id}/offboard`)} />
+}
+
+function OffboardPage() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const { fetchWorkerById } = useHR()
+  const [worker, setWorker] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchWorkerById(id).then(w => { setWorker(w); setLoading(false) }).catch(() => setLoading(false))
+  }, [id])
+
+  if (loading) return <div className="empty">Loading...</div>
+  if (!worker) return <div className="empty">Employee not found.</div>
+  return <Offboarding worker={worker} onBack={() => navigate('/hr/employees')} />
 }
 
 function SettingsRoute() {
@@ -236,6 +253,7 @@ export default function HRPanel() {
         <Route path="overview" element={<Overview />} />
         <Route path="employees" element={<EmployeeListPage />} />
         <Route path="employees/:id" element={<EmployeeDetailPage />} />
+        <Route path="employees/:id/offboard" element={<OffboardPage />} />
         <Route path="attendance" element={<Attendance />} />
         <Route path="leaves" element={<Leaves />} />
         <Route path="letters" element={<Letters />} />

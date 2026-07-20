@@ -6,7 +6,7 @@ export function useHR() {
   return {
     ...ctx,
     DEPTS,
-    fetchWorkers, fetchNGOs, addWorker, removeWorker, fetchWorkerById, updateWorker, bulkUpdateWorkers,
+    fetchWorkers, fetchNGOs, addWorker, removeWorker, abscondWorker, offboardWorker, fetchWorkerById, updateWorker, bulkUpdateWorkers,
     fetchAttendance, fetchLeaves, decideLeave,
     fetchTemplates, generateLetter, fetchWorkerLetters, sendNotif,
     fetchHolidays, addHoliday, removeHoliday,
@@ -40,10 +40,16 @@ export const avatarTint = tint;
 
 export const DEPTS = ['FRO','Admin','HR-Recruiter','Housekeeping','CSR','Digital','Manager','Event Manager','NA', 'NGO Admin'];
 
-export const fetchWorkers = () => apiGet('/workers');
+export const fetchWorkers = (status) => {
+  let path = '/workers';
+  if (status) path += '?status=' + status;
+  return apiGet(path);
+};
 export const fetchNGOs = () => apiGet('/ngos');
 export const addWorker = (body) => apiPost('/workers', body);
 export const removeWorker = (id) => apiDelete('/workers/' + id);
+export const abscondWorker = (id) => apiPut('/workers/' + id, { employment_status: 'absconded', is_active: false });
+export const offboardWorker = (id) => apiPut('/workers/' + id, { employment_status: 'offboarded', is_active: false });
 export const fetchWorkerById = (id) => apiGet('/workers/' + id);
 export const updateWorker = (id, updates) => apiPut('/workers/' + id, updates);
 export const bulkUpdateWorkers = (workers) => apiPut('/workers/bulk', { workers });

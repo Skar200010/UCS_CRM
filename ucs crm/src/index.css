@@ -1832,4 +1832,39 @@
 .doc-logic-content p { margin: 4px 0; }
 .doc-logic-content p + p { margin-top: 8px; }
 
+@keyframes walkthrough-enter {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes walkthrough-icon-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0.08); }
+  50% { transform: scale(1.06); box-shadow: 0 0 0 10px rgba(0,0,0,0); }
+}
+@keyframes walkthrough-dot-fill {
+  from { width: 0; }
+  to { width: 100%; }
+}
+@keyframes walkthrough-content-enter {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes walkthrough-content-enter-rev {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes walkthrough-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.walkthrough-card { animation: walkthrough-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+.walkthrough-icon-ring { animation: walkthrough-icon-pulse 2.2s ease-in-out infinite; }
+.walkthrough-content-enter { animation: walkthrough-content-enter 0.3s ease-out; }
+.walkthrough-content-enter-rev { animation: walkthrough-content-enter-rev 0.3s ease-out; }
+.walkthrough-dot-fill::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  border-radius: 999px;
+  animation: walkthrough-dot-fill 0.35s ease-out;
+}
 

@@ -23,10 +23,11 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final GeofenceService _geofence = GeofenceService();
   Timer? _clockTimer;
+  Timer? _refreshTimer;
   DateTime _now = DateTime.now();
   DateTime? _punchInTime;
   DateTime? _punchOutTime;
@@ -49,6 +50,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -62,8 +64,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _updateWorked();
       }
     });
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _fetchStatus();
+    });
     _geofence.addListener(_onGeofenceChange);
     _fetchStatus();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchStatus();
+    }
   }
 
   @override
@@ -78,8 +90,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _geofence.removeListener(_onGeofenceChange);
     _clockTimer?.cancel();
+    _refreshTimer?.cancel();
     _scrollController.dispose();
     _pulseCtrl.dispose();
     super.dispose();

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { apiGet, apiPost } from '../api/auth';
 import { getReceipt } from '../api/receipts';
 import { PROJECTS } from '../data/projects';
@@ -57,6 +58,33 @@ export default function ReceiptHistory() {
   const [waPhone, setWaPhone] = useState('');
   const [waLoading, setWaLoading] = useState(false);
   const [waResult, setWaResult] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const fileRef = useRef(null);
+
+  const handleFile = useCallback((file) => {
+    if (!file) return;
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.csv')) {
+      alert('Please upload a valid Excel/CSV file'); return;
+    }
+    setImporting(true); setImportResult(null);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+        if (!rows || rows.length === 0) { alert('File is empty'); return; }
+        const res = await apiPost('/accounts/receipts/import', { receipts: rows });
+        setImportResult(res);
+        load();
+      } catch (err) { alert('Import failed: ' + err.message); }
+      finally { setImporting(false); }
+    };
+    reader.onerror = () => { alert('Failed to read file'); setImporting(false); };
+    reader.readAsArrayBuffer(file);
+  }, []);
 
   const load = () => {
     setLoading(true);
@@ -157,6 +185,27 @@ export default function ReceiptHistory() {
 
   return (
     <div>
+      <div className="card" style={{ marginBottom: 16, borderRadius: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Import Receipts</span>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" onChange={e => { handleFile(e.target.files[0]); e.target.value = '' }} style={{ display: 'none' }} />
+            <button className="btn btn-sm" style={{ background: 'var(--sage)', color: '#fff', border: 'none' }}
+              onClick={() => fileRef.current?.click()} disabled={importing}>
+              {importing ? 'Importing...' : 'Upload Excel'}
+            </button>
+          </div>
+          {importResult && (
+            <span style={{ fontSize: 12, color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              {importResult.message}
+            </span>
+          )}
+        </div>
+      </div>
       <div className="stats-grid">
         <StatCard icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>} label="Total Receipts" value={stats.total} color="#5B6B4E" />
         <StatCard icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>} label="Total Amount" value={currency(stats.totalAmount)} color="#16a34a" />

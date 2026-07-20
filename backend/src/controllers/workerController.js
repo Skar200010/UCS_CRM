@@ -7,6 +7,8 @@ import {
   getWorkerCount,
   updateWorker,
   deleteWorker,
+  abscondWorker as abscondWorkerModel,
+  offboardWorker as offboardWorkerModel,
 } from '../models/workerModel.js';
 import {
   getAllocationsByWorker,
@@ -162,7 +164,8 @@ export const bulkAddWorkers = async (req, res) => {
 export const getWorkers = async (req, res) => {
   try {
     const ngoId = req.user.role === 'hr' ? null : (req.user.ngo_id || req.query.ngo_id);
-    const workers = await getAllWorkers(ngoId);
+    const status = req.query.status || 'active';
+    const workers = await getAllWorkers(ngoId, status);
     const salaries = await Promise.all(workers.map(w =>
       getActiveSalaryByWorker(w.id).then(s => ({ id: w.id, salary: s ? parseFloat(s.salary) : null }))
     ));
@@ -310,6 +313,7 @@ export const editWorker = async (req, res) => {
       shift_start_time, shift_end_time,
       photo_url,
       correspondence,
+      employment_status,
     } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = name;
@@ -328,7 +332,10 @@ export const editWorker = async (req, res) => {
     if (marital_status !== undefined) updates.marital_status = marital_status;
     if (pan_number !== undefined) updates.pan_number = pan_number;
     if (aadhar_number !== undefined) updates.aadhar_number = aadhar_number;
-    if (is_active !== undefined) updates.is_active = is_active;
+    if (is_active !== undefined) {
+      updates.is_active = is_active;
+      if (is_active === true) updates.employment_status = 'active';
+    }
     if (ngo_id !== undefined) updates.ngo_id = ngo_id || null;
     if (account_holder_name !== undefined) updates.account_holder_name = account_holder_name;
     if (bank_name !== undefined) updates.bank_name = bank_name;
@@ -339,6 +346,10 @@ export const editWorker = async (req, res) => {
     if (shift_end_time !== undefined) updates.shift_end_time = shift_end_time;
     if (photo_url !== undefined) updates.photo_url = photo_url;
     if (correspondence !== undefined) updates.correspondence = correspondence;
+    if (employment_status !== undefined) {
+      updates.employment_status = employment_status;
+      if (employment_status !== 'active') updates.is_active = false;
+    }
     const worker = await updateWorker(req.params.id, updates);
     return res.json({ message: 'Worker updated successfully', worker });
   } catch (error) {
@@ -401,6 +412,24 @@ export const removeWorker = async (req, res) => {
   try {
     const result = await deleteWorker(req.params.id);
     return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const abscondWorkerHandler = async (req, res) => {
+  try {
+    const data = await abscondWorkerModel(req.params.id);
+    return res.json({ message: 'Worker marked as absconded', worker: data });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const offboardWorkerHandler = async (req, res) => {
+  try {
+    const data = await offboardWorkerModel(req.params.id);
+    return res.json({ message: 'Worker offboarded', worker: data });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

@@ -1,2 +1,0 @@
-    ALTER TABLE workers ADD COLUMN IF NOT EXISTS shift_start_time TEXT;
-    ALTER TABLE workers ADD COLUMN IF NOT EXISTS shift_end_time TEXT;

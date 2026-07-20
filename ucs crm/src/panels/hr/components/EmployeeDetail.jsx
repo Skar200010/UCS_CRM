@@ -533,7 +533,10 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
             )}
             <div style={{ color:'var(--ink-soft)', fontSize:12, marginTop:6, display:'flex', gap:6, justifyContent:'center', flexWrap:'wrap' }}>
               {data.department && <span className="side-tag">{data.department}</span>}
-              <span className={'side-tag ' + (data.is_active ? 'side-tag-active' : 'side-tag-inactive')}>{data.is_active ? 'Active' : 'Inactive'}</span>
+              <span className={'side-tag ' + (data.employment_status === 'absconded' ? 'side-tag-absconded' : data.employment_status === 'offboarded' ? 'side-tag-offboarded' : data.is_active ? 'side-tag-active' : 'side-tag-inactive')}
+                style={data.employment_status === 'absconded' ? { background:'#fff3e0', color:'#e65100' } : data.employment_status === 'offboarded' ? { background:'#fce4ec', color:'#c62828' } : {}}>
+                {data.employment_status === 'absconded' ? 'Absconded' : data.employment_status === 'offboarded' ? 'Offboarded' : data.is_active ? 'Active' : 'Inactive'}
+              </span>
             </div>
           </div>
           <div className="side-fields">

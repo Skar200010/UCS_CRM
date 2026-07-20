@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { getScheduled, getCallbacks } from '../api/donors';
 import DispositionModal from '../components/DispositionModal';
 import { SkeletonTable } from '../../../components/Skeleton';
@@ -25,9 +25,6 @@ export default function Scheduled() {
   const [loading, setLoading] = useState(true);
   const [modalDonor, setModalDonor] = useState(null);
   const [refetch, setRefetch] = useState(0);
-  const poppedIds = useRef(new Set());
-  const autoPoppedId = useRef(null);
-  const [pollTick, setPollTick] = useState(0);
 
   const loadRows = () => {
     setLoading(true);
@@ -61,34 +58,11 @@ export default function Scheduled() {
 
   useEffect(() => { loadRows(); }, [refetch]);
 
-  // Poll every 5s for due schedules
-  useEffect(() => {
-    const interval = setInterval(() => setPollTick(t => t + 1), 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Auto-pop due schedules (one at a time)
-  useEffect(() => {
-    if (modalDonor) return;
-    const due = rows
-      .filter(r => r.scheduled_at && new Date(r.scheduled_at) <= new Date() && !poppedIds.current.has(r.id))
-      .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
-    if (due.length > 0) {
-      const next = due[0];
-      poppedIds.current.add(next.id);
-      autoPoppedId.current = next.id;
-      setModalDonor(next);
-    }
-  }, [pollTick, rows, modalDonor]);
-
   const openModal = (row) => {
-    poppedIds.current.add(row.id);
-    autoPoppedId.current = null;
     setModalDonor(row);
   };
 
   const handlePopDone = () => {
-    autoPoppedId.current = null;
     setModalDonor(null);
     setRefetch(n => n + 1);
   };
@@ -130,12 +104,11 @@ export default function Scheduled() {
             <tbody>
               {list.map(r => {
                 const st = r.scheduled_at ? getTimeColor(r.scheduled_at) : { bg:'#e0e7ff', color:'#4338ca', label:'Callback' };
-                const isPopped = poppedIds.current.has(r.id);
                 return (
                   <tr key={r.id} onClick={() => openModal(r)}
-                    style={{ borderBottom:'1px solid var(--line)', cursor:'pointer', transition:'background .1s', background: isPopped ? '#f0fdf4' : 'transparent' }}
-                    onMouseOver={e => e.currentTarget.style.background = isPopped ? '#e6f7e6' : 'var(--bg)'}
-                    onMouseOut={e => e.currentTarget.style.background = isPopped ? '#f0fdf4' : 'transparent'}>
+                    style={{ borderBottom:'1px solid var(--line)', cursor:'pointer', transition:'background .1s' }}
+                    onMouseOver={e => e.currentTarget.style.background = 'var(--bg)'}
+                    onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding:'8px 10px', fontWeight:600 }}>{r.donor_name || '—'}</td>
                     <td style={{ padding:'8px 10px' }}>{r.donor_mobile || '—'}</td>
                     <td style={{ padding:'8px 10px' }}>{r.scheduled_at ? new Date(r.scheduled_at).toLocaleString('en-GB') : '—'}</td>
@@ -158,11 +131,7 @@ export default function Scheduled() {
           donorName={modalDonor.donor_name}
           donorMobile={modalDonor.donor_mobile}
           scheduledAt={modalDonor.scheduled_at}
-          onClose={() => {
-            autoPoppedId.current = null;
-            setModalDonor(null);
-            setPollTick(t => t + 1);
-          }}
+          onClose={() => { setModalDonor(null); }}
           onDone={handlePopDone}
         />
       )}

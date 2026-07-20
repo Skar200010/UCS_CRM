@@ -173,7 +173,7 @@ function EntrySection({loading,entries,sources,summary,error,statusTab,setStatus
     </div>
     <div className="table-wrap"><table>
       <thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Payment ID</th><th>Check ID</th><th>Remarks</th><th style={{width:110}}></th></tr></thead>
-      <tbody>{loading?<SkTbl r={5} c={7}/>:entries.length===0?<tr><td colSpan={7} style={{textAlign:'center',padding:20,color:'#9ca3af'}}>No entries yet</td></tr>:(srcFilter?filtered.filter(e=>e.source_id===Number(srcFilter)):filtered).map((e,idx)=><tr key={e.id||idx}>
+      <tbody>{loading?<tr><td colSpan={7}><SkTbl r={5} c={7}/></td></tr>:entries.length===0?<tr><td colSpan={7} style={{textAlign:'center',padding:20,color:'#9ca3af'}}>No entries yet</td></tr>:(srcFilter?filtered.filter(e=>e.source_id===Number(srcFilter)):filtered).map((e,idx)=><tr key={e.id||idx}>
         <td style={{whiteSpace:'nowrap'}}>{e.transaction_date}</td>
         <td><span className="pill pill-gray">{e.bank_audit_sources?.name||getSrcName(e.source_id)}</span></td>
         <td style={{fontWeight:600,color:'var(--sage)'}}>{curr(e.amount)}</td>
@@ -196,7 +196,10 @@ export default function BankAudit(){
   const[sa,setSa]=useState(false);const[se,setSe]=useState(null);const[ss,setSs]=useState(false);
   const[fm,setFm]=useState({src_id:'',amount:'',payment_id:'',check_id:'',transaction_date:'',remarks:''});
   const[sv,setSv]=useState(false);const[snn,setSnn]=useState('');const[er,setEr]=useState('');const[mt,setMt]=useState('entries');
+  const[is,setIs]=useState({razorpaySync:false,emailImport:false,bankStatement:false});
   const srRef=useRef(st);useEffect(()=>{srRef.current=st},[st]);
+
+  useEffect(()=>{apiGet('/user-settings').then(d=>{const s={razorpaySync:d.razorpaySync==='true',emailImport:d.emailImport==='true',bankStatement:d.bankStatement==='true'};setIs(s);if(mt!=='entries'&&((mt==='email'&&!s.emailImport)||(mt==='gateways'&&!s.razorpaySync)||(mt==='statement'&&!s.bankStatement)))setMt('entries')}).catch(e=>console.error('BankAudit: settings load failed',e))},[]);
 
   async function load(dt,stv){
     const s=stv||srRef.current;setLd(true);setEr('');
@@ -239,10 +242,10 @@ export default function BankAudit(){
       <div style={{display:'flex',background:'#f9fafb',borderBottom:'1px solid #e5e7eb'}}>
         {[
           {k:'entries',l:'Entries',ic:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v12"/><path d="M9 9h5a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2H9"/></svg>},
-          {k:'email',l:'Email Import',ic:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>},
-          {k:'gateways',l:'Payment Gateways',ic:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>},
-          {k:'statement',l:'Bank Statement',ic:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>},
-        ].map(t=><Tab key={t.k} a={mt===t.k} on={()=>setMt(t.k)} ic={t.ic} ch={t.l}/>)}
+          is.emailImport&&{k:'email',l:'Email Import',ic:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>},
+          is.razorpaySync&&{k:'gateways',l:'Payment Gateways',ic:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>},
+          is.bankStatement&&{k:'statement',l:'Bank Statement',ic:<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>},
+        ].filter(Boolean).map(t=><Tab key={t.k} a={mt===t.k} on={()=>setMt(t.k)} ic={t.ic} ch={t.l}/>)}
       </div>
       {mt==='entries'&&<div style={{display:'flex',background:'#fff',borderBottom:'1px solid #f3f4f6'}}>
         <Tab a={st==='unverified'} on={()=>setSt('unverified')} ch="Pending"/>
@@ -262,9 +265,9 @@ export default function BankAudit(){
       handleAddSrc={addSrc} handleDelSrc={delSrc} openEdit={openE}
       sn={snn} setSn={setSnn} getSrcName={getSrc} filtered={fe} SvgX={SvgX}
     />}
-    {mt==='email'&&<EmailTab/>}
-    {mt==='gateways'&&<GatewayTab/>}
-    {mt==='statement'&&<StatementTab/>}
+    {mt==='email'&&is.emailImport&&<EmailTab/>}
+    {mt==='gateways'&&is.razorpaySync&&<GatewayTab/>}
+    {mt==='statement'&&is.bankStatement&&<StatementTab/>}
 
     {/* Add Modal */}
     {sa&&<div className="modal-overlay" onClick={()=>setSa(false)}><div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:540,borderRadius:12}}>
