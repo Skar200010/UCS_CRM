@@ -61,7 +61,9 @@ export default function ReceiptHistory() {
   const [waResult, setWaResult] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
+  const [dPage, setDPage] = useState(1);
   const fileRef = useRef(null);
+  const perPage = 50;
 
   const handleFile = useCallback((file) => {
     if (!file) return;
@@ -107,6 +109,8 @@ export default function ReceiptHistory() {
 
   useEffect(load, []);
 
+  useEffect(() => { setDPage(1); }, [searchQuery, projectFilter]);
+
   const stats = useMemo(() => {
     const totalAmount = receipts.reduce((s, r) => s + Number(r.amount || 0), 0);
     const donorSet = new Set();
@@ -145,6 +149,9 @@ export default function ReceiptHistory() {
       return true;
     });
   }, [filtered]);
+
+  const totalPages = Math.ceil(uniqueDonors.length / perPage) || 1;
+  const paginatedDonors = uniqueDonors.slice((dPage - 1) * perPage, dPage * perPage);
 
   const handlePreview = async (r) => {
     const templateId = getTemplateId(r.project_id);
@@ -238,12 +245,23 @@ export default function ReceiptHistory() {
         </div>
       </div>
       <div className="stats-grid">
+        {loading ? (
+          <>
+            {[1,2,3].map(i => (
+              <div key={i} className="stat-card" style={{ padding: 20 }}>
+                <div className="sk" style={{ width: '40%', height: 14, borderRadius: 4, marginBottom: 8 }} />
+                <div className="sk" style={{ width: '60%', height: 22, borderRadius: 4 }} />
+              </div>
+            ))}
+          </>
+        ) : (<>
         <StatCard icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>} label="Total Receipts" value={stats.total} color="#5B6B4E" />
         <StatCard icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>} label="Unique Donors" value={stats.donors} color="#8b5cf6" />
         <StatCard icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>} label="Total Amount" value={currency(stats.totalAmount)} color="#16a34a" />
         {Object.entries(stats.byProject).map(([pid, count]) => (
           <StatCard key={pid} icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="12 2 2 7 2 9 22 9 22 7 12 2"/><rect x="4" y="11" width="3" height="7"/><rect x="10.5" y="11" width="3" height="7"/><rect x="17" y="11" width="3" height="7"/><line x1="2" y1="20" x2="22" y2="20"/></svg>} label={PROJECT_LABELS[pid] || pid} value={count} color="#3b82f6" />
         ))}
+        </>)}
       </div>
 
       <div className="card">
@@ -272,13 +290,15 @@ export default function ReceiptHistory() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={2} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>Loading...</td></tr>
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={i}><td colSpan={2} style={{ padding: '10px 12px' }}><div className="sk" style={{ width: i % 2 === 0 ? '55%' : '40%', height: 14, borderRadius: 4 }} /></td></tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={2} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>
                   {searchQuery || projectFilter ? 'No receipts match your filters.' : 'No receipts generated yet.'}
                 </td></tr>
               ) : (
-                uniqueDonors.map(r => {
+                paginatedDonors.map(r => {
                   const rMobile = (r.donor_mobile || '').replace(/\D/g, '');
                   const donorReceipts = rMobile
                     ? filtered.filter(d => (d.donor_mobile || '').replace(/\D/g, '') === rMobile)
@@ -298,6 +318,19 @@ export default function ReceiptHistory() {
               )}
             </tbody>
           </table>
+          {!loading && totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid var(--line)' }}>
+              <button onClick={() => setDPage(p => Math.max(1, p - 1))} disabled={dPage === 1}
+                style={{ padding: '4px 10px', border: '1px solid var(--line)', borderRadius: 5, background: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', opacity: dPage === 1 ? 0.4 : 1 }}>
+                &larr; Prev
+              </button>
+              <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>Page {dPage} of {totalPages} ({uniqueDonors.length} donors)</span>
+              <button onClick={() => setDPage(p => Math.min(totalPages, p + 1))} disabled={dPage === totalPages}
+                style={{ padding: '4px 10px', border: '1px solid var(--line)', borderRadius: 5, background: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', opacity: dPage === totalPages ? 0.4 : 1 }}>
+                Next &rarr;
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
