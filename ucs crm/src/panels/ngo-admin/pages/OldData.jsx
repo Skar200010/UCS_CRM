@@ -57,9 +57,11 @@ export default function OldData() {
 
   useEffect(() => { load(station); setPage(1); }, [station]);
 
+  const oldOnly = useMemo(() => donors.filter(d => d.raw_data != null), [donors]);
+
   const duplicateMobiles = useMemo(() => {
     const counts = {};
-    donors.forEach(d => {
+    oldOnly.forEach(d => {
       const m = d.donor_mobile;
       if (m) counts[m] = (counts[m] || 0) + 1;
     });
@@ -68,16 +70,16 @@ export default function OldData() {
       if (c > 1) dupSet.add(m);
     }
     return dupSet;
-  }, [donors]);
+  }, [oldOnly]);
 
   const filtered = useMemo(() => {
-    if (!search) return donors;
+    if (!search) return oldOnly;
     const q = search.toLowerCase();
-    return donors.filter(d =>
+    return oldOnly.filter(d =>
       (d.donor_name || '').toLowerCase().includes(q) ||
       (d.donor_mobile || '').includes(q)
     );
-  }, [donors, search]);
+  }, [oldOnly, search]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
