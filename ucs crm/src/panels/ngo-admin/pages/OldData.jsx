@@ -138,7 +138,7 @@ export default function OldData() {
                   <tr key={d.id || i} style={isDup ? { background: '#fef2f2' } : {}}>
                     <td style={{ color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>{(page - 1) * PER_PAGE + i + 1}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>{d.station || '\u2014'}</td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{d.fro_name || raw(d, 'Agent Name', 'agent_name', 'fro_name', 'Fro_Name')}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{d.fro_name && d.fro_name !== 'Unassigned' ? d.fro_name : raw(d, 'Agent Name', 'agent_name', 'fro_name', 'Fro_Name') || '\u2014'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       {d.donor_name || raw(d, 'Donor Name', 'donor_name', 'name', 'Name')}
                       {isDup && <span key="dup" style={{ marginLeft: 4, fontSize: 9, padding: '1px 5px', borderRadius: 8, background: '#dc2626', color: '#fff', fontWeight: 700, verticalAlign: 'middle' }}>DUP</span>}
