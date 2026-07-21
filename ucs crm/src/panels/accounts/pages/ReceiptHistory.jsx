@@ -64,7 +64,7 @@ export default function ReceiptHistory() {
   const [savedDetail, setSavedDetail] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
-  const perPage = 50;
+  const perPage = 40;
 
   const handleFile = useCallback((file) => {
     if (!file) return;
