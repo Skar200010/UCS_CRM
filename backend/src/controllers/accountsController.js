@@ -876,6 +876,9 @@ export const importReceipts = async (req, res) => {
           purpose: row.purpose || row['Purpose'] || 'General Donation',
           receipt_date: normalizeReceiptDate(row.receipt_date || row['Receipt Date']),
           generated_by: row.generated_by || req.user.id,
+          email: row.email || row['Mail Id'] || row['Email ID'] || null,
+          payment_id: row.payment_id || row['Payment Id No.'] || null,
+          bank_name: row.bank_name || row['Donors Bank Name'] || null,
         };
       })
       .filter(row => {
