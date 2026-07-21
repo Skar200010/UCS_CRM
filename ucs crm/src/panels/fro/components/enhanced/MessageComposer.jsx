@@ -38,8 +38,8 @@ export default function MessageComposer({ onSend, onSendMedia, disabled }) {
   const handleFileChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 16 * 1024 * 1024) {
-      alert('File too large. Max 16MB.')
+    if (file.size > 50 * 1024 * 1024) {
+      alert('File too large. Max 50MB.')
       return
     }
     setSelectedFile(file)

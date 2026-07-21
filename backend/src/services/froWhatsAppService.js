@@ -526,7 +526,7 @@ export async function uploadFroMedia(froWorkerId, file) {
     const { error: bucketError } = await supabase.storage.createBucket(bucket, {
       public: true,
       allowedMimeTypes: ['image/*', 'video/*', 'audio/*', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-      fileSizeLimit: 16777216,
+      fileSizeLimit: 52428800,
     });
     if (bucketError) throw bucketError;
 
@@ -548,7 +548,6 @@ export async function uploadFroMedia(froWorkerId, file) {
       file_url: urlData.publicUrl,
       file_type: file.mimetype,
       file_size: file.size,
-      uploaded_by: String(froWorkerId),
     })
     .select()
     .single();
