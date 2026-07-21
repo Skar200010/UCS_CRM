@@ -1455,7 +1455,7 @@ export const getDonorsByStation = async (req, res) => {
     }
 
     const seen = new Set();
-    const unique = allDonors.filter(a => { const k = a.id; if (seen.has(k)) return false; seen.add(k); return true; });
+    const unique = allDonors.filter(a => { const k = a.donor_id; if (seen.has(k)) return false; seen.add(k); return true; });
 
     const result = unique.map(a => ({
       id: a.id,
