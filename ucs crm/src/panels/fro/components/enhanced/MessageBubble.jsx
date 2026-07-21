@@ -194,7 +194,7 @@ export function MessageBubble({ message, isFirst, isLast, isGroup, onContextMenu
   )
 }
 
-export function MessageList({ messages, onContextMenu, messagesEndRef }) {
+export function MessageList({ messages, onContextMenu, messagesContainerRef, messagesEndRef }) {
   if (!messages) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -244,7 +244,7 @@ export function MessageList({ messages, onContextMenu, messagesEndRef }) {
   })
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+    <div ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
       {elements}
       <div ref={messagesEndRef} />
     </div>

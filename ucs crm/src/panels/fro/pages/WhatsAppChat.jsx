@@ -121,7 +121,8 @@ function WhatsAppChatInner() {
   const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const bottomRef = useRef(null)
+  const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
 
   const [waUser, setWaUser] = useState(() => {
     try {
@@ -176,8 +177,8 @@ function WhatsAppChatInner() {
   }, [waUser?.id])
 
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' })
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
     }
   }, [messages])
 
@@ -282,7 +283,7 @@ function WhatsAppChatInner() {
 
   return (
     <>
-    <div style={{ display: 'flex', height: 'calc(100vh - 180px)', border: '1px solid #e5e7eb', overflow: 'hidden', background: '#fff' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 132px)', margin: '-24px', border: '1px solid #e5e7eb', overflow: 'hidden', background: '#fff' }}>
       {/* Sidebar */}
       <div style={{ width: 300, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
@@ -344,7 +345,7 @@ function WhatsAppChatInner() {
             </div>
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-              <MessageList messages={messages} messagesEndRef={bottomRef} />
+              <MessageList messages={messages} messagesContainerRef={messagesContainerRef} messagesEndRef={messagesEndRef} />
             </div>
 
             <QuickReplyBar onSend={handleQuickReply} />
