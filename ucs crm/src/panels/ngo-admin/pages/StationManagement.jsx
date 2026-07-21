@@ -86,6 +86,8 @@ function OldDataUploadModal({ station, onClose, onUploaded }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
 
@@ -115,13 +117,43 @@ function OldDataUploadModal({ station, onClose, onUploaded }) {
     setUploading(true);
     setError('');
     setResult(null);
+    setProgress(10);
+    setProgressLabel('Uploading file...');
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await api(`/ngo-admin/stations/${encodeURIComponent(station)}/upload-old-data`, { method: 'POST', body: fd, _prefix: 'ucs' });
+      setProgress(25);
+      setProgressLabel('Processing data...');
+      const token = localStorage.getItem('ucs_token');
+      const xhr = new XMLHttpRequest();
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 20) + 10;
+          setProgress(Math.min(pct, 30));
+        }
+      };
+      const res = await new Promise((resolve, reject) => {
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try { resolve(JSON.parse(xhr.responseText)); } catch { resolve(xhr.responseText); }
+          } else {
+            try { const e = JSON.parse(xhr.responseText); reject(new Error(e.message || e.error || 'Upload failed')); } catch { reject(new Error('Upload failed')); }
+          }
+        };
+        xhr.onerror = () => reject(new Error('Network error'));
+        xhr.open('POST', `${import.meta.env.VITE_API_URL || 'https://ucs-crm-backend.vercel.app/api'}/ucs/ngo-admin/stations/${encodeURIComponent(station)}/upload-old-data`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        setProgress(60);
+        setProgressLabel('Creating profiles & assignments...');
+        xhr.send(fd);
+      });
+      setProgress(100);
+      setProgressLabel('Complete!');
       setResult(res);
     } catch (err) {
       setError(err.message);
+      setProgress(0);
+      setProgressLabel('');
     } finally {
       setUploading(false);
     }
@@ -153,13 +185,27 @@ function OldDataUploadModal({ station, onClose, onUploaded }) {
             </div>
           )}
 
+          {uploading && (
+            <div style={{ marginTop: 12, padding: '14px 16px', background: '#f0f7ff', border: '1px solid #bdd3eb', borderRadius: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#1e40af' }}>{progressLabel}</span>
+                <span style={{ fontSize: 11, color: '#1e40af' }}>{progress}%</span>
+              </div>
+              <div style={{ width: '100%', height: 8, background: '#dbeafe', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ width: `${progress}%`, height: '100%', background: '#2563eb', borderRadius: 4, transition: 'width .3s ease' }} />
+              </div>
+            </div>
+          )}
+
           {result && (
             <div style={{ padding: '12px 14px', marginTop: 12, borderRadius: 6, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 13, color: '#166534' }}>
-              <strong>{result.message}</strong><br />
-              <span style={{ fontSize: 11 }}>
-                {result.total_rows} rows · {result.created_profiles} new profiles · {result.created_assignments} assignments created
-                {result.skipped_duplicate_assignments > 0 && ` · ${result.skipped_duplicate_assignments} skipped (duplicates)`}
-              </span>
+              <strong style={{ fontSize: 14 }}>✓ {result.message}</strong><br />
+              <div style={{ fontSize: 11, marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <span><strong>{result.total_rows}</strong> rows</span>
+                <span><strong>{result.created_profiles}</strong> new profiles</span>
+                <span><strong>{result.created_assignments}</strong> assignments</span>
+                {result.skipped_duplicate_assignments > 0 && <span><strong>{result.skipped_duplicate_assignments}</strong> skipped (duplicates)</span>}
+              </div>
             </div>
           )}
 
@@ -169,7 +215,7 @@ function OldDataUploadModal({ station, onClose, onUploaded }) {
                 <span style={{ fontSize: 12, fontWeight: 600 }}>Preview ({preview.length} rows)</span>
                 {!result && (
                   <button className="btn btn-primary btn-sm" onClick={handleUpload} disabled={uploading || !file}>
-                    {uploading ? 'Uploading...' : 'Upload & Assign'}
+                    {uploading ? `${progress}%` : 'Upload & Assign'}
                   </button>
                 )}
               </div>
