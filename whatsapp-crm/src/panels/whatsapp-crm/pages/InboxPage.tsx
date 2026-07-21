@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
-import { Loader2, Check, CheckCheck, MessageSquare, X, Send, User, LogOut, Mail, Shield, Clock } from 'lucide-react';
+import { Loader2, Check, CheckCheck, MessageSquare, X, Send, User, LogOut, Mail, Shield, Clock, Users, ArrowLeftRight } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { format, isToday, isYesterday, differenceInMinutes } from 'date-fns';
@@ -220,7 +220,63 @@ export function InboxPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewMime, setPreviewMime] = useState<string | undefined>();
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; messageId: string } | null>(null);
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferring, setTransferring] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleTransfer = async (targetAgentId: string) => {
+    if (!conversationId) return;
+    setTransferring(true);
+    try {
+      const { data, error } = await supabase.rpc('transfer_conversation', {
+        p_conversation_id: conversationId,
+        p_target_agent_id: targetAgentId,
+      });
+      if (error) throw new Error(error.message);
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (result?.success) {
+        toast.success('Conversation transferred');
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        setShowTransfer(false);
+      } else {
+        toast.error(result?.error || 'Transfer failed');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Transfer failed');
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  const handleClaim = async () => {
+    if (!conversationId) return;
+    try {
+      const { data, error } = await supabase.rpc('claim_conversation', {
+        p_conversation_id: conversationId,
+        p_agent_id: user?.id,
+      });
+      if (error) throw new Error(error.message);
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (result?.success) {
+        toast.success('Conversation claimed');
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      } else {
+        toast.error(result?.error || 'Claim failed');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Claim failed');
+    }
+  };
+
+  const { data: allAgents } = useQuery({
+    queryKey: ['all-agents-transfer'],
+    queryFn: async () => {
+      const { data } = await supabase.rpc('list_whatsapp_users');
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      return (parsed || []).filter((a: any) => a.id !== user?.id);
+    },
+    enabled: !!showTransfer,
+  });
 
   const handleDeleteForMe = async (msgId: string) => {
     const { error } = await supabase.rpc('delete_message', { p_id: msgId });
@@ -247,7 +303,7 @@ export function InboxPage() {
         }
         if (projects.length > 0) {
           query = query.in('project', projects);
-          query = query.or(`assigned_agent_id.eq.${user.id},assigned_agent_id.is.null`);
+          query = query.eq('assigned_agent_id', user.id);
         } else {
           query = query.eq('assigned_agent_id', user.id);
         }
@@ -405,6 +461,12 @@ export function InboxPage() {
         .maybeSingle();
 
       if (existingConv) {
+        if (existingConv.assigned_agent_id && existingConv.assigned_agent_id !== user?.id) {
+          setShowNewConv(false);
+          setCreatingConv(false);
+          toast.error('This contact already has an open chat with another agent. Ask admin to transfer it.');
+          return;
+        }
         navigate(`/inbox/${existingConv.id}`);
         if (newConvMessage.trim()) {
           sendWhatsAppMessage(existingConv.id, contactId, newConvMessage.trim(), undefined, user?.id);
@@ -468,7 +530,7 @@ export function InboxPage() {
   const avatarLetter = (name?: string) => (name?.[0] || '?').toUpperCase();
 
   return (<>
-    <div className={`flex w-full overflow-hidden ${isAgent ? 'h-screen' : 'h-full'}`}>
+    <div className={`inbox-fro-style flex w-full overflow-hidden ${isAgent ? 'h-screen' : 'h-full'}`}>
       {/* Conversation List */}
       <div className="w-80 max-md:w-16 border-r border-gray-200 bg-white flex-shrink-0 flex flex-col overflow-hidden">
         <div className="bg-[#f0f2f5] px-4 py-3.5 flex items-center justify-between">
@@ -544,6 +606,50 @@ export function InboxPage() {
                 <p className="truncate text-[15px] font-medium text-[#111b21]">{currentConv?.contact?.wa_profile_name || currentConv?.contact?.phone || 'Chat'}</p>
                 <p className="text-[12px] text-[#667781]">{currentConv?.contact?.phone || ''}</p>
               </div>
+              {(user?.role === 'admin' || user?.role === 'tenant_admin') && currentConv && (
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => setShowTransfer(!showTransfer)}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#54656f] hover:bg-[#d9dde0] transition-colors"
+                  >
+                    <ArrowLeftRight className="h-3.5 w-3.5" /> Transfer
+                  </button>
+                  {showTransfer && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowTransfer(false)} />
+                      <div className="absolute right-0 top-8 z-50 w-52 rounded-lg border bg-white shadow-lg max-h-60 overflow-y-auto">
+                        {transferring ? (
+                          <div className="flex items-center justify-center p-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
+                        ) : (
+                          (allAgents || []).map((agent: any) => (
+                            <button
+                              key={agent.id}
+                              onClick={() => handleTransfer(agent.id)}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-[#f0f2f5]"
+                            >
+                              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#00a884] text-[10px] font-bold text-white">
+                                {(agent.name?.[0] || agent.email?.[0] || '?').toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">{agent.name || agent.email}</p>
+                                <p className="truncate text-[11px] text-[#667781]">{agent.email}</p>
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              {user?.role === 'agent' && currentConv && !currentConv.assigned_agent_id && (
+                <button
+                  onClick={handleClaim}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#00a884] hover:bg-[#d9dde0] transition-colors"
+                >
+                  <Users className="h-3.5 w-3.5" /> Claim
+                </button>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-2" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23d4d4d4\' fill-opacity=\'0.20\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }}>
               {loadingMsgs ? (

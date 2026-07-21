@@ -47,6 +47,8 @@ import eventHeadRoutes from './routes/eventHeadRoutes.js';
 import ocrRoutes from './routes/ocrRoutes.js';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 import froWhatsAppRoutes from './routes/froWhatsAppRoutes.js';
+import bulkAgentImportRoutes from './routes/bulkAgentImportRoutes.js';
+import agentTransferRoutes from './routes/agentTransferRoutes.js';
 import userSettingsRoutes from './routes/userSettingsRoutes.js';
 import ticketRoutes from './routes/ticketRoutes.js';
 import { whatsappLogin } from './controllers/froWhatsAppAuthController.js';
@@ -123,6 +125,8 @@ app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/event-head', eventHeadRoutes);
 app.use('/api/user-settings', userSettingsRoutes);
 app.use('/api/tickets', ticketRoutes);
+app.use('/api/whatsapp/agents', bulkAgentImportRoutes);
+app.use('/api/whatsapp/agents', agentTransferRoutes);
 app.use('/api/fro/whatsapp', froWhatsAppRoutes);
 
 if (fs.existsSync(froDist)) {

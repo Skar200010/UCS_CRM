@@ -25,7 +25,7 @@ export async function getConversations(userId) {
       const projects = accts.map(a => a.project).filter(Boolean)
       if (projects.length > 0) {
         query = query.in('project', projects)
-        query = query.or(`assigned_agent_id.eq.${userId},assigned_agent_id.is.null`)
+        query = query.eq('assigned_agent_id', userId)
       } else {
         query = query.eq('assigned_agent_id', userId)
       }

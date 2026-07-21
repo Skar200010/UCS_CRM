@@ -60,7 +60,7 @@ export const listEntries = async (req, res) => {
 
 export const addEntry = async (req, res) => {
   try {
-    const { source_id, amount, payment_id, check_id, transaction_date, remarks } = req.body;
+    const { source_id, amount, payment_id, check_id, transaction_date, remarks, payer_name, payment_time } = req.body;
     if (!source_id || !amount || !transaction_date) {
       return res.status(400).json({ message: 'Source, amount, and transaction date are required' });
     }
@@ -71,6 +71,8 @@ export const addEntry = async (req, res) => {
       check_id: check_id || null,
       transaction_date,
       remarks: remarks || null,
+      payer_name: payer_name || null,
+      payment_time: payment_time || null,
       created_by: req.user.id,
     });
     return res.status(201).json(entry);
@@ -82,7 +84,7 @@ export const addEntry = async (req, res) => {
 export const editEntry = async (req, res) => {
   try {
     const { id } = req.params;
-    const { source_id, amount, payment_id, check_id, transaction_date, remarks } = req.body;
+    const { source_id, amount, payment_id, check_id, transaction_date, remarks, payer_name, payment_time } = req.body;
     const updates = {};
     if (source_id !== undefined) updates.source_id = source_id;
     if (amount !== undefined) updates.amount = amount;
@@ -90,6 +92,8 @@ export const editEntry = async (req, res) => {
     if (check_id !== undefined) updates.check_id = check_id;
     if (transaction_date !== undefined) updates.transaction_date = transaction_date;
     if (remarks !== undefined) updates.remarks = remarks;
+    if (payer_name !== undefined) updates.payer_name = payer_name;
+    if (payment_time !== undefined) updates.payment_time = payment_time;
     const entry = await BankAudit.updateEntry(id, updates);
     return res.json(entry);
   } catch (error) {

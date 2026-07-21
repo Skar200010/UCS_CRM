@@ -63,3 +63,47 @@
 .scrollbar-thin::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
 .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #a0a0a0; }
 * { scrollbar-width: thin; scrollbar-color: #c1c1c1 transparent; }
+
+/* ── Inbox: FRO-style overrides ── */
+.inbox-fro-style [class*="bg-\[#f0f2f5\]"] { background: #f9fafb !important; }
+.inbox-fro-style [class*="bg-\[#e8f4f8\]"] { background: #f0fdf4 !important; }
+.inbox-fro-style [class*="bg-\[#efeae2\]"] { background: #fff !important; }
+.inbox-fro-style [class*="bg-\[#00a884\]"] { background: #25D366 !important; }
+
+.inbox-fro-style .rounded-full.bg-\[\#00a884\] { background: #25D366 !important; }
+.inbox-fro-style button:has(> svg) path[d*="00a884"] { fill: #25D366 !important; }
+
+.inbox-fro-style [style*="backgroundImage"] { background-image: none !important; }
+
+.inbox-fro-style .border-r.border-gray-200 { border-right-color: #e5e7eb !important; }
+.inbox-fro-style [class*="border-gray-200"] { border-color: #e5e7eb !important; }
+.inbox-fro-style [class*="shadow-sm"] { box-shadow: none !important; }
+
+.inbox-fro-style .text-\[#111b21\] { color: #374151 !important; }
+.inbox-fro-style .text-\[#54656f\] { color: #6b7280 !important; }
+.inbox-fro-style .text-\[#667781\] { color: #6b7280 !important; }
+.inbox-fro-style .text-\[#8696a0\] { color: #9ca3af !important; }
+.inbox-fro-style .text-\[#53bdeb\] { color: #3b82f6 !important; }
+.inbox-fro-style .text-\[#ef5350\] { color: #ef4444 !important; }
+.inbox-fro-style .text-\[#00a884\] { color: #25D366 !important; }
+
+.inbox-fro-style input[placeholder*="Search"] {
+  border: 1px solid #d1d5db !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+}
+.inbox-fro-style input[placeholder*="Search"]:focus { outline: none !important; border-color: #25D366 !important; }
+.inbox-fro-style .bg-\[\#f0f2f5\] input { border: 1px solid #d1d5db !important; border-radius: 6px !important; background: #fff !important; }
+
+.inbox-fro-style .px-4.py-3\.5 { padding: 12px 14px !important; }
+.inbox-fro-style .px-3.py-2 { padding: 8px 14px !important; }
+.inbox-fro-style .px-4.py-2\.5 { padding: 10px 14px !important; }
+
+.inbox-fro-style .text-\[15px\] { font-size: 14px !important; }
+.inbox-fro-style .text-\[13px\] { font-size: 12px !important; }
+.inbox-fro-style .text-\[12px\] { font-size: 11px !important; }
+.inbox-fro-style .text-\[11px\] { font-size: 10px !important; }
+.inbox-fro-style .text-base.font-semibold { font-size: 14px !important; }
+
+.inbox-fro-style .bg-\[\#d9fdd3\] { background: #dcfce7 !important; }
+.inbox-fro-style .hover\:bg-\[\#f0f2f5\]:hover { background: #f9fafb !important; }

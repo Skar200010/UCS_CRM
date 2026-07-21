@@ -167,19 +167,21 @@ function EntrySection({loading,entries,sources,summary,error,statusTab,setStatus
           {sources.filter(s=>s.is_active!==false).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <Btn on={()=>doLoad(selDate,statusTab)} ic={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.4-3.4L23 10M1 14l5.1 4.4A9 9 0 0 0 20.5 15"/></svg>} ch="Refresh"/>
-        <Btn on={()=>{setForm({src_id:'',amount:'',payment_id:'',check_id:'',transaction_date:'',remarks:''});setShowAdd(true)}} ch="Add Entry" bg="var(--sage)" style={{marginLeft:'auto'}}/>
+        <Btn on={()=>{setForm({src_id:'',amount:'',payment_id:'',check_id:'',transaction_date:'',remarks:'',payer_name:'',payment_time:''});setShowAdd(true)}} ch="Add Entry" bg="var(--sage)" style={{marginLeft:'auto'}}/>
         <Btn on={()=>{setSn('');setShowSrc(true)}} ch="Sources" bg="transparent" fg="#374151" style={{border:'1px solid #d1d5db'}}/>
       </div>
     </div>
     <div className="table-wrap"><table>
-      <thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Payment ID</th><th>Check ID</th><th>Remarks</th><th style={{width:110}}></th></tr></thead>
-      <tbody>{loading?<tr><td colSpan={7}><SkTbl r={5} c={7}/></td></tr>:entries.length===0?<tr><td colSpan={7} style={{textAlign:'center',padding:20,color:'#9ca3af'}}>No entries yet</td></tr>:(srcFilter?filtered.filter(e=>e.source_id===Number(srcFilter)):filtered).map((e,idx)=><tr key={e.id||idx}>
+      <thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Payment ID</th><th>Check ID</th><th>Remarks</th><th>Name</th><th>Time</th><th style={{width:110}}></th></tr></thead>
+      <tbody>{loading?<tr><td colSpan={9}><SkTbl r={5} c={9}/></td></tr>:entries.length===0?<tr><td colSpan={9} style={{textAlign:'center',padding:20,color:'#9ca3af'}}>No entries yet</td></tr>:(srcFilter?filtered.filter(e=>e.source_id===Number(srcFilter)):filtered).map((e,idx)=><tr key={e.id||idx}>
         <td style={{whiteSpace:'nowrap'}}>{e.transaction_date}</td>
         <td><span className="pill pill-gray">{e.bank_audit_sources?.name||getSrcName(e.source_id)}</span></td>
         <td style={{fontWeight:600,color:'var(--sage)'}}>{curr(e.amount)}</td>
         <td style={{fontSize:12}}>{e.payment_id||'\u2014'}</td>
         <td style={{fontSize:12}}>{e.check_id||'\u2014'}</td>
         <td style={{fontSize:12,maxWidth:180,whiteSpace:'pre-wrap'}}>{e.remarks||'\u2014'}</td>
+        <td style={{fontSize:12}}>{e.payer_name||'\u2014'}</td>
+        <td style={{fontSize:12}}>{e.payment_time||'\u2014'}</td>
         <td><div style={{display:'flex',gap:4}}>
           {statusTab==='unverified'&&<><Btn on={()=>openEdit(e)} ch="Edit" bg="transparent" fg="#374151" style={{fontSize:11,padding:'2px 8px',border:'1px solid #d1d5db'}}/><Btn on={()=>handleDelete(e.id)} ch="Del" bg="transparent" fg="#dc2626" style={{fontSize:11,padding:'2px 8px',border:'1px solid #fecaca'}}/></>}
           <Btn on={async()=>{if(confirm('Send to NGO Admin?'))try{await apiPut('/accounts/bank-audit/entries/'+e.id+'/assign-ngo',{});doLoad(selDate,statusTab)}catch(err){alert(err.message)}}} ch="NGO" bg="transparent" fg="#B5603A" style={{fontSize:11,padding:'2px 8px',border:'1px solid #fed7aa'}}/>
@@ -194,7 +196,7 @@ export default function BankAudit(){
   const[e,setE]=useState([]);const[sr,setSr]=useState([]);const[su,setSu]=useState({});const[ld,setLd]=useState(true);
   const[st,setSt]=useState('unverified');const[sd,setSd]=useState('');const[sf,setSf]=useState('');const[nf,setNf]=useState('');
   const[sa,setSa]=useState(false);const[se,setSe]=useState(null);const[ss,setSs]=useState(false);
-  const[fm,setFm]=useState({src_id:'',amount:'',payment_id:'',check_id:'',transaction_date:'',remarks:''});
+  const[fm,setFm]=useState({src_id:'',amount:'',payment_id:'',check_id:'',transaction_date:'',remarks:'',payer_name:'',payment_time:''});
   const[sv,setSv]=useState(false);const[snn,setSnn]=useState('');const[er,setEr]=useState('');const[mt,setMt]=useState('entries');
   const[is,setIs]=useState({razorpaySync:false,emailImport:false,bankStatement:false});
   const srRef=useRef(st);useEffect(()=>{srRef.current=st},[st]);
@@ -218,12 +220,12 @@ export default function BankAudit(){
   const fe=nf?e.filter(e=>{const src=(e.bank_audit_sources?.name||'').toLowerCase();const rem=(e.remarks||'').toLowerCase();const kw=ngoKw[nf]||[];return kw.some(k=>src.includes(k)||rem.includes(k))}):e;
   const getSrc=i=>{const s=sr.find(s=>s.id===i);return s?s.name:'Unknown'};
 
-  const addEntry=async()=>{if(!fm.src_id||!fm.amount||!fm.transaction_date){alert('Source, amount, date required');return};setSv(true);try{await apiPost('/accounts/bank-audit/entries',{source_id:fm.src_id,amount:fm.amount,payment_id:fm.payment_id,check_id:fm.check_id,transaction_date:fm.transaction_date,remarks:fm.remarks});setSa(false);setFm({src_id:'',amount:'',payment_id:'',check_id:'',transaction_date:'',remarks:''});load(sd,st)}catch(e){alert(e.message)}finally{setSv(false)}};
-  const editEntry=async()=>{if(!se)return;setSv(true);try{await apiPut('/accounts/bank-audit/entries/'+se.id,fm);setSe(null);setFm({src_id:'',amount:'',payment_id:'',check_id:'',transaction_date:'',remarks:''});load(sd,st)}catch(e){alert(e.message)}finally{setSv(false)}};
+  const addEntry=async()=>{if(!fm.src_id||!fm.amount||!fm.transaction_date){alert('Source, amount, date required');return};setSv(true);try{await apiPost('/accounts/bank-audit/entries',{source_id:fm.src_id,amount:fm.amount,payment_id:fm.payment_id,check_id:fm.check_id,transaction_date:fm.transaction_date,remarks:fm.remarks,payer_name:fm.payer_name,payment_time:fm.payment_time});setSa(false);setFm({src_id:'',amount:'',payment_id:'',check_id:'',transaction_date:'',remarks:'',payer_name:'',payment_time:''});load(sd,st)}catch(e){alert(e.message)}finally{setSv(false)}};
+  const editEntry=async()=>{if(!se)return;setSv(true);try{await apiPut('/accounts/bank-audit/entries/'+se.id,fm);setSe(null);setFm({src_id:'',amount:'',payment_id:'',check_id:'',transaction_date:'',remarks:'',payer_name:'',payment_time:''});load(sd,st)}catch(e){alert(e.message)}finally{setSv(false)}};
   const delEntry=async(id)=>{if(!confirm('Delete?'))return;try{await apiDelete('/accounts/bank-audit/entries/'+id);load(sd,st)}catch(e){alert(e.message)}};
   const addSrc=async()=>{if(!snn)return;try{await apiPost('/accounts/bank-audit/sources',{name:snn});setSnn('');setSr(await apiGet('/accounts/bank-audit/sources'))}catch(e){alert(e.message)}};
   const delSrc=async(id)=>{if(!confirm('Delete?'))return;try{await apiDelete('/accounts/bank-audit/sources/'+id);setSr(await apiGet('/accounts/bank-audit/sources'))}catch(e){alert(e.message)}};
-  const openE=(entry)=>{setFm({src_id:entry.source_id,amount:entry.amount,payment_id:entry.payment_id||'',check_id:entry.check_id||'',transaction_date:entry.transaction_date,remarks:entry.remarks||''});setSe(entry)};
+  const openE=(entry)=>{setFm({src_id:entry.source_id,amount:entry.amount,payment_id:entry.payment_id||'',check_id:entry.check_id||'',transaction_date:entry.transaction_date,remarks:entry.remarks||'',payer_name:entry.payer_name||'',payment_time:entry.payment_time||''});setSe(entry)};
   const SvgX=()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
 
   return <div>
@@ -277,6 +279,8 @@ export default function BankAudit(){
           <label style={{fontSize:12}}>Source<select className="field-input" value={fm.src_id} onChange={e=>setFm(p=>({...p,src_id:e.target.value}))}>{sr.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <label style={{fontSize:12}}>Amount<input className="field-input" type="number" value={fm.amount} onChange={e=>setFm(p=>({...p,amount:e.target.value}))}/></label>
           <label style={{fontSize:12}}>Date<input className="field-input" type="date" value={fm.transaction_date} onChange={e=>setFm(p=>({...p,transaction_date:e.target.value}))}/></label>
+          <label style={{fontSize:12}}>Payer Name<input className="field-input" value={fm.payer_name} onChange={e=>setFm(p=>({...p,payer_name:e.target.value}))}/></label>
+          <label style={{fontSize:12}}>Payment Time<input className="field-input" type="time" value={fm.payment_time} onChange={e=>setFm(p=>({...p,payment_time:e.target.value}))}/></label>
           <label style={{fontSize:12}}>Payment ID<input className="field-input" value={fm.payment_id} onChange={e=>setFm(p=>({...p,payment_id:e.target.value}))}/></label>
           <label style={{fontSize:12}}>Check ID<input className="field-input" value={fm.check_id} onChange={e=>setFm(p=>({...p,check_id:e.target.value}))}/></label>
           <label style={{fontSize:12,gridColumn:'1/-1'}}>Remarks<input className="field-input" value={fm.remarks} onChange={e=>setFm(p=>({...p,remarks:e.target.value}))}/></label>
@@ -296,6 +300,8 @@ export default function BankAudit(){
           <label style={{fontSize:12}}>Source<select className="field-input" value={fm.src_id} onChange={e=>setFm(p=>({...p,src_id:e.target.value}))}>{sr.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <label style={{fontSize:12}}>Amount<input className="field-input" type="number" value={fm.amount} onChange={e=>setFm(p=>({...p,amount:e.target.value}))}/></label>
           <label style={{fontSize:12}}>Date<input className="field-input" type="date" value={fm.transaction_date} onChange={e=>setFm(p=>({...p,transaction_date:e.target.value}))}/></label>
+          <label style={{fontSize:12}}>Payer Name<input className="field-input" value={fm.payer_name} onChange={e=>setFm(p=>({...p,payer_name:e.target.value}))}/></label>
+          <label style={{fontSize:12}}>Payment Time<input className="field-input" type="time" value={fm.payment_time} onChange={e=>setFm(p=>({...p,payment_time:e.target.value}))}/></label>
           <label style={{fontSize:12}}>Payment ID<input className="field-input" value={fm.payment_id} onChange={e=>setFm(p=>({...p,payment_id:e.target.value}))}/></label>
           <label style={{fontSize:12}}>Check ID<input className="field-input" value={fm.check_id} onChange={e=>setFm(p=>({...p,check_id:e.target.value}))}/></label>
           <label style={{fontSize:12,gridColumn:'1/-1'}}>Remarks<input className="field-input" value={fm.remarks} onChange={e=>setFm(p=>({...p,remarks:e.target.value}))}/></label>

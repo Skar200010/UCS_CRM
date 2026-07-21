@@ -22,9 +22,6 @@ import Donors from './pages/Donors'
 import Scheduled from './pages/Scheduled'
 import IncentiveInfo from './pages/IncentiveInfo'
 import History from './pages/History'
-import CallLogs from './pages/CallLogs'
-import MyTarget from './pages/MyTarget'
-import Suspense from './pages/Suspense'
 import WhatsAppChat from './pages/WhatsAppChat'
 import FroTickets from './pages/Tickets'
 
@@ -34,10 +31,7 @@ const NAV = [
   { id: 'my-leads', path: '/fro/my-leads', label: 'My Leads', icon: 'group' },
   { id: 'transferred-leads', path: '/fro/transferred-leads', label: 'Transferred', icon: 'swap_horiz' },
   { id: 'donors', path: '/fro/donors', label: 'Donors', icon: 'card_giftcard' },
-  { id: 'logs', path: '/fro/logs', label: 'Call Logs', icon: 'call_log' },
   { id: 'rejected', path: '/fro/rejected-leads', label: 'Rejected Leads', icon: 'heart_broken' },
-  { id: 'target', path: '/fro/target', label: 'My Target', icon: 'track_changes' },
-  { id: 'suspense', path: '/fro/suspense', label: 'Suspense', icon: 'help_outline' },
   { id: 'tickets', path: '/fro/tickets', label: 'Raise Ticket', icon: 'confirmation_number' },
   { id: 'whatsapp-chat', path: '/fro/whatsapp-chat', label: 'WhatsApp Chat', icon: 'chat' },
 ]
@@ -496,11 +490,8 @@ export default function FROPanel() {
             <Route path="transferred-leads" element={<TransferredLeads />} />
             <Route path="rejected-leads" element={<RejectedLeads />} />
             <Route path="donors" element={<Donors />} />
-            <Route path="logs" element={<CallLogs />} />
-            <Route path="target" element={<MyTarget />} />
             <Route path="history" element={<History />} />
             <Route path="incentive-info" element={<IncentiveInfo />} />
-            <Route path="suspense" element={<Suspense />} />
             <Route path="tickets" element={<FroTickets />} />
             <Route path="whatsapp-chat" element={<WhatsAppChat />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
