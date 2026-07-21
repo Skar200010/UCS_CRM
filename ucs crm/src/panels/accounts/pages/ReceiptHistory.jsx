@@ -311,43 +311,42 @@ export default function ReceiptHistory() {
           <span style={{ fontSize: 12, color: 'var(--ink-soft)', marginLeft: 'auto' }}>{filtered.length} receipts</span>
         </div>
         <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Donor Name</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i}><td colSpan={2} style={{ padding: '10px 12px' }}><div className="sk" style={{ width: i % 2 === 0 ? '55%' : '40%', height: 14, borderRadius: 4 }} /></td></tr>
-                ))
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={2} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>
-                  {searchQuery || projectFilter ? 'No receipts match your filters.' : 'No receipts generated yet.'}
-                </td></tr>
-              ) : (
-                paginatedDonors.map(r => {
-                  const rMobile = (r.donor_mobile || '').replace(/\D/g, '');
-                  const donorReceipts = rMobile
-                    ? filtered.filter(d => (d.donor_mobile || '').replace(/\D/g, '') === rMobile)
-                    : filtered.filter(d => (d.donor_name || '').toLowerCase().trim() === (r.donor_name || '').toLowerCase().trim());
-                  const totalAmount = donorReceipts.reduce((s, d) => s + Number(d.amount || 0), 0);
-                  return (
-                    <tr key={r.id} onClick={() => setDonorDetail({ name: r.donor_name, mobile: r.donor_mobile, receipts: donorReceipts })} style={{ cursor: 'pointer' }}
-                      onMouseOver={e => e.currentTarget.style.background = '#f0fdf4'}
-                      onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                      <td style={{ fontWeight: 600 }}>{r.donor_name || '\u2014'}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{donorReceipts.length} receipt{donorReceipts.length !== 1 ? 's' : ''} &middot; {currency(totalAmount)}</span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {loading ? (
+              Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderBottom: '1px solid var(--line)' }}>
+                  <div className="sk" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                  <div className="sk" style={{ flex: 1, height: 14, borderRadius: 4 }} />
+                </div>
+              ))
+            ) : filtered.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)', fontSize: 12 }}>
+                {searchQuery || projectFilter ? 'No receipts match your filters.' : 'No receipts generated yet.'}
+              </div>
+            ) : (
+              paginatedDonors.map(r => {
+                const rMobile = (r.donor_mobile || '').replace(/\D/g, '');
+                const donorReceipts = rMobile
+                  ? filtered.filter(d => (d.donor_mobile || '').replace(/\D/g, '') === rMobile)
+                  : filtered.filter(d => (d.donor_name || '').toLowerCase().trim() === (r.donor_name || '').toLowerCase().trim());
+                const totalAmount = donorReceipts.reduce((s, d) => s + Number(d.amount || 0), 0);
+                const initial = (r.donor_name || '?')[0].toUpperCase();
+                return (
+                  <div key={r.id} onClick={() => setDonorDetail({ name: r.donor_name, mobile: r.donor_mobile, receipts: donorReceipts })}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', transition: 'background .12s' }}
+                    onMouseOver={e => e.currentTarget.style.background = '#f9fafb'}
+                    onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#5B6B4E', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initial}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.donor_name || '\u2014'}</div>
+                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{donorReceipts.length} receipt{donorReceipts.length !== 1 ? 's' : ''}</div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--sage)', whiteSpace: 'nowrap' }}>{currency(totalAmount)}</div>
+                  </div>
+                );
+              })
+            )}
+          </div>
           {!loading && totalPages > 1 && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid var(--line)' }}>
               <button onClick={() => setDPage(p => Math.max(1, p - 1))} disabled={dPage === 1}
