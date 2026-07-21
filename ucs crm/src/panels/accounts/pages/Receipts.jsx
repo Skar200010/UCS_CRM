@@ -211,56 +211,67 @@ export default function Receipts() {
   const receiptRef = useRef(null)
 
   function DonorTable() {
-    if (!donors) return Array.from({ length: 8 }).map((_, i) => (
-      <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderBottom:'1px solid #f3f4f6' }}>
-        <div className="sk" style={{ width:32, height:32, borderRadius:'50%', flexShrink:0 }} />
-        <div style={{ flex:1 }}><div className="sk" style={{ width:'50%', height:12, borderRadius:3 }} /></div>
-        <div className="sk" style={{ width:60, height:12, borderRadius:3 }} />
-        <div className="sk" style={{ width:40, height:28, borderRadius:6 }} />
-      </div>
-    ));
-    if (donors.length === 0) return <div style={{ textAlign:'center', padding:30, color:'var(--ink-soft)', fontSize:13 }}>No pending receipts.</div>;
-    return donors.slice((receiptPage - 1) * PAGE_SIZE, receiptPage * PAGE_SIZE).map((d, i) => {
-      const realIdx = (receiptPage - 1) * PAGE_SIZE + i;
-      const initial = (d['Donor Name'] || '?')[0].toUpperCase();
-      const ngoLabel = ({ bsct:'Being Sevak', maan:'Mann Care', aflf:'Ashray' })[d['Project']] || d['Project'] || 'bsct';
-      const isSelected = selectedIndex === realIdx;
-      return (
-        <div key={realIdx} onClick={() => setSelectedIndex(realIdx)}
-          style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', cursor:'pointer', borderBottom:'1px solid #f3f4f6', background: isSelected ? '#f0fdf4' : 'transparent', transition:'background .1s' }}
-          onMouseOver={e => !isSelected && (e.currentTarget.style.background = '#f9fafb')}
-          onMouseOut={e => !isSelected && (e.currentTarget.style.background = 'transparent')}>
-          <div style={{ width:32, height:32, borderRadius:'50%', background:'#5B6B4E', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:12, fontWeight:700, flexShrink:0 }}>{initial}</div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:'#111827', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d['Donor Name']}</div>
-            <div style={{ fontSize:11, color:'#9ca3af', marginTop:1, display:'flex', gap:8, flexWrap:'wrap' }}>
-              <span style={{ fontFamily:'monospace' }}>{d['Receipt No.']}</span>
-              <span>{formatReceiptDate(d['Receipt Date'])}</span>
-              <span className="pill pill-gray" style={{ fontSize:9, padding:'1px 5px' }}>{ngoLabel}</span>
-            </div>
-          </div>
-          <div style={{ fontSize:13, fontWeight:700, color:'#059669', whiteSpace:'nowrap' }}>{formatIndianCurrency(d['Amount'])}</div>
-          <div style={{ display:'flex', gap:4, flexShrink:0 }}>
-            <button onClick={e => { e.stopPropagation(); handleSendSingle(d, realIdx) }} disabled={sendingIndex === realIdx} title="Send via WhatsApp"
-              style={{ border:'none', background: sendingIndex === realIdx ? '#d1d5db' : '#25D366', color:'#fff', borderRadius:8, width:30, height:30, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              {sendingIndex === realIdx ? (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeDasharray="30 10" transform="rotate(0 12 12)"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></circle></svg>
-              ) : (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M19.077 4.928C17.191 3.041 14.683 2 12.006 2 6.798 2 2.548 6.193 2.54 11.4c-.003 2.06.537 4.074 1.563 5.86L2.99 21.273 7.97 19.36a9.426 9.426 0 0 0 4.024.96h.004c5.2 0 9.46-4.192 9.468-9.4a9.37 9.37 0 0 0-2.389-5.993Z"/></svg>
-              )}
-            </button>
-            <button onClick={e => { e.stopPropagation(); setPreviewIndex(realIdx) }} title="Preview"
-              style={{ border:'none', background:'#e5e7eb', color:'#374151', borderRadius:8, width:30, height:30, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-            <button onClick={e => { e.stopPropagation(); setEditingPhone(editingPhone === realIdx ? null : realIdx) }} title="Edit mobile"
-              style={{ border:'none', background:'transparent', color:'#9ca3af', borderRadius:8, width:30, height:30, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-            </button>
-          </div>
+    if (!donors) return (
+      <div style={{ border:'1px solid #e5e7eb', borderRadius:8, overflow:'hidden' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 80px 100px', gap:0, background:'#f9fafb', borderBottom:'1px solid #e5e7eb', padding:'8px 12px', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'.5px', color:'#6b7280' }}>
+          <div>Donor Name</div><div style={{ textAlign:'right' }}>Amount</div><div>Receipt No</div><div>Date</div><div style={{ textAlign:'center' }}>NGO</div><div style={{ textAlign:'center' }}>Action</div>
         </div>
-      );
-    });
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 80px 100px', gap:0, padding:'10px 12px', borderBottom:'1px solid #f3f4f6', alignItems:'center' }}>
+            <div><div className="sk" style={{ width:'60%', height:12, borderRadius:3 }} /></div>
+            <div style={{ textAlign:'right' }}><div className="sk" style={{ width:50, height:12, borderRadius:3, marginLeft:'auto' }} /></div>
+            <div><div className="sk" style={{ width:70, height:12, borderRadius:3 }} /></div>
+            <div><div className="sk" style={{ width:60, height:12, borderRadius:3 }} /></div>
+            <div style={{ textAlign:'center' }}><div className="sk" style={{ width:35, height:12, borderRadius:3, margin:'0 auto' }} /></div>
+            <div style={{ textAlign:'center' }}><div className="sk" style={{ width:60, height:24, borderRadius:4, margin:'0 auto' }} /></div>
+          </div>
+        ))}
+      </div>
+    );
+    if (donors.length === 0) return <div style={{ textAlign:'center', padding:30, color:'var(--ink-soft)', fontSize:13 }}>No pending receipts.</div>;
+    return (
+      <div style={{ border:'1px solid #e5e7eb', borderRadius:8, overflow:'hidden' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 80px 100px', gap:0, background:'#f9fafb', borderBottom:'1px solid #e5e7eb', padding:'8px 12px', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'.5px', color:'#6b7280' }}>
+          <div>Donor Name</div><div style={{ textAlign:'right' }}>Amount</div><div>Receipt No</div><div>Date</div><div style={{ textAlign:'center' }}>NGO</div><div style={{ textAlign:'center' }}>Action</div>
+        </div>
+        {donors.slice((receiptPage - 1) * PAGE_SIZE, receiptPage * PAGE_SIZE).map((d, i) => {
+          const realIdx = (receiptPage - 1) * PAGE_SIZE + i;
+          const ngoLabel = ({ bsct:'BSCT', maan:'MANN', aflf:'AFLF' })[d['Project']] || d['Project'] || '-';
+          const isSelected = selectedIndex === realIdx;
+          const bg = isSelected ? '#f0fdf4' : i % 2 === 0 ? '#fff' : '#fafafa';
+          return (
+            <div key={realIdx} onClick={() => setSelectedIndex(realIdx)}
+              style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 80px 100px', gap:0, padding:'7px 12px', cursor:'pointer', borderBottom:'1px solid #f3f4f6', background: bg, transition:'background .1s', alignItems:'center', fontSize:12 }}
+              onMouseOver={e => !isSelected && (e.currentTarget.style.background = '#f3f4f6')}
+              onMouseOut={e => !isSelected && (e.currentTarget.style.background = bg)}>
+              <div style={{ fontWeight:500, color:'#111827', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d['Donor Name']}</div>
+              <div style={{ fontWeight:600, color:'#059669', textAlign:'right' }}>{formatIndianCurrency(d['Amount'])}</div>
+              <div style={{ fontFamily:'monospace', fontSize:11, color:'#374151' }}>{d['Receipt No.']}</div>
+              <div style={{ color:'#6b7280', fontSize:11 }}>{formatReceiptDate(d['Receipt Date'])}</div>
+              <div style={{ textAlign:'center' }}><span style={{ fontSize:9, background:'#f3f4f6', padding:'1px 5px', borderRadius:3, color:'#6b7280', fontWeight:600 }}>{ngoLabel}</span></div>
+              <div style={{ display:'flex', gap:3, justifyContent:'center' }}>
+                <button onClick={e => { e.stopPropagation(); handleSendSingle(d, realIdx) }} disabled={sendingIndex === realIdx} title="WhatsApp"
+                  style={{ border:'none', background: sendingIndex === realIdx ? '#d1d5db' : '#25D366', color:'#fff', borderRadius:4, width:24, height:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
+                  {sendingIndex === realIdx ? (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeDasharray="30 10" transform="rotate(0 12 12)"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></circle></svg>
+                  ) : (
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19.077 4.928C17.191 3.041 14.683 2 12.006 2 6.798 2 2.548 6.193 2.54 11.4c-.003 2.06.537 4.074 1.563 5.86L2.99 21.273 7.97 19.36a9.426 9.426 0 0 0 4.024.96h.004c5.2 0 9.46-4.192 9.468-9.4a9.37 9.37 0 0 0-2.389-5.993Z"/></svg>
+                  )}
+                </button>
+                <button onClick={e => { e.stopPropagation(); setPreviewIndex(realIdx) }} title="Preview"
+                  style={{ border:'none', background:'#e5e7eb', color:'#374151', borderRadius:4, width:24, height:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+                <button onClick={e => { e.stopPropagation(); setEditingPhone(editingPhone === realIdx ? null : realIdx) }} title="Phone"
+                  style={{ border:'none', background:'transparent', color:'#9ca3af', borderRadius:4, width:24, height:24, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:0 }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   }
 
   const [toast, setToast] = useState({ message:'', type:'', visible:false })
