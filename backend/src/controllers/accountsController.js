@@ -856,24 +856,26 @@ export const importReceipts = async (req, res) => {
 
     const rows = receipts
       .map(r => {
-        const donorName = r.donor_name || r['Receipt Name'] || r['Donor Name'] || '';
-        const projectRaw = (r.project_id || r['Project'] || r['Project Supported'] || 'bsct').trim();
+        const row = {};
+        Object.keys(r).forEach(k => { row[k.trim()] = r[k]; });
+        const donorName = row.donor_name || row['Receipt Name'] || row['Donor Name'] || '';
+        const projectRaw = (row.project_id || row['Project'] || row['Project Supported'] || 'bsct').trim();
         const projectId = projectRaw.toLowerCase().includes('anna') ? 'bsct' : projectRaw.toLowerCase();
-        const rawAmount = String(r.amount || r['Amount'] || r['  Amt  '] || r['Amt'] || '0')
+        const rawAmount = String(row.amount || row['Amount'] || row['Amt'] || '0')
           .replace(/,/g, '')
           .trim();
         return {
-          receipt_no: r.receipt_no || r['Receipt No'] || r['Receipt No.'] || '',
+          receipt_no: row.receipt_no || row['Receipt No'] || row['Receipt No.'] || '',
           project_id: projectId,
           donor_name: donorName,
-          donor_mobile: r.donor_mobile || r['Donor Mobile'] || r['Mobile No.'] || r['Mobile No. '] || null,
+          donor_mobile: row.donor_mobile || row['Donor Mobile'] || row['Mobile No.'] || null,
           amount: parseFloat(rawAmount) || 0,
-          pan_number: r.pan_number || r['PAN No.'] || r['PAN No'] || r['Pan No'] || null,
-          address: r.address || r['Address 1'] || r['Address-1'] || r['Address-1 '] || null,
-          mode: r.mode || r['Mode of Payment (MOP)'] || r['MOP'] || null,
-          purpose: r.purpose || r['Purpose'] || 'General Donation',
-          receipt_date: normalizeReceiptDate(r.receipt_date || r['Receipt Date']),
-          generated_by: r.generated_by || req.user.id,
+          pan_number: row.pan_number || row['PAN No.'] || row['PAN No'] || row['Pan No'] || null,
+          address: row.address || row['Address 1'] || row['Address-1'] || null,
+          mode: row.mode || row['Mode of Payment (MOP)'] || row['MOP'] || null,
+          purpose: row.purpose || row['Purpose'] || 'General Donation',
+          receipt_date: normalizeReceiptDate(row.receipt_date || row['Receipt Date']),
+          generated_by: row.generated_by || req.user.id,
         };
       })
       .filter(row => {
