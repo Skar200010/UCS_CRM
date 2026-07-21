@@ -72,7 +72,7 @@ const initials = (name) => (name || '').split(' ').map(w => w[0]).slice(0, 2).jo
 export default function MyDonors() {
   const navigate = useNavigate()
   const [donors, setDonors] = useState([]);
-  const [filterStatus] = useState('');
+  const [dataTab, setDataTab] = useState('new');
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);
   const [detail, setDetail] = useState(null);
@@ -115,7 +115,7 @@ export default function MyDonors() {
 
   useEffect(() => {
     setLoading(true);
-    getMyDonors(filterStatus).then(async r => {
+    getMyDonors(null, null, { newOnly: dataTab === 'new', oldOnly: dataTab === 'old' }).then(async r => {
       setDonors(r);
       setMessage(null);
       let restored = false;
@@ -139,7 +139,7 @@ export default function MyDonors() {
       }
       if (!restored) setIndex(0);
     }).catch(err => setMessage({ type: 'error', text: err.message })).finally(() => setLoading(false));
-  }, [filterStatus]);
+  }, [dataTab]);
 
   useEffect(() => {
     if (donors.length > 0 && index >= donors.length) {
@@ -155,8 +155,8 @@ export default function MyDonors() {
   }, [index]);
 
   const reloadDonors = useCallback(() => {
-    getMyDonors(filterStatus).then(r => { setDonors(r); }).catch(() => {});
-  }, [filterStatus]);
+    getMyDonors(null, null, { newOnly: dataTab === 'new', oldOnly: dataTab === 'old' }).then(r => { setDonors(r); }).catch(() => {});
+  }, [dataTab]);
   useRealtime('fro_assignments', { onUpdate: () => reloadDonors(), onInsert: () => reloadDonors() });
 
   const donor = donors[index];
@@ -311,7 +311,7 @@ export default function MyDonors() {
       await addDonorLog(donor.id, logData);
       if (selected) endCall();
       if (returnToDonor) {
-        const newDonors = await getMyDonors(filterStatus);
+        const newDonors = await getMyDonors(null, null, { newOnly: dataTab === 'new', oldOnly: dataTab === 'old' });
         setDonors(newDonors);
         const returnIdx = newDonors.findIndex(d => d.id === returnToDonor.id && d.ngo_id === returnToDonor.ngo_id);
         if (returnIdx >= 0) {
@@ -632,6 +632,17 @@ export default function MyDonors() {
 
         {/* MIDDLE PANEL — Status (55%) */}
         <div className="detail-mid" style={{ padding: '12px 0 12px 8px' }}>
+          {/* New/Old Data Tabs */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+            <button onClick={() => setDataTab('new')}
+              style={{ padding: '4px 14px', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', background: dataTab === 'new' ? '#2563eb' : '#e5e7eb', color: dataTab === 'new' ? '#fff' : '#374151', transition: 'all .12s' }}>
+              New Data
+            </button>
+            <button onClick={() => setDataTab('old')}
+              style={{ padding: '4px 14px', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', background: dataTab === 'old' ? '#2563eb' : '#e5e7eb', color: dataTab === 'old' ? '#fff' : '#374151', transition: 'all .12s' }}>
+              Old Data
+            </button>
+          </div>
           {/* Search donor by mobile */}
           <div ref={searchRef} style={{ position: 'relative', marginBottom: 8 }}>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center', background: 'var(--card-bg)', borderRadius: 8, border: '1px solid var(--line)', padding: '4px 8px' }}>

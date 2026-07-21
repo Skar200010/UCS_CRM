@@ -398,6 +398,12 @@ export const getMyDonors = async (req, res) => {
       // No default status filter — include all except 'reassigned'
     }
 
+    if (req.query.new_only === 'true') {
+      query = query.eq('is_new', true);
+    } else if (req.query.old_only === 'true') {
+      query = query.eq('is_new', false);
+    }
+
     let { data: assignments } = await query;
 
     if (!assignments || assignments.length === 0) return res.json([]);
