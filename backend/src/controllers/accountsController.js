@@ -864,6 +864,7 @@ export const importReceipts = async (req, res) => {
           .trim();
         return {
           receipt_no: r.receipt_no || r['Receipt No'] || r['Receipt No.'] || '',
+          log_id: 0,
           project_id: projectId,
           donor_name: donorName,
           donor_mobile: r.donor_mobile || r['Donor Mobile'] || r['Mobile No.'] || r['Mobile No. '] || null,
