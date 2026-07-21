@@ -98,6 +98,12 @@ export const updateWorker = async (id, updates) => {
 };
 
 export const deleteWorker = async (id) => {
+  const { error: convErr } = await supabase
+    .from('conversations')
+    .update({ assigned_agent_id: null })
+    .eq('assigned_agent_id', id);
+  if (convErr) throw convErr;
+
   const { error } = await supabase
     .from('workers')
     .delete()
