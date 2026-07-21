@@ -217,7 +217,8 @@ export default function Receipts() {
   const [bulkState, setBulkState] = useState({ active:false, total:0, sent:0, failed:0, currentBatch:0, totalBatches:0, results:[], previousBatches:[] })
   const cancelBulkRef = useRef(false)
   const [confirmBulk, setConfirmBulk] = useState({ visible:false, donorCount:0 })
-  const handleDataLoaded = useCallback((data) => { setDonors(data); setSelectedIndex(null) }, [])
+  const [receiptPage, setReceiptPage] = useState(1)
+  const handleDataLoaded = useCallback((data) => { setDonors(data); setSelectedIndex(null); setReceiptPage(1) }, [])
 
   const loadPending = useCallback(async () => {
     try {
@@ -443,18 +444,20 @@ export default function Receipts() {
                   </tr>
                 </thead>
                 <tbody>
-                  {donors.map((d, i) => (
-                    <tr key={i} style={{ background: selectedIndex === i ? '#f0fdf4' : undefined, cursor:'pointer' }}
-                      onClick={() => setSelectedIndex(i)}>
-                      <td>{i + 1}</td>
+                  {donors.slice((receiptPage - 1) * PAGE_SIZE, receiptPage * PAGE_SIZE).map((d, i) => {
+                    const realIdx = (receiptPage - 1) * PAGE_SIZE + i;
+                    return (
+                    <tr key={realIdx} style={{ background: selectedIndex === realIdx ? '#f0fdf4' : undefined, cursor:'pointer' }}
+                      onClick={() => setSelectedIndex(realIdx)}>
+                      <td>{realIdx + 1}</td>
                       <td style={{ fontWeight:500 }}>{d['Donor Name']}</td>
                       <td style={{ color:'#059669', fontWeight:600 }}>{formatIndianCurrency(d['Amount'])}</td>
                       <td style={{ fontFamily:'monospace', fontSize:12 }}>{d['Receipt No.']}</td>
                       <td style={{ fontSize:12 }}>{formatReceiptDate(d['Receipt Date'])}</td>
-                      <td style={{ fontSize:12, cursor:'pointer' }} onClick={e => { e.stopPropagation(); setEditingPhone(editingPhone === i ? null : i) }}>
-                        {editingPhone === i ? (
+                        <td style={{ fontSize:12, cursor:'pointer' }} onClick={e => { e.stopPropagation(); setEditingPhone(editingPhone === realIdx ? null : realIdx) }}>
+                        {editingPhone === realIdx ? (
                           <input className="field-input" type="tel" value={d['Mobile No.'] || ''} autoFocus
-                            onChange={e => updatePhone(i, e.target.value)}
+                            onChange={e => updatePhone(realIdx, e.target.value)}
                             onBlur={() => setEditingPhone(null)}
                             onKeyDown={e => { if (e.key === 'Enter') setEditingPhone(null) }}
                             style={{ width:120, height:28, padding:'2px 6px', fontSize:12 }}
@@ -464,21 +467,28 @@ export default function Receipts() {
                       <td style={{ fontSize:12 }}><span className="pill pill-gray">{({ bsct:'Being Sevak', maan:'Mann Care', aflf:'Ashray' })[d['Project']] || d['Project'] || 'bsct'}</span></td>
                       <td style={{ display:'flex', gap:4 }}>
                         <button className="btn btn-sm" style={{ fontSize:11, padding:'4px 10px', background:'#25D366', color:'#fff', border:'none' }}
-                          onClick={e => { e.stopPropagation(); handleSendSingle(d, i) }}
-                          disabled={sendingIndex === i}>
-                          {sendingIndex === i ? '...' : 'Send'}
+                          onClick={e => { e.stopPropagation(); handleSendSingle(d, realIdx) }}
+                          disabled={sendingIndex === realIdx}>
+                          {sendingIndex === realIdx ? '...' : 'Send'}
                         </button>
-                        <button className="btn btn-sm" style={{ fontSize:11, padding:'4px 10px' }} onClick={e => { e.stopPropagation(); setPreviewIndex(i) }}>Preview</button>
+                        <button className="btn btn-sm" style={{ fontSize:11, padding:'4px 10px' }} onClick={e => { e.stopPropagation(); setPreviewIndex(realIdx) }}>Preview</button>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
+              {donors.length > PAGE_SIZE && (
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 0', borderTop:'1px solid var(--line)' }}>
+                  <button className="btn btn-sm" disabled={receiptPage === 1} onClick={() => setReceiptPage(p => Math.max(1, p - 1))}>Prev</button>
+                  <span style={{ fontSize:12, color:'var(--ink-soft)' }}>Page {receiptPage} of {Math.ceil(donors.length / PAGE_SIZE)} ({donors.length} records)</span>
+                  <button className="btn btn-sm" disabled={receiptPage >= Math.ceil(donors.length / PAGE_SIZE)} onClick={() => setReceiptPage(p => p + 1)}>Next</button>
+                </div>
+              )}
             </div>
           </div>
 
           <div style={{ position:'fixed', left:'-9999px', top:0, width:'1000px', opacity:0, pointerEvents:'none', zIndex:-1 }}>
-            {donors.map((d, i) => {
+            {donors.length <= 100 && donors.map((d, i) => {
               const ngo = d['Project'] || 'bsct'
               const tpl = getNgoSettings(ngo)
               const Comp = tpl.comp
