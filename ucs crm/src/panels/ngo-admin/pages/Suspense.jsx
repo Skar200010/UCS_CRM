@@ -93,14 +93,17 @@ export default function Suspense() {
                 <th>Source</th>
                 <th>Amount</th>
                 <th>Date</th>
+                <th>Donor Name</th>
+                <th>Station Name</th>
+                <th>FRO Name</th>
                 <th style={{ minWidth: 320 }}>Link to Donor</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>Loading...</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>Loading...</td></tr>
               ) : entries.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>No suspense entries</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>No suspense entries</td></tr>
               ) : (
                 entries.map(e => (
                   <tr key={e.id}>
@@ -108,6 +111,9 @@ export default function Suspense() {
                     <td><span className="pill pill-gray">{e.bank_audit_sources?.name || 'Unknown'}</span></td>
                     <td><strong style={{ color: '#dc2626' }}>{currency(e.amount)}</strong></td>
                     <td style={{ fontSize: 12 }}>{e.transaction_date || '\u2014'}</td>
+                    <td style={{ fontSize: 12 }}>{e.donor_profiles?.name || '\u2014'}</td>
+                    <td style={{ fontSize: 12 }}>{e.donor_profiles?.station || '\u2014'}</td>
+                    <td style={{ fontSize: 12 }}>{'\u2014'}</td>
                     <td>
                       <div ref={el => searchRefs.current[e.id] = el} style={{ position: 'relative' }}>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -153,6 +159,11 @@ export default function Suspense() {
                                     {d.mobile_number || ''}{d.city ? ` \u00B7 ${d.city}` : ''} \u00B7 {currency(d.amount || d.total_amount || 0)}
                                   </div>
                                 </div>
+                                {d.station && (
+                                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#f3e8ff', color: '#7c3aed', whiteSpace: 'nowrap', fontWeight: 500, marginRight: 4 }}>
+                                    {d.station}
+                                  </span>
+                                )}
                                 {d.fro_name && (
                                   <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#e0e7ff', color: '#4338ca', whiteSpace: 'nowrap', fontWeight: 500 }}>
                                     FRO: {d.fro_name}

@@ -179,8 +179,39 @@ export const linkSuspenseToDonor = async (req, res) => {
     const { id } = req.params;
     const { donor_id } = req.body;
     if (!donor_id) return res.status(400).json({ message: 'Donor ID is required' });
-    const entry = await BankAudit.linkSuspenseToDonor(id, donor_id);
-    return res.json(entry);
+
+    const { data: entry } = await supabase
+      .from('bank_audit_entries')
+      .select('amount, payment_id')
+      .eq('id', id)
+      .single();
+    if (!entry) return res.status(404).json({ message: 'Entry not found' });
+
+    const result = await BankAudit.linkSuspenseToDonor(id, donor_id);
+
+    const { data: assignment } = await supabase
+      .from('fro_assignments')
+      .select('id, fro_worker_id')
+      .eq('donor_id', donor_id)
+      .not('status', 'eq', 'reassigned')
+      .maybeSingle();
+
+    if (assignment?.fro_worker_id) {
+      await supabase.from('fro_donor_logs').insert({
+        assignment_id: assignment.id,
+        donor_id: donor_id,
+        fro_worker_id: assignment.fro_worker_id,
+        action: 'donation',
+        amount_collected: entry.amount,
+        accounts_status: 'verified',
+        verified_at: new Date().toISOString(),
+        verified_by: req.user.id,
+        created_by: req.user.id,
+        notes: `Auto-credited via suspense linking (Payment: ${entry.payment_id || 'N/A'})`,
+      });
+    }
+
+    return res.json(result);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

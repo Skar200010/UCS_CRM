@@ -150,7 +150,7 @@ export const assignToNgoAdmin = async (id, notes) => {
 export const getSuspenseForNgo = async () => {
   const { data, error } = await supabase
     .from('bank_audit_entries')
-    .select('*, bank_audit_sources(name)')
+    .select('*, bank_audit_sources(name), donor_profiles!donor_id(name, station)')
     .eq('assigned_to_ngo_admin', true)
     .is('donor_id', null)
     .neq('status', 'verified')
@@ -275,7 +275,7 @@ export const searchDonorsForSuspense = async (searchTerm, ngoIds) => {
   const term = `%${searchTerm.trim()}%`;
   const { data, error } = await supabase
     .from('donor_profiles')
-    .select('id, name, mobile_number, city, amount, total_amount')
+    .select('id, name, mobile_number, city, amount, total_amount, station')
     .or(`name.ilike.${term},mobile_number.ilike.${term}`)
     .limit(20);
   if (error) throw error;
@@ -300,6 +300,7 @@ export const searchDonorsForSuspense = async (searchTerm, ngoIds) => {
     city: d.city,
     amount: d.amount,
     total_amount: d.total_amount,
+    station: d.station || null,
     fro_name: froMap[d.id]?.name || null,
     fro_login: froMap[d.id]?.login_id || null,
   }));
