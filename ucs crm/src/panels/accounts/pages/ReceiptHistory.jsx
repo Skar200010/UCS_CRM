@@ -52,6 +52,7 @@ export default function ReceiptHistory() {
   const [receipts, setReceipts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState(null);
+  const [donorDetail, setDonorDetail] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
@@ -118,6 +119,16 @@ export default function ReceiptHistory() {
       return true;
     });
   }, [receipts, searchQuery, projectFilter]);
+
+  const uniqueDonors = useMemo(() => {
+    const seen = new Set();
+    return filtered.filter(r => {
+      const key = (r.donor_name || '').toLowerCase().trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [filtered]);
 
   const handlePreview = async (r) => {
     const templateId = getTemplateId(r.project_id);
@@ -247,15 +258,16 @@ export default function ReceiptHistory() {
                   {searchQuery || projectFilter ? 'No receipts match your filters.' : 'No receipts generated yet.'}
                 </td></tr>
               ) : (
-                filtered.map(r => {
-                  const proj = Object.values(PROJECTS).find(p => r.project_id === p.id || DB_TO_TEMPLATE[r.project_id] === p.id);
+                uniqueDonors.map(r => {
+                  const donorReceipts = filtered.filter(d => (d.donor_name || '').toLowerCase().trim() === (r.donor_name || '').toLowerCase().trim());
+                  const totalAmount = donorReceipts.reduce((s, d) => s + Number(d.amount || 0), 0);
                   return (
-                    <tr key={r.id} onClick={() => handlePreview(r)} style={{ cursor: 'pointer' }}
+                    <tr key={r.id} onClick={() => setDonorDetail({ name: r.donor_name, receipts: donorReceipts })} style={{ cursor: 'pointer' }}
                       onMouseOver={e => e.currentTarget.style.background = '#f0fdf4'}
                       onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
                       <td style={{ fontWeight: 600 }}>{r.donor_name || '\u2014'}</td>
                       <td style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{r.receipt_no} &middot; {currency(r.amount)} &middot; {r.receipt_date ? new Date(r.receipt_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : ''}</span>
+                        <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{donorReceipts.length} receipt{donorReceipts.length !== 1 ? 's' : ''} &middot; {currency(totalAmount)}</span>
                       </td>
                     </tr>
                   );
@@ -298,6 +310,47 @@ export default function ReceiptHistory() {
             <div className="modal-body" style={{ padding: 20 }}>
               <div data-receipt-preview data-receipt-print>
                 {React.createElement(preview.Comp, { donor: buildDonor(preview.receipt, preview.lead), index: 0, project: preview.templateId })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {donorDetail && (
+        <>
+          <div className="modal-overlay" onClick={() => setDonorDetail(null)} />
+          <div className="modal" style={{ maxWidth: 600, width: '90%', maxHeight: '80vh', overflow: 'auto' }}>
+            <div className="modal-header">
+              <h3>{donorDetail.name}</h3>
+              <button className="btn btn-sm" onClick={() => setDonorDetail(null)}>Close</button>
+            </div>
+            <div className="modal-body" style={{ padding: 0 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                    <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Receipt No</th>
+                    <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Amount</th>
+                    <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Date</th>
+                    <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Mode</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {donorDetail.receipts.map(r => (
+                    <tr key={r.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                      <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 600 }}>{r.receipt_no}</td>
+                      <td style={{ padding: '8px 12px', fontWeight: 700, color: 'var(--sage)' }}>{currency(r.amount)}</td>
+                      <td style={{ padding: '8px 12px' }}>{r.receipt_date ? new Date(r.receipt_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '\u2014'}</td>
+                      <td style={{ padding: '8px 12px' }}>{r.mode || '\u2014'}</td>
+                      <td style={{ padding: '8px 12px' }}>
+                        <button className="btn btn-sm btn-primary" onClick={() => { setDonorDetail(null); setTimeout(() => handlePreview(r), 50) }} style={{ fontSize: 10, padding: '2px 8px' }}>View</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ padding: '10px 12px', borderTop: '1px solid var(--line)', textAlign: 'right', fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>
+                Total: {currency(donorDetail.receipts.reduce((s, r) => s + Number(r.amount || 0), 0))} ({donorDetail.receipts.length} receipt{donorDetail.receipts.length !== 1 ? 's' : ''})
               </div>
             </div>
           </div>
