@@ -840,19 +840,37 @@ export const importReceipts = async (req, res) => {
       return res.status(400).json({ message: 'No receipts data provided' });
     }
 
-    const rows = receipts.map(r => ({
-      receipt_no: r.receipt_no || r['Receipt No.'] || '',
-      project_id: r.project_id || r['Project'] || 'bsct',
-      donor_name: r.donor_name || r['Donor Name'] || 'Unknown',
-      donor_mobile: r.donor_mobile || r['Donor Mobile'] || r['Mobile No.'] || null,
-      amount: Number(r.amount || r['Amount'] || 0),
-      pan_number: r.pan_number || r['PAN No.'] || null,
-      address: r.address || r['Address 1'] || null,
-      mode: r.mode || r['Mode of Payment (MOP)'] || null,
-      purpose: r.purpose || r['Purpose'] || 'General Donation',
-      receipt_date: r.receipt_date || r['Receipt Date'] || null,
-      generated_by: r.generated_by || req.user.id,
-    }));
+    const rows = receipts
+      .map(r => {
+        const donorName = r.donor_name || r['Receipt Name'] || r['Donor Name'] || '';
+        const projectRaw = (r.project_id || r['Project'] || r['Project Supported'] || 'bsct').trim();
+        const projectId = projectRaw.toLowerCase().includes('anna') ? 'bsct' : projectRaw.toLowerCase();
+        const rawAmount = String(r.amount || r['Amount'] || r['  Amt  '] || r['Amt'] || '0')
+          .replace(/,/g, '')
+          .trim();
+        return {
+          receipt_no: r.receipt_no || r['Receipt No'] || r['Receipt No.'] || '',
+          project_id: projectId,
+          donor_name: donorName,
+          donor_mobile: r.donor_mobile || r['Donor Mobile'] || r['Mobile No.'] || r['Mobile No. '] || null,
+          amount: parseFloat(rawAmount) || 0,
+          pan_number: r.pan_number || r['PAN No.'] || r['PAN No'] || r['Pan No'] || null,
+          address: r.address || r['Address 1'] || r['Address-1'] || r['Address-1 '] || null,
+          mode: r.mode || r['Mode of Payment (MOP)'] || r['MOP'] || null,
+          purpose: r.purpose || r['Purpose'] || 'General Donation',
+          receipt_date: r.receipt_date || r['Receipt Date'] || null,
+          generated_by: r.generated_by || req.user.id,
+        };
+      })
+      .filter(row => {
+        const isBlank = row.donor_name.toLowerCase().includes('blank');
+        const hasAmount = row.amount > 0;
+        return !isBlank && hasAmount;
+      });
+
+    if (rows.length === 0) {
+      return res.status(400).json({ message: 'No valid receipts found after filtering' });
+    }
 
     const { data, error } = await supabase
       .from('receipts')

@@ -283,7 +283,7 @@ function WhatsAppChatInner() {
 
   return (
     <>
-    <div style={{ display: 'flex', height: 'calc(100vh - 132px)', margin: '-24px', border: '1px solid #e5e7eb', overflow: 'hidden', background: '#fff' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 104px)', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', background: '#fff' }}>
       {/* Sidebar */}
       <div style={{ width: 300, borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '12px 14px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' }}>
