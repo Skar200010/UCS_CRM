@@ -910,9 +910,12 @@ export const importReceipts = async (req, res) => {
 
     if (error) throw error;
 
+    const withBank = data.filter(r => r.bank_name && r.bank_name !== 'NA').length;
+
     return res.status(201).json({
       message: `${data.length} receipts imported${dupCount > 0 ? `, ${dupCount} duplicates skipped` : ''}`,
       imported: data.length,
+      withBank,
       receipts: data,
     });
   } catch (error) {
