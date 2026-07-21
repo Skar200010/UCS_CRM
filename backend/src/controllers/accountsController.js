@@ -902,3 +902,16 @@ export const importReceipts = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
+export const clearReceipts = async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('receipts')
+      .delete()
+      .neq('id', 0);
+    if (error) throw error;
+    return res.json({ message: 'All receipts deleted successfully' });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};

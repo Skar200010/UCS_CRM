@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { apiGet, apiPost } from '../api/auth';
+import { apiGet, apiPost, apiDelete } from '../api/auth';
 import { getReceipt } from '../api/receipts';
 import { PROJECTS } from '../data/projects';
 import { generateReceiptPDF } from '../services/pdfGenerator';
@@ -86,6 +86,16 @@ export default function ReceiptHistory() {
     reader.onerror = () => { alert('Failed to read file'); setImporting(false); };
     reader.readAsArrayBuffer(file);
   }, []);
+
+  const handleCleanUp = async () => {
+    if (!confirm('Delete ALL receipts? This cannot be undone.')) return;
+    if (!confirm('Are you sure? All receipt data will be permanently removed.')) return;
+    try {
+      await apiDelete('/accounts/receipts');
+      alert('All receipts deleted.');
+      load();
+    } catch (err) { alert('Clean up failed: ' + err.message); }
+  };
 
   const load = () => {
     setLoading(true);
@@ -210,6 +220,9 @@ export default function ReceiptHistory() {
             <button className="btn btn-sm" style={{ background: 'var(--sage)', color: '#fff', border: 'none' }}
               onClick={() => fileRef.current?.click()} disabled={importing}>
               {importing ? 'Importing...' : 'Upload Excel'}
+            </button>
+            <button className="btn btn-sm" style={{ background: '#dc2626', color: '#fff', border: 'none', marginLeft: 8 }} onClick={handleCleanUp}>
+              Clean Up
             </button>
           </div>
           {importResult && (
