@@ -40,6 +40,7 @@ const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
 const ALL_DISPOSITIONS = [...NOT_CONNECTED, ...CONNECTED];
 const CONNECTED_IDS = new Set(CONNECTED.map(d => d.id));
+const NOT_CONNECTED_IDS = new Set(NOT_CONNECTED.map(d => d.id));
 const isConnected = (id) => CONNECTED_IDS.has(id);
 const findDisp = (id) => ALL_DISPOSITIONS.find(d => d.id === id);
 const tomorrow = new Date();
@@ -66,6 +67,22 @@ const WALKTHROUGH_STEPS = [
   { icon: 'search', title: 'Search Donors', desc: 'Search for any donor by name or mobile number using the search bar above the disposition form.', color: '#2563eb' },
   { icon: 'chat', title: 'WhatsApp Chat', desc: 'Send a WhatsApp message directly to the donor using the green chat button next to the call button.', color: '#25D366' },
 ];
+
+function findNextDonorIndex(donors, currentId) {
+  // Priority 1: pending (no disposition yet), skip current donor
+  for (let i = 0; i < donors.length; i++) {
+    if (donors[i].status === 'pending' && donors[i].id !== currentId) return i;
+  }
+  // Priority 2: not connected, skip current
+  for (let i = 0; i < donors.length; i++) {
+    if (NOT_CONNECTED_IDS.has(donors[i].status) && donors[i].id !== currentId) return i;
+  }
+  // Priority 3: connected, skip current
+  for (let i = 0; i < donors.length; i++) {
+    if (CONNECTED_IDS.has(donors[i].status) && donors[i].id !== currentId) return i;
+  }
+  return 0;
+}
 
 const initials = (name) => (name || '').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
@@ -407,7 +424,7 @@ export default function MyDonors() {
         }
         setReturnToDonor(null);
       } else {
-        const nextIdx = index < donors.length - 1 ? index + 1 : 0;
+        const nextIdx = findNextDonorIndex(donors, donor.id);
         setIndex(nextIdx);
         const nextDonor = donors[nextIdx];
         if (nextDonor) saveProgress(dataTab, nextDonor.id, nextIdx);
@@ -486,7 +503,7 @@ export default function MyDonors() {
       setReturnToDonor(null);
       return;
     }
-    if (index < donors.length - 1) { const nextIdx = index + 1; setIndex(nextIdx); const nextDonor = donors[nextIdx]; if (nextDonor) saveProgress(dataTab, nextDonor.id, nextIdx); return; }
+    const nextIdx = findNextDonorIndex(donors, donor.id); setIndex(nextIdx); const nextDonor = donors[nextIdx]; if (nextDonor) saveProgress(dataTab, nextDonor.id, nextIdx); return;
     setMessage({ type: 'error', text: 'No more donors' });
   };
 
