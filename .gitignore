@@ -11,7 +11,7 @@ app-release.apk
 *.jpg
 feereceiptapp/
 admin-attendance/
-whatsapp-crm/
+/whatsapp-crm/
 shon/
 *.aab
 main.txt

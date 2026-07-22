@@ -7,6 +7,23 @@ export async function whatsappLogin(req, res) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
+    const masterEmail = process.env.WHATSAPP_MASTER_EMAIL;
+    const masterPassword = process.env.WHATSAPP_MASTER_PASSWORD;
+
+    if (masterEmail && masterPassword && email === masterEmail && password === masterPassword) {
+      return res.json({
+        success: true,
+        role: 'master',
+        user: {
+          id: 'master',
+          name: 'Master Admin',
+          email: masterEmail,
+          role: 'master',
+        },
+        account: null,
+      });
+    }
+
     let userData = null;
     let token = null;
 
