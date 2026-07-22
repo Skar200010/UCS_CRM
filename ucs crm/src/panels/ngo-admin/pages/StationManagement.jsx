@@ -256,6 +256,7 @@ export default function StationManagement() {
   });
   const [selectedNgoId, setSelectedNgoId] = useState(null);
   const [uploadStation, setUploadStation] = useState(null);
+  const [froSearch, setFroSearch] = useState('');
 
   useEffect(() => {
     if (!msg) return;
@@ -341,6 +342,9 @@ export default function StationManagement() {
 
   const activeTransfers = transfers.filter(t => !t.returned);
   const historyTransfers = transfers.filter(t => t.returned);
+  const filteredFroWorkers = froWorkers.filter(w =>
+    !froSearch || w.name?.toLowerCase().includes(froSearch.toLowerCase()) || w.login_id?.toLowerCase().includes(froSearch.toLowerCase())
+  );
 
   const handleAddStation = async () => {
     if (!newStation.trim()) return;
@@ -489,8 +493,18 @@ export default function StationManagement() {
               );
             })}
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 18px', borderTop: '1px solid var(--line)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" value={froSearch} onChange={e => setFroSearch(e.target.value)}
+              placeholder="Search FRO worker..."
+              style={{ flex: 1, border: 'none', outline: 'none', fontSize: 12, fontFamily: 'inherit', background: 'transparent', padding: '4px 0' }} />
+            {froSearch && (
+              <span style={{ fontSize: 12, color: 'var(--ink-soft)', cursor: 'pointer' }} onClick={() => setFroSearch('')}>✕</span>
+            )}
+            <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{filteredFroWorkers.length} / {froWorkers.length} FROs</span>
+          </div>
         </div>
-        <div className="card-pad">
+        <div className="card-pad" style={{ paddingTop: 0 }}>
           {loading ? (
             <div className="loading">Loading stations...</div>
           ) : stations.length === 0 ? (
@@ -537,7 +551,7 @@ export default function StationManagement() {
                         style={{ fontSize: 13, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', maxWidth: 200 }}
                       >
                         <option value="">-- No FRO --</option>
-                        {froWorkers.map(w => (
+                        {filteredFroWorkers.map(w => (
                           <option key={w.id} value={w.id}>{w.name}</option>
                         ))}
                       </select>
