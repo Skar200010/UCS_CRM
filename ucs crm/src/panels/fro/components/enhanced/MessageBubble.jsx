@@ -111,9 +111,17 @@ function MediaFromMeta({ mediaId, mimeType }) {
   return <MediaContent url={blobUrl} mimeType={mimeType} />
 }
 
-function MediaContent({ url, mimeType, name }) {
+function typeToMime(messageType) {
+  if (messageType === 'image') return 'image/jpeg'
+  if (messageType === 'video') return 'video/mp4'
+  if (messageType === 'audio') return 'audio/ogg'
+  if (messageType === 'document') return 'application/pdf'
+  return ''
+}
+
+function MediaContent({ url, mimeType, messageType, name }) {
   if (!url) return null
-  const mime = mimeType || ''
+  const mime = mimeType || typeToMime(messageType) || ''
   if (mime.startsWith('image/')) {
     return (
       <div style={{ borderRadius: 8, overflow: 'hidden', maxWidth: 300, margin: '4px 0' }}>
@@ -175,8 +183,8 @@ export function MessageBubble({ message, isFirst, isLast, isGroup, onContextMenu
       <div style={bubbleStyle}>
         {hasMedia && (
           message.media_url
-            ? <MediaContent url={message.media_url} mimeType={message.media_mime_type} name={text || ''} />
-            : <MediaFromMeta mediaId={message.media_id} mimeType={message.media_mime_type} />
+            ? <MediaContent url={message.media_url} mimeType={message.media_mime_type} messageType={message.message_type} name={text || ''} />
+            : <MediaFromMeta mediaId={message.media_id} mimeType={message.media_mime_type || typeToMime(message.message_type)} />
         )}
         {text && (
           <div style={{ fontSize: 13, lineHeight: 1.45, color: '#111827', whiteSpace: 'pre-wrap', padding: hasMedia ? '2px 6px 0' : 0 }}>
