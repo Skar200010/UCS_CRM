@@ -6,7 +6,7 @@ const curr = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u
 const C = ['#5B6B4E','#B5603A','#C08A2E','#4F6472','#7A5C7E','#88693D','#2E7D6F','#9B59B6'];
 
 function Sk({h=14,w='100%'}){return <div style={{height:h,width:typeof w==='number'?w:w,borderRadius:6,background:'linear-gradient(90deg,#e5e7eb 25%,#f3f4f6 50%,#e5e7eb 75%)',backgroundSize:'200% 100%',animation:'sk-shimmer 1.4s infinite'}}/>}
-function SkStat(){return <div className="stat-card" style={{opacity:.6}}><div className="stat-icon" style={{background:'#e5e7eb'}}><div style={{width:18,height:18,borderRadius:4,background:'#d1d5db'}}/></div><div className="stat-info"><div className="stat-num"><Sk h={22} w="60%"/></div><div className="stat-lbl"><Sk h={12} w="40%"/></div></div></div>}
+function SkStat(){return <div style={{background:'#fff',borderRadius:10,padding:'14px 16px',boxShadow:'0 1px 3px rgba(0,0,0,0.06)',borderLeft:'3px solid #e5e7eb'}}><Sk h={20} w="60%"/><div style={{height:4}}/><Sk h={12} w="40%"/></div>}
 function SkTbl({r=4,c=7}){return <div className="card"><div className="card-pad"><table className="table-wrap" style={{width:'100%',fontSize:13}}><thead><tr>{Array.from({length:c},(_,j)=><th key={j}><Sk h={12} w={j===1?160:60}/></th>)}</tr></thead><tbody>{Array.from({length:r},(_,i)=><tr key={i}>{Array.from({length:c},(_,j)=><td key={j}><Sk h={12} w={j===1?180:70}/></td>)}</tr>)}</tbody></table></div></div>}
 
 function Tab({a,on,ic,ch}){return <button onClick={on} style={{padding:'10px 18px',fontSize:13,fontWeight:a?700:500,border:'none',background:a?'#fff':'transparent',cursor:'pointer',color:a?'var(--sage)':'#6b7280',borderBottom:a?'2px solid var(--sage)':'2px solid transparent',marginBottom:-2,display:'flex',alignItems:'center',gap:6,whiteSpace:'nowrap',transition:'all .15s'}}>{ic}{ch}</button>}
@@ -171,23 +171,50 @@ function EntrySection({loading,entries,sources,summary,error,statusTab,setStatus
         <Btn on={()=>{setSn('');setShowSrc(true)}} ch="Sources" bg="transparent" fg="#374151" style={{border:'1px solid #d1d5db'}}/>
       </div>
     </div>
-    <div className="table-wrap"><table>
-      <thead><tr><th>Date</th><th>Source</th><th>Amount</th><th>Payment ID</th><th>Check ID</th><th>Remarks</th><th>Name</th><th>Time</th><th style={{width:110}}></th></tr></thead>
-      <tbody>{loading?<tr><td colSpan={9}><SkTbl r={5} c={9}/></td></tr>:entries.length===0?<tr><td colSpan={9} style={{textAlign:'center',padding:20,color:'#9ca3af'}}>No entries yet</td></tr>:(srcFilter?filtered.filter(e=>e.source_id===Number(srcFilter)):filtered).map((e,idx)=><tr key={e.id||idx}>
-        <td style={{whiteSpace:'nowrap'}}>{e.transaction_date}</td>
-        <td><span className="pill pill-gray">{e.bank_audit_sources?.name||getSrcName(e.source_id)}</span></td>
-        <td style={{fontWeight:600,color:'var(--sage)'}}>{curr(e.amount)}</td>
-        <td style={{fontSize:12}}>{e.payment_id||'\u2014'}</td>
-        <td style={{fontSize:12}}>{e.check_id||'\u2014'}</td>
-        <td style={{fontSize:12,maxWidth:180,whiteSpace:'pre-wrap'}}>{e.remarks||'\u2014'}</td>
-        <td style={{fontSize:12}}>{e.payer_name||'\u2014'}</td>
-        <td style={{fontSize:12}}>{e.payment_time||'\u2014'}</td>
-        <td><div style={{display:'flex',gap:4}}>
-          {statusTab==='unverified'&&<><Btn on={()=>openEdit(e)} ch="Edit" bg="transparent" fg="#374151" style={{fontSize:11,padding:'2px 8px',border:'1px solid #d1d5db'}}/><Btn on={()=>handleDelete(e.id)} ch="Del" bg="transparent" fg="#dc2626" style={{fontSize:11,padding:'2px 8px',border:'1px solid #fecaca'}}/></>}
-          <Btn on={async()=>{if(confirm('Send to NGO Admin?'))try{await apiPut('/accounts/bank-audit/entries/'+e.id+'/assign-ngo',{});doLoad(selDate,statusTab)}catch(err){alert(err.message)}}} ch="NGO" bg="transparent" fg="#B5603A" style={{fontSize:11,padding:'2px 8px',border:'1px solid #fed7aa'}}/>
-        </div></td>
-      </tr>)}</tbody>
-    </table></div>
+    <div style={{borderRadius:10,overflow:'hidden',border:'1px solid #e5e7eb'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1.5fr 1fr 1fr 1fr 1fr 70px',gap:8,padding:'8px 12px',background:'#f9fafb',borderBottom:'1px solid #e5e7eb',fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px',color:'#6b7280'}}>
+        <div>Entry</div><div style={{textAlign:'right'}}>Amount</div><div>Payment ID</div><div>Check ID</div><div>Name</div><div style={{textAlign:'center'}}>Action</div>
+      </div>
+      {loading ? Array.from({length:5}).map((_,i)=>
+        <div key={i} style={{display:'grid',gridTemplateColumns:'1.5fr 1fr 1fr 1fr 1fr 70px',gap:8,padding:'9px 12px',borderBottom:'1px solid #f3f4f6',alignItems:'center'}}>
+          <div><div className="sk" style={{width:'70%',height:12,borderRadius:3}}/><div className="sk" style={{width:'40%',height:10,borderRadius:3,marginTop:4}}/></div>
+          <div style={{textAlign:'right'}}><div className="sk" style={{width:50,height:12,borderRadius:3,marginLeft:'auto'}}/></div>
+          <div><div className="sk" style={{width:60,height:12,borderRadius:3}}/></div>
+          <div><div className="sk" style={{width:50,height:12,borderRadius:3}}/></div>
+          <div><div className="sk" style={{width:50,height:12,borderRadius:3}}/></div>
+          <div style={{textAlign:'center'}}><div className="sk" style={{width:50,height:22,borderRadius:4,margin:'0 auto'}}/></div>
+        </div>
+      ) : entries.length===0 ? (
+        <div style={{textAlign:'center',padding:30,color:'#9ca3af',fontSize:13}}>No entries yet</div>
+      ) : (srcFilter?filtered.filter(e=>e.source_id===Number(srcFilter)):filtered).map((e,idx)=>
+        <div key={e.id||idx} style={{display:'grid',gridTemplateColumns:'1.5fr 1fr 1fr 1fr 1fr 70px',gap:8,padding:'9px 12px',cursor:'pointer',borderBottom:'1px solid #f3f4f6',alignItems:'center',fontSize:12,background:idx%2===0?'#fff':'#fafafa'}}>
+          <div>
+            <div style={{fontWeight:500,color:'#111827',fontSize:12}}>{e.transaction_date||'\u2014'}</div>
+            <div style={{fontSize:10,color:'#9ca3af',marginTop:1}}>
+              <span className="pill pill-gray" style={{fontSize:8,padding:'1px 4px'}}>{e.bank_audit_sources?.name||getSrcName(e.source_id)}</span>
+              {e.remarks&&<span style={{marginLeft:4}}>{e.remarks}</span>}
+            </div>
+          </div>
+          <div style={{fontWeight:600,color:'var(--sage)',textAlign:'right'}}>{curr(e.amount)}</div>
+          <div style={{fontSize:11,color:'#6b7280',fontFamily:'monospace'}}>{e.payment_id||'\u2014'}</div>
+          <div style={{fontSize:11,color:'#6b7280'}}>{e.check_id||'\u2014'}</div>
+          <div style={{fontSize:11,color:'#6b7280'}}>{e.payer_name||'\u2014'}</div>
+          <div style={{display:'flex',gap:2,justifyContent:'center'}}>
+            {statusTab==='unverified'&&<>
+              <button onClick={()=>openEdit(e)} title="Edit" style={{border:'none',background:'#e5e7eb',color:'#374151',borderRadius:4,width:22,height:22,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0}}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button onClick={()=>handleDelete(e.id)} title="Delete" style={{border:'none',background:'#fef2f2',color:'#dc2626',borderRadius:4,width:22,height:22,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0}}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </>}
+            <button onClick={async()=>{if(confirm('Send to NGO Admin?'))try{await apiPut('/accounts/bank-audit/entries/'+e.id+'/assign-ngo',{});doLoad(selDate,statusTab)}catch(err){alert(err.message)}}} title="Send to NGO" style={{border:'none',background:'#fff7ed',color:'#B5603A',borderRadius:4,width:22,height:22,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',padding:0}}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   </div>;
 }
 
@@ -230,12 +257,10 @@ export default function BankAudit(){
 
   return <div>
     {/* Stats */}
-    {mt==='entries'&&<div className="stats-grid" style={{marginBottom:16}}>
-      {ld?Array.from({length:Math.max(sr.length||4,4)},(_,i)=><SkStat key={i}/>):sr.filter(s=>s.is_active!==false).map((s,i)=><div key={s.id} className="stat-card">
-        <div className="stat-icon" style={{background:C[i%C.length]+'18',color:C[i%C.length]}}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="12 2 2 7 2 9 22 9 22 7 12 2"/><rect x="4" y="11" width="3" height="7"/><rect x="10.5" y="11" width="3" height="7"/><rect x="17" y="11" width="3" height="7"/><line x1="2" y1="20" x2="22" y2="20"/></svg>
-        </div>
-        <div className="stat-info"><div className="stat-num">{curr(su[s.name]||0)}</div><div className="stat-lbl">{s.name}</div></div>
+    {mt==='entries'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12,marginBottom:16}}>
+      {ld?Array.from({length:4},(_,i)=><SkStat key={i}/>):sr.filter(s=>s.is_active!==false).map((s,i)=><div key={s.id} style={{background:'#fff',borderRadius:10,padding:'14px 16px',boxShadow:'0 1px 3px rgba(0,0,0,0.06)',borderLeft:`3px solid ${C[i%C.length]}`,display:'flex',flexDirection:'column',gap:2}}>
+        <div style={{fontSize:20,fontWeight:800,color:C[i%C.length],lineHeight:1.2}}>{curr(su[s.name]||0)}</div>
+        <div style={{fontSize:12,color:'#6b7280',fontWeight:500}}>{s.name}</div>
       </div>)}
     </div>}
 
