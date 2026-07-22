@@ -209,6 +209,8 @@ export default function NewData() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [perPage, setPerPage] = useState(500)
+  const [showDistributeConfirm, setShowDistributeConfirm] = useState(false)
+  const [distributeConfirmed, setDistributeConfirmed] = useState(false)
 
   useEffect(() => {
     apiGet('/ngo-admin/ngos').then(setAccessibleNgos).catch(() => {});
@@ -242,7 +244,12 @@ export default function NewData() {
   const handleDistributeAll = async () => {
     const count = total
     if (count === 0) return
-    if (!confirm(`Distribute ${count} donor(s) equally among all stations?`)) return
+    setDistributeConfirmed(false)
+    setShowDistributeConfirm(true)
+  }
+
+  const executeDistributeAll = async () => {
+    setShowDistributeConfirm(false)
     setDistributing(true)
     setResult(null)
     try {
@@ -382,6 +389,45 @@ export default function NewData() {
               onDistribute={(res) => { setShowStationSelect(false); setResult(res); load() }}
               ngoId={selectedNgoId}
             />
+          )}
+
+          {showDistributeConfirm && (
+            <div className="modal-overlay" onClick={() => setShowDistributeConfirm(false)}>
+              <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                <div className="modal-head">
+                  <h3>Confirm Distribution</h3>
+                  <button className="btn btn-sm btn-outline" onClick={() => setShowDistributeConfirm(false)}>✕</button>
+                </div>
+                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span style={{ color: 'var(--ink-soft)' }}>Donors to distribute:</span>
+                      <strong>{Number(total).toLocaleString('en-IN')}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span style={{ color: 'var(--ink-soft)' }}>NGO:</span>
+                      <strong>{accessibleNgos.find(n => n.id === selectedNgoId)?.name || 'All NGOs'}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span style={{ color: 'var(--ink-soft)' }}>Stations:</span>
+                      <strong>{stations.length}</strong>
+                    </div>
+                  </div>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, padding: '8px 12px', borderRadius: 6, background: distributeConfirmed ? '#f0fdf4' : '#f9fafb', border: `1px solid ${distributeConfirmed ? '#86efac' : 'var(--line)'}`, transition: 'all .15s' }}>
+                    <input type="checkbox" checked={distributeConfirmed} onChange={e => setDistributeConfirmed(e.target.checked)} />
+                    <span>I confirm I want to distribute this data to <strong>all stations</strong></span>
+                  </label>
+
+                  <div className="modal-actions">
+                    <button className="btn btn-outline" onClick={() => setShowDistributeConfirm(false)}>Cancel</button>
+                    <button className="btn btn-primary" onClick={executeDistributeAll} disabled={!distributeConfirmed}>
+                      Proceed
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </>
       )}
