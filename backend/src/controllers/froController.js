@@ -440,6 +440,9 @@ export const getMyDonors = async (req, res) => {
       } else {
         return res.json([]);
       }
+    }
+
+    let { data: assignments } = await query;
 
     if (!assignments || assignments.length === 0) return res.json([]);
 
