@@ -368,10 +368,11 @@ export default function MyDonors() {
         }
         setReturnToDonor(null);
       } else {
-        if (index < donors.length - 1) {
-          setIndex(index + 1);
-        } else {
-          setIndex(0);
+        const nextIdx = index < donors.length - 1 ? index + 1 : 0;
+        setIndex(nextIdx);
+        const nextDonor = donors[nextIdx];
+        if (nextDonor) {
+          api('/fro/progress', { method: 'PUT', body: JSON.stringify({ donor_id: nextDonor.id, data_tab: dataTab }), _prefix: 'ucs' }).catch(() => {});
         }
       }
       setSelected(null); setNotes(''); setScheduledDate(''); setScheduledTime(''); setCallbackTime(''); setLeadScreenshot(null); setScreenshotPreview(null); setLeadAddress(''); setLeadPan(''); setPanError(''); setLeadDob(''); setProjectName(''); setLeadAmount(''); setLeadRemark(''); setShowRemark(false); setUpiTransactionId(''); setTransactionDatetime(''); setOcrFromName(''); setOcrLoading(false);
@@ -448,7 +449,7 @@ export default function MyDonors() {
       setReturnToDonor(null);
       return;
     }
-    if (index < donors.length - 1) { setIndex(i => i + 1); return; }
+    if (index < donors.length - 1) { setIndex(i => i + 1); const nextDonor = donors[index + 1]; if (nextDonor) { api('/fro/progress', { method: 'PUT', body: JSON.stringify({ donor_id: nextDonor.id, data_tab: dataTab }), _prefix: 'ucs' }).catch(() => {}); } return; }
     setMessage({ type: 'error', text: 'No more donors' });
   };
 
