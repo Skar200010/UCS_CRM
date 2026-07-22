@@ -167,7 +167,7 @@
                     });
                     if (dlRes.ok) {
                       const blob = await dlRes.blob();
-                      const ext = mediaMimeType?.split("/")[1] || "bin";
+                      const ext = (mediaMimeType?.split("/")[1] || "bin").split(";")[0].trim();
                       const fileName = `webhook_${message.id}.${ext}`;
 
                       const { error: uploadError } = await supabase.storage
