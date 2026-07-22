@@ -3,18 +3,22 @@ import { MediaUploadPreview } from './MediaPreview'
 
 export default function MessageComposer({ onSend, onSendMedia, disabled }) {
   const [text, setText] = useState('')
-  const [selectedFile, setSelectedFile] = useState(null)
   const [sending, setSending] = useState(false)
+  const [files, setFiles] = useState([])
   const inputRef = useRef(null)
   const fileRef = useRef(null)
 
   const handleSend = async () => {
-    if ((!text.trim() && !selectedFile) || sending || disabled) return
+    if ((!text.trim() && files.length === 0) || sending || disabled) return
     setSending(true)
     try {
-      if (selectedFile) {
-        await onSendMedia(selectedFile)
-        setSelectedFile(null)
+      if (files.length > 0) {
+        for (const file of files) {
+          if (onSendMedia) {
+            await onSendMedia(file)
+          }
+        }
+        setFiles([])
       }
       if (text.trim()) {
         await onSend(text.trim())
@@ -36,40 +40,44 @@ export default function MessageComposer({ onSend, onSendMedia, disabled }) {
   }
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 50 * 1024 * 1024) {
-      alert('File too large. Max 50MB.')
-      return
-    }
-    setSelectedFile(file)
+    const selected = Array.from(e.target.files || [])
+    const validFiles = selected.filter(f => {
+      if (f.size > 16 * 1024 * 1024) {
+        alert(`File too large: ${f.name}. Max 16MB.`)
+        return false
+      }
+      return true
+    })
+    setFiles(prev => [...prev, ...validFiles])
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  const canSend = (text.trim().length > 0 || selectedFile) && !sending && !disabled
+  const removeFile = (index) => {
+    setFiles(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const canSend = ((text.trim().length > 0 || files.length > 0) && !sending && !disabled)
 
   return (
     <div style={{ padding: '8px 12px', borderTop: '1px solid #e5e7eb', background: '#f9fafb' }}>
-      {selectedFile && (
-        <div style={{ marginBottom: 6 }}>
-          <MediaUploadPreview file={selectedFile} onRemove={() => setSelectedFile(null)} />
+      {files.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+          {files.map((file, i) => (
+            <MediaUploadPreview key={i} file={file} onRemove={() => removeFile(i)} />
+          ))}
         </div>
       )}
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-        {onSendMedia && (
-          <>
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={sending || disabled}
-              style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '6px 4px', color: '#6b7280', flexShrink: 0 }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-              </svg>
-            </button>
-            <input ref={fileRef} type="file" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} onChange={handleFileChange} />
-          </>
-        )}
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={sending || disabled}
+          style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '6px 4px', color: '#6b7280', flexShrink: 0 }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
+        <input ref={fileRef} type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} onChange={handleFileChange} />
         <textarea
           ref={inputRef}
           value={text}

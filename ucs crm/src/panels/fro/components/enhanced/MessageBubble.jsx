@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import MediaPreviewModal from './MediaPreviewModal'
 
 function MessageStatusIcon({ status }) {
   if (status === 'queued' || status === 'sending') {
@@ -119,20 +120,22 @@ function typeToMime(messageType) {
   return ''
 }
 
-function MediaContent({ url, mimeType, messageType, name }) {
+function MediaContent({ url, mimeType, messageType, name, onPreview }) {
   if (!url) return null
   const mime = mimeType || typeToMime(messageType) || ''
+  const handlePreview = () => onPreview?.({ url, mimeType, messageType, name })
+
   if (mime.startsWith('image/')) {
     return (
       <div style={{ borderRadius: 8, overflow: 'hidden', maxWidth: 300, margin: '4px 0' }}>
-        <img src={url} alt="" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 8, cursor: 'pointer' }} onClick={() => window.open(url, '_blank')} />
+        <img src={url} alt="" style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 8, cursor: 'pointer' }} onClick={handlePreview} />
       </div>
     )
   }
   if (mime.startsWith('video/')) {
     return (
       <div style={{ borderRadius: 8, overflow: 'hidden', maxWidth: 300, margin: '4px 0' }}>
-        <video src={url} controls style={{ width: '100%', display: 'block', borderRadius: 8 }} />
+        <video src={url} controls style={{ width: '100%', display: 'block', borderRadius: 8 }} onClick={handlePreview} />
       </div>
     )
   }
@@ -145,11 +148,10 @@ function MediaContent({ url, mimeType, messageType, name }) {
     )
   }
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer"
-      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: '#f3f4f6', textDecoration: 'none', color: '#374151', fontSize: 12, fontWeight: 600, margin: '4px 0', maxWidth: 300 }}>
+    <div onClick={handlePreview} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: '#f3f4f6', cursor: 'pointer', color: '#374151', fontSize: 12, fontWeight: 600, margin: '4px 0', maxWidth: 300 }}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name || url.split('/').pop()}</span>
-    </a>
+    </div>
   )
 }
 
@@ -166,6 +168,7 @@ function MediaPlaceholder({ messageType }) {
 const MEDIA_TYPES = ['audio', 'video', 'image', 'document', 'sticker']
 
 export function MessageBubble({ message, isFirst, isLast, isGroup, onContextMenu }) {
+  const [preview, setPreview] = useState(null)
   const isOutbound = message.direction === 'outbound'
   const isMediaType = MEDIA_TYPES.includes(message.message_type)
   const text = isMediaType ? '' : (message.body_text || message.body || '')
@@ -197,7 +200,7 @@ export function MessageBubble({ message, isFirst, isLast, isGroup, onContextMenu
       <div style={bubbleStyle}>
         {hasMedia && (
           message.media_url
-            ? <MediaContent url={message.media_url} mimeType={message.media_mime_type} messageType={message.message_type} name={message.body_text || ''} />
+            ? <MediaContent url={message.media_url} mimeType={message.media_mime_type} messageType={message.message_type} name={message.body_text || ''} onPreview={setPreview} />
             : message.media_id
               ? <MediaFromMeta mediaId={message.media_id} mimeType={message.media_mime_type || typeToMime(message.message_type)} />
               : <MediaPlaceholder messageType={message.message_type} />
@@ -214,6 +217,7 @@ export function MessageBubble({ message, isFirst, isLast, isGroup, onContextMenu
           {isOutbound && <MessageStatusIcon status={message.status} />}
         </div>
       </div>
+      {preview && <MediaPreviewModal {...preview} onClose={() => setPreview(null)} />}
     </div>
   )
 }

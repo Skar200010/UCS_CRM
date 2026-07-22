@@ -57,7 +57,7 @@ function loadTodayStats() {
   } catch { return null; }
 }
 
-function Sidebar({ open, onClose }) {
+function Sidebar({ open, onClose, waUnreadCount }) {
   const location = useLocation()
   return (
     <>
@@ -73,7 +73,14 @@ function Sidebar({ open, onClose }) {
               className={`snav-item ${location.pathname === n.path ? 'active' : ''}`}
               onClick={() => onClose?.()}>
             <span className="ico material-symbols-outlined" style={{ fontSize: 18 }}>{n.icon}</span>
-            <span>{n.label}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span>{n.label}</span>
+              {n.id === 'whatsapp-chat' && waUnreadCount > 0 && (
+                <span style={{ fontSize: 10, fontWeight: 700, background: '#25D366', color: '#fff', borderRadius: 10, padding: '1px 7px', lineHeight: '16px', minWidth: 18, textAlign: 'center' }}>
+                  {waUnreadCount > 9 ? '9+' : waUnreadCount}
+                </span>
+              )}
+            </span>
           </NavLink>
           ))}
         </nav>
@@ -88,6 +95,7 @@ export default function FROPanel() {
   const [showMenu, setShowMenu] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [waUnreadCount, setWaUnreadCount] = useState(0)
   const [themeName, setThemeName] = useState(() => localStorage.getItem('fro_theme') || 'sky')
   const menuRef = useRef(null)
 
@@ -204,6 +212,25 @@ export default function FROPanel() {
   });
 
   useEffect(() => {
+    const fetchWaUnread = async () => {
+      try {
+        const token = localStorage.getItem('ucs_token')
+        if (!token) return
+        const res = await fetch((import.meta.env.VITE_API_URL || 'https://ucs-crm-backend.vercel.app/api') + '/fro/whatsapp/conversations/unread-count', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setWaUnreadCount(data?.count || 0)
+        }
+      } catch {}
+    }
+    fetchWaUnread()
+    const interval = setInterval(fetchWaUnread, 15000)
+    return () => clearInterval(interval)
+  }, [user?.id])
+
+  useEffect(() => {
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false)
       if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifList(false)
@@ -277,7 +304,7 @@ export default function FROPanel() {
   return (
     <CallProvider userId={user?.id}>
     <div className="app">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} waUnreadCount={waUnreadCount} />
       <div className="main">
         <header className="topbar">
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>

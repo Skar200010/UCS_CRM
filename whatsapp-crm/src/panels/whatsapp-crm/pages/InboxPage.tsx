@@ -150,7 +150,7 @@ function MessageBubble({
   isAlone: boolean;
   showAvatar: boolean;
   onContextMenu: (e: React.MouseEvent, msgId: string) => void;
-  onMediaClick: (url: string, mime?: string) => void;
+  onMediaClick: (url: string, mime?: string, mType?: string) => void;
 }) {
   const isOutbound = message.direction === 'outbound';
   const time = format(new Date(message.created_at), 'HH:mm');
@@ -191,7 +191,7 @@ function MessageBubble({
         {message.media_url ? (
           <div className={`relative ${showBody ? 'mt-1' : ''}`}>
             {message.message_type === 'image' ? (
-              <img src={message.media_url} alt="" className="max-w-full max-h-60 rounded-lg cursor-pointer object-cover" onClick={() => onMediaClick(message.media_url!, message.media_mime_type)} />
+              <img src={message.media_url} alt="" className="max-w-full max-h-60 rounded-lg cursor-pointer object-cover" onClick={() => onMediaClick(message.media_url!, message.media_mime_type, message.message_type)} />
             ) : message.message_type === 'video' ? (
               <video src={message.media_url} controls className="max-w-full max-h-60 rounded-lg" />
             ) : message.message_type === 'audio' ? (
@@ -241,6 +241,7 @@ export function InboxPage() {
   const [creatingConv, setCreatingConv] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewMime, setPreviewMime] = useState<string | undefined>();
+  const [previewType, setPreviewType] = useState<string | undefined>();
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; messageId: string } | null>(null);
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferring, setTransferring] = useState(false);
@@ -751,7 +752,7 @@ export function InboxPage() {
                                 isAlone={isAlone}
                                 showAvatar={showAvatar}
                                 onContextMenu={handleContextMenu}
-                                onMediaClick={(url, mime) => { setPreviewUrl(url); setPreviewMime(mime); }}
+                                onMediaClick={(url: string, mime: string | undefined, mType?: string) => { setPreviewUrl(url); setPreviewMime(mime); setPreviewType(mType); }}
                               />
                             );
                           })
@@ -802,10 +803,17 @@ export function InboxPage() {
     )}
 
     {previewUrl && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => { setPreviewUrl(null); setPreviewMime(undefined); }}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => { setPreviewUrl(null); setPreviewMime(undefined); setPreviewType(undefined); }}>
         <div className="relative max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-          {previewMime?.startsWith('video/') ? (
-            <video controls className="max-h-[80vh] rounded-lg" src={previewUrl} />
+          {previewMime?.startsWith('video/') || previewType === 'video' ? (
+            <video controls autoPlay className="max-h-[80vh] rounded-lg" src={previewUrl} />
+          ) : previewMime?.startsWith('audio/') || previewType === 'audio' ? (
+            <div className="rounded-xl bg-white p-6 min-w-[320px]">
+              <div className="text-sm font-semibold text-[#111b21] mb-3">🎵 Audio</div>
+              <audio src={previewUrl} controls className="w-full" />
+            </div>
+          ) : previewMime?.includes('pdf') || previewType === 'document' ? (
+            <iframe src={previewUrl} className="w-[90vw] h-[90vh] rounded-lg bg-white" title="Document" />
           ) : (
             <img src={previewUrl} alt="Preview" className="max-h-[80vh] rounded-lg object-contain" />
           )}
@@ -813,7 +821,7 @@ export function InboxPage() {
             <a href={previewUrl} download target="_blank" rel="noopener noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
             </a>
-            <button onClick={() => { setPreviewUrl(null); setPreviewMime(undefined); }} className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70">
+            <button onClick={() => { setPreviewUrl(null); setPreviewMime(undefined); setPreviewType(undefined); }} className="flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
           </div>
