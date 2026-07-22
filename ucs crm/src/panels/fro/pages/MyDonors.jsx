@@ -112,6 +112,7 @@ export default function MyDonors() {
   const [walkthroughStep, setWalkthroughStep] = useState(0);
   const searchRef = useRef(null);
   const debounceReloadRef = useRef(null);
+  const initialMountRef = useRef(true);
   const { isOnCall, activeCall, startCall, endCall, todayStats, startDonorView, endDonorView } = useCall();
 
   useEffect(() => {
@@ -151,15 +152,18 @@ export default function MyDonors() {
       }
     };
 
-    // On first mount, restore the saved tab from progress
+    // On first mount, restore the saved tab and position from progress
     (async () => {
-      try {
-        const progress = await api('/fro/progress', { _prefix: 'ucs' });
-        if (progress?.data_tab && progress.data_tab !== dataTab) {
-          setDataTab(progress.data_tab);
-          return; // the dataTab effect will re-run with the correct tab
-        }
-      } catch {}
+      if (initialMountRef.current) {
+        initialMountRef.current = false;
+        try {
+          const progress = await api('/fro/progress', { _prefix: 'ucs' });
+          if (progress?.data_tab && progress.data_tab !== dataTab) {
+            setDataTab(progress.data_tab);
+            return;
+          }
+        } catch {}
+      }
       load(dataTab);
     })();
 
@@ -201,7 +205,7 @@ export default function MyDonors() {
     if (donor) {
       api('/fro/progress', {
         method: 'PUT',
-        body: JSON.stringify({ donor_id: donor.id, data_tab: tab }),
+        body: JSON.stringify({ donor_id: donor.id, data_tab: dataTab }),
         _prefix: 'ucs'
       }).catch(() => {});
     }
