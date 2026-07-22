@@ -1,16 +1,12 @@
-import { NavLink, useLocation } from 'react-router-dom'
-
 const NAV = [
-  { id: 'inbox', path: '/fro/whatsapp-chat/inbox', label: 'Inbox', icon: '💬' },
-  { id: 'dashboard', path: '/fro/whatsapp-chat/dashboard', label: 'Dashboard', icon: '📊' },
-  { id: 'contacts', path: '/fro/whatsapp-chat/contacts', label: 'Contacts', icon: '👥' },
-  { id: 'templates', path: '/fro/whatsapp-chat/templates', label: 'Templates', icon: '📝' },
-  { id: 'settings', path: '/fro/whatsapp-chat/settings', label: 'Settings', icon: '⚙️' },
+  { id: 'inbox', label: 'Inbox', icon: '💬' },
+  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { id: 'contacts', label: 'Contacts', icon: '👥' },
+  { id: 'templates', label: 'Templates', icon: '📝' },
+  { id: 'settings', label: 'Settings', icon: '⚙️' },
 ]
 
-export default function AdminSidebar({ user, onLogout }) {
-  const location = useLocation()
-
+export default function AdminSidebar({ user, page, onPageChange, onLogout }) {
   return (
     <aside style={{
       width: 220,
@@ -28,28 +24,34 @@ export default function AdminSidebar({ user, onLogout }) {
         </div>
       </div>
       <nav style={{ flex: 1, padding: '8px 0' }}>
-        {NAV.map(n => (
-          <NavLink
-            key={n.id}
-            to={n.path}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '10px 16px',
-              fontSize: 13,
-              fontWeight: 500,
-              color: location.pathname.startsWith(n.path) ? '#111827' : '#6b7280',
-              background: location.pathname.startsWith(n.path) ? '#e8f4f8' : 'transparent',
-              borderRight: location.pathname.startsWith(n.path) ? '3px solid #25D366' : '3px solid transparent',
-              textDecoration: 'none',
-              transition: 'all .15s',
-            }}
-          >
-            <span style={{ fontSize: 16 }}>{n.icon}</span>
-            <span>{n.label}</span>
-          </NavLink>
-        ))}
+        {NAV.map(n => {
+          const active = page === n.id
+          return (
+            <button
+              key={n.id}
+              onClick={() => onPageChange(n.id)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                width: '100%',
+                padding: '10px 16px',
+                fontSize: 13,
+                fontWeight: 500,
+                border: 'none',
+                borderRight: active ? '3px solid #25D366' : '3px solid transparent',
+                background: active ? '#e8f4f8' : 'transparent',
+                color: active ? '#111827' : '#6b7280',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all .15s',
+              }}
+            >
+              <span style={{ fontSize: 16 }}>{n.icon}</span>
+              <span>{n.label}</span>
+            </button>
+          )
+        })}
       </nav>
       <div style={{ padding: '12px 16px', borderTop: '1px solid #e5e7eb' }}>
         <button
