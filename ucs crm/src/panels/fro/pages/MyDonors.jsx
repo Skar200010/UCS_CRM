@@ -121,43 +121,44 @@ export default function MyDonors() {
 
     const load = async (tab) => {
       try {
+        // Capture localStorage snapshot BEFORE any state changes (avoids race condition)
+        const savedSnapshot = (() => { try { return JSON.parse(localStorage.getItem(`${tab}_donor_progress`)); } catch { return null; } })();
+
         const r = await getMyDonors(null, null, { newOnly: tab === 'new', oldOnly: tab === 'old' });
         if (cancelled) return;
         setDonors(r);
         setMessage(null);
         let restored = false;
 
-        // Restore from localStorage first (fast, no race condition)
-        try {
-          const saved = localStorage.getItem('mydonors_current_donor');
-          if (saved) {
-            const { id, idx } = JSON.parse(saved);
-            if (typeof idx === 'number' && idx < r.length) {
-              setIndex(idx); restored = true;
-            } else if (id) {
-              const found = r.findIndex(d => d.id === id);
-              if (found >= 0) { setIndex(found); restored = true; }
-            }
+        // Restore from localStorage snapshot (captured before state changes)
+        if (savedSnapshot) {
+          const { id, idx } = savedSnapshot;
+          if (id) {
+            const found = r.findIndex(d => d.id === id);
+            if (found >= 0) { setIndex(found); restored = true; }
           }
-        } catch {}
+          if (!restored && typeof idx === 'number' && idx < r.length) {
+            setIndex(idx); restored = true;
+          }
+        }
 
         // Fallback to backend progress (for cross-device restore)
         if (!restored) {
           try {
             const progress = await api('/fro/progress', { _prefix: 'ucs' });
-            const savedIndex = tab === 'new' ? progress?.new_donor_index : progress?.old_donor_index;
-            if (savedIndex != null && savedIndex < r.length) {
-              setIndex(savedIndex); restored = true;
-            } else {
-              const savedId = tab === 'new' ? progress?.new_donor_id : progress?.old_donor_id;
-              if (savedId) {
-                const found = r.findIndex(d => d.id === savedId);
-                if (found >= 0) { setIndex(found); restored = true; }
+            const savedId = tab === 'new' ? progress?.new_donor_id : progress?.old_donor_id;
+            if (savedId) {
+              const found = r.findIndex(d => d.id === savedId);
+              if (found >= 0) { setIndex(found); restored = true; }
+            }
+            if (!restored) {
+              const savedIndex = tab === 'new' ? progress?.new_donor_index : progress?.old_donor_index;
+              if (savedIndex != null && savedIndex < r.length) {
+                setIndex(savedIndex); restored = true;
               }
             }
           } catch {}
         }
-
 
         if (!restored) setIndex(0);
       } catch (err) {
@@ -232,11 +233,11 @@ export default function MyDonors() {
   const switchTab = (tab) => {
     if (donor) {
       saveProgress(dataTab, donor.id, index);
-      localStorage.setItem('mydonors_current_donor', JSON.stringify({ id: donor.id, ngo_id: donor.ngo_id, idx: index }));
+      // Save current tab's progress to tab-specific key (avoids cross-tab overwrite)
+      localStorage.setItem(`${dataTab}_donor_progress`, JSON.stringify({ id: donor.id, idx: index }));
     }
-    setDataTab(tab);
-    setIndex(0);
     setSelected(null);
+    setDataTab(tab);
   };
 
   const donor = donors[index];
