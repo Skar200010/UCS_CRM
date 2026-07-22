@@ -169,6 +169,9 @@ function MessageBubble({
     else { topRounded = 'rounded-tl-lg'; bottomRounded = 'rounded-bl-sm'; }
   }
 
+  const isMediaType = ['audio', 'video', 'image', 'document', 'sticker'].includes(message.message_type);
+  const showBody = message.body_text && !isMediaType;
+
   return (
     <div className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} ${!isGroupEnd && !isAlone ? 'mb-0.5' : 'mb-1'}`}>
       {!isOutbound && (
@@ -182,16 +185,21 @@ function MessageBubble({
           isOutbound ? 'bg-[#d9fdd3]' : 'bg-white'
         }`}
       >
-        {message.body_text && (
+        {showBody && (
           <p className="whitespace-pre-wrap break-words text-[#111b21]">{message.body_text}</p>
         )}
         {message.media_url ? (
-          <div className={`relative ${message.body_text ? 'mt-1' : ''}`}>
+          <div className={`relative ${showBody ? 'mt-1' : ''}`}>
             <img src={message.media_url} alt="" className="max-w-full max-h-60 rounded-lg cursor-pointer object-cover" onClick={() => onMediaClick(message.media_url!, message.media_mime_type)} />
           </div>
         ) : message.media_id ? (
-          <div className={`relative ${message.body_text ? 'mt-1' : ''} cursor-pointer`} onClick={() => onMediaClick(message.media_id!, message.media_mime_type)}>
+          <div className={`relative ${showBody ? 'mt-1' : ''} cursor-pointer`} onClick={() => onMediaClick(message.media_id!, message.media_mime_type)}>
             <MediaFromMeta mediaId={message.media_id} mimeType={message.media_mime_type} />
+          </div>
+        ) : isMediaType ? (
+          <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-[#667781]">
+            <span className="text-lg">{message.message_type === 'audio' ? '🎵' : message.message_type === 'video' ? '🎬' : message.message_type === 'image' ? '🖼️' : message.message_type === 'document' ? '📄' : '📎'}</span>
+            <span>{message.message_type}</span>
           </div>
         ) : null}
         <div className="flex items-center justify-end gap-1 -mb-0.5">
