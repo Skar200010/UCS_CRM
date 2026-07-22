@@ -142,30 +142,39 @@ export default function MyDonors() {
         setDonors(r);
         setMessage(null);
         let restored = false;
+
+        // Restore from localStorage first (fast, no race condition)
         try {
-          const progress = await api('/fro/progress', { _prefix: 'ucs' });
-          const savedIndex = tab === 'new' ? progress?.new_donor_index : progress?.old_donor_index;
-          if (savedIndex != null && savedIndex < r.length) {
-            setIndex(savedIndex); restored = true;
-          } else {
-            const savedId = tab === 'new' ? progress?.new_donor_id : progress?.old_donor_id;
-            if (savedId) {
-              const found = r.findIndex(d => d.id === savedId);
+          const saved = localStorage.getItem('mydonors_current_donor');
+          if (saved) {
+            const { id, idx } = JSON.parse(saved);
+            if (typeof idx === 'number' && idx < r.length) {
+              setIndex(idx); restored = true;
+            } else if (id) {
+              const found = r.findIndex(d => d.id === id);
               if (found >= 0) { setIndex(found); restored = true; }
             }
           }
         } catch {}
+
+        // Fallback to backend progress (for cross-device restore)
         if (!restored) {
-          const saved = localStorage.getItem('mydonors_current_donor');
-          if (saved) {
-            try {
-              const { id, ngo_id, idx } = JSON.parse(saved);
-              const found = r.findIndex(d => d.id === id && d.ngo_id === (ngo_id ?? null));
-              if (found >= 0) { setIndex(found); restored = true; return; }
-              if (typeof idx === 'number') { setIndex(Math.min(idx, Math.max(0, r.length - 1))); restored = true; return; }
-            } catch { }
-          }
+          try {
+            const progress = await api('/fro/progress', { _prefix: 'ucs' });
+            const savedIndex = tab === 'new' ? progress?.new_donor_index : progress?.old_donor_index;
+            if (savedIndex != null && savedIndex < r.length) {
+              setIndex(savedIndex); restored = true;
+            } else {
+              const savedId = tab === 'new' ? progress?.new_donor_id : progress?.old_donor_id;
+              if (savedId) {
+                const found = r.findIndex(d => d.id === savedId);
+                if (found >= 0) { setIndex(found); restored = true; }
+              }
+            }
+          } catch {}
         }
+
+
         if (!restored) setIndex(0);
       } catch (err) {
         if (!cancelled) setMessage({ type: 'error', text: err.message });
@@ -237,7 +246,10 @@ export default function MyDonors() {
   }, []);
 
   const switchTab = (tab) => {
-    if (donor) saveProgress(dataTab, donor.id, index);
+    if (donor) {
+      saveProgress(dataTab, donor.id, index);
+      localStorage.setItem('mydonors_current_donor', JSON.stringify({ id: donor.id, ngo_id: donor.ngo_id, idx: index }));
+    }
     setDataTab(tab);
     setIndex(0);
     setSelected(null);
