@@ -142,6 +142,17 @@ export const reassignStationDonors = async (ngoId, ngoName, station, newFroWorke
 
   const donorIds = donors.map(d => d.id);
 
+  // Fetch old assignments to preserve station, batch_id, batch_type
+  const { data: oldAsgn } = await supabase
+    .from('fro_assignments')
+    .select('donor_id, station, batch_id, batch_type')
+    .in('donor_id', donorIds)
+    .eq('ngo_id', ngoId)
+    .not('status', 'eq', 'reassigned');
+
+  const oldMap = {};
+  for (const a of oldAsgn || []) oldMap[a.donor_id] = a;
+
   // Mark old assignments as reassigned
   const { error: updErr } = await supabase
     .from('fro_assignments')
@@ -151,15 +162,21 @@ export const reassignStationDonors = async (ngoId, ngoName, station, newFroWorke
     .not('status', 'eq', 'reassigned');
   if (updErr) throw updErr;
 
-  // Create new assignments
-  const newAssignments = donorIds.map(donor_id => ({
-    donor_id,
-    fro_worker_id: newFroWorkerId,
-    ngo_id: ngoId,
-    assigned_by: assignedBy,
-    status: 'pending',
-    assigned_at: new Date().toISOString(),
-  }));
+  // Create new assignments with station, batch_id, batch_type preserved
+  const newAssignments = donorIds.map(donor_id => {
+    const old = oldMap[donor_id] || {};
+    return {
+      donor_id,
+      fro_worker_id: newFroWorkerId,
+      ngo_id: ngoId,
+      station: old.station || station,
+      batch_id: old.batch_id || null,
+      batch_type: old.batch_type || null,
+      assigned_by: assignedBy,
+      status: 'pending',
+      assigned_at: new Date().toISOString(),
+    };
+  });
 
   if (newAssignments.length > 0) {
     const { data, error } = await supabase
