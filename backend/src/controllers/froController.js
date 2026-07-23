@@ -374,20 +374,17 @@ const CONNECTED_STATUSES = ['contacted', 'donation_collected', 'lead_done', 'fol
 export const getMyDonors = async (req, res) => {
   try {
     const workerId = req.user.id;
-    console.log('getMyDonors START workerId:', workerId);
     const statusFilter = req.query.status;
     const statusGroup = req.query.status_group;
 
     const stationNames = await getMyStationNames(workerId);
-    console.log('getMyDonors stationNames:', JSON.stringify(stationNames));
     if (stationNames.length === 0) return res.json([]);
 
     let query = supabase
       .from('fro_assignments')
-      .select('*, ngos(name)')
+      .select('*')
       .in('station', stationNames)
       .not('status', 'eq', 'reassigned');
-    console.log('getMyDonors base query built');
 
     if (req.query.station) {
       query = query.eq('station', req.query.station);
@@ -399,12 +396,9 @@ export const getMyDonors = async (req, res) => {
       query = query.in('status', CONNECTED_STATUSES);
     } else if (statusFilter) {
       query = query.eq('status', statusFilter);
-    } else {
-      // No default status filter — include all except 'reassigned'
     }
 
     // Batch-based tab filtering: show latest batch PER station.
-    // This ensures FROs with multiple stations see data from ALL stations.
     if (req.query.new_only === 'true') {
       const batchIds = [];
       for (const s of stationNames) {
@@ -467,27 +461,22 @@ export const getMyDonors = async (req, res) => {
       }
     }
 
-    console.log('getMyDonors executing main query');
     let { data: assignments, error: qErr } = await query;
     if (qErr) {
-      console.error('getMyDonors main query error:', qErr);
-      return res.status(500).json({ message: qErr.message, details: qErr.details, hint: qErr.hint });
+      return res.status(500).json({ error: 'main_query_failed', message: qErr.message, details: qErr.details || null, hint: qErr.hint || null, code: qErr.code || null });
     }
-    console.log('getMyDonors main query result count:', assignments?.length);
 
     // Fallback: query by fro_worker_id if station-based query found nothing
     if (!assignments || assignments.length === 0) {
-      console.log('getMyDonors trying fro_worker_id fallback');
       const { data: byWorker, error: bwErr } = await supabase
         .from('fro_assignments')
-        .select('*, ngos(name)')
+        .select('*')
         .eq('fro_worker_id', workerId)
         .not('status', 'eq', 'reassigned');
       if (bwErr) {
-        console.error('getMyDonors fallback error:', bwErr);
+        return res.status(500).json({ error: 'fallback_query_failed', message: bwErr.message, details: bwErr.details || null });
       }
       if (byWorker && byWorker.length > 0) {
-        console.log('getMyDonors fallback found:', byWorker.length);
         assignments = byWorker;
       }
     }
