@@ -79,13 +79,11 @@ async function getMyStationNames(workerId) {
   return (stationAssigns || []).map(s => s.station);
 }
 
-async function chunkedInQuery(table, column, ids, queryFn, chunkSize = 200) {
+async function chunkedInQuery(ids, queryFn, chunkSize = 200) {
   const allData = [];
   for (let i = 0; i < ids.length; i += chunkSize) {
     const chunk = ids.slice(i, i + chunkSize);
-    const { data, error } = await queryFn(
-      supabase.from(table).in(column, chunk)
-    );
+    const { data, error } = await queryFn(chunk);
     if (error) throw error;
     if (data) allData.push(...data);
   }
@@ -485,23 +483,23 @@ export const getMyDonors = async (req, res) => {
     let donorIds = [...new Set(assignments.map(a => a.donor_id))];
 
     if (req.query.verified_only === 'true' && donorIds.length > 0) {
-      const verifiedLogs = await chunkedInQuery('fro_donor_logs', 'donor_id', donorIds, q =>
-        q.select('donor_id').eq('accounts_status', 'verified')
+      const verifiedLogs = await chunkedInQuery(donorIds, chunk =>
+        supabase.from('fro_donor_logs').select('donor_id').in('donor_id', chunk).eq('accounts_status', 'verified')
       );
       const verifiedDonorIds = new Set(verifiedLogs.map(l => l.donor_id));
       assignments = assignments.filter(a => verifiedDonorIds.has(a.donor_id));
       donorIds = [...new Set(assignments.map(a => a.donor_id))];
     }
-    const donors = await chunkedInQuery('donor_profiles', 'id', donorIds, q =>
-      q.select('*')
+    const donors = await chunkedInQuery(donorIds, chunk =>
+      supabase.from('donor_profiles').select('*').in('id', chunk)
     );
 
     const donorMap = {};
     for (const d of donors || []) donorMap[d.id] = d;
 
     const assignmentIds = assignments.map(a => a.id);
-    const schedules = await chunkedInQuery('fro_scheduled_contacts', 'assignment_id', assignmentIds, q =>
-      q.select('*').eq('is_completed', false)
+    const schedules = await chunkedInQuery(assignmentIds, chunk =>
+      supabase.from('fro_scheduled_contacts').select('*').in('assignment_id', chunk).eq('is_completed', false)
     );
 
     const scheduleMap = {};
@@ -514,13 +512,13 @@ export const getMyDonors = async (req, res) => {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-    const donationLogs = await chunkedInQuery('fro_donor_logs', 'donor_id', donorIds, q =>
-      q.select('donor_id').eq('action', 'donation').gte('created_at', oneYearAgo.toISOString())
+    const donationLogs = await chunkedInQuery(donorIds, chunk =>
+      supabase.from('fro_donor_logs').select('donor_id').in('donor_id', chunk).eq('action', 'donation').gte('created_at', oneYearAgo.toISOString())
     );
     const activeDonorIds = new Set(donationLogs.map(l => l.donor_id));
 
-    const leadDoneVerifiedLogs = await chunkedInQuery('fro_donor_logs', 'donor_id', donorIds, q =>
-      q.select('donor_id')
+    const leadDoneVerifiedLogs = await chunkedInQuery(donorIds, chunk =>
+      supabase.from('fro_donor_logs').select('donor_id').in('donor_id', chunk)
         .eq('disposition_detail', 'lead_done')
         .eq('action', 'disposition')
         .eq('accounts_status', 'verified')
@@ -606,8 +604,8 @@ export const getMyDonors = async (req, res) => {
     // Attach latest accounts_status from fro_donor_logs (for verified_only view)
     if (req.query.verified_only === 'true' && result.length > 0) {
       const donorIdsForStatus = result.map(r => r.donor_id);
-      const statusLogs = await chunkedInQuery('fro_donor_logs', 'donor_id', donorIdsForStatus, q =>
-        q.select('donor_id, accounts_status, created_at')
+      const statusLogs = await chunkedInQuery(donorIdsForStatus, chunk =>
+        supabase.from('fro_donor_logs').select('donor_id, accounts_status, created_at').in('donor_id', chunk)
           .in('accounts_status', ['verified', 'rejected', 'pending'])
       );
       statusLogs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -636,8 +634,8 @@ export const getMyDonors = async (req, res) => {
         periodCutoff = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
       }
       if (periodCutoff) {
-        const periodActivity = await chunkedInQuery('fro_donor_logs', 'donor_id', donorIds, q =>
-          q.select('donor_id')
+        const periodActivity = await chunkedInQuery(donorIds, chunk =>
+          supabase.from('fro_donor_logs').select('donor_id').in('donor_id', chunk)
             .not('action', 'eq', 'note')
             .gte('created_at', periodCutoff)
         );
@@ -660,8 +658,8 @@ export const getMyDonors = async (req, res) => {
     const hiddenLeadDoneIds = new Set();
     const rejectedLeadDoneIds = new Set();
     if (donorIds.length > 0) {
-      const leadDoneLogs = await chunkedInQuery('fro_donor_logs', 'donor_id', donorIds, q =>
-        q.select('donor_id, accounts_status')
+      const leadDoneLogs = await chunkedInQuery(donorIds, chunk =>
+        supabase.from('fro_donor_logs').select('donor_id, accounts_status').in('donor_id', chunk)
           .eq('disposition_detail', 'lead_done')
           .eq('action', 'disposition')
           .gte('created_at', monthStart)
