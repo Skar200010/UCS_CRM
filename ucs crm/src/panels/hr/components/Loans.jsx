@@ -5,7 +5,12 @@ import { SkeletonRows } from './ui';
 
 function fmtDate(d) {
   if (!d) return '—';
-  return new Date(d + 'T00:00:00+05:30').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  const raw = String(d);
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw + 'T00:00:00+05:30' : raw);
+  if (isNaN(date.getTime())) return '—';
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  return `${dd}-${mm}-${date.getFullYear()}`;
 }
 
 function fmtAmount(n) {

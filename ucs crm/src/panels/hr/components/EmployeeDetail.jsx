@@ -2134,7 +2134,11 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                             </span>
                           </td>
                           <td style={{ color:'var(--ink-soft)' }}>
-                            {new Date(l.applied_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+                            {(() => {
+                              const dt = new Date(l.applied_at);
+                              const i = new Intl.DateTimeFormat('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' }).format(dt);
+                              return i.split('/').join('-');
+                            })()}
                           </td>
                         </tr>
                       ))}
