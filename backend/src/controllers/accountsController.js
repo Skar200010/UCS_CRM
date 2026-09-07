@@ -4034,6 +4034,128 @@ export const exportDonors = async (req, res) => {
   }
 };
 
+export const exportDuplicateDonorAssignments = async (req, res) => {
+  try {
+    // Overlap pairs: one donor assigned to 2+ DIFFERENT FROs within the SAME
+    // NGO among active assignments. Active matches the guards' semantics:
+    // status IS NULL OR status <> 'reassigned'.
+    const { rows: pairs } = await db._pool.query(`
+      SELECT a.donor_id, a.ngo_id,
+             COUNT(DISTINCT a.fro_worker_id)::int AS fro_count,
+             COUNT(*)::int AS assignment_rows
+      FROM fro_assignments a
+      WHERE (a.status IS NULL OR a.status <> 'reassigned')
+        AND a.donor_id IS NOT NULL
+        AND a.ngo_id IS NOT NULL
+        AND a.fro_worker_id IS NOT NULL
+      GROUP BY a.donor_id, a.ngo_id
+      HAVING COUNT(DISTINCT a.fro_worker_id) > 1
+      ORDER BY fro_count DESC, a.donor_id
+    `);
+
+    if (!pairs || pairs.length === 0) return res.json({ data: [], details: [], total: 0 });
+
+    const pairKey = (donorId, ngoId) => `${String(donorId)}|${String(ngoId)}`;
+    const pairSet = new Set(pairs.map(p => pairKey(p.donor_id, p.ngo_id)));
+    const donorIds = [...new Set(pairs.map(p => p.donor_id).filter(Boolean))];
+
+    // Donor profiles (chunked)
+    const donorMap = {};
+    for (let i = 0; i < donorIds.length; i += 500) {
+      const { data: donors, error: dErr } = await db
+        .from('donor_profiles')
+        .select('id, name, bank_donor_name, agent_donor_name, mobile_number, email, pan_number, city, total_amount, donation_count, last_donation_date')
+        .in('id', donorIds.slice(i, i + 500));
+      if (dErr) throw dErr;
+      for (const d of donors || []) donorMap[d.id] = d;
+    }
+
+    // All active assignment rows for the overlapping donors (chunked)
+    const assignmentRows = [];
+    for (let i = 0; i < donorIds.length; i += 500) {
+      const { data: rows, error: aErr } = await db
+        .from('fro_assignments')
+        .select('donor_id, ngo_id, fro_worker_id, station, status, assigned_at')
+        .in('donor_id', donorIds.slice(i, i + 500))
+        .not('status', 'eq', 'reassigned');
+      if (aErr) throw aErr;
+      for (const a of rows || []) {
+        if (pairSet.has(pairKey(a.donor_id, a.ngo_id))) assignmentRows.push(a);
+      }
+    }
+
+    // Resolve NGO names (chunked)
+    const ngoIds = [...new Set(pairs.map(p => p.ngo_id).filter(Boolean))];
+    const ngoMap = {};
+    for (let i = 0; i < ngoIds.length; i += 500) {
+      const { data: ngos, error: nErr } = await db.from('ngos').select('id, name').in('id', ngoIds.slice(i, i + 500));
+      if (nErr) throw nErr;
+      for (const n of ngos || []) ngoMap[n.id] = n.name;
+    }
+
+    // Resolve worker names (chunked)
+    const workerIds = [...new Set(assignmentRows.map(a => a.fro_worker_id).filter(Boolean))];
+    const workerMap = {};
+    for (let i = 0; i < workerIds.length; i += 500) {
+      const { data: workers, error: wErr } = await db.from('workers').select('id, name').in('id', workerIds.slice(i, i + 500));
+      if (wErr) throw wErr;
+      for (const w of workers || []) workerMap[w.id] = w.name;
+    }
+
+    const byPair = new Map();
+    for (const a of assignmentRows) {
+      const k = pairKey(a.donor_id, a.ngo_id);
+      if (!byPair.has(k)) byPair.set(k, []);
+      byPair.get(k).push(a);
+    }
+
+    const donorNameOf = (d) => (d && (d.name || d.bank_donor_name || d.agent_donor_name)) || '';
+    const data = [];
+    const details = [];
+    for (const p of pairs) {
+      const d = donorMap[p.donor_id] || {};
+      const asns = (byPair.get(pairKey(p.donor_id, p.ngo_id)) || [])
+        .sort((x, y) => new Date(x.assigned_at || 0) - new Date(y.assigned_at || 0));
+      const froList = asns.map(a => {
+        const sn = workerMap[a.fro_worker_id] || 'Unknown';
+        return a.station && String(a.station).trim() ? `${sn} (${a.station})` : sn;
+      });
+      const uniqueFro = [...new Set(froList)];
+      data.push({
+        'Donor ID': d.id ?? p.donor_id,
+        'Donor Name': donorNameOf(d),
+        'Mobile': d.mobile_number || '',
+        'City': d.city || '',
+        'Email': d.email || '',
+        'PAN': d.pan_number || '',
+        'NGO': ngoMap[p.ngo_id] || '',
+        'No. of FROs Assigned': uniqueFro.length,
+        'Assigned FROs': uniqueFro.join(', '),
+        'Total Amount': d.total_amount != null ? Number(d.total_amount) : 0,
+        'Donations': d.donation_count != null ? Number(d.donation_count) : 0,
+        'Last Donation': d.last_donation_date || '',
+      });
+      for (const a of asns) {
+        details.push({
+          'Donor ID': d.id ?? p.donor_id,
+          'Donor Name': donorNameOf(d),
+          'Mobile': d.mobile_number || '',
+          'City': d.city || '',
+          'NGO': ngoMap[p.ngo_id] || '',
+          'FRO Name': workerMap[a.fro_worker_id] || 'Unknown',
+          'Station': a.station || '',
+          'Status': a.status || '',
+          'Assigned At': a.assigned_at || '',
+        });
+      }
+    }
+
+    return res.json({ data, details, total: data.length });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const getDonorDetail = async (req, res) => {
   try {
     const { id } = req.params;
