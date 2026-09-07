@@ -121,6 +121,7 @@ router.get('/ngos', eh, ctrl.listEventHeadNgos);
 
 // Sectors & Activities (NGO → Sector → Activity)
 router.get('/sectors', eh, ctrl.listSectors);
+router.post('/sectors', eh, ctrl.createSector);
 router.get('/activities', eh, ctrl.listActivities);
 router.post('/activities', eh, ctrl.createActivity);
 router.post('/activities/suggest', eh, ctrl.suggestSectorActivities);
