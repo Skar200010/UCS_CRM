@@ -13,6 +13,7 @@ import './simCard.css';
 
 import Dashboard from './Dashboard';
 import Inventory from './Inventory';
+import Owner from './Owner';
 
 const HEADER_MAP = {
   'mobile id': 'mobile_id', 'mobile id no': 'mobile_id', 'mobile id no.': 'mobile_id', 'mobile no': 'mobile_id', 'mobile': 'mobile_id',
@@ -257,11 +258,13 @@ function DeleteConfirmModal({ card, deleting, onClose, onConfirm }) {
 const NAV = [
   { id: 'dashboard', path: '/sim/dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'inventory', path: '/sim/inventory', label: 'All SIM Cards', icon: 'simcard' },
+  { id: 'owner', path: '/sim/owner', label: 'All SIM Owner', icon: 'mobile' },
 ];
 
 const PAGE_META = {
   '/sim/dashboard': ['Sim Cards and Mobile Management', 'Sim Cards and Mobile Management', 'Manage SIM cards, devices, expiry dates and replacement records.'],
   '/sim/inventory': ['SIM Management', 'All SIM Cards', 'Complete list of every registered SIM card.'],
+  '/sim/owner': ['SIM Management', 'All SIM Owner', 'All SIM Owner.'],
 };
 
 function PanelInner() {
@@ -358,6 +361,7 @@ function PanelInner() {
               <Route index element={<Dashboard onAdd={openAdd} onView={setViewCard} onEdit={openEdit} onReplace={setReplaceCard} />} />
               <Route path="dashboard" element={<Dashboard onAdd={openAdd} onView={setViewCard} onEdit={openEdit} onReplace={setReplaceCard} />} />
               <Route path="inventory" element={<Inventory onAdd={openAdd} onView={setViewCard} onEdit={openEdit} onReplace={setReplaceCard} onDelete={(c) => setDeleteCard(c)} onHistory={setHistoryCard} />} />
+              <Route path="owner" element={<Owner onAdd={openAdd} onView={setViewCard} onEdit={openEdit} />} />
               <Route path="*" element={<Navigate to="/sim/dashboard" replace />} />
             </Routes>
           </div>

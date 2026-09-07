@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { Fragment, useMemo, useState, useEffect } from 'react';
 import { useSim } from './store';
 import { Icon } from './components';
 import { effectiveStatus, dayClass, daysLeft, formatDate, pillForStatus, SIM_STATUSES, SIM_TYPES } from './helpers';
@@ -7,7 +7,7 @@ import { toast } from './Toast';
 
 const STATUS_FILTERS = ['All', 'Active', 'Expiring Soon', 'Expired', 'Replaced', 'Inactive'];
 const EXPIRY_FILTERS = ['All', 'Expired', 'Within 5 Days', 'Within 28 Days', 'More than 28 Days'];
-const SIM_NAME_FILTERS = ['Android', 'Nokia', 'Android Whatsapp'];
+const SIM_NAME_FILTERS = ['Android', 'Nokia'];
 const WHATSAPP_NAME_FILTERS = ['All', 'BSCT', 'MANN', 'AFLF'];
 const OWNER_UFS = ['UFS 1', 'UFS 2', 'UFS 3', 'UFS 4', 'UFS 5', 'Locker'];
 const normOwner = (v) => String(v || '').toLowerCase().replace(/\s+/g, '');
@@ -21,15 +21,15 @@ const COLUMNS = [
   { key: 'mobile_id', label: 'Mobile ID No.' },
   { key: 'device_model', label: 'Device & Model Name' },
   { key: 'imei', label: 'IMEI No.' },
-  { key: 'status', label: 'Sim Card Status' },
   { key: 'team', label: 'Team' },
-  { key: 'signature', label: 'Owner' },
-  { key: 'issue_date', label: 'Sim Card Issue Date' },
-  { key: 'expiry_date', label: 'Auto Expiry Date' },
-  { key: 'days_left', label: 'Sim Expiry Days Left', num: true },
-  { key: 'sim_1', label: 'Sim 1' },
-  { key: 'sim_2', label: 'Sim 2' },
-  { key: 'replacement_count', label: 'Sim Card Repla. Count', num: true },
+  { key: 'w1_name', label: 'NGO' },
+  { key: 'sim_1', label: 'W1 Number' },
+  { key: 'w2_name', label: 'NGO' },
+  { key: 'sim_2', label: 'W2 Number' },
+  { key: 'w3_name', label: 'NGO' },
+  { key: 'sim_3', label: 'W3 Number' },
+  { key: 'w4_name', label: 'NGO' },
+  { key: 'sim_4', label: 'W4 Number' },
 ];
 
 const NOKIA_COLUMNS = [
@@ -51,18 +51,6 @@ const NOKIA_COLUMNS = [
   { key: 'replacement_count', label: 'Sim Card Repla. Count', num: true },
 ];
 
-const WHATSAPP_COLUMNS = [
-  { key: 'mobile_id', label: 'Android No.' },
-  { key: 'w1_name', label: 'NGO' },
-  { key: 'sim_1', label: 'W1 Number' },
-  { key: 'w2_name', label: 'NGO' },
-  { key: 'sim_2', label: 'W2 Number' },
-  { key: 'w3_name', label: 'NGO' },
-  { key: 'sim_3', label: 'W3 Number' },
-  { key: 'w4_name', label: 'NGO' },
-  { key: 'sim_4', label: 'W4 Number' },
-];
-
 export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, onHistory }) {
   const { cards, refresh } = useSim();
   const [search, setSearch] = useState('');
@@ -82,7 +70,29 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
   const [selected, setSelected] = useState({});
   const [showActions, setShowActions] = useState(null);
 
-  const enriched = useMemo(() => cards.map((c) => ({ ...c, days_left: c.days_left !== undefined && c.days_left !== null ? c.days_left : daysLeft(c.expiry_date), _status: effectiveStatus(c) })), [cards]);
+  const whatsappMerge = useMemo(() => {
+    const map = {};
+    cards.forEach((c) => {
+      const m = String(c.mobile_id || '').match(/^android whatsapp\s+(\d+)/i);
+      if (m) map[m[1]] = c;
+    });
+    return map;
+  }, [cards]);
+
+  const enriched = useMemo(() => cards.map((c) => {
+    const merged = { ...c };
+    const mm = String(c.mobile_id || '').match(/^android\s+(\d+)$/i);
+    if (mm && (c.mobile_id || '').toLowerCase().startsWith('android ') && !(c.mobile_id || '').toLowerCase().startsWith('android whatsapp')) {
+      const w = whatsappMerge[mm[1]];
+      if (w) {
+        merged.w1_name = w.w1_name; merged.sim_1 = w.sim_1;
+        merged.w2_name = w.w2_name; merged.sim_2 = w.sim_2;
+        merged.w3_name = w.w3_name; merged.sim_3 = w.sim_3;
+        merged.w4_name = w.w4_name; merged.sim_4 = w.sim_4;
+      }
+    }
+    return { ...merged, days_left: merged.days_left !== undefined && merged.days_left !== null ? merged.days_left : daysLeft(merged.expiry_date), _status: effectiveStatus(merged) };
+  }), [cards, whatsappMerge]);
 
   const teams = useMemo(() => [...new Set(enriched.map((c) => c.team).filter(Boolean))].sort(), [enriched]);
   const devices = useMemo(() => [...new Set(enriched.map((c) => c.device_model).filter(Boolean))].sort(), [enriched]);
@@ -120,10 +130,12 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
         const id = (c.mobile_id || '').toLowerCase();
         return id.startsWith('android ') && !id.startsWith('android whatsapp');
       });
-    } else if (simName !== 'All') {
+    } else if (simName === 'All') {
+      list = list.filter((c) => !(c.mobile_id || '').toLowerCase().startsWith('android whatsapp'));
+    } else {
       list = list.filter((c) => (c.mobile_id || '').toLowerCase().startsWith(simName.toLowerCase()));
     }
-    if (simName === 'Android Whatsapp' && waName !== 'All') {
+    if (simName === 'Android' && waName !== 'All') {
       list = list.filter((c) =>
         [c.w1_name, c.w2_name, c.w3_name, c.w4_name].some((n) => String(n || '').trim().toUpperCase() === waName)
       );
@@ -164,7 +176,7 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
   const start = (safePage - 1) * perPage;
   const pageRows = filtered.slice(start, start + perPage);
   const selectedCount = Object.values(selected).filter(Boolean).length;
-  const activeColumns = simName === 'Nokia' ? NOKIA_COLUMNS : simName === 'Android Whatsapp' ? WHATSAPP_COLUMNS : COLUMNS;
+  const activeColumns = simName === 'Nokia' ? NOKIA_COLUMNS : COLUMNS;
 
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -213,7 +225,7 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
           <span style={{ position: 'absolute', left: 10, color: 'var(--sim-ink-soft)', display: 'flex' }}><Icon name="search" size={15} /></span>
           <input className="sim-input search-input" placeholder="Search Mobile ID, Device, IMEI..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 32 }} />
         </div>
-        {simName === 'Android Whatsapp' && (
+        {simName === 'Android' && (
           <select className="sim-select" value={waName} onChange={(e) => setWaName(e.target.value)}>
             {WHATSAPP_NAME_FILTERS.map((w) => <option key={w} value={w}>{w}</option>)}
           </select>
@@ -277,12 +289,14 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
                     <input type="checkbox" checked={selectedCount === pageRows.length && selectedCount > 0} onChange={toggleAll} />
                   </th>
                   {activeColumns.map((col) => (
-                    <th key={col.key} className={SORTABLE.includes(col.key) ? `sortable ${col.num ? 'num' : ''}` : (col.num ? 'num' : '')} onClick={() => SORTABLE.includes(col.key) && toggleSort(col.key)}>
-                      {col.label}
-                      {col.key === sortKey && <span className="sort-arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>}
-                    </th>
+                    <Fragment key={col.key}>
+                      <th className={SORTABLE.includes(col.key) ? `sortable ${col.num ? 'num' : ''}` : (col.num ? 'num' : '')} onClick={() => SORTABLE.includes(col.key) && toggleSort(col.key)}>
+                        {col.label}
+                        {col.key === sortKey && <span className="sort-arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                      </th>
+                      {col.key === 'mobile_id' && simName === 'Android' && <th>GB</th>}
+                    </Fragment>
                   ))}
-                  {simName === 'Android' && <th>GB</th>}
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -294,7 +308,12 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
                       const v = c[col.key];
                       switch (col.key) {
                         case 'mobile_id':
-                          return <td key={col.key} style={{ fontWeight: 600 }}>{c.mobile_id || '—'}</td>;
+                          return simName === 'Android' ? (
+                            <Fragment key={col.key}>
+                              <td style={{ fontWeight: 600 }}>{c.mobile_id || '—'}</td>
+                              <td>{c.gb || '—'}</td>
+                            </Fragment>
+                          ) : <td key={col.key} style={{ fontWeight: 600 }}>{c.mobile_id || '—'}</td>;
                         case 'status':
                           return <td key={col.key}><span className={`pill ${pillForStatus(c.status)}`}>{c.status || '—'}</span></td>;
                         case 'issue_date':
@@ -305,9 +324,9 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
                         case 'replacement_count':
                           return <td key={col.key} className="num">{c.replacement_count || 0}</td>;
                         default:
-                          const hl = simName === 'Android Whatsapp' && numTypeOf(v) === 'POSTPAID' ? ' postpaid-hl' : '';
+                          const hl = simName === 'Android' && numTypeOf(v) === 'POSTPAID' ? ' postpaid-hl' : '';
                           let cellVal = v;
-                          if (simName === 'Android Whatsapp' && waName !== 'All') {
+if (simName === 'Android' && waName !== 'All') {
                             const slotMatch = col.key.match(/^sim_(\d)$/);
                             const nameMatch = col.key.match(/^w(\d)_name$/);
                             const n = slotMatch ? slotMatch[1] : nameMatch ? nameMatch[1] : null;
@@ -319,7 +338,6 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
                           return <td key={col.key} className={hl}>{cellVal || '—'}</td>;
                       }
                     })}
-                      {simName === 'Android' && <td>{c.gb || '—'}</td>}
                       <td>
                         <div className="cell-actions" style={{ gap: 4 }}>
                           <button className="mini-btn" onClick={() => onEdit(c)}>Edit</button>
