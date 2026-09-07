@@ -462,7 +462,10 @@ export default function Reports() {
                   <div className="stat-lbl" style={{ fontSize: 12 }}>{r.name}</div>
                   <div className="stat-num" style={{ fontSize: 20 }}>{mask(currency(r.total))}</div>
                   <div className="stat-sub">
-                    <span style={{ color: r.diff >= 0 ? '#1B7A3D' : '#B3392B', fontWeight: 700 }}>{mask((round2(r.diff) >= 0 ? '+' : '') + currency(round2(r.diff)))}</span> avg/day vs &nbsp;{mask(currency(r.monthlyTarget))} target
+                    {r.monthlyTarget > 0
+                      ? <><span style={{ color: r.diff >= 0 ? '#1B7A3D' : '#B3392B', fontWeight: 700 }}>{mask((round2(r.diff) >= 0 ? '+' : '') + currency(round2(r.diff)))}</span> avg/day vs &nbsp;{mask(currency(r.monthlyTarget))} target</>
+                      : '—'
+                    }
                   </div>
                 </div>
               </div>
@@ -503,15 +506,16 @@ export default function Reports() {
                 </thead>
                 <tbody>
                   {rows.map(r => {
-                    const diffTotal = round2((r.total || 0) - (r.monthlyTarget || 0));
-                    const diffColor = diffTotal >= 0 ? '#1B7A3D' : '#B3392B';
+                    const hasTarget = r.monthlyTarget > 0;
+                    const diffTotal = hasTarget ? round2((r.total || 0) - r.monthlyTarget) : null;
+                    const diffColor = diffTotal !== null ? (diffTotal >= 0 ? '#1B7A3D' : '#B3392B') : null;
                     return (
                       <tr key={r.id} style={{ borderTop: '1px solid var(--line)', background: r.id === sourceTab ? '#F3FBF6' : 'transparent' }}>
                         <td style={{ padding: '9px 12px', fontWeight: 600 }}>{r.name}</td>
                         <td style={{ padding: '9px 12px' }}>{mask((r.receiptCount || 0).toLocaleString('en-IN'))}</td>
-                        <td style={{ padding: '9px 12px' }}>{mask(currency(r.monthlyTarget))}</td>
+                        <td style={{ padding: '9px 12px' }}>{hasTarget ? mask(currency(r.monthlyTarget)) : '—'}</td>
                         <td style={{ padding: '9px 12px', fontWeight: 700 }}>{mask(currency(r.total))}</td>
-                        <td style={{ padding: '9px 12px', fontWeight: 700, color: diffColor }}>{mask((diffTotal >= 0 ? '+' : '') + currency(diffTotal))}</td>
+                        <td style={{ padding: '9px 12px', fontWeight: 700, color: diffColor }}>{diffTotal !== null ? mask((diffTotal >= 0 ? '+' : '') + currency(diffTotal)) : '—'}</td>
                       </tr>
                     );
                   })}
