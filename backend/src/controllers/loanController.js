@@ -5,6 +5,7 @@ import {
   getPendingLoans,
   getLoanById,
   updateLoan,
+  deleteLoan,
   getActiveLoansByWorker,
   createDeduction,
   getDeductionsByLoan,
@@ -198,6 +199,91 @@ export const settleMonthly = async (req, res) => {
       message: `Settlement complete for ${String(year)}-${String(month).padStart(2, '0')}`,
       ...result,
     });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateLoanRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await getLoanById(id);
+    if (!existing) {
+      return res.status(404).json({ message: 'Loan record not found' });
+    }
+    if (!['pending', 'active'].includes(existing.status)) {
+      return res.status(400).json({ message: `Cannot edit a ${existing.status} loan` });
+    }
+
+    const updates = {};
+    if (req.body.total_amount !== undefined) {
+      const total = parseFloat(req.body.total_amount);
+      if (isNaN(total) || total <= 0) return res.status(400).json({ message: 'Invalid total_amount' });
+      updates.total_amount = total;
+      if (req.body.remaining_amount === undefined) {
+        const deducted = parseFloat(existing.total_amount || 0) - parseFloat(existing.remaining_amount || 0);
+        updates.remaining_amount = Math.max(0, total - deducted);
+      }
+    }
+    if (req.body.monthly_deduction !== undefined) {
+      const ded = parseFloat(req.body.monthly_deduction);
+      if (isNaN(ded) || ded <= 0) return res.status(400).json({ message: 'Invalid monthly_deduction' });
+      updates.monthly_deduction = ded;
+    }
+    if (req.body.reason !== undefined) {
+      updates.reason = String(req.body.reason).trim() || null;
+    }
+    if (req.body.remaining_amount !== undefined) {
+      updates.remaining_amount = Math.max(0, parseFloat(req.body.remaining_amount));
+    }
+    if (req.body.start_month !== undefined) {
+      updates.start_month = req.body.start_month || null;
+    }
+    if (req.body.end_month !== undefined) {
+      updates.end_month = req.body.end_month || null;
+    }
+
+    if (updates.monthly_deduction !== undefined && updates.total_amount !== undefined) {
+      if (updates.monthly_deduction > updates.total_amount) {
+        return res.status(400).json({ message: 'monthly_deduction cannot exceed total_amount' });
+      }
+    } else if (updates.monthly_deduction !== undefined) {
+      if (updates.monthly_deduction > parseFloat(existing.total_amount)) {
+        return res.status(400).json({ message: 'monthly_deduction cannot exceed total_amount' });
+      }
+    } else if (updates.total_amount !== undefined) {
+      if (parseFloat(existing.monthly_deduction) > updates.total_amount) {
+        return res.status(400).json({ message: 'monthly_deduction exceeds new total_amount' });
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+
+    const result = await updateLoan(id, updates);
+    return res.json({ message: 'Loan updated', loan: result });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteLoanRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await getLoanById(id);
+    if (!existing) {
+      return res.status(404).json({ message: 'Loan record not found' });
+    }
+
+    if (['active', 'closed'].includes(existing.status) && !req.body?.force) {
+      return res.status(400).json({
+        message: `This loan is ${existing.status}. Pass { force: true } to delete anyway (prior deductions remain in settlement history).`,
+      });
+    }
+
+    await deleteLoan(id);
+    return res.json({ message: 'Loan deleted' });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

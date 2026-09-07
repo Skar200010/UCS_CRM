@@ -19,7 +19,7 @@ export function useHR() {
     generateAllTargets, fetchCurrentMonthTargets,
     setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchMonthlyIncentiveSummary,
     fetchWorkerAllocations, setWorkerAllocations, fetchWorkerSalaryAllocations,
-    fetchLoans, fetchPendingLoans, decideLoan, fetchWorkerLoans, fetchWorkerActiveLoans, settleLoans,
+    fetchLoans, fetchPendingLoans, decideLoan, fetchWorkerLoans, fetchWorkerActiveLoans, settleLoans, updateLoanApi, deleteLoanApi,
     fetchPendingTickets, fetchAllTickets, fetchTicketCount, verifyTicket, rejectTicket,
     generateQR, fetchQRCodes, removeQRCode,
     fetchSettings, updateSettings,
@@ -34,7 +34,7 @@ export function useHR() {
 import { api } from '../../api/auth'
 export const apiGet = (path) => api(path, { _prefix: 'ucs' })
 export const apiPost = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body), _prefix: 'ucs' })
-export const apiDelete = (path) => api(path, { method: 'DELETE', _prefix: 'ucs' })
+export const apiDelete = (path, body) => api(path, { method: 'DELETE', body: body ? JSON.stringify(body) : undefined, _prefix: 'ucs' })
 export const apiPut = (path, body) => api(path, { method: 'PUT', body: JSON.stringify(body), _prefix: 'ucs' })
 
 const PALETTE = ['#5B6B4E','#B5603A','#C08A2E','#4F6472','#7A5C7E','#88693D'];
@@ -171,6 +171,8 @@ export const decideLoan = (id, status, monthly_deduction, hr_remark) => apiPut('
 export const fetchWorkerLoans = (workerId) => apiGet('/loans/worker/' + workerId);
 export const fetchWorkerActiveLoans = (workerId) => apiGet('/loans/worker/' + workerId + '/active');
 export const settleLoans = (year, month, workerId) => apiPost('/loans/settle', { year, month, worker_id: workerId });
+export const updateLoanApi = (id, data) => apiPut('/loans/' + id, data);
+export const deleteLoanApi = (id, force) => apiDelete('/loans/' + id, force ? { force: true } : undefined);
 export const fetchPendingTickets = () => apiGet('/attendance-corrections/pending');
 export const fetchAllTickets = () => apiGet('/attendance-corrections/all');
 export const fetchTicketCount = () => apiGet('/attendance-corrections/pending-count');

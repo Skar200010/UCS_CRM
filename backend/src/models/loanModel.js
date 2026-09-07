@@ -60,6 +60,11 @@ export const updateLoan = async (id, updates) => {
   return data;
 };
 
+export const deleteLoan = async (id) => {
+  const { error } = await db.from('worker_loans').delete().eq('id', id);
+  if (error) throw error;
+};
+
 export const getActiveLoansByWorker = async (workerId) => {
   const { data, error } = await db
     .from('worker_loans')
@@ -166,6 +171,8 @@ export const settleMonthlyLoanDeductions = async ({ year, month, workerId }) => 
       skipped++;
       continue;
     }
+    if (loan.start_month && monthDate < loan.start_month) { skipped++; continue; }
+    if (loan.end_month && monthDate > loan.end_month) { skipped++; continue; }
     const remaining = parseFloat(loan.remaining_amount || 0);
     const monthly = parseFloat(loan.monthly_deduction || 0);
     if (monthly <= 0 || remaining <= 0) {
