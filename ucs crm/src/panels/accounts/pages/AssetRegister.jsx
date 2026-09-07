@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import * as XLSX from 'xlsx'
 import { api } from '../api/auth'
 import { deptLabel } from '../../../lib/labels'
@@ -159,6 +160,8 @@ function StatusBadge({ status }) {
 function SpecPop({ asset }) {
   const isM = isMachineAsset(asset.category)
   if (!isM) return null
+  const trigRef = useRef(null)
+  const [pos, setPos] = useState(null)
   const pretty = [
     ['Hard Drive / SSD', asset.storage],
     ['RAM', asset.ram],
@@ -166,22 +169,44 @@ function SpecPop({ asset }) {
     ['Motherboard', asset.motherboard],
   ]
   const filled = pretty.filter(([, v]) => v && String(v).trim())
+  const show = (e) => {
+    const r = trigRef.current?.getBoundingClientRect()
+    if (!r) return
+    const W = typeof window !== 'undefined' ? window.innerWidth : 0
+    const left = Math.min(r.left + window.scrollX, W - 314)
+    setPos({ top: r.bottom + 8 + window.scrollY, left: Math.max(8, left) })
+  }
+  const hide = () => setPos(null)
+  useEffect(() => {
+    if (!pos) return
+    const close = () => setPos(null)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [pos])
   return (
-    <span className="arx-spec-wrap">
+    <span className="arx-spec-wrap" ref={trigRef} onMouseEnter={show} onMouseLeave={hide}>
       <span className="arx-spec-trigger">{asset.name}</span>
-      <span className="arx-spec-pop">
-        <span className="arx-spec-title"><HardDrive size={11} /> Specifications</span>
-        {filled.length === 0 ? (
-          <span className="arx-spec-none">No specs recorded</span>
-        ) : (
-          filled.map(([k, v]) => (
-            <span className="arx-spec-row" key={k}>
-              <span className="arx-spec-k">{k}</span>
-              <span className="arx-spec-v">{v}</span>
-            </span>
-          ))
-        )}
-      </span>
+      {pos && createPortal(
+        <div className="arx-spec-pop-fixed" style={{ top: pos.top, left: pos.left }}>
+          <span className="arx-spec-arrow" />
+          <span className="arx-spec-title"><HardDrive size={11} /> Specifications</span>
+          {filled.length === 0 ? (
+            <span className="arx-spec-none">No specs recorded</span>
+          ) : (
+            filled.map(([k, v]) => (
+              <span className="arx-spec-row" key={k}>
+                <span className="arx-spec-k">{k}</span>
+                <span className="arx-spec-v">{v}</span>
+              </span>
+            ))
+          )}
+        </div>,
+        document.body
+      )}
     </span>
   )
 }
@@ -1279,11 +1304,11 @@ export default function AssetRegister() {
         .arx-pill.zero { opacity: .45; }
         .arx-pill.zero:hover { transform: none; }
 
-        /* ---------- name hover spec popover ---------- */
+        /* ---------- name hover spec popover (fixed portal) ---------- */
         .arx-spec-wrap { position: relative; display: inline-block; max-width: 100%; }
         .arx-spec-trigger { cursor: default; border-bottom: 1px dashed #c2d4cb; }
-        .arx-spec-pop { position: absolute; z-index: 50; top: calc(100% + 8px); left: 0; min-width: 220px; max-width: 300px; background: #ffffff; border: 1.5px solid #d1d5db; border-radius: 12px; box-shadow: 0 8px 24px -4px rgba(16,31,25,.28), 0 2px 8px rgba(16,31,25,.12); padding: 10px 12px; opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .18s ease, transform .18s ease, visibility .18s; pointer-events: none; }
-        .arx-spec-wrap:hover .arx-spec-pop { opacity: 1; visibility: visible; transform: translateY(0); }
+        .arx-spec-pop-fixed { position: fixed; z-index: 9999; width: max-content; max-width: 300px; background: #ffffff; border: 1.5px solid #d1d5db; border-radius: 12px; box-shadow: 0 10px 30px -6px rgba(16,31,25,.4), 0 2px 10px rgba(16,31,25,.18); padding: 10px 12px; pointer-events: none; }
+        .arx-spec-arrow { position: absolute; top: -6px; left: 18px; width: 10px; height: 10px; background: #ffffff; border-left: 1.5px solid #d1d5db; border-top: 1.5px solid #d1d5db; transform: rotate(45deg); }
         .arx-spec-title { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: var(--arx-mint); padding: 2px 2px 6px; border-bottom: 1px solid var(--arx-line); margin-bottom: 5px; }
         .arx-spec-row { display: flex; gap: 10px; align-items: baseline; padding: 4px 2px; }
         .arx-spec-row + .arx-spec-row { border-top: 1px dashed #edf3f0; }

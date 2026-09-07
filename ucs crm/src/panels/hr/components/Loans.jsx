@@ -13,6 +13,13 @@ function fmtDate(d) {
   return `${dd}-${mm}-${date.getFullYear()}`;
 }
 
+function fmtMonth(d) {
+  if (!d) return '';
+  const raw = String(d);
+  const m = raw.slice(0, 7);
+  return /^\d{4}-\d{2}$/.test(m) ? m : '';
+}
+
 function fmtAmount(n) {
   return '₹' + parseFloat(n || 0).toLocaleString('en-IN');
 }
@@ -29,8 +36,11 @@ function StatusBadge({ status }) {
   return <span className={`pill ${cls}`}>{lbl}</span>;
 }
 
+const inputStyle = { width: '100%', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', padding: '4px 8px', fontSize: 12 };
+const labelStyle = { fontSize: 11, color: 'var(--ink-soft)' };
+
 export default function Loans() {
-  const { fetchLoans, decideLoan, settleLoans } = useHR();
+  const { fetchLoans, decideLoan, settleLoans, updateLoanApi, deleteLoanApi } = useHR();
   const [loans, setLoans] = useState([]);
   const [approving, setApproving] = useState(null);
   const [monthlyDeduction, setMonthlyDeduction] = useState('');
@@ -43,6 +53,9 @@ export default function Loans() {
   });
   const [settleBusy, setSettleBusy] = useState(false);
   const [settleMsg, setSettleMsg] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [editBusy, setEditBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +97,43 @@ export default function Loans() {
       alert(e.message);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const startEdit = (loan) => {
+    setEditing(loan.id);
+    setEditForm({
+      total_amount: parseFloat(loan.total_amount || 0),
+      monthly_deduction: parseFloat(loan.monthly_deduction || 0),
+      reason: loan.reason || '',
+      start_month: fmtMonth(loan.start_month),
+      end_month: fmtMonth(loan.end_month),
+    });
+  };
+
+  const saveEdit = async () => {
+    setEditBusy(true);
+    try {
+      await updateLoanApi(editing, editForm);
+      setEditing(null);
+      setEditForm({});
+      refresh();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const handleDelete = async (loan) => {
+    const label = loan.workers?.name || 'Unknown';
+    if (!window.confirm(`Delete ${loan.type} for ${label} (${fmtAmount(loan.total_amount)})? This cannot be undone.`)) return;
+    try {
+      const force = ['active', 'closed'].includes(loan.status);
+      await deleteLoanApi(loan.id, force);
+      refresh();
+    } catch (e) {
+      alert(e.message);
     }
   };
 
@@ -147,19 +197,19 @@ export default function Loans() {
                   {approving === l.id ? (
                     <div style={{ display:'flex', flexDirection:'column', gap:6, minWidth:200 }}>
                       <div>
-                        <span style={{ fontSize:11, color:'var(--ink-soft)' }}>Monthly Deduction (₹)</span>
+                        <span style={labelStyle}>Monthly Deduction (₹)</span>
                         <input type="number" min="1" step="1"
                           value={monthlyDeduction}
                           onChange={e => setMonthlyDeduction(e.target.value)}
-                          style={{ width:'100%', border:'1px solid var(--line)', borderRadius:'var(--radius-sm)', padding:'4px 8px', fontSize:12 }} />
+                          style={inputStyle} />
                       </div>
                       <div>
-                        <span style={{ fontSize:11, color:'var(--ink-soft)' }}>Remark (optional)</span>
+                        <span style={labelStyle}>Remark (optional)</span>
                         <input type="text"
                           value={hrRemark}
                           onChange={e => setHrRemark(e.target.value)}
                           placeholder="e.g. Deduct over 3 months"
-                          style={{ width:'100%', border:'1px solid var(--line)', borderRadius:'var(--radius-sm)', padding:'4px 8px', fontSize:12 }} />
+                          style={inputStyle} />
                       </div>
                       <div style={{ display:'flex', gap:4, justifyContent:'flex-end' }}>
                         <button className="btn btn-sm" disabled={submitting}
@@ -230,12 +280,58 @@ export default function Loans() {
                 <th>Monthly</th>
                 <th>Paid So Far</th>
                 <th>Remaining</th>
+                <th>Period</th>
                 <th>Status</th>
                 <th>Decided</th>
+                <th style={{ textAlign:'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {other.map(l => (
+                editing === l.id ? (
+                  <tr key={l.id} style={{ background: 'var(--sage-soft, #f0f4ec)' }}>
+                    <td style={{ fontWeight:500 }}>{l.workers?.name || 'Unknown'}</td>
+                    <td style={{ textTransform:'capitalize' }}>{l.type}</td>
+                    <td>
+                      <input type="number" min="1" step="1"
+                        value={editForm.total_amount}
+                        onChange={e => setEditForm({ ...editForm, total_amount: parseFloat(e.target.value) || 0 })}
+                        style={{ ...inputStyle, width: 90 }} />
+                    </td>
+                    <td>
+                      <input type="number" min="1" step="1"
+                        value={editForm.monthly_deduction}
+                        onChange={e => setEditForm({ ...editForm, monthly_deduction: parseFloat(e.target.value) || 0 })}
+                        style={{ ...inputStyle, width: 80 }} />
+                    </td>
+                    <td style={{ color:'var(--sage)' }}>{fmtAmount(l.total_deducted)}</td>
+                    <td style={{ color: parseFloat(l.remaining_amount || 0) > 0 ? 'var(--danger)' : 'var(--ink-soft)' }}>{fmtAmount(l.remaining_amount)}</td>
+                    <td>
+                      <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+                        <input type="month" value={editForm.start_month}
+                          onChange={e => setEditForm({ ...editForm, start_month: e.target.value })}
+                          style={{ ...inputStyle, width: 110 }} />
+                        <span style={{ fontSize:11, color:'var(--ink-soft)' }}>to</span>
+                        <input type="month" value={editForm.end_month}
+                          onChange={e => setEditForm({ ...editForm, end_month: e.target.value })}
+                          style={{ ...inputStyle, width: 110 }} />
+                      </div>
+                    </td>
+                    <td><StatusBadge status={l.status} /></td>
+                    <td style={{ color:'var(--ink-soft)' }}>{l.decided_at ? fmtDate(l.decided_at) : '—'}</td>
+                    <td style={{ textAlign:'right', display:'flex', gap:4, justifyContent:'flex-end' }}>
+                      <button className="btn btn-sm" disabled={editBusy}
+                        onClick={() => { setEditing(null); setEditForm({}); }}>
+                        Cancel
+                      </button>
+                      <button className="btn btn-sm" disabled={editBusy}
+                        style={{ background:'var(--sage)', color:'#fff', border:'none' }}
+                        onClick={saveEdit}>
+                        {editBusy ? '…' : 'Save'}
+                      </button>
+                    </td>
+                  </tr>
+                ) : (
                 <tr key={l.id}>
                   <td style={{ fontWeight:500 }}>{l.workers?.name || 'Unknown'}</td>
                   <td style={{ textTransform:'capitalize' }}>{l.type}</td>
@@ -247,9 +343,24 @@ export default function Loans() {
                   <td style={{ color: parseFloat(l.remaining_amount || 0) > 0 ? 'var(--danger)' : 'var(--ink-soft)' }}>
                     {parseFloat(l.remaining_amount || 0) > 0 ? fmtAmount(l.remaining_amount) : '—'}
                   </td>
+                  <td style={{ fontSize:12, color:'var(--ink-soft)' }}>
+                    {l.start_month ? fmtMonth(l.start_month) : '—'} → {l.end_month ? fmtMonth(l.end_month) : '∞'}
+                  </td>
                   <td><StatusBadge status={l.status} /></td>
                   <td style={{ color:'var(--ink-soft)' }}>{l.decided_at ? fmtDate(l.decided_at) : '—'}</td>
+                  <td style={{ textAlign:'right' }}>
+                    {['pending', 'active'].includes(l.status) && (
+                      <span style={{ display:'inline-flex', gap:4 }}>
+                        <button className="btn btn-sm" onClick={() => startEdit(l)}>Edit</button>
+                        <button className="btn btn-sm" style={{ color:'var(--danger)' }} onClick={() => handleDelete(l)}>Delete</button>
+                      </span>
+                    )}
+                    {l.status === 'rejected' && (
+                      <button className="btn btn-sm" style={{ color:'var(--danger)' }} onClick={() => handleDelete(l)}>Delete</button>
+                    )}
+                  </td>
                 </tr>
+                )
               ))}
             </tbody>
           </table>

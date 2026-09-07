@@ -21,4 +21,11 @@ export async function ensureLoanDeductionSchema() {
   } catch (e) {
     console.warn('[loan deduction schema] skip:', e?.message || String(e));
   }
+  try {
+    await db._pool.query(`ALTER TABLE worker_loans ADD COLUMN IF NOT EXISTS start_month DATE`);
+    await db._pool.query(`ALTER TABLE worker_loans ADD COLUMN IF NOT EXISTS end_month DATE`);
+    console.log('worker_loans period columns ready');
+  } catch (e) {
+    console.warn('[loan period columns] skip:', e?.message || String(e));
+  }
 }
