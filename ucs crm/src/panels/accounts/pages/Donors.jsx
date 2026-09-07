@@ -723,8 +723,9 @@ export default function Donors() {
         alert('No same-NGO FRO overlaps found.')
         return
       }
+      const cols = res.columns || (rows.length > 0 ? Object.keys(rows[0]) : [])
       const wb = XLSX.utils.book_new()
-      const ws = XLSX.utils.json_to_sheet(rows)
+      const ws = XLSX.utils.json_to_sheet([cols, ...rows.map(r => cols.map(c => r[c] ?? ''))], { skipHeader: true })
       XLSX.utils.book_append_sheet(wb, ws, 'Donor-NGO Overlaps')
       const details = res.details || []
       if (details.length > 0) {

@@ -4064,7 +4064,7 @@ export const exportDuplicateDonorAssignments = async (req, res) => {
     for (let i = 0; i < donorIds.length; i += 500) {
       const { data: donors, error: dErr } = await db
         .from('donor_profiles')
-        .select('id, name, bank_donor_name, agent_donor_name, mobile_number, email, pan_number, city, total_amount, donation_count, last_donation_date')
+        .select('id, name, bank_donor_name, agent_donor_name, mobile_number')
         .in('id', donorIds.slice(i, i + 500));
       if (dErr) throw dErr;
       for (const d of donors || []) donorMap[d.id] = d;
@@ -4110,47 +4110,54 @@ export const exportDuplicateDonorAssignments = async (req, res) => {
     }
 
     const donorNameOf = (d) => (d && (d.name || d.bank_donor_name || d.agent_donor_name)) || '';
-    const data = [];
-    const details = [];
+
+    // One overview row per donor: FRO / NGO / Station column trios, one trio per
+    // assigned FRO (padded to the widest donor so all rows share the same columns).
+    const byDonor = new Map();
     for (const p of pairs) {
-      const d = donorMap[p.donor_id] || {};
       const asns = (byPair.get(pairKey(p.donor_id, p.ngo_id)) || [])
         .sort((x, y) => new Date(x.assigned_at || 0) - new Date(y.assigned_at || 0));
-      const froList = asns.map(a => {
-        const sn = workerMap[a.fro_worker_id] || 'Unknown';
-        return a.station && String(a.station).trim() ? `${sn} (${a.station})` : sn;
-      });
-      const uniqueFro = [...new Set(froList)];
-      data.push({
-        'Donor ID': d.id ?? p.donor_id,
-        'Donor Name': donorNameOf(d),
-        'Mobile': d.mobile_number || '',
-        'City': d.city || '',
-        'Email': d.email || '',
-        'PAN': d.pan_number || '',
-        'NGO': ngoMap[p.ngo_id] || '',
-        'No. of FROs Assigned': uniqueFro.length,
-        'Assigned FROs': uniqueFro.join(', '),
-        'Total Amount': d.total_amount != null ? Number(d.total_amount) : 0,
-        'Donations': d.donation_count != null ? Number(d.donation_count) : 0,
-        'Last Donation': d.last_donation_date || '',
-      });
+      if (!byDonor.has(p.donor_id)) byDonor.set(p.donor_id, []);
+      for (const a of asns) byDonor.get(p.donor_id).push(a);
+    }
+
+    const maxFro = Math.max(0, ...[...byDonor.values()].map(list => list.length));
+    const headerKeys = ['Donor Name', 'Mobile'];
+    for (let i = 1; i <= maxFro; i++) {
+      headerKeys.push(`FRO ${i}`, `NGO ${i}`, `Station ${i}`);
+    }
+
+    const data = [];
+    const details = [];
+    for (const [donorId, asns] of [...byDonor.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))) {
+      const d = donorMap[donorId] || {};
+      const row = { 'Donor Name': donorNameOf(d), 'Mobile': d.mobile_number || '' };
+      const trios = [];
       for (const a of asns) {
+        trios.push([
+          workerMap[a.fro_worker_id] || 'Unknown',
+          ngoMap[a.ngo_id] || '',
+          a.station || '',
+        ]);
         details.push({
-          'Donor ID': d.id ?? p.donor_id,
           'Donor Name': donorNameOf(d),
           'Mobile': d.mobile_number || '',
-          'City': d.city || '',
-          'NGO': ngoMap[p.ngo_id] || '',
+          'NGO': ngoMap[a.ngo_id] || '',
           'FRO Name': workerMap[a.fro_worker_id] || 'Unknown',
           'Station': a.station || '',
           'Status': a.status || '',
           'Assigned At': a.assigned_at || '',
         });
       }
+      for (let i = 0; i < maxFro; i++) {
+        row[`FRO ${i + 1}`] = trios[i]?.[0] ?? '';
+        row[`NGO ${i + 1}`] = trios[i]?.[1] ?? '';
+        row[`Station ${i + 1}`] = trios[i]?.[2] ?? '';
+      }
+      data.push(row);
     }
 
-    return res.json({ data, details, total: data.length });
+    return res.json({ columns: headerKeys, data, details, total: data.length });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
