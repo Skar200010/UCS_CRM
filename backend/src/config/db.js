@@ -83,8 +83,14 @@ function emitRealtimeRows(table, eventType, rows) {
 // ---------------------------------------------------------------------------
 let fkCache = null;
 const columnCache = {};
+const columnCacheTs = {};
 const pkCache = {};
 const jsonColumnCache = {};
+// Columns can be added by raw SQL migrations applied outside this process
+// (e.g. w1_name..w4_name for the Android Whatsapp data). The '*' expansion in
+// selects reads this cache, so keep it fresh with a short TTL instead of a
+// one-time snapshot that goes stale until a backend restart.
+const COLUMN_TTL_MS = 30000;
 
 // Manually-declared joins for tables that lost their FK constraints during the
 // RDS migration. Keyed by (child_table -> embed rel -> column mapping).
@@ -125,12 +131,15 @@ async function getForeignKeys() {
 }
 
 async function getColumns(table) {
-  if (columnCache[table]) return columnCache[table];
+  const now = Date.now();
+  const stale = !columnCache[table] || columnCacheTs[table] === undefined || now - columnCacheTs[table] > COLUMN_TTL_MS;
+  if (!stale) return columnCache[table];
   const { rows } = await pool.query(
     `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 ORDER BY ordinal_position`,
     [table]
   );
   columnCache[table] = rows.map((r) => r.column_name);
+  columnCacheTs[table] = now;
   return columnCache[table];
 }
 
