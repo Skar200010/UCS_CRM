@@ -74,6 +74,7 @@ import { whatsappLogin } from './controllers/froWhatsAppAuthController.js';
 import { authenticate } from './middleware/authMiddleware.js';
 import { ensureEventHeadSchema } from './bootstrap/ensureEventHeadSchema.js';
 import { ensureTicketSchema } from './bootstrap/ensureTicketSchema.js';
+import { ensureLoanDeductionSchema } from './bootstrap/ensureLoanDeductionSchema.js';
 
 dotenv.config();
 
@@ -772,6 +773,7 @@ if (!process.env.VERCEL) {
     checkLeavesTable();
     await ensureEventHeadSchema().catch(e => console.error('ensureEventHeadSchema failed:', e?.message || e));
     await ensureTicketSchema().catch(e => console.error('ensureTicketSchema failed:', e?.message || e));
+    await ensureLoanDeductionSchema().catch(e => console.error('ensureLoanDeductionSchema failed:', e?.message || e));
     import('./services/notificationScheduler.js');
   });
   const { initRealtime } = await import('./socket.js');

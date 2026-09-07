@@ -19,7 +19,7 @@ export function useHR() {
     generateAllTargets, fetchCurrentMonthTargets,
     setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchMonthlyIncentiveSummary,
     fetchWorkerAllocations, setWorkerAllocations, fetchWorkerSalaryAllocations,
-    fetchLoans, fetchPendingLoans, decideLoan, fetchWorkerLoans, fetchWorkerActiveLoans,
+    fetchLoans, fetchPendingLoans, decideLoan, fetchWorkerLoans, fetchWorkerActiveLoans, settleLoans,
     fetchPendingTickets, fetchAllTickets, fetchTicketCount, verifyTicket, rejectTicket,
     generateQR, fetchQRCodes, removeQRCode,
     fetchSettings, updateSettings,
@@ -170,6 +170,7 @@ export const fetchPendingLoans = () => apiGet('/loans/pending');
 export const decideLoan = (id, status, monthly_deduction, hr_remark) => apiPut('/loans/' + id + '/decide', { status: status === 'approved' ? 'approved' : 'rejected', monthly_deduction, hr_remark });
 export const fetchWorkerLoans = (workerId) => apiGet('/loans/worker/' + workerId);
 export const fetchWorkerActiveLoans = (workerId) => apiGet('/loans/worker/' + workerId + '/active');
+export const settleLoans = (year, month, workerId) => apiPost('/loans/settle', { year, month, worker_id: workerId });
 export const fetchPendingTickets = () => apiGet('/attendance-corrections/pending');
 export const fetchAllTickets = () => apiGet('/attendance-corrections/all');
 export const fetchTicketCount = () => apiGet('/attendance-corrections/pending-count');
