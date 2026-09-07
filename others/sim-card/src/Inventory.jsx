@@ -41,7 +41,7 @@ const NOKIA_COLUMNS = [
   { key: 'use_for', label: 'USE FOR' },
   { key: 'team_leader_name', label: 'TEAM LEADER Name' },
   { key: 'user_name', label: 'USER NAME' },
-  { key: 'team', label: 'Team' },
+  { key: 'team', label: 'Owner' },
   { key: 'remark', label: 'Remark' },
   { key: 'issue_date', label: 'Sim Card Issue Date' },
   { key: 'expiry_date', label: 'Auto Expiry Date' },
