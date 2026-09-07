@@ -306,7 +306,17 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
                           return <td key={col.key} className="num">{c.replacement_count || 0}</td>;
                         default:
                           const hl = simName === 'Android Whatsapp' && numTypeOf(v) === 'POSTPAID' ? ' postpaid-hl' : '';
-                          return <td key={col.key} className={hl}>{v || '—'}</td>;
+                          let cellVal = v;
+                          if (simName === 'Android Whatsapp' && waName !== 'All') {
+                            const slotMatch = col.key.match(/^sim_(\d)$/);
+                            const nameMatch = col.key.match(/^w(\d)_name$/);
+                            const n = slotMatch ? slotMatch[1] : nameMatch ? nameMatch[1] : null;
+                            if (n) {
+                              const ngo = slotMatch ? String(c[`w${n}_name`] || '').trim().toUpperCase() : String(v || '').trim().toUpperCase();
+                              if (ngo !== waName) cellVal = null;
+                            }
+                          }
+                          return <td key={col.key} className={hl}>{cellVal || '—'}</td>;
                       }
                     })}
                       {simName === 'Android' && <td>{c.gb || '—'}</td>}
