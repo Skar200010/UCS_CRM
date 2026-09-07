@@ -50,7 +50,7 @@ async function getFroWorkersByNgo(ngoId) {
 }
 
 async function getUserNgoIds(user) {
-  const access = await getUserNgoAccess(user.id);
+  const access = await getUserNgoAccess(user.id, user.role);
   const ids = access.map(a => a.ngo_id).filter(Boolean);
   if (ids.length > 0) return ids;
   if (user.ngo_id) return [user.ngo_id];
@@ -85,7 +85,7 @@ export const getDonors = async (req, res) => {
     const page = Math.max(1, parseInt(pageStr) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(page_size) || 50));
     const offset = (page - 1) * limit;
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -362,7 +362,7 @@ export const getDonorDetail = async (req, res) => {
 
 export const getAccessibleNgos = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const seen = new Set();
     const ngos = access.map(a => ({ id: a.ngo_id, name: a.ngo_name })).filter(n => {
       if (!n.id || seen.has(n.id)) return false;
@@ -647,7 +647,7 @@ export const getDashboard = async (req, res) => {
       const cached = cacheGet(dashCacheKey, 60000);
       if (cached) return res.json(cached);
     }
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -939,7 +939,7 @@ export const getDashboard = async (req, res) => {
 
 export const getFroWiseCollection = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -996,7 +996,7 @@ export const getFroWiseCollection = async (req, res) => {
 
 export const getFroPerformance = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     let ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -1305,7 +1305,7 @@ export const getStations = async (req, res) => {
     if (ngo_id) {
       targetNgoIds = [ngo_id];
     } else {
-      const access = await getUserNgoAccess(req.user.id);
+      const access = await getUserNgoAccess(req.user.id, req.user.role);
       targetNgoIds = access.map(a => a.ngo_id).filter(Boolean);
       if (targetNgoIds.length === 0 && req.user.ngo_id) {
         targetNgoIds.push(req.user.ngo_id);
@@ -1348,7 +1348,7 @@ export const getStations = async (req, res) => {
       const { data: ngo } = await db.from('ngos').select('name').eq('id', ngo_id).single();
       if (ngo) ngoIdToName[ngo_id] = ngo.name;
     } else {
-      const access = await getUserNgoAccess(req.user.id);
+      const access = await getUserNgoAccess(req.user.id, req.user.role);
       for (const a of access) {
         ngoIdToName[a.ngo_id] = a.ngo_name;
       }
@@ -1429,7 +1429,7 @@ export const saveStationAssignment = async (req, res) => {
     }
 
     const trimmedStation = station.trim();
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -1587,7 +1587,7 @@ export const reassignStationFro = async (req, res) => {
       return res.status(400).json({ message: 'fro_worker_id is required' });
     }
 
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
     const ngoId = ngoIds[0] || req.user.ngo_id;
     if (!ngoId) return res.status(400).json({ message: 'No NGO assigned' });
@@ -1623,7 +1623,7 @@ export const getStationStats = async (req, res) => {
       const cached = cacheGet(stationCacheKey, 60000);
       if (cached) return res.json(cached);
     }
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -1689,7 +1689,7 @@ export const getDonorsByStation = async (req, res) => {
       return res.status(400).json({ message: 'station query param is required' });
     }
 
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
     if (ngoIds.length === 0 && req.user.ngo_id) {
@@ -1741,7 +1741,7 @@ export const getDonorsByFro = async (req, res) => {
     if (!fro_worker_id) {
       return res.status(400).json({ message: 'fro_worker_id query param is required' });
     }
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
     if (ngoIds.length === 0 && req.user.ngo_id) ngoIds.push(req.user.ngo_id);
     if (ngoIds.length === 0) return res.json([]);
@@ -1841,7 +1841,7 @@ export const getDonorsByFro = async (req, res) => {
 
 export const getNewData = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     let ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     let ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -1991,7 +1991,7 @@ export const distributeNewData = async (req, res) => {
   try {
     const { stations: selectedStations, ngo_id: filterNgoId, category } = req.body;
     const normalizedCategory = category ? String(category).trim() : '';
-    let access = await getUserNgoAccess(req.user.id);
+    let access = await getUserNgoAccess(req.user.id, req.user.role);
     let ngoEntries = access.map(a => ({ ngoId: a.ngo_id, ngoName: a.ngo_name })).filter(e => e.ngoId);
     if (ngoEntries.length === 0 && req.user.ngo_id) {
       const { data: ngo } = await db.from('ngos').select('name').eq('id', req.user.ngo_id).single();
@@ -2258,7 +2258,7 @@ export const distributeNewData = async (req, res) => {
 
 export const cleanupNewData = async (req, res) => {
   try {
-    let access = await getUserNgoAccess(req.user.id);
+    let access = await getUserNgoAccess(req.user.id, req.user.role);
     let ngoEntries = access.map(a => ({ ngoId: a.ngo_id, ngoName: a.ngo_name })).filter(e => e.ngoId);
     if (ngoEntries.length === 0 && req.user.ngo_id) {
       const { data: ngo } = await db.from('ngos').select('name').eq('id', req.user.ngo_id).single();
@@ -2330,7 +2330,7 @@ export const cleanupNewData = async (req, res) => {
 
 export const resetFreshData = async (req, res) => {
   try {
-    let access = await getUserNgoAccess(req.user.id);
+    let access = await getUserNgoAccess(req.user.id, req.user.role);
     let ngoEntries = access.map(a => ({ ngoId: a.ngo_id, ngoName: a.ngo_name })).filter(e => e.ngoId);
     if (ngoEntries.length === 0 && req.user.ngo_id) {
       const { data: ngo } = await db.from('ngos').select('name').eq('id', req.user.ngo_id).single();
@@ -3466,7 +3466,7 @@ export const getLeadHistory = async (req, res) => {
 
 export const getDuplicateLeads = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
     if (ngoIds.length === 0 && req.user.ngo_id) {
@@ -3741,7 +3741,7 @@ export const seedStations = async (req, res) => {
       if (!ngo) return res.status(400).json({ message: 'NGO not found' });
       ngoEntries = [{ ngoId: ngo.id, ngoName: ngo.name }];
     } else {
-      const access = await getUserNgoAccess(req.user.id);
+      const access = await getUserNgoAccess(req.user.id, req.user.role);
       ngoEntries = access.map(a => ({ ngoId: a.ngo_id, ngoName: a.ngo_name })).filter(e => e.ngoId);
       if (ngoEntries.length === 0 && req.user.ngo_id) {
         const { data: ngo } = await db.from('ngos').select('name, id').eq('id', req.user.ngo_id).single();
@@ -3777,7 +3777,7 @@ export const seedStations = async (req, res) => {
 export const cleanupOrphanedStations = async (req, res) => {
   try {
     const { ngo_id } = req.body || {};
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const allowedNgoIds = new Set(access.map(a => a.ngo_id).filter(Boolean));
 
     let targetNgoIds;
@@ -3836,7 +3836,7 @@ export const uploadOldData = async (req, res) => {
       return res.status(400).json({ message: 'No data found in file' });
     }
 
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoEntries = access.map(a => ({ ngoId: a.ngo_id, ngoName: a.ngo_name })).filter(e => e.ngoId);
     if (ngoEntries.length === 0 && req.user.ngo_id) {
       const { data: ngo } = await db.from('ngos').select('name, id').eq('id', req.user.ngo_id).single();
@@ -4009,7 +4009,7 @@ export const uploadOldDataForStation = async (req, res) => {
       return res.status(400).json({ message: 'No data rows found after header' });
     }
 
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     let ngoEntries = access.map(a => ({ ngoId: a.ngo_id, ngoName: a.ngo_name })).filter(e => e.ngoId);
     if (ngoEntries.length === 0 && req.user.ngo_id) {
       const { data: ngo } = await db.from('ngos').select('name, id').eq('id', req.user.ngo_id).single();
@@ -4136,7 +4136,7 @@ export const uploadOldDataForStation = async (req, res) => {
 
 export const getDataOverview = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     let ngoEntries = access.map(a => ({ ngoId: a.ngo_id, ngoName: a.ngo_name })).filter(e => e.ngoId);
     if (ngoEntries.length === 0 && req.user.ngo_id) {
       const { data: ngo } = await db.from('ngos').select('id, name').eq('id', req.user.ngo_id).maybeSingle();
@@ -4264,7 +4264,7 @@ export const getTLDashboard = async (req, res) => {
       const cached = cacheGet(tlCacheKey, 15000);
       if (cached) return res.json(cached);
     }
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -4624,7 +4624,7 @@ export const getTLDashboard = async (req, res) => {
 // Donation Funnel
 export const getDonationFunnel = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -4680,7 +4680,7 @@ export const getDonationFunnel = async (req, res) => {
 // Hourly Performance
 export const getHourlyPerformance = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -4743,7 +4743,7 @@ export const getHourlyPerformance = async (req, res) => {
 // Follow-ups
 export const getFollowups = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -4958,7 +4958,7 @@ export const updateFollowupDate = async (req, res) => {
 // Idle Alerts
 export const getIdleAlerts = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
     if (ngoIds.length === 0 && req.user.ngo_id) {
@@ -5007,7 +5007,7 @@ export const getIdleAlerts = async (req, res) => {
 // Top/Bottom Performers
 export const getTopPerformers = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
@@ -5095,7 +5095,7 @@ export const getTopPerformers = async (req, res) => {
 
 export const getBottomPerformers = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
     if (ngoIds.length === 0 && req.user.ngo_id) {
@@ -5166,7 +5166,7 @@ export const getBottomPerformers = async (req, res) => {
 // Assigned Data - Station Performance
 export const getAssignedData = async (req, res) => {
   try {
-    const access = await getUserNgoAccess(req.user.id);
+    const access = await getUserNgoAccess(req.user.id, req.user.role);
     const ngoNames = access.map(a => a.ngo_name).filter(Boolean);
     const ngoIds = access.map(a => a.ngo_id).filter(Boolean);
 
