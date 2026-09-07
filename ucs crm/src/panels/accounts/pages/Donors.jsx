@@ -639,6 +639,7 @@ export default function Donors() {
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState(null)
   const [exporting, setExporting] = useState(false)
+  const [exportingDup, setExportingDup] = useState(false)
   const [ngoFilter, setNgoFilter] = useState('')
   const [ngoOptions, setNgoOptions] = useState([])
   const [restoring, setRestoring] = useState(false)
@@ -713,6 +714,32 @@ export default function Donors() {
     }
   }
 
+  const handleExportDuplicates = async () => {
+    setExportingDup(true)
+    try {
+      const res = await apiGet('/accounts/donors/export-duplicates')
+      const rows = res.data || []
+      if (rows.length === 0) {
+        alert('No same-NGO FRO overlaps found.')
+        return
+      }
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.json_to_sheet(rows)
+      XLSX.utils.book_append_sheet(wb, ws, 'Donor-NGO Overlaps')
+      const details = res.details || []
+      if (details.length > 0) {
+        const wsD = XLSX.utils.json_to_sheet(details)
+        XLSX.utils.book_append_sheet(wb, wsD, 'Assignment Detail')
+      }
+      XLSX.writeFile(wb, `fro_overlaps_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    } catch (err) {
+      console.error('Overlap export error:', err.message)
+      alert('Export failed: ' + err.message)
+    } finally {
+      setExportingDup(false)
+    }
+  }
+
   const handleRestoreWrong = async () => {
     if (!window.confirm('This will remove donors who were manually assigned to FROs they don\'t belong to (no station). Continue?')) return
     setRestoring(true)
@@ -775,6 +802,10 @@ export default function Donors() {
             <button className="btn" onClick={handleExport} disabled={exporting} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               {exporting ? 'Exporting...' : 'Export Excel'}
+            </button>
+            <button className="btn" onClick={handleExportDuplicates} disabled={exportingDup} title="Donors assigned to 2 or more different FROs within the same NGO" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: exportingDup ? '#e5e7eb' : '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              {exportingDup ? 'Exporting...' : 'Export FRO Overlaps'}
             </button>
             <button className="btn" onClick={handleRestoreWrong} disabled={restoring} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0, background: restoring ? '#e5e7eb' : '#fef3c7', color: '#92400e', border: '1px solid #f59e0b' }}>
               {restoring ? 'Restoring...' : 'Restore Wrong Assignments'}
