@@ -275,6 +275,7 @@ export default function Reports() {
   const grandTotal = rows.reduce((s, r) => s + r.total, 0);
   const grandSourceTotal = rows.reduce((s, r) => s + (r.sourceTotal || 0), 0);
   const grandReceiptCount = rows.reduce((s, r) => s + (r.receiptCount || 0), 0);
+  const grandDiff = grandTotal - rows.reduce((s, r) => s + (r.monthlyTarget > 0 ? r.monthlyTarget : 0), 0);
 
   // Agent / Team collection (from /report-agent-team)
   const atcAgents = atc?.agents || [];
@@ -293,6 +294,7 @@ export default function Reports() {
       r.sourceTotal || 0, r.monthlyTarget, round2((r.total || 0) - (r.monthlyTarget || 0)),
     ]);
     const all = [header, ...body];
+    all.push([], ['Total', grandReceiptCount, grandTotal, '', grandTotal, rows.reduce((s, r) => s + (r.monthlyTarget > 0 ? r.monthlyTarget : 0), 0), round2(grandDiff)]);
     if (atc) {
       all.push([], ['Agent-wise Collection', ...atcSlugs.map(s => atcLabel[s] || s), 'Total', 'Receipts']);
       atcAgents.forEach(a => all.push([a.name, ...atcSlugs.map(s => a.byNgo?.[s] || 0), a.total, a.count]));
@@ -524,7 +526,7 @@ export default function Reports() {
                     <td style={{ padding: '9px 12px' }}>{mask(grandReceiptCount.toLocaleString('en-IN'))}</td>
                     <td style={{ padding: '9px 12px' }}>{mask(currency(rows.reduce((s, r) => s + r.monthlyTarget, 0)))}</td>
                     <td style={{ padding: '9px 12px' }}>{mask(currency(grandTotal))}</td>
-                    <td style={{ padding: '9px 12px' }}></td>
+                    <td style={{ padding: '9px 12px', color: grandDiff >= 0 ? '#1B7A3D' : '#B3392B' }}>{mask((grandDiff >= 0 ? '+' : '') + currency(grandDiff))}</td>
                   </tr>
                 </tbody>
               </table>
