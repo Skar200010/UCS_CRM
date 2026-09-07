@@ -22,6 +22,7 @@ export default function CreateEvent() {
   const [checklist, setChecklist] = useState(CHECKLIST_ITEMS.map(label => ({ label, status: false, notes: '' })))
   const [bannerUploading, setBannerUploading] = useState(false)
   const [bannerError, setBannerError] = useState('')
+  const [bannerType, setBannerType] = useState('banner')
   const [addingSector, setAddingSector] = useState(false)
   const [newSectorName, setNewSectorName] = useState('')
   const [sectorSaving, setSectorSaving] = useState(false)
@@ -195,6 +196,7 @@ export default function CreateEvent() {
     if (!form.ngo_id) { setError('Please choose an NGO'); setSaving(false); return }
     if (!form.sector_id) { setError('Please choose a Sector'); setSaving(false); return }
     if (!form.date) { setError('Please choose an Event Date — it is required so the event shows on the Calendar'); setSaving(false); return }
+    if (!form.banner) { setError('A Banner or Photo is required — please upload one before creating the event'); setSaving(false); return }
     try {
       const typedActivity = String(form.activityName || '').trim()
       const activity_id = typedActivity ? await resolveActivity() : null
@@ -423,10 +425,28 @@ export default function CreateEvent() {
               <div style={{ fontSize: 12, color: 'var(--eh-ink-soft,#6a6f8f)' }}>Tick items already arranged — they will be saved to this event's checklist when you create it.</div>
             </div>
 
-            {section('Banner (optional)')}
+            {section('Banner *')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+              {['banner', 'photo'].map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setBannerType(t)}
+                  style={{
+                    padding: '6px 14px', borderRadius: 999,
+                    border: `1px solid ${bannerType === t ? 'var(--eh-primary,#2036bd)' : 'var(--eh-line,#e8e6f2)'}`,
+                    background: bannerType === t ? 'var(--eh-primary-soft,#e8ecfb)' : 'var(--eh-surface-2,#fff)',
+                    color: bannerType === t ? 'var(--eh-primary,#2036bd)' : 'var(--eh-ink-soft,#6a6f8f)',
+                    fontSize: 12.5, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize'
+                  }}
+                >
+                  {t === 'banner' ? '🏞 Banner' : '📷 Photo'}
+                </button>
+              ))}
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <button type="button" className="eh-btn" disabled={bannerUploading} onClick={() => bannerFileRef.current?.click()} onPaste={onBannerPaste} style={{ position: 'relative' }}>
-                {bannerUploading ? 'Uploading…' : form.banner ? 'Change Banner' : 'Upload banner image'}
+                {bannerUploading ? 'Uploading…' : form.banner ? `Change ${bannerType}` : `Upload ${bannerType} image`}
               </button>
               <input ref={bannerFileRef} type="file" hidden accept="image/*" onChange={e => uploadBanner(e.target.files[0] || null)} />
               {form.banner && (
@@ -439,12 +459,12 @@ export default function CreateEvent() {
                   Remove
                 </button>
               )}
-              <span style={{ fontSize: 12, color: 'var(--eh-ink-soft, #6b7280)' }}>Optional — add an event banner, or paste an image (Ctrl+V).</span>
+              <span style={{ fontSize: 12, color: 'var(--eh-ink-soft, #6b7280)' }}>Required — upload a Banner or a Photo (or paste with Ctrl+V).</span>
             </div>
             {bannerError && <div style={{ marginTop: 8, fontSize: 12.5, color: '#b91c1c' }}>{bannerError}</div>}
             {form.banner && (
               <div style={{ position: 'relative', marginTop: 10, padding: 8, border: '1px solid var(--line)', borderRadius: 12, background: 'var(--card-bg)' }}>
-                <img src={form.banner} alt="banner preview" style={{ maxHeight: 160, width: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }} onError={e => { e.currentTarget.style.display = 'none' }} />
+                <img src={form.banner} alt={`${bannerType} preview`} style={{ width: '100%', maxHeight: 260, objectFit: 'contain', objectPosition: 'center top', borderRadius: 8, display: 'block', background: 'var(--eh-surface-1,#f6f7f9)' }} onError={e => { e.currentTarget.style.display = 'none' }} />
               </div>
             )}
 
