@@ -8,8 +8,13 @@ import { toast } from './Toast';
 const STATUS_FILTERS = ['All', 'Active', 'Expiring Soon', 'Expired', 'Replaced', 'Inactive'];
 const EXPIRY_FILTERS = ['All', 'Expired', 'Within 5 Days', 'Within 28 Days', 'More than 28 Days'];
 const SIM_NAME_FILTERS = ['Android', 'Nokia', 'Android Whatsapp'];
+const WHATSAPP_NAME_FILTERS = ['All', 'BSCT', 'MANN', 'AFLF'];
 const OWNER_UFS = ['UFS 1', 'UFS 2', 'UFS 3', 'UFS 4', 'UFS 5', 'Locker'];
 const normOwner = (v) => String(v || '').toLowerCase().replace(/\s+/g, '');
+const POSTPAID_SIMS = ['7039006200','7039006300','7039006400','7738901891','8828720806','8879034034','8879035035','8879136654','8879136934','8879136938','9820641314','9820644749','9820645607','9820646225','9820648405','9892268000','9892990029','9920893993','9930028200','9930028300','9930028400','9930064928','9930084397','9930852952','9967699295','9987344338'];
+const PREPAID_SIMS = ['9321452580'];
+const numTypeOf = (v) => { const n = String(v || '').trim(); if (POSTPAID_SIMS.includes(n)) return 'POSTPAID'; if (PREPAID_SIMS.includes(n)) return 'PREPAID'; return null; };
+const rowSimType = (c) => { for (let i = 1; i <= 20; i++) { const t = numTypeOf(c[`sim_${i}`]); if (t) return t; } return null; };
 const SORTABLE = ['mobile_id', 'calling_mobile', 'device_model', 'imei', 'status', 'use_for', 'team_leader_name', 'user_name', 'team', 'signature', 'remark', 'issue_date', 'expiry_date', 'days_left', 'sim_1', 'sim_2', 'replacement_count'];
 
 const COLUMNS = [
@@ -48,13 +53,13 @@ const NOKIA_COLUMNS = [
 
 const WHATSAPP_COLUMNS = [
   { key: 'mobile_id', label: 'Android No.' },
-  { key: 'w1_name', label: 'W1 Name' },
+  { key: 'w1_name', label: 'NGO' },
   { key: 'sim_1', label: 'W1 Number' },
-  { key: 'w2_name', label: 'W2 Name' },
+  { key: 'w2_name', label: 'NGO' },
   { key: 'sim_2', label: 'W2 Number' },
-  { key: 'w3_name', label: 'W3 Name' },
+  { key: 'w3_name', label: 'NGO' },
   { key: 'sim_3', label: 'W3 Number' },
-  { key: 'w4_name', label: 'W4 Name' },
+  { key: 'w4_name', label: 'NGO' },
   { key: 'sim_4', label: 'W4 Number' },
 ];
 
@@ -68,6 +73,7 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
   const [simType, setSimType] = useState('All');
   const [device, setDevice] = useState('All');
   const [simName, setSimName] = useState('All');
+  const [waName, setWaName] = useState('All');
   const [expiry, setExpiry] = useState('All');
   const [sortKey, setSortKey] = useState('mobile_id');
   const [sortDir, setSortDir] = useState('asc');
@@ -84,28 +90,43 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
   const remarks = useMemo(() => [...new Set(enriched.map(remarkOf).filter(Boolean))].sort(), [enriched, simName]);
   const nokiaStatuses = useMemo(() => [...new Set(enriched.filter((c) => (c.mobile_id || '').toLowerCase().startsWith('ufrs')).map((c) => c.status).filter(Boolean))].sort(), [enriched]);
 
-  useEffect(() => { setPage(1); }, [search, status, owner, remark, team, device, simName, expiry]);
+  useEffect(() => { setPage(1); }, [search, status, owner, remark, team, device, simName, waName, expiry]);
 
   const filtered = useMemo(() => {
     let list = enriched;
     if (search.trim()) {
       const s = search.trim().toLowerCase();
-      list = list.filter((c) =>
-        (c.mobile_id || '').toLowerCase().includes(s) ||
-        (c.device_model || '').toLowerCase().includes(s) ||
-        (c.imei || '').toLowerCase().includes(s)
-      );
+      list = list.filter((c) => {
+        const simHit = Array.from({ length: 20 }, (_, i) => c[`sim_${i + 1}`]).some((v) => String(v || '').trim().toLowerCase().includes(s));
+        return (c.mobile_id || '').toLowerCase().includes(s) ||
+          (c.device_model || '').toLowerCase().includes(s) ||
+          (c.imei || '').toLowerCase().includes(s) ||
+          simHit;
+      });
     }
     if (status !== 'All') list = list.filter((c) => (simName === 'Nokia' ? c.status : c._status) === status);
     if (owner !== 'All') list = list.filter((c) => normOwner(c.team) === normOwner(owner));
     if (remark !== 'All') list = list.filter((c) => remarkOf(c) === remark);
     if (team !== 'All') list = list.filter((c) => c.team === team);
-    if (simType !== 'All') list = list.filter((c) => (c.sim_type || '').toLowerCase() === simType.toLowerCase());
+    if (simType !== 'All') list = list.filter((c) => {
+      const t = (c.sim_type || '').trim() || rowSimType(c) || '';
+      return t.toLowerCase() === simType.toLowerCase();
+    });
     if (device !== 'All') list = list.filter((c) => c.device_model === device);
     if (simName === 'Nokia') {
       list = list.filter((c) => (c.mobile_id || '').toLowerCase().startsWith('ufrs'));
+    } else if (simName === 'Android') {
+      list = list.filter((c) => {
+        const id = (c.mobile_id || '').toLowerCase();
+        return id.startsWith('android ') && !id.startsWith('android whatsapp');
+      });
     } else if (simName !== 'All') {
       list = list.filter((c) => (c.mobile_id || '').toLowerCase().startsWith(simName.toLowerCase()));
+    }
+    if (simName === 'Android Whatsapp' && waName !== 'All') {
+      list = list.filter((c) =>
+        [c.w1_name, c.w2_name, c.w3_name, c.w4_name].some((n) => String(n || '').trim().toUpperCase() === waName)
+      );
     }
     if (expiry !== 'All') {
       list = list.filter((c) => {
@@ -136,7 +157,7 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
       });
     }
     return list;
-  }, [enriched, search, status, owner, remark, team, simType, device, simName, expiry, sortKey, sortDir]);
+  }, [enriched, search, status, owner, remark, team, simType, device, simName, waName, expiry, sortKey, sortDir]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / perPage));
   const safePage = Math.min(page, pageCount);
@@ -158,7 +179,7 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
       const n = { ...selected }; pageRows.forEach((r) => { n[r.id] = true; }); setSelected(n);
     }
   };
-  const clearFilters = () => { setSearch(''); setStatus('All'); setOwner('All'); setRemark('All'); setTeam('All'); setSimType('All'); setDevice('All'); setSimName('All'); setExpiry('All'); setPage(1); };
+  const clearFilters = () => { setSearch(''); setStatus('All'); setOwner('All'); setRemark('All'); setTeam('All'); setSimType('All'); setDevice('All'); setSimName('All'); setWaName('All'); setExpiry('All'); setPage(1); };
 
   async function doBulkChange(statusVal) {
     const ids = Object.keys(selected).filter((k) => selected[k]);
@@ -192,6 +213,11 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
           <span style={{ position: 'absolute', left: 10, color: 'var(--sim-ink-soft)', display: 'flex' }}><Icon name="search" size={15} /></span>
           <input className="sim-input search-input" placeholder="Search Mobile ID, Device, IMEI..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ paddingLeft: 32 }} />
         </div>
+        {simName === 'Android Whatsapp' && (
+          <select className="sim-select" value={waName} onChange={(e) => setWaName(e.target.value)}>
+            {WHATSAPP_NAME_FILTERS.map((w) => <option key={w} value={w}>{w}</option>)}
+          </select>
+        )}
         <select className="sim-select" value={status} onChange={(e) => setStatus(e.target.value)}>
           {(simName === 'Nokia' ? ['All', ...nokiaStatuses] : STATUS_FILTERS).map((s) => <option key={s}>{s}</option>)}
         </select>
@@ -279,7 +305,8 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
                         case 'replacement_count':
                           return <td key={col.key} className="num">{c.replacement_count || 0}</td>;
                         default:
-                          return <td key={col.key}>{v || '—'}</td>;
+                          const hl = simName === 'Android Whatsapp' && numTypeOf(v) === 'POSTPAID' ? ' postpaid-hl' : '';
+                          return <td key={col.key} className={hl}>{v || '—'}</td>;
                       }
                     })}
                       {simName === 'Android' && <td>{c.gb || '—'}</td>}
