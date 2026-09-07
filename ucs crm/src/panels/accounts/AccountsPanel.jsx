@@ -71,15 +71,9 @@ const SIM_NAV = [
   { id: 'sim-inventory', path: '/accounts/sim/inventory', label: 'All SIM Cards',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>,
     match: (p) => p === '/accounts/sim/inventory' },
-  { id: 'sim-cards', path: '/accounts/sim/cards', label: 'SIM Inventory',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>,
-    match: (p) => p === '/accounts/sim/cards' },
-  { id: 'sim-expiring', path: '/accounts/sim/expiring', label: 'Expiring SIMs',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-    match: (p) => p.startsWith('/accounts/sim/expiring') },
-  { id: 'sim-reports', path: '/accounts/sim/reports', label: 'SIM Reports',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
-    match: (p) => p === '/accounts/sim/reports' },
+  { id: 'sim-owner', path: '/accounts/sim/owner', label: 'All SIM Owner',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+    match: (p) => p === '/accounts/sim/owner' },
 ]
 
 const settingsViews = [

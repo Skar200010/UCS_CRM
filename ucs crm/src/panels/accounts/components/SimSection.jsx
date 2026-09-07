@@ -11,6 +11,10 @@ import Inventory from '../sim/Inventory'
 import SimInventory from '../sim/SimInventory'
 import Expiring from '../sim/Expiring'
 import Reports from '../sim/Reports'
+import MobileId from '../sim/MobileId'
+import Owner from '../sim/Owner'
+import Settings from '../sim/Settings'
+import ImportExport from '../sim/ImportExport'
 import '../sim/simScope.css'
 
 const PAGE_META = {
@@ -19,6 +23,10 @@ const PAGE_META = {
   cards: ['SIM Management', 'SIM Inventory', 'Track physical SIM stock, availability and assignment.'],
   expiring: ['SIM Management', 'Expiring SIMs', 'SIMs nearing or past their auto-expiry date.'],
   reports: ['SIM Management', 'SIM Reports', 'Expiry and inventory analytics.'],
+  mobileid: ['SIM Management', 'Mobile IDs', 'Manage mobile device IDs and their assigned SIM cards.'],
+  owner: ['SIM Management', 'SIM Owners', 'View billing accounts and SIM ownership details.'],
+  settings: ['SIM Management', 'Settings', 'Configure SIM expiry reminders and panel defaults.'],
+  importexport: ['SIM Management', 'Import / Export', 'Import SIM cards from Excel or export data.'],
 }
 
 function SectionInner() {
@@ -77,6 +85,10 @@ function SectionInner() {
         <Route path="cards" element={<SimInventory />} />
         <Route path="expiring" element={<Expiring onView={setViewCard} onEdit={openEdit} onReplace={setReplaceCard} />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="mobileid" element={<MobileId />} />
+        <Route path="owner" element={<Owner />} />
+        <Route path="settings" element={<Settings />} />
+        <Route path="importexport" element={<ImportExport />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
 
