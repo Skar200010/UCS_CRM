@@ -44,23 +44,188 @@ function Donut({ segments, total }) {
   );
 }
 
-export default function Dashboard({ onAdd, onView, onEdit, onReplace, base = '/accounts/sim' }) {
+function MobileSummaryModal({ open, mobileType, cardType, records, onClose }) {
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+
+  const SIM_FIELDS = Array.from({ length: 20 }, (_, i) => `sim_${i + 1}`);
+  function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim() && !['NA', 'NO SIM', 'NOT SHOW NO'].includes(String(c[f]).trim().toUpperCase())).length; }
+
+  if (!open) return null;
+
+  const isTotal = cardType === 'total';
+  const totalCount = isTotal ? records.reduce((sum, c) => sum + countSims(c), 0) : records.length;
+  const teamMap = {};
+  if (isTotal) {
+    records.forEach((c) => { const t = c.team || 'Unassigned'; if (mobileType === 'Nokia' && t === 'HR') return; teamMap[t] = (teamMap[t] || 0) + countSims(c); });
+  } else {
+    records.forEach((c) => { const t = c.team || 'Unassigned'; if (mobileType === 'Nokia' && t === 'HR') return; teamMap[t] = (teamMap[t] || 0) + 1; });
+  }
+  const teamRows = Object.entries(teamMap).sort((a, b) => b[1] - a[1]);
+
+  const cardMeta = {
+    total: { title: `${mobileType} Mobile Summary`, sub: `${totalCount} ${mobileType} SIMs`, label: 'All SIM Cards', sublabel: 'All registered SIMs' },
+    active: { title: `${mobileType} \u2014 Active SIM Cards`, sub: `Currently active ${mobileType.toLowerCase()} records`, label: 'Active SIM Cards', sublabel: 'Currently active' },
+    expiring: { title: `${mobileType} \u2014 Expiring Soon`, sub: `Expiring within 28 days`, label: 'Expiring Soon', sublabel: 'Within 28 days' },
+    expired: { title: `${mobileType} \u2014 Expired SIM Cards`, sub: `Past expiry date`, label: 'Expired SIM Cards', sublabel: 'Past expiry date' },
+    inactive: { title: `${mobileType} \u2014 Inactive`, sub: `No longer in use`, label: 'Inactive', sublabel: 'No longer in use' },
+  };
+  const meta = cardMeta[cardType] || cardMeta.total;
+
+  const filtered = isTotal ? records : records.filter((c) => {
+    if (cardType === 'active') return c._status === 'Active' || c._status === 'Expiring Soon';
+    if (cardType === 'expiring') return c._status === 'Expiring Soon';
+    if (cardType === 'expired') return c._status === 'Expired';
+    if (cardType === 'inactive') return (c.status || 'Active') === 'Inactive';
+    return true;
+  });
+
+  return (
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" ref={modalRef} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div>
+            <h3>{meta.title}</h3>
+            <span style={{ fontSize: 12, color: 'var(--sim-ink-soft)' }}>{meta.sub}</span>
+          </div>
+          <button className="modal-x" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          {isTotal ? (
+            <>
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sim-ink-soft)', marginBottom: 2 }}>{meta.label}</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--sim-ink)', lineHeight: 1.1 }}>{totalCount}</div>
+                <div style={{ fontSize: 11, color: 'var(--sim-ink-soft)' }}>{meta.sublabel}</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sim-ink-soft)' }}>Total:</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--sim-ink)' }}>{totalCount}</div>
+              </div>
+              {totalCount === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: 'var(--sim-ink-soft)', fontSize: 13 }}>No records found.</div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="dash-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th>Mobile ID</th>
+                        <th>Device</th>
+                        <th>Team</th>
+                        <th>SIM 1</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((c) => (
+                        <tr key={c.id}>
+                          <td style={{ fontWeight: 600 }}>{c.mobile_id}</td>
+                          <td>{c.device || '\u2014'}</td>
+                          <td>{c.team || '\u2014'}</td>
+                          <td>{c.sim_1 || '\u2014'}</td>
+                          <td><span className={`pill ${pillForStatus(c._status)}`}>{c._status}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UfsDistributionModal({ open, category, records, onClose }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+
+  if (!open || !category) return null;
+
+  const SIM_FIELDS = Array.from({ length: 20 }, (_, i) => `sim_${i + 1}`);
+  function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim() && !['NA', 'NO SIM', 'NOT SHOW NO'].includes(String(c[f]).trim().toUpperCase())).length; }
+
+  const ngoMap = {};
+  records.forEach((c) => {
+    if ((c.team || '').trim().toUpperCase() !== category.toUpperCase()) return;
+    const ngo = (c.ngo || '').trim() || 'Unassigned';
+    ngoMap[ngo] = (ngoMap[ngo] || 0) + countSims(c);
+  });
+  const ngoRows = Object.entries(ngoMap).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" ref={ref} onClick={(e) => e.stopPropagation()} style={{ background: '#ffffff' }}>
+        <div className="modal-head">
+          <div>
+            <h3>{category}</h3>
+            <span style={{ fontSize: 12, color: 'var(--sim-ink-soft)' }}>SIM Distribution by NGO</span>
+          </div>
+          <button className="modal-x" onClick={onClose}>&times;</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14 }}>
+            {ngoRows.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--sim-ink-soft)' }}>No SIMs found for {category}.</div>
+            ) : (
+              ngoRows.map(([ngo, count]) => (
+                <div key={ngo} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '18px 16px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--sim-ink)', marginBottom: 6 }}>{ngo}</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: '#2563eb', lineHeight: 1 }}>{count}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
   const { cards, loading, inventory, refreshInventory } = useSim();
   const [activity, setActivity] = useState([]);
+  const [modal, setModal] = useState(null);
+  const [ufsModal, setUfsModal] = useState(null);
+  const [androidUfsModal, setAndroidUfsModal] = useState(null);
+  const [expiryAlertDismissed, setExpiryAlertDismissed] = useState(false);
+
+  const SIM_FIELDS = Array.from({ length: 20 }, (_, i) => `sim_${i + 1}`);
+  function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim() && !['NA', 'NO SIM', 'NOT SHOW NO'].includes(String(c[f]).trim().toUpperCase())).length; }
 
   const data = useMemo(() => {
-    const enriched = cards.map((c) => ({ ...c, _status: effectiveStatus(c) }));
-    const total = enriched.length;
-    const active = enriched.filter((c) => c._status === 'Active').length;
-    const expiring = enriched.filter((c) => c._status === 'Expiring Soon').length;
-    const expired = enriched.filter((c) => c._status === 'Expired').length;
-    const replaced = enriched.filter((c) => c._status === 'Replaced').length;
-    const inactive = enriched.filter((c) => c._status === 'Inactive').length + replaced;
+    const enriched = cards
+      .filter((c) => !(c.mobile_id || '').toLowerCase().startsWith('android whatsapp'))
+      .map((c) => ({ ...c, _status: effectiveStatus(c) }));
+    const total = enriched.reduce((sum, c) => sum + countSims(c), 0);
+    const active = enriched.filter((c) => c._status === 'Active').reduce((sum, c) => sum + countSims(c), 0) + enriched.filter((c) => c._status === 'Expiring Soon').reduce((sum, c) => sum + countSims(c), 0);
+    const expiring = enriched.filter((c) => c._status === 'Expiring Soon').reduce((sum, c) => sum + countSims(c), 0);
+    const expired = enriched.filter((c) => c._status === 'Expired').reduce((sum, c) => sum + countSims(c), 0);
+    const replaced = enriched.filter((c) => c._status === 'Replaced').reduce((sum, c) => sum + countSims(c), 0);
+    const inactive = enriched.filter((c) => (c.status || 'Active') === 'Inactive').reduce((sum, c) => sum + countSims(c), 0);
+    const noSim = enriched.filter((c) => countSims(c) === 0).length;
 
     const buckets = {
       expired,
-      exp7: enriched.filter((c) => { const d = c.days_left; return c._status === 'Expiring Soon' && d !== null && d <= 7; }).length,
-      exp30: enriched.filter((c) => { const d = c.days_left; return c._status === 'Expiring Soon' && d !== null && d > 7 && d <= 28; }).length,
+      exp7: enriched.filter((c) => { const d = c.days_left; return c._status === 'Expiring Soon' && d !== null && d <= 5; }).length,
+      exp30: enriched.filter((c) => { const d = c.days_left; return c._status === 'Expiring Soon' && d !== null && d > 5 && d <= 28; }).length,
       ok30: enriched.filter((c) => { const d = c.days_left; return d !== null && d > 28; }).length,
     };
 
@@ -69,7 +234,7 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace, base = '/a
       .sort((a, b) => (a.days_left ?? 9999) - (b.days_left ?? 9999))
       .slice(0, 8);
 
-    return { enriched, total, active, expiring, expired, replaced, inactive, buckets, urgent };
+    return { enriched, total, noSim, active, expiring, expired, replaced, inactive, buckets, urgent };
   }, [cards]);
 
   const inv = useMemo(() => {
@@ -87,8 +252,8 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace, base = '/a
     detail: [
       r.old_sim ? `Old: ${r.old_sim}` : '',
       r.new_sim ? `New: ${r.new_sim}` : '',
-    ].filter(Boolean).join(' · '),
-    meta: [r.device, r.mobile_id, formatDate(r.replacement_date)].filter(Boolean).join('  ·  '),
+    ].filter(Boolean).join(' \u00b7 '),
+    meta: [r.device, r.mobile_id, formatDate(r.replacement_date)].filter(Boolean).join('  \u00b7  '),
   })), [activity]);
 
   const notifiedRef = useRef(null);
@@ -108,23 +273,24 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace, base = '/a
     /* eslint-disable-next-line */
   }, []);
 
+  const nokiaCards = data.enriched.filter((c) => (c.mobile_id || '').toLowerCase().startsWith('ufrs'));
+  const androidCards = data.enriched.filter((c) => { const id = (c.mobile_id || '').toLowerCase(); return id.startsWith('android ') && !id.startsWith('android whatsapp'); });
+
   if (loading && cards.length === 0) {
     return <div className="empty-state"><div className="big">Loading SIM data...</div></div>;
   }
 
   const summary = [
-    { label: 'Total Mobile', val: data.total, sub: 'All registered SIMs', icon: 'simcard', ic: { bg: 'var(--sim-blue-soft)', color: 'var(--sim-blue)' }, bar: '#2563eb' },
+    { label: 'All SIM Cards', val: data.total, sub: 'All registered SIMs', icon: 'simcard', ic: { bg: 'var(--sim-blue-soft)', color: 'var(--sim-blue)' }, bar: '#2563eb' },
     { label: 'Active SIM Cards', val: data.active, sub: 'Currently active', icon: 'sim', ic: { bg: '#f0fdf4', color: '#16a34a' }, bar: '#16a34a' },
     { label: 'Expiring Soon', val: data.expiring, sub: 'Within 28 days', icon: 'clock', ic: { bg: 'var(--sim-amber-soft)', color: 'var(--sim-amber)' }, bar: '#d97706' },
-    { label: 'Expired SIM Cards', val: data.expired, sub: 'Past expiry date', icon: 'inventory', ic: { bg: 'var(--sim-red-soft)', color: 'var(--sim-red)' }, bar: '#dc2626' },
-    { label: 'Replaced SIM Cards', val: data.replaced, sub: 'Total replacements', icon: 'replace', ic: { bg: '#f0f9ff', color: '#0284c7' }, bar: '#0284c7' },
+    { label: 'Inactive', val: data.inactive, sub: 'No longer in use', icon: 'mobile', ic: { bg: '#f1f5f9', color: '#64748b' }, bar: '#94a3b8' },
   ];
 
   const statusSegments = [
     { label: 'Active', value: data.active, color: '#16a34a' },
     { label: 'Expiring Soon', value: data.expiring, color: '#d97706' },
     { label: 'Expired', value: data.expired, color: '#dc2626' },
-    { label: 'Inactive', value: data.inactive, color: '#94a3b8' },
   ];
 
   const invItems = [
@@ -137,18 +303,50 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace, base = '/a
   const statusSumAll = statusSegments.reduce((s, x) => s + x.value, 0) || 1;
   const expiryItems = [
     { label: 'Expired', val: data.buckets.expired, color: '#dc2626' },
-    { label: 'Expiring in 7 Days', val: data.buckets.exp7, color: '#d97706' },
-    { label: 'Expiring in 30 Days', val: data.buckets.exp30, color: '#f59e0b' },
-    { label: 'Active for 30+ Days', val: data.buckets.ok30, color: '#16a34a' },
+    { label: 'Expiring in 5 Days', val: data.buckets.exp7, color: '#d97706' },
+    { label: 'Expiring in 28 Days', val: data.buckets.exp30, color: '#f59e0b' },
+    { label: 'Active for 28+ Days', val: data.buckets.ok30, color: '#16a34a' },
   ];
   const expiryMax = Math.max(...expiryItems.map((i) => i.val), 1);
 
   const quickActions = [
-    { label: 'All SIM Cards', path: `${base}/inventory`, icon: 'simcard', color: '#2563eb', bg: '#eff6ff' },
-    { label: 'SIM Inventory', path: `${base}/cards`, icon: 'inventory', color: '#16a34a', bg: '#f0fdf4' },
-    { label: 'Expiring SIMs', path: `${base}/expiring`, icon: 'clock', color: '#d97706', bg: '#fffbeb' },
-    { label: 'SIM Reports', path: `${base}/reports`, icon: 'report', color: '#7c3aed', bg: '#f5f3ff' },
+    { label: 'All SIM Cards', path: '/accounts/sim/inventory', icon: 'simcard', color: '#2563eb', bg: '#eff6ff' },
   ];
+
+  const statusCardMap = {
+    'Active SIM Cards': 'active',
+    'Expiring Soon': 'expiring',
+    'Expired': 'expired',
+    'Inactive': 'inactive',
+  };
+
+  function openModal(deviceType, cardLabel) {
+    const ct = cardLabel === 'All SIM Cards' ? 'total' : (statusCardMap[cardLabel] || 'total');
+    setModal({ deviceType, cardLabel, cardType: ct });
+  }
+
+  function buildSummaryCards(items, deviceType, totalVal) {
+    return items.map((it) => {
+      const cardType = it.key === 'total' ? 'total' : (statusCardMap[it.label] || 'total');
+      return (
+        <div
+          className="dash-kpi compact"
+          key={it.label}
+          onClick={() => openModal(deviceType, it.label)}
+          style={{ cursor: 'pointer' }}
+        >
+          <span className="kpi-accent" style={{ background: it.bar }} />
+          <div className="kpi-top">
+            <div className="kpi-ic" style={it.ic}><Icon name={it.icon} size={18} /></div>
+            <div className="kpi-label">{it.label}</div>
+          </div>
+          <div className="kpi-num">{it.val}</div>
+          <div className="kpi-sub">{it.sub}</div>
+          <div className="kpi-foot"><span style={{ width: `${Math.min(100, totalVal ? (it.val / totalVal) * 100 : 0)}%`, background: it.bar }} /></div>
+        </div>
+      );
+    });
+  }
 
   return (
     <div className="dash">
@@ -161,6 +359,10 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace, base = '/a
           <button className="sim-btn primary" onClick={onAdd}>+ Add SIM Card</button>
         </div>
       )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 10px', padding: '0 2px' }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--sim-ink)' }}>SIM Cards Summary</h3>
+      </div>
 
       <div className="dash-kpi-grid">
         {summary.map((s) => (
@@ -176,6 +378,120 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace, base = '/a
           </div>
         ))}
       </div>
+
+      {!expiryAlertDismissed && (() => {
+        const soon = data.expiring + data.buckets.expired;
+        if (soon <= 0) return null;
+        const urgent = data.urgent || [];
+        return (
+          <div className="dash-banner" style={{ background: 'linear-gradient(135deg, #fffbeb, #fef3c7)', borderColor: '#fcd34d' }}>
+            <div>
+              <div className="b-txt">⚠ {soon} SIM card{soon > 1 ? 's' : ''} expiring soon</div>
+              <div className="b-sub">{urgent.length > 0 ? `Nearest: ${urgent.map((c) => c.mobile_id).join(', ')}` : 'Check the table for details.'}</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button className="sim-btn" style={{ padding: '7px 12px', fontSize: 13 }} onClick={() => setExpiryAlertDismissed(true)}>Dismiss</button>
+            </div>
+          </div>
+        );
+      })()}
+
+      <div className="dash-row">
+        <section className="dash-panel">
+          <div className="panel-head"><h3>Nokia Mobile Summary</h3><span className="ln" style={{ fontSize: 16, fontWeight: 800, color: '#2563eb', background: '#eff6ff', padding: '5px 12px', borderRadius: 6 }}>total {nokiaCards.length}</span></div>
+          {(() => {
+            const teamMap = {};
+            nokiaCards.forEach((c) => { const t = c.team || 'Unassigned'; teamMap[t] = (teamMap[t] || 0) + countSims(c); });
+            const teamRows = Object.entries(teamMap)
+              .filter(([team]) => /^ufs\s*\d+$/i.test((team || '').trim()))
+              .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+              .concat([['Locker', teamMap['Locker'] || 0], ['HR', teamMap['HR'] || 0]]);
+            return (
+              <div style={{ padding: '14px 18px', display: 'flex', flexWrap: 'nowrap', gap: 12, justifyContent: 'space-between' }}>
+                {teamRows.map(([team, count]) => {
+                  const isUfs = /^ufs\s*\d+$/i.test((team || '').trim());
+                  return (
+                    <div
+                      key={team}
+                      onClick={() => { if (isUfs) setUfsModal((team || '').trim().toUpperCase()); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#ffffff', border: `1px solid ${isUfs ? '#dbeafe' : '#e2e8f0'}`, borderRadius: 12, padding: '14px 18px', boxShadow: isUfs ? '0 1px 3px rgba(37,99,235,0.08)' : '0 1px 2px rgba(15,23,42,0.04)', cursor: isUfs ? 'pointer' : 'default', transition: 'box-shadow 0.15s ease, border-color 0.15s ease', flex: '1 1 0' }}
+                      onMouseEnter={(e) => { if (isUfs) e.currentTarget.style.borderColor = '#93c5fd'; }}
+                      onMouseLeave={(e) => { if (isUfs) e.currentTarget.style.borderColor = '#dbeafe'; }}
+                    >
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: '#e0f2fe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, flexShrink: 0 }}>{team[0] || '?'}</div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--sim-ink)', whiteSpace: 'nowrap' }}>{team}</div>
+                        <div style={{ fontSize: 13, color: 'var(--sim-ink-soft)', whiteSpace: 'nowrap' }}>{count} Mobile</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </section>
+      </div>
+
+      <div className="dash-row">
+        <section className="dash-panel">
+          <div className="panel-head"><h3>Android Mobile Summary</h3><span className="ln" style={{ fontSize: 16, fontWeight: 800, color: '#2563eb', background: '#eff6ff', padding: '5px 12px', borderRadius: 6 }}>total {androidCards.length}</span></div>
+          {(() => {
+            const teamMap = {};
+            androidCards.forEach((c) => { const t = c.team || 'Unassigned'; teamMap[t] = (teamMap[t] || 0) + countSims(c); });
+            const order = ['UFS 1', 'UFS 2', 'UFS 3', 'UFS 4', 'UFS 5', 'Locker', 'Accounts', 'Social Media', 'Reception', 'Admin'];
+            const teamRows = order.map((team) => [team, teamMap[team] || 0]);
+            const rows = [teamRows.slice(0, 5), teamRows.slice(5, 10)];
+            return (
+              <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {rows.map((row, ri) => (
+                  <div key={ri} style={{ display: 'flex', flexWrap: 'nowrap', gap: 10, justifyContent: 'space-between' }}>
+                    {row.map(([team, count]) => {
+                      const isUfs = /^ufs\s*\d+$/i.test((team || '').trim());
+                      return (
+                        <div
+                          key={team}
+                          onClick={() => { if (isUfs) setAndroidUfsModal((team || '').trim().toUpperCase()); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#ffffff', border: `1px solid ${isUfs ? '#dbeafe' : '#e2e8f0'}`, borderRadius: 10, padding: '10px', minWidth: 0, boxShadow: isUfs ? '0 1px 3px rgba(37,99,235,0.08)' : '0 1px 2px rgba(15,23,42,0.04)', cursor: isUfs ? 'pointer' : 'default', transition: 'box-shadow 0.15s ease, border-color 0.15s ease', flex: '1 1 0' }}
+                          onMouseEnter={(e) => { if (isUfs) e.currentTarget.style.borderColor = '#93c5fd'; }}
+                          onMouseLeave={(e) => { if (isUfs) e.currentTarget.style.borderColor = '#dbeafe'; }}
+                        >
+                          <div style={{ width: 30, height: 30, borderRadius: 8, background: '#e0f2fe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{team[0] || '?'}</div>
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sim-ink)', whiteSpace: 'nowrap' }}>{team}</div>
+                            <div style={{ fontSize: 11, color: 'var(--sim-ink-soft)', whiteSpace: 'nowrap' }}>{count} Mobile</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </section>
+      </div>
+
+      <MobileSummaryModal
+        open={!!modal}
+        mobileType={modal?.deviceType || 'Nokia'}
+        cardType={modal?.cardType || 'total'}
+        records={modal?.deviceType === 'Nokia' ? nokiaCards : androidCards}
+        onClose={() => setModal(null)}
+      />
+
+      <UfsDistributionModal
+        open={!!ufsModal}
+        category={ufsModal}
+        records={nokiaCards}
+        onClose={() => setUfsModal(null)}
+      />
+
+      <UfsDistributionModal
+        open={!!androidUfsModal}
+        category={androidUfsModal}
+        records={androidCards}
+        onClose={() => setAndroidUfsModal(null)}
+      />
 
       <div className="dash-row">
         <section className="dash-panel">
@@ -193,32 +509,6 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace, base = '/a
               ))}
             </div>
           </div>
-        </section>
-
-        <section className="dash-panel">
-          <div className="panel-head"><h3>SIM Inventory</h3><Link to={`${base}/cards`} className="panel-link">View Inventory →</Link></div>
-          {inv.total === 0 ? (
-            <div className="dash-empty">
-              <div className="big">No SIM Inventory</div>
-              <div className="small">No physical SIM stock yet.</div>
-              <Link to={`${base}/cards`} className="panel-link" style={{ marginTop: 10, display: 'inline-flex' }}>Open SIM Inventory →</Link>
-            </div>
-          ) : (
-            <div className="inv-body">
-              <div className="inv-total">
-                <div className="n">{inv.total}</div>
-                <div className="l">Total SIMs in stock</div>
-              </div>
-              <div className="inv-grid">
-                {invItems.map((it) => (
-                  <div className="inv-item" key={it.label}>
-                    <div className="t"><span className="d" style={{ background: it.color }} />{it.label}</div>
-                    <div className="v">{it.val}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </section>
       </div>
 
@@ -253,7 +543,7 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace, base = '/a
 
       <div className="dash-row">
         <section className="dash-panel">
-          <div className="panel-head"><h3>SIMs Expiring Soon</h3><Link to={`${base}/expiring`} className="panel-link">View all →</Link></div>
+          <div className="panel-head"><h3>SIMs Expiring Soon</h3><Link to="/accounts/sim/expiring" className="panel-link">View all →</Link></div>
           {data.urgent.length === 0 ? (
             <div className="dash-empty">
               <div className="check"><Icon name="check" size={20} /></div>
@@ -270,39 +560,15 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace, base = '/a
                   {data.urgent.map((c) => (
                     <tr key={c.id}>
                       <td style={{ fontWeight: 600 }}>{c.mobile_id}</td>
-                      <td>{c.team || '—'}</td>
+                      <td>{c.team || '\u2014'}</td>
                       <td>{formatDate(c.expiry_date)}</td>
-                      <td className={`days-cell num ${dayClass(c.days_left)}`}>{c.days_left === null || c.days_left === undefined || Number.isNaN(c.days_left) ? '—' : `${c.days_left} days`}</td>
+                      <td className={`days-cell num ${dayClass(c.days_left)}`}>{c.days_left === null || c.days_left === undefined || Number.isNaN(c.days_left) ? '\u2014' : `${c.days_left} days`}</td>
                       <td><span className={`pill ${pillForStatus(c._status)}`}>{c._status}</span></td>
                       <td><button className="mini-btn" onClick={() => onView(c)}>View</button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-        </section>
-
-        <section className="dash-panel">
-          <div className="panel-head"><h3>Recent Activity</h3><span className="ln">SIM replacement history</span></div>
-          {recentActivity.length === 0 ? (
-            <div className="dash-empty">
-              <div className="check" style={{ background: 'var(--sim-gray-soft)', color: 'var(--sim-gray)' }}><Icon name="history" size={20} /></div>
-              <div className="big">No recent activity</div>
-              <div className="small">Replacement activity will appear here.</div>
-            </div>
-          ) : (
-            <div className="activity-list">
-              {recentActivity.map((a) => (
-                <div className="activity-item" key={a.id}>
-                  <div className="aic"><Icon name={a.icon} size={15} /></div>
-                  <div className="at">
-                    <div className="tt">{a.title}</div>
-                    <div className="dt">{a.detail}</div>
-                    <div className="md">{a.meta}</div>
-                  </div>
-                </div>
-              ))}
             </div>
           )}
         </section>
