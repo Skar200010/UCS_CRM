@@ -290,7 +290,7 @@ export default function Reports() {
     const body = rows.map(r => [
       r.name, r.receiptCount || 0, r.total,
       ...sourceOrder.map(s => (data?.byNgo?.[r.id]?.sources?.[s]) || 0),
-      r.sourceTotal || 0, r.monthlyTarget, round2((r.monthlyTarget || 0) - (r.total || 0)),
+      r.sourceTotal || 0, r.monthlyTarget, round2((r.total || 0) - (r.monthlyTarget || 0)),
     ]);
     const all = [header, ...body];
     if (atc) {
@@ -503,7 +503,7 @@ export default function Reports() {
                 </thead>
                 <tbody>
                   {rows.map(r => {
-                    const diffTotal = round2((r.monthlyTarget || 0) - (r.total || 0));
+                    const diffTotal = round2((r.total || 0) - (r.monthlyTarget || 0));
                     const diffColor = diffTotal >= 0 ? '#1B7A3D' : '#B3392B';
                     return (
                       <tr key={r.id} style={{ borderTop: '1px solid var(--line)', background: r.id === sourceTab ? '#F3FBF6' : 'transparent' }}>
