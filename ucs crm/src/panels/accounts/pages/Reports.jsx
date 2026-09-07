@@ -286,12 +286,11 @@ export default function Reports() {
   // export CSV
   const exportCsv = async () => {
     if (locked) { const ok = await access.open(); if (!ok) return; setLocked(false); }
-    const header = ['NGO', 'Receipts', 'Collection Total', ...sourceOrder.map(s => `Source: ${s}`), 'Source Total', 'Monthly Target', 'Working Days', 'Daily Target', 'Avg/Day', 'Diff'];
+    const header = ['NGO', 'Receipts', 'Collection Total', ...sourceOrder.map(s => `Source: ${s}`), 'Source Total', 'Monthly Target', 'Diff'];
     const body = rows.map(r => [
       r.name, r.receiptCount || 0, r.total,
       ...sourceOrder.map(s => (data?.byNgo?.[r.id]?.sources?.[s]) || 0),
-      r.sourceTotal || 0, r.monthlyTarget, r.workingDaysSoFar,
-      round2(r.targetDaily), round2(r.actualAvg), round2((r.monthlyTarget || 0) - (r.total || 0)),
+      r.sourceTotal || 0, r.monthlyTarget, round2((r.monthlyTarget || 0) - (r.total || 0)),
     ]);
     const all = [header, ...body];
     if (atc) {
@@ -499,9 +498,6 @@ export default function Reports() {
                     <th style={{ padding: '9px 12px' }}>Receipts</th>
                     <th style={{ padding: '9px 12px' }}>Monthly Target</th>
                     <th style={{ padding: '9px 12px' }}>Total Collected</th>
-                    <th style={{ padding: '9px 12px' }}>Working Days</th>
-                    <th style={{ padding: '9px 12px' }}>Daily Target</th>
-                    <th style={{ padding: '9px 12px' }}>Avg/Day</th>
                     <th style={{ padding: '9px 12px' }}>Diff</th>
                   </tr>
                 </thead>
@@ -515,9 +511,6 @@ export default function Reports() {
                         <td style={{ padding: '9px 12px' }}>{mask((r.receiptCount || 0).toLocaleString('en-IN'))}</td>
                         <td style={{ padding: '9px 12px' }}>{mask(currency(r.monthlyTarget))}</td>
                         <td style={{ padding: '9px 12px', fontWeight: 700 }}>{mask(currency(r.total))}</td>
-                        <td style={{ padding: '9px 12px' }}>{mask(r.workingDaysSoFar)}</td>
-                        <td style={{ padding: '9px 12px' }}>{mask(currency(round2(r.targetDaily)))}</td>
-                        <td style={{ padding: '9px 12px' }}>{mask(currency(round2(r.actualAvg)))}</td>
                         <td style={{ padding: '9px 12px', fontWeight: 700, color: diffColor }}>{mask((diffTotal >= 0 ? '+' : '') + currency(diffTotal))}</td>
                       </tr>
                     );
@@ -527,9 +520,6 @@ export default function Reports() {
                     <td style={{ padding: '9px 12px' }}>{mask(grandReceiptCount.toLocaleString('en-IN'))}</td>
                     <td style={{ padding: '9px 12px' }}>{mask(currency(rows.reduce((s, r) => s + r.monthlyTarget, 0)))}</td>
                     <td style={{ padding: '9px 12px' }}>{mask(currency(grandTotal))}</td>
-                    <td style={{ padding: '9px 12px' }}></td>
-                    <td style={{ padding: '9px 12px' }}></td>
-                    <td style={{ padding: '9px 12px' }}></td>
                     <td style={{ padding: '9px 12px' }}></td>
                   </tr>
                 </tbody>
