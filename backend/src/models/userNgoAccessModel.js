@@ -8,30 +8,10 @@ export const getUserNgoAccess = async (userId, roleHint) => {
   }
 
   // Panel-level admins (JWT role 'admin' from ngo-admin workers, 'accounts'
-  // from accounts workers, 'super_admin') get full NGO coverage by default.
-  // Explicit per-ngo restrictions still win when present.
+  // from accounts workers, 'super_admin') manage all NGOs. The NGO-Admin
+  // panel is admin-only and lists all NGOs in its tabs, so no per-ngo
+  // restriction applies here.
   if (roleHint && ['admin', 'super_admin', 'accounts'].includes(roleHint)) {
-    const { data: explicit } = await db
-      .from('user_ngo_access')
-      .select('ngo_id, ngos!inner(name)')
-      .eq('user_id', userId);
-    if (explicit && explicit.length > 0) {
-      return explicit.map(d => ({ ngo_id: d.ngo_id, ngo_name: d.ngos?.name }));
-    }
-    const { data: wrk0 } = await db
-      .from('workers')
-      .select('department, ngo_id')
-      .eq('id', userId)
-      .maybeSingle();
-    if (wrk0 && (wrk0.department || '').toLowerCase().trim() === 'ngo admin') {
-      const { data: allocations } = await db
-        .from('worker_ngo_allocations')
-        .select('ngo_id, ngos(name)')
-        .eq('worker_id', userId);
-      if (allocations && allocations.length > 0) {
-        return allocations.map(a => ({ ngo_id: a.ngo_id, ngo_name: a.ngos?.name }));
-      }
-    }
     const { data: allNgos } = await db.from('ngos').select('id, name');
     return (allNgos || []).map(n => ({ ngo_id: n.id, ngo_name: n.name }));
   }
