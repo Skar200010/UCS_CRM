@@ -4,6 +4,7 @@ import { Dropdown } from './ui';
 import { FileTxt, WhatsApp } from '../icons';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { deptLabel } from '../../../lib/labels';
 
 const TYPES = ['Offer letter','Experience letter','Promotion letter','Warning letter','Relieving letter','Joining letter','NOBSD','ODAR','Volunteer Termination Letter'];
 
@@ -88,8 +89,8 @@ function titleCase(s) { return String(s ?? '').replace(/\b\w/g, c => c.toUpperCa
 
 function buildJoiningLetterHTML(w, dateText, hrNameText, subjectText, ngoKey) {
   const ngo = getNgo(ngoKey);
-  const r = w.role || w.department || 'Team Member';
-  const d = w.dept || w.department || 'General';
+  const r = deptLabel(w.role || w.department) || 'Team Member';
+  const d = deptLabel(w.dept || w.department) || 'General';
   const ucs = ngoKey === 'UCS';
   const company = ngo.displayName || ngo.name;
   const subj = ucs ? 'Joining Letter' : (subjectText || `Joining as ${r}`);
@@ -156,7 +157,7 @@ function buildMANNLetterhead(innerHtml) {
 
 function buildNoBSDDeclarationHTML(w, dateText, hrNameText, subjectText, ngoKey) {
   const ngo = getNgo(ngoKey);
-  const r = w.role || w.department || 'Team Member';
+  const r = deptLabel(w.role || w.department) || 'Team Member';
   const subj = subjectText || 'NO OBJECTION & BASIC SALARY DECLARATION';
   const subjDiv = (mTop) => `<div style="text-align:center;font-size:18px;font-weight:700;color:#134987;text-transform:uppercase;letter-spacing:0.5px;margin:${mTop} 0 6px">Subject:- ${subj}</div>`;
   const body = `<div style="padding:10px 0 24px;line-height:1.7;text-align:justify">
@@ -214,8 +215,8 @@ function buildODARDocumentHTML(w, dateText, hrNameText, subjectText, ngoKey, doc
 <td style="border:1px solid #999;padding:10px 8px">${esc(r.remarks)}</td>
 </tr>`).join('');
   const ngo = getNgo(ngoKey);
-  const r = w.role || w.department || 'Team Member';
-  const d = w.dept || w.department || 'General';
+  const r = deptLabel(w.role || w.department) || 'Team Member';
+  const d = deptLabel(w.dept || w.department) || 'General';
   const jd = w.date_of_joining || w.created_at || '';
   const joiningDate = jd ? new Date(jd + (jd.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' }) : '______________';
   const subj = subjectText || 'ORIGINAL DOCUMENTS ACKNOWLEDGEMENT RECORD';
@@ -301,8 +302,8 @@ function BSCTLetterheadPreview({ children }) {
 
 function ODARDocumentPreview({ w, dateText, hrNameText, subject, ngoKey, docRows, editing, onToggleEdit, onDocRowChange, onAddDocRow, onRemoveDocRow }) {
   const ngo = getNgo(ngoKey);
-  const r = w.role || w.department || 'Team Member';
-  const d = w.dept || w.department || 'General';
+  const r = deptLabel(w.role || w.department) || 'Team Member';
+  const d = deptLabel(w.dept || w.department) || 'General';
   const jd = w.date_of_joining || w.created_at || '';
   const joiningDate = jd ? new Date(jd + (jd.includes('T') ? '' : 'T00:00:00')).toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' }) : '______________';
   const subj = subject || 'ORIGINAL DOCUMENTS ACKNOWLEDGEMENT RECORD';
@@ -463,7 +464,7 @@ function buildExperienceLetterHTML(w, joiningDate, lastWorkingDate, hrNameText, 
 
 function buildWarningLetterHTML(w, dateText, joiningDate, subjectText, ngoKey) {
   const ngo = getNgo(ngoKey);
-  const r = w.role || w.department || 'Team Member';
+  const r = deptLabel(w.role || w.department) || 'Team Member';
   const body = `<strong>TO WHOM IT MAY CONCERN</strong>\n\nThis is to inform <strong>${w.name}</strong>, serving with <strong>${ngo.name}</strong> as a <strong>${subjectText || r}</strong> since <strong>${joiningDate}</strong>, regarding the following matter.\n\nIt has come to the notice of the management that on <strong>[date of incident]</strong>, the following conduct/issue was observed:\n\nThis is a violation of the standards of conduct expected from a Sevak of this organization, specifically with regard to <strong>[nature of violation — e.g., attendance, discipline, work conduct]</strong>. Despite prior guidance/counseling on this matter, the concerned conduct has continued, which is a matter of serious concern to the organization.\n\nThey are hereby cautioned to refrain from such conduct going forward.\n\nThis letter should be treated as a formal warning. Any recurrence of similar conduct, or failure to improve within <strong>[timeframe]</strong>, may result in further action, including but not limited to suspension or removal from the Sevak role.\n\nThe organization values the association and hopes this warning will be taken in the right spirit, with a renewed commitment to sincerity and discipline going forward.`;
   if (HAS_LH(ngoKey)) {
     const inner = `<div style="padding:10px 0 24px;text-align:justify">
@@ -489,8 +490,8 @@ function buildWarningLetterHTML(w, dateText, joiningDate, subjectText, ngoKey) {
 function build(type, w, joiningDate = '', designation = '', ngoKey = 'BSCT') {
   const ngo = getNgo(ngoKey);
   const today = new Date().toLocaleDateString('en-GB',{ day:'numeric', month:'long', year:'numeric' });
-  const r = w.role || w.department || 'Team Member';
-  const d = w.dept || w.department || 'General';
+  const r = deptLabel(w.role || w.department) || 'Team Member';
+  const d = deptLabel(w.dept || w.department) || 'General';
   const body = {
     'Offer letter': `To,\n${titleCase(w.name)}\n\n<strong>Designation: ${designation || r}</strong>\n\nDear ${titleCase(w.name)},\n\nWe are pleased to offer you the role of ${designation || r} in the ${d} department of ${ngo.name}. Your skills and enthusiasm will be a valuable addition to our mission of serving the community.\n\nTerms of your engagement with the Trust:\n\nRole: You will assist the Trust with duties related to ${d} and other activities assigned from time to time, reporting to the respective Coordinator.\nDuration: Commencing on <strong>${joiningDate}</strong> for a period of <strong>2 months</strong>, extendable by mutual consent.\nNature of Engagement: This is an honorary role undertaken in the spirit of seva and social service. No monetary compensation shall be payable for your services.\nConduct & Confidentiality: You agree to follow the Trust's policies, act with integrity towards beneficiaries and colleagues, and keep all Trust-related information confidential.\nTermination: Either party may end this engagement with [seven days'] written notice.\n\nWe appreciate your willingness to serve and look forward to welcoming you to the ${ngo.name} family. Kindly sign below to confirm your acceptance.\n\nACCEPTANCE: I, ${titleCase(w.name)}, accept the role offered to me on the terms above.\nSignature: ______________ Date: ______________`,
     'Promotion letter': `Dear ${w.name},\n\nCongratulations. In recognition of your strong contribution to the ${d} team, we are pleased to confirm your promotion, effective immediately. Thank you for the energy you bring to your work.\n\nWarm regards,\nThe People Team`,
@@ -502,7 +503,7 @@ function build(type, w, joiningDate = '', designation = '', ngoKey = 'BSCT') {
 
 function buildStyledLetterHTML(w, letterType, bodyText, dateText, hrNameText, subjectText, showDate = true, ngoKey) {
   const ngo = getNgo(ngoKey);
-  const r = w.role || w.department || 'Team Member';
+  const r = deptLabel(w.role || w.department) || 'Team Member';
   const title = letterType.charAt(0).toUpperCase() + letterType.slice(1).toLowerCase();
   const bodyHtml = bodyText.replace(/\n/g, '<br />');
   if (HAS_LH(ngoKey)) {
@@ -530,7 +531,7 @@ ${showDate ? `<table style="width:100%;border-collapse:collapse"><tr><td style="
 
 function buildVolunteerTerminationLetterHTML(w, dateText, hrNameText, ngoKey) {
   const ngo = getNgo(ngoKey);
-  const r = w.role || w.department || 'Team Member';
+  const r = deptLabel(w.role || w.department) || 'Team Member';
   const subj = 'Termination of Volunteer Engagement';
   if (HAS_LH(ngoKey)) {
     const inner = `<div style="padding:10px 0 24px;text-align:justify">
@@ -764,7 +765,7 @@ export default function Letters() {
             <Dropdown value={hrName} onChange={e=>setHrName(e.target.value)} options={[{value:'',label:'Select HR...'}, ...[...workers.filter(w => (w.dept||w.department||'').toLowerCase().includes('hr') || (w.dept||w.department||'').toLowerCase().includes('admin')).map(w => ({value: w.name, label: w.name})), {value:'deepak karkera', label:'deepak karkera'}].map(o => o).filter((o, i, arr) => arr.findIndex(x => x.value === o.value) === i)]} />
           </label>
           <label className="field" style={{ flex: '0 0 150px', minWidth: 0 }}>Designation
-            <Dropdown value={subject} onChange={e => { if (e.target.value === '__add_role__') { const r = prompt('Enter role name:'); if (r && r.trim()) { setExtraRoles(p => [...p, r.trim()]); setSubject(r.trim()); } } else { setSubject(e.target.value); } }} options={[...[...new Set([...workers.map(w => w.role || w.department || 'Team Member'), ...extraRoles])].sort().map(v => ({ value: v, label: v })), { value: '__add_role__', label: '+ Add Role' }]} renderOption={o => o.value === '__add_role__' ? <span style={{color:'#dc2626',fontWeight:600}}>+ Add Role</span> : o.label} />
+            <Dropdown value={subject} onChange={e => { if (e.target.value === '__add_role__') { const r = prompt('Enter role name:'); if (r && r.trim()) { setExtraRoles(p => [...p, r.trim()]); setSubject(r.trim()); } } else { setSubject(e.target.value); } }} options={[...[...new Set([...workers.map(w => w.role || w.department || 'Team Member'), ...extraRoles])].sort().map(v => ({ value: v, label: deptLabel(v) })), { value: '__add_role__', label: '+ Add Role' }]} renderOption={o => o.value === '__add_role__' ? <span style={{color:'#dc2626',fontWeight:600}}>+ Add Role</span> : o.label} />
           </label>
           <label className="field btn-field"><span>&nbsp;</span>{showDownload && (
             <span style={{ display: 'inline-flex', gap: 8 }}>

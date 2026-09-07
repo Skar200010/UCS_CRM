@@ -664,7 +664,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
           Name: toTitleCase(w.name),
           Email: w.email,
           'Login ID': w.login_id,
-          Department: toTitleCase(w.department),
+          Department: deptLabel(w.department),
           NGO: clientOf(w),
           'NGO Allocation %': (peopleByWorker[w.id] || []).map(p => `${p.ngos?.name || ''}: ${parseFloat(p.allocation_percentage || 0)}%`).join('; '),
           'Total Salary (₹)': w.salary,

@@ -1,6 +1,7 @@
 const DEPT_LABELS = {
   'Admin': 'Accounts',
   'NGO Admin': 'Admin',
+  'HR-Recruiter': 'Recruiter Panel',
 }
 
 export function deptLabel(v) {
