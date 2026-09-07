@@ -408,18 +408,9 @@ const parseAssignments = (d, ngoFilter = '', agent = '', showBlankStation = fals
   if (agent) list = list.filter(a => a.name && String(a.name).trim().toLowerCase() === String(agent).trim().toLowerCase())
   if (ngoFilter && list.some(a => a.ngo)) list = list.filter(a => a.ngo && a.ngo.toLowerCase().includes(ngoFilter.toLowerCase()))
 
-  // A donor can legitimately own 3 stations across NGOs; when the SAME agent
-  // owns several of them, show the agent once with the stations merged.
-  const byName = new Map()
-  for (const a of list) {
-    const key = String(a.name || '').trim().toLowerCase()
-    if (!key) continue
-    if (!byName.has(key)) byName.set(key, { ...a, _stations: new Set() })
-    const cur = byName.get(key)
-    const st = String(a.station || '').trim()
-    if (st) cur._stations.add(st)
-  }
-  return [...byName.values()].map(({ _stations, ...a }) => ({ ...a, station: [..._stations].join(', ') }))
+  // Keep each distinct (agent, station) entry as its own row so a donor
+  // assigned to the same agent at different stations renders as separate rows.
+  return list
 }
 
 const hasBlankStationEntry = (d) =>
@@ -884,42 +875,37 @@ export default function Donors() {
                 const initial = (d.name || d.bank_donor_name || d.agent_donor_name || '?')[0].toUpperCase()
                 const assignments = parseAssignments(d, ngoFilter, agentFilter, !!missingOnly)
                 if (assignments.length === 0) return null
-                return (
-                  <tr key={d.id} className="clickable-row" onClick={() => setSelectedId(d.id)}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--sage)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{initial}</div>
-                        <strong>{d.name || d.bank_donor_name || d.agent_donor_name || '-'}</strong>
-                      </div>
-                    </td>
-                    <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--ink-soft)' }}>{d.mobile_number || '-'}</td>
-                    <td><span className="pill pill-blue">{d.data_category || d.category || '—'}</span></td>
-                    <td style={{ fontSize: 12, color: 'var(--ink-soft)', padding: 0 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {assignments.length > 0 ? assignments.map((a, i) => (
-                          <span key={i} style={{ padding: '9px 10px', borderBottom: i < assignments.length - 1 ? '1px solid var(--line)' : 'none' }}>{a.name || '—'}</span>
-                        )) : <span style={{ padding: '9px 10px' }}>—</span>}
-                      </div>
-                    </td>
-                    <td style={{ fontSize: 12, color: 'var(--ink-soft)', padding: 0 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {assignments.length > 0 ? assignments.map((a, i) => (
-                          <span key={i} style={{ padding: '9px 10px', borderBottom: i < assignments.length - 1 ? '1px solid var(--line)' : 'none' }}>{a.station || '—'}</span>
-                        )) : <span style={{ padding: '9px 10px' }}>—</span>}
-                        {hasBlankStationEntry(d) && (
-                          <button
-                            className="btn btn-sm"
-                            onClick={e => { e.stopPropagation(); setStationDonor(d) }}
-                            title="Assign the missing station"
-                            style={{ margin: '6px 10px', fontSize: 11, padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--sage-soft, #E8EDE1)', color: '#44543a', border: '1px solid #cdd9c2', borderRadius: 20, fontWeight: 600, width: 'fit-content' }}
-                          >
-                            <UserCog size={12} /> Manage
-                          </button>
-                        )}
-                      </div>
+                const span = assignments.length
+                return assignments.map((a, i) => (
+                  <tr key={`${d.id}-${i}`} className="clickable-row" onClick={() => setSelectedId(d.id)}>
+                    {i === 0 && (
+                      <>
+                        <td rowSpan={span}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--sage)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{initial}</div>
+                            <strong>{d.name || d.bank_donor_name || d.agent_donor_name || '-'}</strong>
+                          </div>
+                        </td>
+                        <td rowSpan={span} style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--ink-soft)' }}>{d.mobile_number || '-'}</td>
+                        <td rowSpan={span}><span className="pill pill-blue">{d.data_category || d.category || '—'}</span></td>
+                      </>
+                    )}
+                    <td style={{ fontSize: 12, color: 'var(--ink-soft)', padding: '9px 10px', borderBottom: i < span - 1 ? '1px solid var(--line)' : 'none' }}>{a.name || '—'}</td>
+                    <td style={{ fontSize: 12, color: 'var(--ink-soft)', padding: '9px 10px', borderBottom: i < span - 1 ? '1px solid var(--line)' : 'none' }}>
+                      {a.station || '—'}
+                      {!a.station && hasBlankStationEntry(d) && (
+                        <button
+                          className="btn btn-sm"
+                          onClick={e => { e.stopPropagation(); setStationDonor(d) }}
+                          title="Assign the missing station"
+                          style={{ margin: '6px 10px', fontSize: 11, padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--sage-soft, #E8EDE1)', color: '#44543a', border: '1px solid #cdd9c2', borderRadius: 20, fontWeight: 600, width: 'fit-content' }}
+                        >
+                          <UserCog size={12} /> Manage
+                        </button>
+                      )}
                     </td>
                   </tr>
-                )
+                ))
               })}
             </tbody>
           </table>
