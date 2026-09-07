@@ -3752,7 +3752,7 @@ export const quickSearchDonors = async (req, res) => {
 
 export const getDonorsList = async (req, res) => {
   try {
-    const { search, page = '1', limit = '50', ngo, missing_station } = req.query;
+    const { search, page = '1', limit = '50', ngo, missing_station, agent } = req.query;
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100000, Math.max(1, parseInt(limit) || 50));
     const from = (pageNum - 1) * limitNum;
@@ -3781,6 +3781,30 @@ export const getDonorsList = async (req, res) => {
         .filter(Boolean))];
       if (missingIds.length === 0) return res.json({ data: [], total: 0, page: pageNum, limit: limitNum });
       query = query.in('id', missingIds);
+    }
+
+    // "Agent" narrowing: donors with at least one live assignment belonging to
+    // the selected FRO agent (by name).
+    if (agent && String(agent).trim()) {
+      const agentName = String(agent).trim();
+      const { data: agentRows, error: agentErr } = await db
+        .from('workers')
+        .select('id')
+        .ilike('name', agentName);
+      if (agentErr) throw agentErr;
+      const agentIds = [...new Set((agentRows || []).map(w => w.id))];
+      let agentDonorIds = [];
+      if (agentIds.length > 0) {
+        const { data: agentAssigns, error: aaErr } = await db
+          .from('fro_assignments')
+          .select('donor_id')
+          .in('fro_worker_id', agentIds)
+          .not('status', 'eq', 'reassigned');
+        if (aaErr) throw aaErr;
+        agentDonorIds = [...new Set((agentAssigns || []).map(a => a.donor_id).filter(Boolean))];
+      }
+      if (agentDonorIds.length === 0) return res.json({ data: [], total: 0, page: pageNum, limit: limitNum });
+      query = query.in('id', agentDonorIds);
     }
 
     let ngoRow = null;

@@ -385,17 +385,41 @@ function DonorDetail({ donorId, onClose, onChanged, ngoOptions }) {
   )
 }
 
-const parseAssignments = (d, ngoFilter = '') => {
-  if (Array.isArray(d.assignment_list)) return d.assignment_list
-  if (!d.assigned_to) return []
-  const parsed = String(d.assigned_to).split(/\s*,\s*/).map(s => {
-    const m = s.match(/^(.+?)\s*\(([^)]*)\)(?:\s*—\s*(.*))?$/)
-    if (m) return { name: m[1].trim(), station: m[2].trim(), ngo: (m[3] || '').trim() }
-    const clean = s.replace(/\s*—\s*.*$/, '').trim()
-    return { name: clean, station: '', ngo: '' }
-  }).filter(a => a.name)
-  if (!ngoFilter) return parsed
-  return parsed.filter(a => a.ngo && a.ngo.toLowerCase().includes(ngoFilter.toLowerCase()))
+const parseAssignments = (d, ngoFilter = '', agent = '', showBlankStation = false) => {
+  if (!d) return []
+  let list
+  if (Array.isArray(d.assignment_list)) {
+    list = d.assignment_list
+  } else if (d.assigned_to) {
+    list = String(d.assigned_to).split(/\s*,\s*/).map(s => {
+      const m = s.match(/^(.+?)\s*\(([^)]*)\)(?:\s*—\s*(.*))?$/)
+      if (m) return { name: m[1].trim(), station: m[2].trim(), ngo: (m[3] || '').trim() }
+      const clean = s.replace(/\s*—\s*.*$/, '').trim()
+      return { name: clean, station: '', ngo: '' }
+    }).filter(a => a.name)
+  } else return []
+
+  // Assigned To/Station columns only show real agent entries. Drops agent-less
+  // rows entirely; station-less rows are hidden by default but surface via the
+  // "Missing station" toggle (where they can be repaired).
+  list = list.filter(a => a.name && String(a.name).trim() !== '')
+  if (!showBlankStation) list = list.filter(a => a.station && String(a.station).trim() !== '')
+
+  if (agent) list = list.filter(a => a.name && String(a.name).trim().toLowerCase() === String(agent).trim().toLowerCase())
+  if (ngoFilter && list.some(a => a.ngo)) list = list.filter(a => a.ngo && a.ngo.toLowerCase().includes(ngoFilter.toLowerCase()))
+
+  // A donor can legitimately own 3 stations across NGOs; when the SAME agent
+  // owns several of them, show the agent once with the stations merged.
+  const byName = new Map()
+  for (const a of list) {
+    const key = String(a.name || '').trim().toLowerCase()
+    if (!key) continue
+    if (!byName.has(key)) byName.set(key, { ...a, _stations: new Set() })
+    const cur = byName.get(key)
+    const st = String(a.station || '').trim()
+    if (st) cur._stations.add(st)
+  }
+  return [...byName.values()].map(({ _stations, ...a }) => ({ ...a, station: [..._stations].join(', ') }))
 }
 
 const hasBlankStationEntry = (d) =>
@@ -646,19 +670,34 @@ export default function Donors() {
   const [syncing, setSyncing] = useState(false)
   const [missingOnly, setMissingOnly] = useState(false)
   const [stationDonor, setStationDonor] = useState(null)
+  const [agentFilter, setAgentFilter] = useState('')
+  const [agentOptions, setAgentOptions] = useState([])
   const limit = 100
 
   useEffect(() => {
     apiGet('/accounts/ngos').then(res => setNgoOptions(Array.isArray(res) ? res : [])).catch(() => {})
+    apiGet('/accounts/receipts/fro-workers')
+      .then(res => {
+        const seen = new Set()
+        const dedup = (Array.isArray(res) ? res : []).filter(a => {
+          const k = String(a.name || '').trim().toLowerCase()
+          if (!k || seen.has(k)) return false
+          seen.add(k)
+          return true
+        }).sort((a, b) => String(a.name).localeCompare(String(b.name)))
+        setAgentOptions(dedup)
+      })
+      .catch(() => {})
   }, [])
 
-  const load = useCallback(async (q, pg, ngo, ms) => {
+  const load = useCallback(async (q, pg, ngo, ms, ag) => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
       if (q) params.set('search', q)
       if (ngo) params.set('ngo', ngo)
       if (ms) params.set('missing_station', 'true')
+      if (ag) params.set('agent', ag)
       params.set('limit', String(limit))
       params.set('page', String(pg))
       const res = await apiGet('/accounts/donors?' + params.toString())
@@ -668,7 +707,7 @@ export default function Donors() {
     finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { load(search, page, ngoFilter, missingOnly) }, [load, search, page, ngoFilter, missingOnly])
+  useEffect(() => { load(search, page, ngoFilter, missingOnly, agentFilter) }, [load, search, page, ngoFilter, missingOnly, agentFilter])
 
   const stats = useMemo(() => {
     let amount = 0, count = 0
@@ -747,7 +786,7 @@ export default function Donors() {
     try {
       const res = await apiPost('/accounts/donors/restore-wrong-assignments')
       alert(`Restored ${res?.restored || 0} wrong assignments`)
-      load(search, page, ngoFilter, missingOnly)
+      load(search, page, ngoFilter, missingOnly, agentFilter)
     } catch (e) {
       alert('Failed: ' + e.message)
     } finally {
@@ -761,7 +800,7 @@ export default function Donors() {
     try {
       const res = await apiPost('/accounts/donors/repair-sync' + (ngoFilter ? `?ngo=${encodeURIComponent(ngoFilter)}` : ''))
       alert(`Repaired ${res?.repaired || 0} donor record(s)`)
-      load(search, page, ngoFilter, missingOnly)
+      load(search, page, ngoFilter, missingOnly, agentFilter)
     } catch (e) {
       alert('Failed: ' + e.message)
     } finally {
@@ -784,6 +823,15 @@ export default function Donors() {
             {ngoOptions.map(n => (
               <button key={n.id} className={`btn btn-sm${ngoFilter === n.name ? ' btn-primary' : ''}`} onClick={() => handleNgoChange(n.name)}>{n.name}</button>
             ))}
+            <select
+              value={agentFilter}
+              onChange={e => { setAgentFilter(e.target.value); setPage(1) }}
+              title="Show only donors assigned to this agent (FRO)"
+              style={{ padding: '6px 9px', borderRadius: 8, border: `1px solid ${agentFilter ? 'var(--sage)' : 'var(--line)'}`, fontSize: 12, background: agentFilter ? 'var(--sage-soft, #E8EDE1)' : '#fff', color: 'var(--ink)', maxWidth: 180 }}
+            >
+              <option value="">All agents</option>
+              {agentOptions.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
+            </select>
             <button
               className={`btn btn-sm${missingOnly ? ' btn-primary' : ''}`}
               onClick={() => { setMissingOnly(v => !v); setPage(1) }}
@@ -834,7 +882,8 @@ export default function Donors() {
                 <tr><td colSpan={5} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>No donors found</td></tr>
               ) : donors.map(d => {
                 const initial = (d.name || d.bank_donor_name || d.agent_donor_name || '?')[0].toUpperCase()
-                const assignments = parseAssignments(d, ngoFilter)
+                const assignments = parseAssignments(d, ngoFilter, agentFilter, !!missingOnly)
+                if (assignments.length === 0) return null
                 return (
                   <tr key={d.id} className="clickable-row" onClick={() => setSelectedId(d.id)}>
                     <td>
@@ -895,14 +944,14 @@ export default function Donors() {
         </div>
       )}
 
-      {selectedId && <DonorDetail donorId={selectedId} ngoOptions={ngoOptions} onClose={() => { setSelectedId(null) }} onChanged={() => load(search, page, ngoFilter, missingOnly)} />}
+      {selectedId && <DonorDetail donorId={selectedId} ngoOptions={ngoOptions} onClose={() => { setSelectedId(null) }} onChanged={() => load(search, page, ngoFilter, missingOnly, agentFilter)} />}
 
       {stationDonor && (
         <SetStationModal
           donor={stationDonor}
           ngoOptions={ngoOptions}
           onClose={() => setStationDonor(null)}
-          onSaved={() => { setStationDonor(null); load(search, page, ngoFilter, missingOnly) }}
+          onSaved={() => { setStationDonor(null); load(search, page, ngoFilter, missingOnly, agentFilter) }}
         />
       )}
 
