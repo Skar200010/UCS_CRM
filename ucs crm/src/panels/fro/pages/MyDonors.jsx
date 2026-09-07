@@ -1205,7 +1205,7 @@ export default function MyDonors() {
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>No {dataTab === 'new' ? 'new' : 'old'} data allotted</div>
             <div style={{ fontSize: 11, color: 'var(--ink-soft)', maxWidth: 280, textAlign: 'center', lineHeight: 1.5 }}>
               {stations.length === 0
-                ? 'You are not assigned to any station yet. Ask your NGO admin to assign you to a station.'
+                ? 'You are not assigned to any station yet. Ask your Admin to assign you to a station.'
                 : (dataTab === 'new'
                   ? 'New data will appear here once distributed to your station.'
                   : 'Old data will appear here once uploaded to your station.')}

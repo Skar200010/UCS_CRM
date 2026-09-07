@@ -3,7 +3,7 @@ import { API_BASE as BASE } from '../lib/apiBase'
 
 const TARGET_LABELS = {
   all: null,
-  admin: 'NGO Admin',
+  admin: 'Admin',
   accounts: 'Accounts',
   hr: 'HR',
   recruiter: 'Recruiter',

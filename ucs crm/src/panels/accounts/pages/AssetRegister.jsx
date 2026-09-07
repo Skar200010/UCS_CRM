@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import * as XLSX from 'xlsx'
 import { api } from '../api/auth'
+import { deptLabel } from '../../../lib/labels'
 import {
   Package, Boxes, IndianRupee, Banknote, UserCheck, CheckCircle2, Wrench, PackageX, SearchX, Search,
   SlidersHorizontal, Download, Upload, FileSpreadsheet, FileDown, Plus, X, Pencil, RotateCcw, History, MapPin,
@@ -729,7 +730,7 @@ function ActionModal({ type, asset, workers, onClose, onDone }) {
             <Field label="Worker *" icon={UserCheck}>
               <select value={workerId} onChange={e => setWorkerId(e.target.value)}>
                 <option value="">Select worker…</option>
-                {workers.map(w => <option key={w.id} value={w.id}>{w.name} {w.department ? `(${w.department})` : ''}</option>)}
+                {workers.map(w => <option key={w.id} value={w.id}>{w.name} {w.department ? `(${deptLabel(w.department)})` : ''}</option>)}
               </select>
             </Field>
           )}

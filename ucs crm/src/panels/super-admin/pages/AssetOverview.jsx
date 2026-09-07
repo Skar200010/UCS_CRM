@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../../../api/auth'
+import { deptLabel } from '../../../lib/labels'
 
 const money = v => `₹${Number(v || 0).toLocaleString('en-IN')}`
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -192,7 +193,7 @@ export default function AssetOverview() {
             <>
               {deptCounts.slice(0, 8).map(([name, count]) => (
                 <div key={name} className="ao-dept-item">
-                  <span className="ao-dept-name">{name}</span>
+                  <span className="ao-dept-name">{deptLabel(name)}</span>
                   <span className="ao-dept-count">{count} asset{count > 1 ? 's' : ''}</span>
                 </div>
               ))}

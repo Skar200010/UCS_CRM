@@ -4,6 +4,7 @@ import {
   AlertTriangle, AlertCircle, X, RefreshCw, Loader2,
 } from 'lucide-react'
 import { api } from '../api/auth'
+import { deptLabel } from '../../../lib/labels'
 
 const GEN_UPPER = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
 const GEN_LOWER = 'abcdefghjkmnpqrstuvwxyz'
@@ -187,7 +188,7 @@ export default function ResetPasswordModal({ worker, onClose }) {
               <div className="rpm-id-name">{worker.name}</div>
               <code>{worker.login_id}</code>
             </div>
-            {worker.department && <span className="rpm-dept">{worker.department}</span>}
+            {worker.department && <span className="rpm-dept">{deptLabel(worker.department)}</span>}
           </div>
 
           {result ? (

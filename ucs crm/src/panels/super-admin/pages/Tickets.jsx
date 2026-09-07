@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { getHrVerifiedTickets, getAllTickets, getPendingCount, approveTicket, rejectTicketSA } from '../api/endpoints'
 import { toast } from '../../../components/Toast'
+import { deptLabel } from '../../../lib/labels'
 
 const IST_OFFSET = 5.5 * 60 * 60 * 1000
 
@@ -37,7 +38,7 @@ function ActionModal({ ticket, onClose, onUpdated }) {
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '.3px', marginBottom: 2 }}>Worker</div>
             <div style={{ fontWeight: 600, fontSize: 14 }}>{ticket.workers?.name || 'Unknown'}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{ticket.workers?.department || '\u2014'}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{ticket.workers?.department ? deptLabel(ticket.workers.department) : '\u2014'}</div>
           </div>
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: '.3px', marginBottom: 2 }}>Date & Field</div>
@@ -353,7 +354,7 @@ export default function Tickets() {
                       <td className="sa-muted">{i + 1}</td>
                       <td style={{ fontWeight: 500 }}>{t.date}</td>
                       <td><strong>{t.workers?.name || 'Unknown'}</strong></td>
-                      <td className="sa-muted">{t.workers?.department || '\u2014'}</td>
+                      <td className="sa-muted">{t.workers?.department ? deptLabel(t.workers.department) : '\u2014'}</td>
                       <td>{t.field === 'punch_in' ? 'Punch In' : 'Punch Out'}</td>
                       <td style={{ fontFamily: 'monospace', fontSize: 12 }}>
                         {fmtTime(t.field === 'punch_in' ? t.punch_in_time : t.punch_out_time)}

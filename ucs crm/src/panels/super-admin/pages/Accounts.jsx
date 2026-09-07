@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/auth'
+import { deptLabel } from '../../../lib/labels'
 
 export default function Accounts() {
   const [data, setData] = useState(null)
@@ -59,7 +60,7 @@ export default function Accounts() {
           <div className="sa-bar-chart">
             {deptEntries.map(([dept, count]) => (
               <div key={dept} className="sa-bar-row">
-                <div className="sa-bar-label">{dept}</div>
+                <div className="sa-bar-label">{deptLabel(dept)}</div>
                 <div className="sa-bar-track">
                   <div className="sa-bar-fill" style={{ width: `${(count / maxDept) * 100}%`, background: '#10b981' }} />
                 </div>

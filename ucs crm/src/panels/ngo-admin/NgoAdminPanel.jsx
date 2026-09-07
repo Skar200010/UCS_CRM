@@ -234,7 +234,7 @@ export default function NgoAdminPanel() {
         <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#94a3b8' }}>lock</span>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#1F332B' }}>Access Restricted</h2>
         <p style={{ margin: 0, fontSize: 14, color: '#64748b', maxWidth: 400 }}>
-          NGO Admin panel requires an <strong>Admin</strong> account.<br />
+          Admin panel requires an <strong>Admin</strong> account.<br />
           Your current role is <strong>{user?.role || 'unknown'}</strong>.
         </p>
         <button onClick={() => navigate('/sa/dashboard')} style={{ marginTop: 8, padding: '10px 24px', borderRadius: 10, border: 'none', background: '#2A6B45', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>

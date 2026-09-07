@@ -1,12 +1,14 @@
 import { useContext } from 'react'
 import { UcsContext } from '../../store'
 import { API_BASE } from '../../lib/apiBase'
+import { deptLabel } from '../../lib/labels'
 export function useHR() {
   const ctx = useContext(UcsContext)
   if (!ctx) throw new Error('useHR must be used within UcsProvider')
   return {
     ...ctx,
     DEPTS,
+    deptLabel,
     fetchWorkers, fetchNGOs, addWorker, removeWorker, abscondWorker, offboardWorker, fetchWorkerById, updateWorker, bulkUpdateWorkers,
     fetchAttendance, fetchLeaves, decideLeave,
     fetchTemplates, generateLetter, fetchWorkerLetters, sendNotif,

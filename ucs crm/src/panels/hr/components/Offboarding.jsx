@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useHR, avatarColor, avatarTint, initials } from '../store';
 import { ArrowLeft } from '../icons';
+import { deptLabel } from '../../../lib/labels';
 
 export default function Offboarding({ worker, onBack }) {
   const { removeWorker, abscondWorker, updateWorker } = useHR();
@@ -80,7 +81,7 @@ export default function Offboarding({ worker, onBack }) {
           </div>
           <div>
             <h3 style={{ fontSize:16 }}>{worker.name}</h3>
-            <div style={{ fontSize:13, color:'var(--ink-soft)' }}>{worker.department || '—'}</div>
+            <div style={{ fontSize:13, color:'var(--ink-soft)' }}>{deptLabel(worker.department) || '—'}</div>
           </div>
         </div>
       </div>

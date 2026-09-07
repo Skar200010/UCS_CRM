@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useUcs } from '../../../store';
 import { getTicketBySource, updateTicketBySource, replyToTicketBySource, resolveTicketBySource, getDevAssignees } from '../api/tickets';
+import { deptLabel } from '../../../lib/labels';
 
 const STATUS_COLORS = {
   open: { bg: '#fefce8', color: '#a16207' },
@@ -19,7 +20,7 @@ const CATEGORIES = {
 const PANEL_LABELS = {
   fro: 'FRO',
   accounts: 'Accounts',
-  ngo_admin: 'NGO Admin',
+  ngo_admin: 'Admin',
   dev_panel: 'Developer',
   hr: 'HR',
   event_head: 'Event Head',
@@ -427,7 +428,7 @@ export default function TicketDetail() {
                   color: source === 'developer' ? '#4338ca' : '#166534',
                   textTransform: 'capitalize', display: 'inline-block',
                 }}>
-                  {source === 'developer' ? (PANEL_LABELS[ticket.raised_by_panel] || 'Developer') : (ticket.department || 'Support')}
+                  {source === 'developer' ? (PANEL_LABELS[ticket.raised_by_panel] || 'Developer') : (deptLabel(ticket.department) || 'Support')}
                 </span>
               </div>
               {ticket.reference_id && (
@@ -486,7 +487,7 @@ export default function TicketDetail() {
           ) : (
             <div style={{ padding: '14px 16px', borderRadius: 10, background: 'var(--card-bg)', border: '1px solid var(--line)' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Department</div>
-              <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>{ticket.department || '—'}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'capitalize' }}>{deptLabel(ticket.department) || '—'}</div>
             </div>
           )}
 

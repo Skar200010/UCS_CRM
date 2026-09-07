@@ -7,6 +7,7 @@ import api from '../api/auth';
 import RecentNotices from '../../../components/RecentNotices';
 import RecruiterOverview from './RecruiterOverview';
 import { API_BASE } from '../../../lib/apiBase';
+import { deptLabel } from '../../../lib/labels';
 
 /* ─── Animated counter ─── */
 function AnimatedNum({ to, suffix = '' }) {
@@ -71,8 +72,8 @@ function MiniBar({ data, h = 40, color = 'var(--sage)' }) {
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: h }}>
       {data.map((d, i) => (
         <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-          <div style={{ width: '100%', background: d.color || color, height: Math.max(d.val / mx * (h - 14), 2), borderRadius: '3px 3px 0 0', minHeight: 2 }} title={d.lbl} />
-          <span style={{ fontSize: 7, color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>{d.lbl}</span>
+          <div style={{ width: '100%', background: d.color || color, height: Math.max(d.val / mx * (h - 14), 2), borderRadius: '3px 3px 0 0', minHeight: 2 }} title={deptLabel(d.lbl)} />
+          <span style={{ fontSize: 7, color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>{deptLabel(d.lbl)}</span>
         </div>
       ))}
     </div>
@@ -86,7 +87,7 @@ function MiniHBar({ data, mx }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {data.map(d => (
         <div key={d.lbl} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ fontSize: 8, color: 'var(--ink-soft)', minWidth: 36, textAlign: 'right', whiteSpace: 'nowrap' }}>{d.lbl}</span>
+          <span style={{ fontSize: 8, color: 'var(--ink-soft)', minWidth: 36, textAlign: 'right', whiteSpace: 'nowrap' }}>{deptLabel(d.lbl)}</span>
           <div style={{ flex: 1, height: 12, background: 'var(--line)', borderRadius: 4, overflow: 'hidden' }}>
             <div style={{ width: `${Math.max(d.val / m * 100, 1)}%`, height: '100%', background: d.color || 'var(--sage)', borderRadius: 4, minWidth: 4 }} />
           </div>
@@ -102,7 +103,7 @@ function MiniStacked({ data, h = 8 }) {
   const t = data.reduce((s, d) => s + d.val, 0) || 1;
   return (
     <div style={{ display: 'flex', height: h, borderRadius: 4, overflow: 'hidden', width: '100%' }}>
-      {data.filter(d => d.val > 0).map((d, i) => <div key={i} style={{ width: `${d.val / t * 100}%`, background: d.color, minWidth: 2 }} title={d.lbl} />)}
+      {data.filter(d => d.val > 0).map((d, i) => <div key={i} style={{ width: `${d.val / t * 100}%`, background: d.color, minWidth: 2 }} title={deptLabel(d.lbl)} />)}
     </div>
   );
 }
@@ -495,7 +496,7 @@ export default function Visualizations() {
                   {row.map(d => {
                     const c = COLORS[gi++ % COLORS.length];
                     return <div key={d.dept} style={{ flex: d.total || 1, background: c, borderRadius: 6, padding: '8px 10px', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700 }}>{d.dept}</div>
+                      <div style={{ fontSize: 11, fontWeight: 700 }}>{deptLabel(d.dept)}</div>
                       <div style={{ fontSize: 13, fontWeight: 800 }}>₹{(d.total / 100000).toFixed(1)}L</div>
                       <div style={{ fontSize: 9, opacity: .8 }}>{d.count} workers</div>
                     </div>;
@@ -558,7 +559,7 @@ export default function Visualizations() {
                     return <tr key={d.dept} style={{ borderBottom: '1px solid var(--line)' }}>
                       <td style={{ padding: '5px 6px', fontWeight: 600 }}>
                         <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, background: COLORS[i % COLORS.length], marginRight: 4, verticalAlign: 'middle' }} />
-                        {d.dept}
+                        {deptLabel(d.dept)}
                       </td>
                       <td style={{ padding: '5px 6px', textAlign: 'right' }}>{d.n}</td>
                       <td style={{ padding: '5px 6px', textAlign: 'right' }}>
@@ -601,7 +602,7 @@ export default function Visualizations() {
                 Show to
                 <select value={noticeForm.target_role} onChange={e => setNoticeForm({...noticeForm, target_role: e.target.value})}>
                   <option value="all">All Panels</option>
-                  <option value="admin">NGO Admin</option>
+                  <option value="admin">Admin</option>
                   <option value="accounts">Accounts</option>
                   <option value="fro">FRO</option>
                   <option value="event_head">Event Head</option>

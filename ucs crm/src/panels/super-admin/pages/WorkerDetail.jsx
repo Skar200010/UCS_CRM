@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/auth'
 import AttendanceCalendar from './AttendanceCalendar'
 import ResetPasswordModal from '../components/ResetPasswordModal'
+import { deptLabel } from '../../../lib/labels'
 
 export default function WorkerDetail({ workerId, onBack }) {
   const [worker, setWorker] = useState(null)
@@ -65,7 +66,7 @@ export default function WorkerDetail({ workerId, onBack }) {
         <table className="sa-info-table">
           <tbody>
             <tr><td>Login ID</td><td><code>{worker.login_id}</code></td></tr>
-            <tr><td>Department</td><td>{worker.department || '—'}</td></tr>
+            <tr><td>Department</td><td>{deptLabel(worker.department) || '—'}</td></tr>
             <tr><td>Email</td><td>{worker.email || '—'}</td></tr>
             <tr><td>Phone</td><td>{worker.phone || '—'}</td></tr>
             <tr><td>Gender</td><td>{worker.gender || '—'}</td></tr>

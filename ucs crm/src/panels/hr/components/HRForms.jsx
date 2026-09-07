@@ -3,6 +3,7 @@ import { useHR } from '../store';
 import { initials as initialsFn } from '../store';
 import { Plus, Trash, ArrowLeft, Pencil, Mail } from '../../../icons';
 import PrintForms from './forms/PrintForms';
+import { deptLabel } from '../../../lib/labels';
 
 const titleCase = (s) => (s || '').replace(/\b\w/g, c => c.toUpperCase());
 
@@ -600,7 +601,7 @@ export default function HRForms() {
                           </span>
                           <div style={{ minWidth: 0 }}>
                             <div className="hrf-id-name">{name}</div>
-                            <div className="hrf-id-dept">{w.department || 'Team Member'}</div>
+                            <div className="hrf-id-dept">{w.department ? deptLabel(w.department) : 'Team Member'}</div>
                           </div>
                         </div>
                         <div>
@@ -652,7 +653,7 @@ export default function HRForms() {
               )}
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{f?.name || '—'}</div>
-                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{f?.department || '—'}</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{deptLabel(f?.department) || '—'}</div>
               </div>
             </div>
             <div className="hrf-detail-actions">

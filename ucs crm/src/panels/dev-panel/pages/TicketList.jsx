@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUcs } from '../../../store';
 import { getUnifiedDevTickets, getMyUnifiedTickets, getUnassignedTickets, getDevAssignees, bulkUpdateDevTickets } from '../api/tickets';
+import { deptLabel } from '../../../lib/labels';
 
 const STATUS_TABS = [
   { key: '', label: 'All' },
@@ -17,7 +18,7 @@ const CATEGORIES = ['bug', 'feature_request', 'enhancement', 'data_issue', 'paym
 const PANELS = [
   { value: 'fro', label: 'FRO' },
   { value: 'accounts', label: 'Accounts' },
-  { value: 'ngo_admin', label: 'NGO Admin' },
+  { value: 'ngo_admin', label: 'Admin' },
 ];
 
 const STATUS_COLORS = {
@@ -374,7 +375,7 @@ export default function TicketList({ filter = 'all' }) {
                           color: t._source === 'developer' ? '#4338ca' : '#166534',
                           textTransform: 'capitalize',
                         }}>
-                          {t._source === 'developer' ? 'Dev' : (t.department || 'FRO/Accounts')}
+                          {t._source === 'developer' ? 'Dev' : (deptLabel(t.department) || 'FRO/Accounts')}
                         </span>
                       </td>
                       <td style={{ padding: '8px 10px', fontSize: 11, textTransform: 'capitalize' }}>

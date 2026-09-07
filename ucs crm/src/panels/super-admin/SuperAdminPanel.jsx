@@ -27,7 +27,7 @@ const NAV = [
   { id: 'employees', path: '/sa/employees', label: 'Volunteers', icon: Users },
   { id: 'leaves', path: '/sa/leaves', label: 'Leaves', icon: Airplane },
   { id: 'tickets', path: '/sa/tickets', label: 'Tickets', icon: Ticket },
-  { id: 'ngo-admin', path: '/sa/ngo-admin', label: 'NGO Admin', icon: BuildingOffice },
+  { id: 'ngo-admin', path: '/sa/ngo-admin', label: 'Admin', icon: BuildingOffice },
   { id: 'accounts', path: '/sa/accounts', label: 'Accounts', icon: CurrencyCircleDollar },
   { id: 'event-head', path: '/sa/event-head', label: 'Event Head', icon: CalendarBlank },
   { id: 'hr', path: '/sa/hr', label: 'HR', icon: Users },
