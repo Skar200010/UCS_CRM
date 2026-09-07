@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useHR } from '../store';
 import { Dropdown } from './ui';
 import { Send, Bell } from '../icons';
+import { deptLabel } from '../../../lib/labels';
 
 const now = () => new Date().toLocaleString('en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
 
@@ -31,7 +32,7 @@ export default function Notify() {
         <div className="card-pad">
           <div className="form-row" style={{ alignItems:'end' }}>
             <label className="field" style={{ flex:'1 1 auto', minWidth:140 }}>To
-              <Dropdown value={to} onChange={e=>setTo(e.target.value)} options={['Everyone', ...DEPTS]} />
+              <Dropdown value={to} onChange={e=>setTo(e.target.value)} options={[{value:'Everyone',label:'Everyone'}, ...DEPTS.map(d => ({value:d, label:deptLabel(d)}))]} />
             </label>
             <label className="field" style={{ flex:3 }}>Message
               <input value={msg} onChange={e=>setMsg(e.target.value)} placeholder="All-hands at 3 PM in the lounge"

@@ -32,6 +32,7 @@ import holidayRoutes from './routes/holidayRoutes.js';
 import calendarRoutes from './routes/calendarRoutes.js';
 import salaryRoutes from './routes/salaryRoutes.js';
 import incentiveRoutes from './routes/incentiveRoutes.js';
+import specialIncentiveRoutes from './routes/specialIncentiveRoutes.js';
 import callLogRoutes from './routes/callLogRoutes.js';
 import causeRoutes from './routes/causeRoutes.js';
 import dataSourceRoutes from './routes/dataSourceRoutes.js';
@@ -74,6 +75,8 @@ import { whatsappLogin } from './controllers/froWhatsAppAuthController.js';
 import { authenticate } from './middleware/authMiddleware.js';
 import { ensureEventHeadSchema } from './bootstrap/ensureEventHeadSchema.js';
 import { ensureTicketSchema } from './bootstrap/ensureTicketSchema.js';
+import { ensureLoanDeductionSchema } from './bootstrap/ensureLoanDeductionSchema.js';
+import { ensureSpecialIncentiveSchema } from './bootstrap/ensureSpecialIncentiveSchema.js';
 
 dotenv.config();
 
@@ -184,6 +187,7 @@ app.use('/api/holidays', holidayRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/salary', salaryRoutes);
 app.use('/api/incentive', incentiveRoutes);
+app.use('/api/incentive/special', specialIncentiveRoutes);
 app.use('/api/causes', causeRoutes);
 app.use('/api/data-sources', dataSourceRoutes);
 app.use('/api/data-import', dataImportRoutes);
@@ -772,6 +776,8 @@ if (!process.env.VERCEL) {
     checkLeavesTable();
     await ensureEventHeadSchema().catch(e => console.error('ensureEventHeadSchema failed:', e?.message || e));
     await ensureTicketSchema().catch(e => console.error('ensureTicketSchema failed:', e?.message || e));
+    await ensureLoanDeductionSchema().catch(e => console.error('ensureLoanDeductionSchema failed:', e?.message || e));
+    await ensureSpecialIncentiveSchema().catch(e => console.error('ensureSpecialIncentiveSchema failed:', e?.message || e));
     import('./services/notificationScheduler.js');
   });
   const { initRealtime } = await import('./socket.js');

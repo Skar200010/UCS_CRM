@@ -107,7 +107,7 @@ function WhoWithPhoto({ name, role, photo_url }) {
 }
 
 export default function Workers({ onSelect, onOffboard, showAddForm = true, showNgoSalary = true, showBulkPrint = true, title = 'Volunteers', showPagarExport = false }) {
-  const { addWorker, DEPTS, updateWorker, fetchWorkers, fetchNGOs, fetchNgoSummaryList } = useHR();
+  const { addWorker, DEPTS, deptLabel, updateWorker, fetchWorkers, fetchNGOs, fetchNgoSummaryList } = useHR();
   const { formatSalary, isSalaryUnlocked, promptUnlock, lockSalary } = useSalaryPrivacy();
   const navigate = useNavigate();
   const [workers, setWorkers] = useState([]);
@@ -664,7 +664,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
           Name: toTitleCase(w.name),
           Email: w.email,
           'Login ID': w.login_id,
-          Department: toTitleCase(w.department),
+          Department: deptLabel(w.department),
           NGO: clientOf(w),
           'NGO Allocation %': (peopleByWorker[w.id] || []).map(p => `${p.ngos?.name || ''}: ${parseFloat(p.allocation_percentage || 0)}%`).join('; '),
           'Total Salary (₹)': w.salary,
@@ -802,7 +802,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
               {nameErr && <span style={{ color:'var(--danger)', fontSize:12, marginTop:2, display:'block' }}>{nameErr}</span>}
             </label>
             <label className="field">Team
-              <Dropdown value={dept} onChange={e=>{ setDept(e.target.value); setSelectedNgos([]); }} options={DEPTS} />
+              <Dropdown value={dept} onChange={e=>{ setDept(e.target.value); setSelectedNgos([]); }} options={DEPTS.map(d => ({ value: d, label: deptLabel(d) }))} />
             </label>
             <label className="field">Client
               <Dropdown value={client} onChange={e=>setClient(e.target.value)} options={CLIENTS} />
@@ -863,7 +863,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
             <span className="sub">{filtered.length} total</span>
             <Dropdown className="org-filter" value={entityFilter} onChange={e=>setEntityFilter(e.target.value)} options={['All', ...CLIENTS]} />
             <Dropdown className="role-filter" value={roleFilter} onChange={e=>setRoleFilter(e.target.value)}
-              options={[{value:'',label:'All members'}, ...roles.map(r => ({value:r, label:r}))]} />
+              options={[{value:'',label:'All members'}, ...roles.map(r => ({value:r, label:deptLabel(r)}))]} />
             <Dropdown className="status-filter" value={statusFilter} onChange={e=>{ setStatusFilter(e.target.value); save({ statusFilter: e.target.value }); }}
               options={[
                 {value:'active', label:'Active'},
@@ -941,7 +941,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
                       style={{ cursor:'pointer' }}>
                       <td>
                         <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                          <WhoWithPhoto name={w.name} role={w.department || 'Team Member'} photo_url={w.photo_url} />
+                          <WhoWithPhoto name={w.name} role={deptLabel(w.department) || 'Team Member'} photo_url={w.photo_url} />
                           {isComplete(workerDetails[w.id] || w) && <Check size={16} style={{ color:'var(--sage)', flexShrink:0 }} title="All details filled" />}
                           {w.is_test && <span style={{ fontSize:10, padding:'2px 8px', borderRadius:10, fontWeight:800, letterSpacing:'.5px', background:'#fef3c7', color:'#92400e', border:'1px solid #fcd34d', flexShrink:0 }}>TEST</span>}
                         </div>

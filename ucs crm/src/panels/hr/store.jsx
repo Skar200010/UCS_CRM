@@ -1,12 +1,14 @@
 import { useContext } from 'react'
 import { UcsContext } from '../../store'
 import { API_BASE } from '../../lib/apiBase'
+import { deptLabel } from '../../lib/labels'
 export function useHR() {
   const ctx = useContext(UcsContext)
   if (!ctx) throw new Error('useHR must be used within UcsProvider')
   return {
     ...ctx,
     DEPTS,
+    deptLabel,
     fetchWorkers, fetchNGOs, addWorker, removeWorker, abscondWorker, offboardWorker, fetchWorkerById, updateWorker, bulkUpdateWorkers,
     fetchAttendance, fetchLeaves, decideLeave,
     fetchTemplates, generateLetter, fetchWorkerLetters, sendNotif,
@@ -17,7 +19,7 @@ export function useHR() {
     generateAllTargets, fetchCurrentMonthTargets,
     setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchMonthlyIncentiveSummary,
     fetchWorkerAllocations, setWorkerAllocations, fetchWorkerSalaryAllocations,
-    fetchLoans, fetchPendingLoans, decideLoan, fetchWorkerLoans, fetchWorkerActiveLoans,
+    fetchLoans, fetchPendingLoans, decideLoan, fetchWorkerLoans, fetchWorkerActiveLoans, settleLoans,
     fetchPendingTickets, fetchAllTickets, fetchTicketCount, verifyTicket, rejectTicket,
     generateQR, fetchQRCodes, removeQRCode,
     fetchSettings, updateSettings,
@@ -168,6 +170,7 @@ export const fetchPendingLoans = () => apiGet('/loans/pending');
 export const decideLoan = (id, status, monthly_deduction, hr_remark) => apiPut('/loans/' + id + '/decide', { status: status === 'approved' ? 'approved' : 'rejected', monthly_deduction, hr_remark });
 export const fetchWorkerLoans = (workerId) => apiGet('/loans/worker/' + workerId);
 export const fetchWorkerActiveLoans = (workerId) => apiGet('/loans/worker/' + workerId + '/active');
+export const settleLoans = (year, month, workerId) => apiPost('/loans/settle', { year, month, worker_id: workerId });
 export const fetchPendingTickets = () => apiGet('/attendance-corrections/pending');
 export const fetchAllTickets = () => apiGet('/attendance-corrections/all');
 export const fetchTicketCount = () => apiGet('/attendance-corrections/pending-count');

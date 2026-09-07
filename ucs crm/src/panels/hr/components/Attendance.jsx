@@ -3,6 +3,7 @@ import { useHR } from '../store';
 import { Dropdown } from './ui';
 import * as XLSX from 'xlsx-js-style';
 import { API_BASE } from '../../../lib/apiBase';
+import { deptLabel } from '../../../lib/labels';
 
 const IST_OFFSET = 5.5 * 60 * 60 * 1000;
 
@@ -693,7 +694,7 @@ export default function Attendance() {
                     <Dropdown className="role-filter" value={punchStatus} onChange={e => setPunchStatus(e.target.value)}
                       options={[{value:'',label:'All'},{value:'present',label:'Present'},{value:'late',label:'Late'},{value:'absent',label:'Absent'}]} />
                     <Dropdown className="role-filter" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
-                      options={[{value:'',label:'All members'}, ...roles.map(r => ({value:r, label:r}))]} />
+                      options={[{value:'',label:'All members'}, ...roles.map(r => ({value:r, label:deptLabel(r)}))]} />
                     <input className="search-input" type="text" placeholder="Search worker&hellip;" value={searchToday} onChange={e => setSearchToday(e.target.value)} style={{ marginTop: 0, width: 140, padding: '4px 8px', fontSize: 12 }} />
                     <button className="btn btn-sm btn-primary" onClick={handleRefresh} title="Refresh" disabled={refreshing}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ animation: refreshing ? 'spin .6s linear infinite' : 'none' }}><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.4-3.4L23 10M1 14l5.1 4.4A9 9 0 0 0 20.5 15"/></svg>
@@ -768,7 +769,7 @@ export default function Attendance() {
                   <div className="filter-group">
                     <label>Department</label>
                     <Dropdown value={deptFilterH} onChange={e => setDeptFilterH(e.target.value)}
-                      options={[{value:'',label:'All'}, ...depts.map(d => ({value:d,label:d}))]} />
+                      options={[{value:'',label:'All'}, ...depts.map(d => ({value:d,label:deptLabel(d)}))]} />
                   </div>
                   <div className="filter-group">
                     <label>Status</label>

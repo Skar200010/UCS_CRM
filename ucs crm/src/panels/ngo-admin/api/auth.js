@@ -2,7 +2,7 @@ import { api } from '../../../api/auth'
 
 export async function login(email, password) {
   const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ identifier: email, password }), _prefix: 'ucs' })
-  if (data.role !== 'admin' && data.role !== 'super_admin') throw new Error('Access denied. NGO Admin account required.')
+  if (data.role !== 'admin' && data.role !== 'super_admin') throw new Error('Access denied. Admin account required.')
   return data
 }
 

@@ -6,7 +6,7 @@ export function SourceBadge({ source, size = 'md' }) {
     regular: { label: 'Regular', variant: 'default', color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' },
     fro: { label: 'FRO', variant: 'success', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
     accounts: { label: 'Accounts', variant: 'info', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
-    ngo_admin: { label: 'NGO Admin', variant: 'primary', color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' },
+    ngo_admin: { label: 'Admin', variant: 'primary', color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe' },
   };
 
   const config = sourceMap[source] || { label: source, variant: 'default', color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' };

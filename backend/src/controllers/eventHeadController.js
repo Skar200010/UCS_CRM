@@ -741,6 +741,16 @@ export const listVolunteers = async (req, res) => {
   }
 };
 
+export const listVolunteerPeople = async (req, res) => {
+  try {
+    const people = await EventHead.getVolunteerPeople();
+    return res.json(people);
+  } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const editVolunteer = async (req, res) => {
   try {
     const volunteer = await EventHead.updateVolunteer(req.params.id, sanitize(req.body));

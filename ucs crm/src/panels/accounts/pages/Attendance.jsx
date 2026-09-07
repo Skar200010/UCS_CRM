@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPut } from '../api/auth';
+import { deptLabel } from '../../../lib/labels';
 
 const IST_OFFSET = 5.5 * 60 * 60 * 1000;
 
@@ -135,7 +136,7 @@ export default function Attendance() {
           <button onClick={() => setSelectedWorker(null)} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: 'white', cursor: 'pointer', fontSize: 13 }}>← Back</button>
           <div>
             <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{selectedWorker.name}</h2>
-            <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>{selectedWorker.department || '—'} · {selectedWorker.login_id || selectedWorker.email || ''}</p>
+            <p style={{ margin: 0, fontSize: 12, color: '#6b7280' }}>{deptLabel(selectedWorker.department) || '—'} · {selectedWorker.login_id || selectedWorker.email || ''}</p>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
             <input type="month" value={workerMonth} onChange={e => setWorkerMonth(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13 }} />
@@ -245,7 +246,7 @@ export default function Attendance() {
                       <div style={{ fontWeight: 500 }}>{w.name || 'Unknown'}</div>
                     </td>
                     <td style={{ padding: '10px 12px', color: '#6b7280' }}>
-                      {w.department || '—'}
+                      {deptLabel(w.department) || '—'}
                     </td>
                     <td style={{ padding: '10px 12px' }}>
                       {r ? (

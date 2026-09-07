@@ -2,6 +2,8 @@ import cron from 'node-cron';
 import groq from '../config/groq.js';
 import db from '../config/db.js';
 import { getAllWorkers } from '../models/workerModel.js';
+import { settleMonthlyLoanDeductions } from '../models/loanModel.js';
+import { maybeRefreshSpecialIncentives } from './specialIncentiveService.js';
 import { getUpcomingEvents } from '../models/eventModel.js';
 import { getRecentNotices } from '../models/noticeModel.js';
 import { getRecentAchievements } from '../models/achievementModel.js';
@@ -363,6 +365,35 @@ async function runNotificationCycle() {
   }
 }
 
+// Runs on the 10th of each month: applies the previous month's loan/advance
+// deduction once to every active loan. Idempotent (settleMonthlyLoanDeductions
+// skips loans already settled for that month), so re-running is a safe no-op.
+async function runMonthlyLoanSettlement() {
+  try {
+    const now = new Date();
+    let year = now.getFullYear();
+    let month = now.getMonth(); // 0-based
+    month -= 1; // previous month
+    if (month < 0) {
+      month = 11;
+      year -= 1;
+    }
+    month += 1; // back to 1-based
+    const result = await settleMonthlyLoanDeductions({ year, month });
+    console.log(`Loan settlement for ${year}-${String(month).padStart(2, '0')}:`, result);
+  } catch (e) {
+    console.error('Loan settlement error:', e.message);
+  }
+}
+
+async function runSpecialIncentiveRefresh() {
+  try {
+    await maybeRefreshSpecialIncentives();
+  } catch (e) {
+    console.error('Special incentive refresh error:', e.message);
+  }
+}
+
 function start() {
   if (running) return;
   running = true;
@@ -394,6 +425,13 @@ function start() {
   console.log('Scheduled: every-minute check for missed schedules (10 min overdue)');
 
   cronJobs.push(cron.schedule('* * * * *', () => autoReturnTransfers()));
+
+  if (!process.env.VERCEL) {
+    cronJobs.push(cron.schedule('0 0 10 * *', () => runMonthlyLoanSettlement()));
+    console.log('Scheduled: 10th of month - auto loan/advance settlement for previous month');
+  }
+  cronJobs.push(cron.schedule('*/20 * * * * *', () => runSpecialIncentiveRefresh()));
+  console.log('Scheduled: every 20s - special incentive ("Sir ka Incentive") live tracking');
   console.log('Scheduled: every-minute check for expired lead transfers');
 
   // Email imports and Razorpay synchronization are manual-only. Do not schedule
@@ -714,4 +752,4 @@ function stop() {
 
 start();
 
-export { runNotificationCycle, sendScheduledNotifications, sendPunchInReminders, sendPunchOutReminders, start, stop };
+export { runNotificationCycle, sendScheduledNotifications, sendPunchInReminders, sendPunchOutReminders, start, stop, runSpecialIncentiveRefresh };

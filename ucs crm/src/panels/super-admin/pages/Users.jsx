@@ -143,7 +143,7 @@ export default function Users() {
             {isUser && (
               <label className="field">Role
                 <select value={form.role} onChange={e => setForm({...form, role: e.target.value})}>
-                  <option value="admin">HO Admin</option>
+                  <option value="admin">Admin</option>
                   <option value="accounts">Accounts</option>
                   <option value="leads">Leads</option>
                   <option value="recruiter">Recruiter</option>
@@ -158,7 +158,7 @@ export default function Users() {
               <label className="field">
                 <span>NGO</span>
                 <select value={form.ngo_ids[0] || ''} onChange={e => setForm({...form, ngo_ids: e.target.value ? [e.target.value] : []})}>
-                  <option value="">— None —</option>
+                  <option value="">ï¿½ None ï¿½</option>
                   {ngos.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
                 </select>
               </label>
@@ -197,7 +197,7 @@ export default function Users() {
                   <td>{u.name}</td>
                   <td>{u.email}</td>
                   <td><span className="sa-badge">{u.role}</span></td>
-                  <td className="sa-muted" style={{maxWidth:200}}>{u.role === 'admin' ? 'All NGOs' : (u.ngo_names || (u.ngo_id ? ngos.find(n => n.id === u.ngo_id)?.name || u.ngo_id : '—'))}</td>
+                  <td className="sa-muted" style={{maxWidth:200}}>{u.role === 'admin' ? 'All NGOs' : (u.ngo_names || (u.ngo_id ? ngos.find(n => n.id === u.ngo_id)?.name || u.ngo_id : 'ï¿½'))}</td>
                   <td><span className={`sa-badge ${u.is_active !== false ? 'active' : 'inactive'}`}>
                     {u.is_active !== false ? 'Active' : 'Inactive'}
                   </span></td>
@@ -225,7 +225,7 @@ export default function Users() {
                 <tr key={h.id}>
                   <td>{h.name}</td>
                   <td>{h.email}</td>
-                  <td className="sa-muted">{h.ngo_id ? ngos.find(n => n.id === h.ngo_id)?.name || h.ngo_id : '—'}</td>
+                  <td className="sa-muted">{h.ngo_id ? ngos.find(n => n.id === h.ngo_id)?.name || h.ngo_id : 'ï¿½'}</td>
                   <td><span className={`sa-badge ${h.is_active !== false ? 'active' : 'inactive'}`}>
                     {h.is_active !== false ? 'Active' : 'Inactive'}
                   </span></td>

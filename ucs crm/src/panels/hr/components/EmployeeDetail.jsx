@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useHR, avatarColor, avatarTint, initials, DEPTS } from '../store';
+import { deptLabel } from '../../../lib/labels';
 import { useTeams } from '../../../components/useTeams';
 import { useSalaryPrivacy } from '../../../context/SalaryPrivacyContext';
 import { api } from '../../../api/auth';
@@ -593,7 +594,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
               <h3 style={{ marginTop:12, fontSize:17 }}>{data.name}</h3>
             )}
             <div style={{ color:'var(--ink-soft)', fontSize:12, marginTop:6, display:'flex', gap:6, justifyContent:'center', flexWrap:'wrap' }}>
-              {data.department && <span className="side-tag">{data.department}</span>}
+              {data.department && <span className="side-tag">{deptLabel(data.department)}</span>}
               <span className={'side-tag ' + (data.employment_status === 'absconded' ? 'side-tag-absconded' : data.employment_status === 'offboarded' ? 'side-tag-offboarded' : data.is_active ? 'side-tag-active' : 'side-tag-inactive')}
                 style={data.employment_status === 'absconded' ? { background:'#fff3e0', color:'#e65100' } : data.employment_status === 'offboarded' ? { background:'#fce4ec', color:'#c62828' } : {}}>
                 {data.employment_status === 'absconded' ? 'Absconded' : data.employment_status === 'offboarded' ? 'Offboarded' : data.is_active ? 'Active' : 'Inactive'}
@@ -629,9 +630,9 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                     <div className="detail-field">
                       <span className="detail-label">Department</span>
                       <Dropdown value={form.department} onChange={setField('department')}
-                        style={{ width:'100%' }} options={DEPTS} />
+                        style={{ width:'100%' }} options={DEPTS.map(d => ({ value: d, label: deptLabel(d) }))} />
                     </div>
-                  ) : <Field label="Department" value={data.department} />}
+                  ) : <Field label="Department" value={deptLabel(data.department)} />}
                   {editing ? (
                     <div className="detail-field">
                       <span className="detail-label">Team</span>
@@ -2133,7 +2134,11 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                             </span>
                           </td>
                           <td style={{ color:'var(--ink-soft)' }}>
-                            {new Date(l.applied_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+                            {(() => {
+                              const dt = new Date(l.applied_at);
+                              const i = new Intl.DateTimeFormat('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' }).format(dt);
+                              return i.split('/').join('-');
+                            })()}
                           </td>
                         </tr>
                       ))}

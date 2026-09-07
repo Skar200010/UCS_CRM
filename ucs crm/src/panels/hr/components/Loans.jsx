@@ -5,7 +5,12 @@ import { SkeletonRows } from './ui';
 
 function fmtDate(d) {
   if (!d) return '—';
-  return new Date(d + 'T00:00:00+05:30').toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+  const raw = String(d);
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw + 'T00:00:00+05:30' : raw);
+  if (isNaN(date.getTime())) return '—';
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  return `${dd}-${mm}-${date.getFullYear()}`;
 }
 
 function fmtAmount(n) {
@@ -25,13 +30,19 @@ function StatusBadge({ status }) {
 }
 
 export default function Loans() {
-  const { fetchLoans, decideLoan } = useHR();
+  const { fetchLoans, decideLoan, settleLoans } = useHR();
   const [loans, setLoans] = useState([]);
   const [approving, setApproving] = useState(null);
   const [monthlyDeduction, setMonthlyDeduction] = useState('');
   const [hrRemark, setHrRemark] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [settleMonth, setSettleMonth] = useState(() => {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  });
+  const [settleBusy, setSettleBusy] = useState(false);
+  const [settleMsg, setSettleMsg] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +89,28 @@ export default function Loans() {
 
   const pending = loans.filter(l => l.status === 'pending');
   const other = loans.filter(l => l.status !== 'pending');
+
+  const handleSettle = async () => {
+    if (!settleMonth) {
+      alert('Select a month first');
+      return;
+    }
+    if (!window.confirm(`Run monthly settlement for ${settleMonth}? Deductions will be recorded once for every active loan.`)) return;
+    const parts = settleMonth.split('-');
+    const [year, month] = [parseInt(parts[0], 10), parseInt(parts[1], 10)];
+    setSettleBusy(true);
+    setSettleMsg(null);
+    try {
+      const res = await settleLoans(year, month);
+      const deducted = parseFloat(res.total_deducted || 0).toLocaleString('en-IN');
+      setSettleMsg(`Month ${settleMonth} settled: ${res.settled} loan(s), ₹${deducted} deducted` + (res.skipped ? ` · ${res.skipped} already settled` : ''));
+      refresh();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSettleBusy(false);
+    }
+  };
 
   return (
     <>
@@ -161,6 +194,30 @@ export default function Loans() {
         </table>
       </div>
 
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-head"><h3>Monthly Settlement</h3></div>
+        <div className="card-pad" style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+          <span style={{ fontSize:13, color:'var(--ink-soft)' }}>Record salary deductions for</span>
+          <input
+            type="month"
+            value={settleMonth}
+            onChange={e => setSettleMonth(e.target.value)}
+            style={{ border:'1px solid var(--line)', borderRadius:'var(--radius-sm)', padding:'4px 8px', fontSize:13 }}
+          />
+          <button
+            className="btn btn-sm"
+            disabled={settleBusy}
+            style={{ background:'var(--sage)', color:'#fff', border:'none' }}
+            onClick={handleSettle}
+          >
+            {settleBusy ? 'Running…' : 'Run monthly settlement'}
+          </button>
+        </div>
+        {settleMsg && (
+          <div className="card-pad" style={{ fontSize:13, color:'var(--sage)' }}>{settleMsg}</div>
+        )}
+      </div>
+
       {other.length > 0 && (
         <div className="card">
           <div className="card-head"><h3>History</h3></div>
@@ -171,6 +228,7 @@ export default function Loans() {
                 <th>Type</th>
                 <th>Amount</th>
                 <th>Monthly</th>
+                <th>Paid So Far</th>
                 <th>Remaining</th>
                 <th>Status</th>
                 <th>Decided</th>
@@ -183,6 +241,9 @@ export default function Loans() {
                   <td style={{ textTransform:'capitalize' }}>{l.type}</td>
                   <td style={{ fontWeight:600 }}>{fmtAmount(l.total_amount)}</td>
                   <td>{parseFloat(l.monthly_deduction || 0) > 0 ? fmtAmount(l.monthly_deduction) : '—'}</td>
+                  <td style={{ color:'var(--sage)' }}>
+                    {parseFloat(l.total_deducted || 0) > 0 ? fmtAmount(l.total_deducted) : '—'}
+                  </td>
                   <td style={{ color: parseFloat(l.remaining_amount || 0) > 0 ? 'var(--danger)' : 'var(--ink-soft)' }}>
                     {parseFloat(l.remaining_amount || 0) > 0 ? fmtAmount(l.remaining_amount) : '—'}
                   </td>

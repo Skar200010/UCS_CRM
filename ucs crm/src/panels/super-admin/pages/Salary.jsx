@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/auth'
+import { deptLabel } from '../../../lib/labels'
 
 export default function Salary() {
   const [summary, setSummary] = useState([])
@@ -82,7 +83,7 @@ export default function Salary() {
             {summary.map(s => (
               <tr key={s.id}>
                 <td>{s.name || `ID ${s.id}`}</td>
-                <td>{s.department || '—'}</td>
+                <td>{deptLabel(s.department) || '—'}</td>
                 <td>{formatMoney(s.current_salary)}</td>
                 <td><span className={`sa-badge ${s.current_salary ? 'active' : 'inactive'}`}>
                   {s.current_salary ? 'Active' : 'No Salary'}

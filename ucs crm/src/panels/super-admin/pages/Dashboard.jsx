@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { getDashboard, getAccountsLeads, getRecruiterLeads, getWorkers, getAttendance, getHolidays, getUsers, getNgoAdminTargets, setNgoAdminTarget, getLeaves, getAllTickets, getEvents, getSuperAdminAlerts, getReceiptStats } from '../api/endpoints'
 import { api } from '../api/auth'
 import { useRealtime } from '../../../hooks/useRealtime'
+import { deptLabel } from '../../../lib/labels'
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, RadialBarChart, RadialBar, LineChart, Line, CartesianGrid, Legend } from 'recharts'
 import { fmt, STATUS_META, StatBox } from '../components/froShared'
 import { FroMiniCard } from '../components/FroMiniCard'
@@ -435,7 +436,7 @@ function PanelSummaryModal({ panel, onClose, dashboardData }) {
     accounts: { title: 'Accounts — Lead Verification', icon: 'receipt_long', color: MINT_DARK },
     fro: { title: 'FRO — Field Operations', icon: 'groups', color: MINT_DEEP },
     hr: { title: 'HR — Volunteer Management', icon: 'badge', color: SLATE },
-    'ngo-admin': { title: 'NGO Admin — NGO Management', icon: 'corporate_fare', color: GOLD },
+    'ngo-admin': { title: 'Admin — NGO Management', icon: 'corporate_fare', color: GOLD },
     'event-head': { title: 'Event Head — Events & Volunteers', icon: 'event', color: '#3B82F6' },
     recruiter: { title: 'Recruiter — Lead Pipeline', icon: 'person_search', color: GOLD },
   }
@@ -530,7 +531,7 @@ function PanelSummaryModal({ panel, onClose, dashboardData }) {
                         </div>
                         {data.departments.map(d => (
                           <div key={d.name} style={{ display: 'grid', gridTemplateColumns: '1fr 50px 50px 50px 50px', gap: 4, padding: '6px 10px', fontSize: 12, borderRadius: 6, background: '#fff', border: '1px solid #f1f5f9' }}>
-                            <span style={{ fontWeight: 600, color: '#334155' }}>{d.name}</span>
+                            <span style={{ fontWeight: 600, color: '#334155' }}>{deptLabel(d.name)}</span>
                             <span style={{ textAlign: 'center', fontWeight: 700, color: '#334155' }}>{d.total}</span>
                             <span style={{ textAlign: 'center', fontWeight: 700, color: '#22C55E' }}>{d.present}</span>
                             <span style={{ textAlign: 'center', fontWeight: 700, color: '#EF4444' }}>{d.absent}</span>
@@ -666,7 +667,7 @@ function NameListModal({ title, color, names, onClose }) {
                   <div style={{ minWidth: 0 }}>
                     <span className="nd-modal-name">{person.name}</span>
                     {(person.dept || person.department) && (
-                      <span className="nd-modal-dept">{person.dept || person.department}</span>
+                      <span className="nd-modal-dept">{deptLabel(person.dept || person.department)}</span>
                     )}
                   </div>
                   {person.time && <span className="nd-modal-time">{person.time}</span>}
@@ -1430,11 +1431,11 @@ export default function Dashboard() {
 
   /* -------- departments (from allTimeRoleDistribution / allUserList) -------- */
   const ROLE_LABELS = {
-    super_admin: 'Super Admin', admin: 'Admin', hoadmin: 'HO Admin',
+    super_admin: 'Super Admin', admin: 'Admin', hoadmin: 'Accounts',
     inter: 'Intermediate', team_lead: 'Team Lead', hr: 'HR',
     recruiter: 'Recruiter', telecaller: 'Telecaller', fro: 'FRO',
     accounts: 'Accounts', leads: 'Leads', worker: 'Volunteer',
-    ngo_admin: 'NGO Admin',
+    ngo_admin: 'Admin',
   }
   const HIDE_DEPTS = ['hr-recruitment', 'hr recruitment', 'hr_recruitment', 'hrrecruitment']
   const deptRaw = Object.keys(allTimeRoleDistribution || {}).length > 0
@@ -2270,7 +2271,7 @@ export default function Dashboard() {
       <div className="nd-card nd-appear" style={{ animationDelay: '0.25s', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <span className="material-symbols-outlined" style={{ fontSize: 18, color: GOLD }}>corporate_fare</span>
-          <h3 className="nd-section-title" style={{ margin: 0 }}>NGO Admin — Overview</h3>
+          <h3 className="nd-section-title" style={{ margin: 0 }}>Admin — Overview</h3>
           <span style={{ marginLeft: 'auto', fontSize: 12, color: '#94a3b8', fontWeight: 600 }}>
             {ngoUserCounts.length} NGOs
           </span>
@@ -2322,7 +2323,7 @@ export default function Dashboard() {
       <div className="nd-card nd-appear" style={{ animationDelay: '0.35s', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <span className="material-symbols-outlined" style={{ fontSize: 18, color: GOLD }}>track_changes</span>
-          <h3 className="nd-section-title" style={{ margin: 0 }}>NGO Admin Daily Targets</h3>
+          <h3 className="nd-section-title" style={{ margin: 0 }}>Admin Daily Targets</h3>
           <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
             {targetsLoading ? 'Loading...' : `${adminTargets.length} admins`}
           </span>
@@ -2376,7 +2377,7 @@ export default function Dashboard() {
         ) : targetsLoading ? (
           <p className="nd-muted">Loading...</p>
         ) : (
-          <p className="nd-muted">No NGO admin data available</p>
+          <p className="nd-muted">No Admin data available</p>
         )}
       </div>
 
@@ -2460,7 +2461,7 @@ export default function Dashboard() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <span className="nd-modal-name">{item.name}</span>
-                        {item.value && <span className="nd-modal-dept">{item.value}</span>}
+                        {item.value && <span className="nd-modal-dept">{deptLabel(item.value)}</span>}
                       </div>
                     </div>
                   ))}

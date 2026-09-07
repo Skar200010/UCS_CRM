@@ -41,6 +41,7 @@ const NAV = [
   { id:'checklist',      path:'/event-head/checklist',        label:'Event Checklist',       icon:Clock, section:'Manage' },
   { id:'events-list',    path:'/event-head/events-list',      label:'My Events',             icon:Cal, section:'Manage' },
   { id:'media',          path:'/event-head/media-management', label:'Media / Banners',       icon:Eye, section:'Manage' },
+  { id:'volunteers',     path:'/event-head/volunteers',       label:'Voluntary',             icon:Users, section:'Manage' },
   { id:'reports',        path:'/event-head/reports',          label:'Event Reports',         icon:FileTxt, section:'Reporting' },
   { id:'approvals',      path:'/event-head/approvals',        label:'Approval Workflow',     icon:SettingsIcon, section:'Reporting' },
   { id:'notifications',  path:'/event-head/notifications',    label:'Notifications',         icon:Bell, section:'Reporting' },

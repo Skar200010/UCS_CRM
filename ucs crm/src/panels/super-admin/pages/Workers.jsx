@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../api/auth'
 import { useSalaryPrivacy } from '../../../context/SalaryPrivacyContext'
 import ResetPasswordModal from '../components/ResetPasswordModal'
+import { deptLabel } from '../../../lib/labels'
 
 const PAGE_SIZES = [10, 20, 50, 100]
 
@@ -64,7 +65,7 @@ export default function Workers({ onViewWorker }) {
         </select>
         <select value={filterDept} onChange={e => { setFilterDept(e.target.value); setPage(1) }}>
           <option value="">All Departments</option>
-          {depts.map(d => <option key={d} value={d}>{d}</option>)}
+          {depts.map(d => <option key={d} value={d}>{deptLabel(d)}</option>)}
         </select>
       </div>
 
@@ -78,7 +79,7 @@ export default function Workers({ onViewWorker }) {
                 <tr key={w.id}>
                   <td><a className="sa-link" onClick={() => onViewWorker(w.id)}>{w.name}</a></td>
                   <td><code>{w.login_id}</code></td>
-                  <td>{w.department || '—'}</td>
+                  <td>{deptLabel(w.department) || '—'}</td>
                   <td className="sa-muted">{ngo?.name || '—'}</td>
                   <td>{w.salary ? formatSalary(w.salary) : '—'}</td>
                   <td><span className={`sa-badge ${w.is_active !== false ? 'active' : 'inactive'}`}>

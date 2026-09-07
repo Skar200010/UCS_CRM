@@ -112,7 +112,7 @@ export default function NGOs() {
             <label className="field">Email <input type="email" value={assignForm.email} onChange={e => setAssignForm({...assignForm, email: e.target.value})} /></label>
             <label className="field">Role
               <select value={assignForm.role} onChange={e => setAssignForm({...assignForm, role: e.target.value})}>
-                <option value="admin">HO Admin</option>
+                <option value="admin">Admin</option>
                 <option value="accounts">Accounts</option>
                 <option value="leads">Leads</option>
                 <option value="recruiter">Recruiter</option>

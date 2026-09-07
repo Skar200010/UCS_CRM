@@ -8,6 +8,8 @@ import {
   getActiveLoansByWorker,
   createDeduction,
   getDeductionsByLoan,
+  getTotalDeductedByLoanIds,
+  settleMonthlyLoanDeductions,
 } from '../models/loanModel.js';
 import { notifyNgoAdmins } from '../services/adminNotifyService.js';
 
@@ -76,6 +78,12 @@ export const listAll = async (req, res) => {
       const workers = await getAllWorkers(ngoId);
       const workerIds = new Set(workers.map((w) => w.id));
       loans = loans.filter((l) => workerIds.has(l.worker_id));
+    }
+    try {
+      const totals = await getTotalDeductedByLoanIds(loans.map((l) => l.id));
+      loans = loans.map((l) => ({ ...l, total_deducted: totals[l.id] || 0 }));
+    } catch (err) {
+      console.error('Loan deduction enrichment skipped:', err.message);
     }
     return res.json(loans);
   } catch (error) {
@@ -170,6 +178,26 @@ export const getWorkerActiveLoans = async (req, res) => {
   try {
     const loans = await getActiveLoansByWorker(req.params.workerId);
     return res.json(loans);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const settleMonthly = async (req, res) => {
+  try {
+    const year = parseInt(req.body.year, 10);
+    const month = parseInt(req.body.month, 10);
+    const workerId = req.body.worker_id || undefined;
+
+    if (!year || !month || month < 1 || month > 12 || String(year).length !== 4) {
+      return res.status(400).json({ message: 'Valid year and month (1-12) are required' });
+    }
+
+    const result = await settleMonthlyLoanDeductions({ year, month, workerId });
+    return res.json({
+      message: `Settlement complete for ${String(year)}-${String(month).padStart(2, '0')}`,
+      ...result,
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

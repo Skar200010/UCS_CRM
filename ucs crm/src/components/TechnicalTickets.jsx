@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/auth';
+import { deptLabel } from '../lib/labels';
 
 const AUTO_REFRESH_MS = 30000;
 
@@ -51,7 +52,7 @@ const apiPost = (p, b) => api(p, { method: 'POST', body: JSON.stringify(b), _pre
 
 const PANELS = [
   { key: 'event_head', label: 'Event Head', color: '#6366f1' },
-  { key: 'ngo_admin',  label: 'NGO Admin',  color: '#0ea5e9' },
+  { key: 'ngo_admin',  label: 'Admin',  color: '#0ea5e9' },
   { key: 'recruiter',  label: 'Recruiter',  color: '#8b5cf6' },
   { key: 'fro',        label: 'FRO',        color: '#10b981' },
   { key: 'accounts',   label: 'Accounts',   color: '#f59e0b' },
@@ -507,7 +508,7 @@ export default function TechnicalTickets({ panel, viewOnly = false, canRaise = t
                               <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700, textTransform: 'capitalize',
                                 background: t._source === 'developer' ? '#eef2ff' : '#f3f4f6',
                                 color: t._source === 'developer' ? '#4338ca' : '#374151' }}>
-                                {t._source === 'developer' ? 'Dev' : (t.department || '—')}
+                                {t._source === 'developer' ? 'Dev' : (deptLabel(t.department) || '—')}
                               </span>
                             </td>
                             <td style={{ padding: '8px 10px' }}>
@@ -573,7 +574,7 @@ export default function TechnicalTickets({ panel, viewOnly = false, canRaise = t
                       <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700, textTransform: 'capitalize',
                         background: t._source === 'developer' ? '#eef2ff' : '#f3f4f6',
                         color: t._source === 'developer' ? '#4338ca' : '#374151' }}>
-                        {t._source === 'developer' ? 'Dev' : (t.department || '—')}
+                        {t._source === 'developer' ? 'Dev' : (deptLabel(t.department) || '—')}
                       </span>
                     </td>
                     <td style={{ padding: '8px 10px' }}>
@@ -732,7 +733,7 @@ export default function TechnicalTickets({ panel, viewOnly = false, canRaise = t
                   </span>
                   <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700, textTransform: 'capitalize',
                     background: '#f3f4f6', color: '#374151' }}>
-                    {showDetail._source === 'developer' ? 'Dev' : showDetail.department}
+                    {showDetail._source === 'developer' ? 'Dev' : deptLabel(showDetail.department)}
                   </span>
                   <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700, textTransform: 'capitalize',
                     background: PRIORITY_COLORS[showDetail.priority]?.bg || '#f3f4f6', color: PRIORITY_COLORS[showDetail.priority]?.color || '#6b7280' }}>

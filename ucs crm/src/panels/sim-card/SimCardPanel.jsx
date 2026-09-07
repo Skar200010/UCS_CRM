@@ -6,6 +6,7 @@ import { Icon } from './components';
 import ToastContainer from '../../components/Toast';
 import { SimFormModal, SimViewModal, ReplaceModal } from './modals';
 import { deleteSimCard } from './api';
+import { deptLabel } from '../../lib/labels';
 import { toast } from '../../components/Toast';
 import { exportToCSV, exportToExcel } from './helpers';
 import './simCard.css';
@@ -92,7 +93,7 @@ function PanelInner() {
               <div className="sim-avatar">{initials}</div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name || user?.login_id}</div>
-                <div style={{ fontSize: 11, opacity: .7 }}>{user?.department || user?.role}</div>
+                <div style={{ fontSize: 11, opacity: .7 }}>{deptLabel(user?.department) || user?.role}</div>
               </div>
             </div>
             <button className="logout-btn" onClick={logout}>Sign out</button>

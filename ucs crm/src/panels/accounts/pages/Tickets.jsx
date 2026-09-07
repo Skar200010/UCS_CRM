@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiGet, apiPut, apiPost } from '../api/auth';
 import { toast } from '../../../components/Toast';
+import { deptLabel } from '../../../lib/labels';
 
 const DEPARTMENTS = ['accounts', 'developers', 'hr', 'fro'];
 const CATEGORIES = [
@@ -28,7 +29,7 @@ const PANEL_LABELS = {
   accounts: 'Accounts',
   hr: 'HR',
   dev_panel: 'Developer',
-  ngo_admin: 'NGO Admin',
+  ngo_admin: 'Admin',
   event_head: 'Event Head',
   recruiter: 'Recruiter',
   other: 'Other',
@@ -273,7 +274,7 @@ export default function AccountsTickets() {
                         background: t._source === 'developer' ? '#eef2ff' : undefined,
                         color: t._source === 'developer' ? '#4338ca' : undefined,
                       }}>
-                        {t._source === 'developer' ? 'Dev' : t.department}
+                        {t._source === 'developer' ? 'Dev' : deptLabel(t.department)}
                       </span>
                     </td>
                     <td style={{ fontSize: 12, textTransform: 'capitalize' }}>{CATEGORIES.find(c => c.value === t.category)?.label || t.category}</td>
@@ -396,7 +397,7 @@ export default function AccountsTickets() {
                   <span className="pill" style={{ background: STATUS_COLORS[showDetail.status]?.bg || '#f3f4f6', color: STATUS_COLORS[showDetail.status]?.color || '#6b7280', textTransform: 'capitalize', fontSize: 10 }}>
                     {showDetail.status?.replace('_', ' ')}
                   </span>
-                  <span className="pill" style={{ textTransform: 'capitalize', fontSize: 10 }}>{showDetail.department}</span>
+                  <span className="pill" style={{ textTransform: 'capitalize', fontSize: 10 }}>{deptLabel(showDetail.department)}</span>
                   <span className="pill" style={{ fontSize: 10 }}>{CATEGORIES.find(c => c.value === showDetail.category)?.label || showDetail.category}</span>
                   <span className={`pill ${showDetail.priority === 'high' ? 'pill-red' : showDetail.priority === 'medium' ? 'pill-yellow' : 'pill-gray'}`} style={{ textTransform: 'capitalize', fontSize: 10 }}>
                     {showDetail.priority}

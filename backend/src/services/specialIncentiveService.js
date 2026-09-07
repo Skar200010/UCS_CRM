@@ -1,0 +1,307 @@
+import db, { sql } from '../config/db.js';
+
+// "Sir ka Incentive" (special day incentive) engine.
+// Flow: Super Admin announces -> active incentive pops in all panels ->
+// per-FRO window collections tracked live -> first past the post wins.
+
+const fmtMoney = (n) => Number(n || 0).toLocaleString('en-IN');
+
+// Sum per-FRO collections whose ACTUAL collection time falls inside the
+// incentive window. Mirrors the app's live collection logic (COLLECTION_DATE_OR)
+// but with timestamp precision: donation logs count on created_at OR
+// transaction_datetime, "done" disposals on the same, and verified "lead_done"
+// on verified_at.
+const WINDOW_COLLECTION_SQL = `
+  SELECT fro_worker_id AS worker_id, COALESCE(SUM(amount_collected), 0)::float8 AS amount
+  FROM fro_donor_logs
+  WHERE fro_worker_id IS NOT NULL
+    AND amount_collected > 0
+    AND (
+      (action = 'donation' AND (transaction_datetime BETWEEN $1 AND $2))
+      OR (action = 'donation' AND (created_at BETWEEN $1 AND $2))
+      OR (action = 'disposition' AND disposition_detail = 'done' AND (transaction_datetime BETWEEN $1 AND $2))
+      OR (action = 'disposition' AND disposition_detail = 'done' AND (created_at BETWEEN $1 AND $2))
+      OR (action = 'disposition' AND disposition_detail = 'lead_done' AND accounts_status = 'verified' AND verified_at BETWEEN $1 AND $2)
+    )
+  GROUP BY fro_worker_id
+`;
+
+// Everyone who should see special-incentive popups: FROs, Accounts, HR, and
+// the sir-level roles (Super Admin / Admin).
+const RECIPIENT_SQL = `
+  SELECT id FROM workers
+  WHERE is_active = true
+    AND (
+      lower(coalesce(department, '')) IN ('fro', 'accounts', 'hr', 'admin', 'ngo admin')
+      OR lower(coalesce(role, '')) IN ('super_admin', 'admin')
+    )
+`;
+
+export const getActiveIncentives = async () => {
+  const { data, error } = await db
+    .from('special_incentives')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
+export const getIncentiveById = async (id) => {
+  const { data, error } = await db
+    .from('special_incentives')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+};
+
+export const getLeaderboard = async (incentiveId) => {
+  const { data, error } = await db
+    .from('special_incentive_progress')
+    .select('*, workers(name)')
+    .eq('special_incentive_id', incentiveId)
+    .order('collected_amount', { ascending: false })
+    .order('updated_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+};
+
+export const getProgressForWorker = async (incentiveId, workerId) => {
+  const { data, error } = await db
+    .from('special_incentive_progress')
+    .select('*')
+    .eq('special_incentive_id', incentiveId)
+    .eq('worker_id', workerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+};
+
+const sendNotificationLogs = async (rows) => {
+  if (!rows || rows.length === 0) return;
+  for (let i = 0; i < rows.length; i += 200) {
+    const chunk = rows.slice(i, i + 200);
+    const { error } = await db.from('notification_log').insert(chunk);
+    if (error) console.error('[special incentive] notification insert:', error.message);
+  }
+};
+
+// Seed a ₹0 progress row for every active FRO so the leaderboard lists all
+// participants from second one.
+export const seedProgressForActiveFros = async (incentiveId) => {
+  try {
+    const { data: fros } = await db
+      .from('workers')
+      .select('id')
+      .eq('department', 'FRO')
+      .eq('is_active', true);
+    const rows = (fros || []).map((w) => ({
+      special_incentive_id: incentiveId,
+      worker_id: w.id,
+      collected_amount: 0,
+    }));
+    if (rows.length === 0) return;
+    await db
+      .from('special_incentive_progress')
+      .upsert(rows, { onConflict: 'special_incentive_id,worker_id' });
+  } catch (e) {
+    console.error('[special incentive] seed progress:', e.message);
+  }
+};
+
+// Broadcast a "LIVE" announcement to FRO + Accounts + HR + SA via
+// notification_log (shows in bell + desktop notifications everywhere).
+export const announceIncentive = async (incentive, type = 'special_incentive') => {
+  try {
+    const rows = await sql(RECIPIENT_SQL);
+    if (!rows || rows.length === 0) return;
+    if (type === 'special_incentive') {
+      const title = `🔥 ${incentive.title} LIVE!`;
+      const body = `Collect ₹${fmtMoney(incentive.target_amount)} by ${new Date(incentive.end_at).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit' })} and win ₹${fmtMoney(incentive.incentive_amount)}!`;
+      await sendNotificationLogs(
+        rows.map((r) => ({
+          worker_id: r.id,
+          type: 'special_incentive',
+          title,
+          body,
+          reference_id: String(incentive.id),
+        }))
+      );
+    }
+  } catch (e) {
+    console.error('[special incentive] announce:', e.message);
+  }
+};
+
+export const celebrateWinner = async (incentiveId, workerId, winnerName) => {
+  try {
+    const rows = await sql(RECIPIENT_SQL);
+    if (!rows || rows.length === 0) return;
+    const { data: inc } = await db
+      .from('special_incentives')
+      .select('title, target_amount, incentive_amount')
+      .eq('id', incentiveId)
+      .maybeSingle();
+    const title = `🏆 WINNER: ${winnerName || 'A FRO'}`;
+    const body = `${inc?.title || 'Special Incentive'} won! ${winnerName || 'Someone'} was the first to collect ₹${fmtMoney(inc?.target_amount)} → wins ₹${fmtMoney(inc?.incentive_amount)}! 🎉`;
+    await sendNotificationLogs(
+      rows.map((r) => ({
+        worker_id: r.id,
+        type: 'special_incentive_win',
+        title,
+        body,
+        reference_id: String(incentiveId),
+      }))
+    );
+  } catch (e) {
+    console.error('[special incentive] celebrate:', e.message);
+  }
+};
+
+// Recompute the live progress for one incentive from fro_donor_logs, then try
+// to lock the first-past-the-post winner. Idempotent & concurrency-safe.
+export const refreshSpecialIncentive = async (incentiveId) => {
+  const inc = await getIncentiveById(incentiveId);
+  if (!inc) return null;
+  if (inc.status === 'cancelled') return null;
+  if (inc.status === 'active' && new Date(inc.end_at).getTime() < Date.now()) {
+    await endWithoutWinner(inc.id);
+    return null;
+  }
+  if (inc.status !== 'active') return null;
+
+  await seedProgressForActiveFros(inc.id);
+
+  const target = Number(inc.target_amount) || 0;
+  const rows = await sql(WINDOW_COLLECTION_SQL, [inc.start_at, inc.end_at]);
+  const nowIso = new Date().toISOString();
+
+  for (const r of rows || []) {
+    const raw = Number(r.amount) || 0;
+    const amount = Math.min(raw, target);
+    const hit = raw >= target ? nowIso : null;
+    try {
+      const existing = await getProgressForWorker(inc.id, r.worker_id);
+      if (existing) {
+        await db
+          .from('special_incentive_progress')
+          .update({ collected_amount: amount, hit_target_at: existing.hit_target_at || hit, updated_at: nowIso })
+          .eq('id', existing.id);
+      } else {
+        await db
+          .from('special_incentive_progress')
+          .insert([{ special_incentive_id: inc.id, worker_id: r.worker_id, collected_amount: amount, hit_target_at: hit }]);
+      }
+    } catch (e) {
+      console.error('[special incentive] progress upsert:', e.message);
+    }
+  }
+
+  return claimWinnerIfReady(inc.id);
+};
+
+export const claimWinnerIfReady = async (incentiveId) => {
+  const inc = await getIncentiveById(incentiveId);
+  if (!inc || inc.status !== 'active') return null;
+
+  const { data: progress } = await db
+    .from('special_incentive_progress')
+    .select('worker_id, hit_target_at')
+    .eq('special_incentive_id', incentiveId)
+    .not('hit_target_at', 'is', null)
+    .order('hit_target_at', { ascending: true })
+    .limit(1);
+  const winner = progress && progress[0];
+  if (!winner) return null;
+
+  const { data: w } = await db.from('workers').select('name').eq('id', winner.worker_id).maybeSingle();
+  const winnerName = w?.name || null;
+
+  // Atomic: only one process can flip status 'active' -> 'won'.
+  const { data: updated, error } = await db
+    .from('special_incentives')
+    .update({
+      status: 'won',
+      winner_worker_id: winner.worker_id,
+      winner_name: winnerName,
+      winner_claimed_at: winner.hit_target_at,
+    })
+    .eq('id', incentiveId)
+    .eq('status', 'active')
+    .select();
+  if (error) throw error;
+  if (!updated || updated.length === 0) return null;
+
+  const { data: row } = await db.from('special_incentives').select('*').eq('id', incentiveId).maybeSingle();
+  await celebrateWinner(incentiveId, winner.worker_id, winnerName);
+  console.log(`[special incentive] ${row?.title} WON by ${winnerName} (${winner.worker_id})`);
+  return winner.worker_id;
+};
+
+export const endWithoutWinner = async (incentiveId) => {
+  const { data, error } = await db
+    .from('special_incentives')
+    .update({ status: 'ended' })
+    .eq('id', incentiveId)
+    .eq('status', 'active')
+    .select();
+  if (error) throw error;
+  if (data && data.length > 0) {
+    console.log(`[special incentive] ${incentiveId} ended without a winner`);
+  }
+};
+
+// Cheap existence check + refresh. Safe to call after any donor-log write.
+export const maybeRefreshSpecialIncentives = async () => {
+  try {
+    const active = await getActiveIncentives();
+    if (active.length === 0) return;
+    await Promise.all(
+      active.map((i) => refreshSpecialIncentive(i.id).catch((e) => console.error('[special incentive] refresh:', e.message)))
+    );
+  } catch (e) {
+    console.error('[special incentive] maybeRefresh:', e.message);
+  }
+};
+
+export const createSpecialIncentive = async (payload, userId) => {
+  const row = {
+    title: String(payload.title || '').trim(),
+    message: String(payload.message || '').trim(),
+    target_amount: Number(payload.target_amount) || 0,
+    incentive_amount: Number(payload.incentive_amount) || 0,
+    start_at: payload.start_at,
+    end_at: payload.end_at,
+    status: 'active',
+    created_by: userId || null,
+  };
+  const { data, error } = await db.from('special_incentives').insert([row]).select().single();
+  if (error) throw error;
+  await seedProgressForActiveFros(data.id);
+  await refreshSpecialIncentive(data.id);
+  await announceIncentive(data);
+  return data;
+};
+
+export const cancelSpecialIncentive = async (incentiveId) => {
+  const { data, error } = await db
+    .from('special_incentives')
+    .update({ status: 'cancelled' })
+    .eq('id', incentiveId)
+    .eq('status', 'active')
+    .select();
+  if (error) throw error;
+  return (data && data[0]) || null;
+};
+
+export const getHistory = async (limit = 60) => {
+  const { data, error } = await db
+    .from('special_incentives')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+};

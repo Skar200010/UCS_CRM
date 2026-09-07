@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, lazy, Suspense } from 'react'
 import { fetchPendingTickets, fetchAllTickets, verifyTicket, rejectTicket } from '../store'
 import { SkeletonRows } from './ui'
+import { deptLabel } from '../../../lib/labels'
 
 const TechnicalTickets = lazy(() => import('../../../components/TechnicalTickets'))
 
@@ -138,7 +139,7 @@ export default function Tickets() {
                       <td>{i + 1}</td>
                       <td>{t.date}</td>
                       <td><strong>{t.workers?.name || 'Unknown'}</strong></td>
-                      <td>{t.workers?.department || '\u2014'}</td>
+                      <td>{t.workers?.department ? deptLabel(t.workers.department) : '\u2014'}</td>
                       <td>{t.field === 'punch_in' ? 'Punch In' : 'Punch Out'}</td>
                       <td>{fmtTime(t.field === 'punch_in' ? t.punch_in_time : t.punch_out_time)}</td>
                       <td>{fmtTime(t.requested_time)}</td>

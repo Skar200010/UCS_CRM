@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api/auth'
 import { getWorkers } from '../api/endpoints'
+import { deptLabel } from '../../../lib/labels'
 
 export default function Reports() {
   const [workers, setWorkers] = useState([])
@@ -83,7 +84,7 @@ export default function Reports() {
           <tbody>
             {deptEntries.map(([dept, s]) => (
               <tr key={dept}>
-                <td>{dept}</td>
+                <td>{deptLabel(dept)}</td>
                 <td>{s.total}</td>
                 <td style={{color:'#10b981'}}>{s.present}</td>
                 <td style={{color:'#f59e0b'}}>{s.late}</td>

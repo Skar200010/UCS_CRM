@@ -56,7 +56,7 @@ function MobileSummaryModal({ open, mobileType, cardType, records, onClose }) {
   }, [open, onClose]);
 
   const SIM_FIELDS = Array.from({ length: 20 }, (_, i) => `sim_${i + 1}`);
-  function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim()).length; }
+  function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim() && !['NA', 'NO SIM', 'NOT SHOW NO'].includes(String(c[f]).trim().toUpperCase())).length; }
 
   if (!open) return null;
 
@@ -161,7 +161,7 @@ function UfsDistributionModal({ open, category, records, onClose }) {
   if (!open || !category) return null;
 
   const SIM_FIELDS = Array.from({ length: 20 }, (_, i) => `sim_${i + 1}`);
-  function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim()).length; }
+  function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim() && !['NA', 'NO SIM', 'NOT SHOW NO'].includes(String(c[f]).trim().toUpperCase())).length; }
 
   const ngoMap = {};
   records.forEach((c) => {
@@ -209,10 +209,12 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
   const [expiryAlertDismissed, setExpiryAlertDismissed] = useState(false);
 
   const SIM_FIELDS = Array.from({ length: 20 }, (_, i) => `sim_${i + 1}`);
-  function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim()).length; }
+  function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim() && !['NA', 'NO SIM', 'NOT SHOW NO'].includes(String(c[f]).trim().toUpperCase())).length; }
 
   const data = useMemo(() => {
-    const enriched = cards.map((c) => ({ ...c, _status: effectiveStatus(c) }));
+    const enriched = cards
+      .filter((c) => !(c.mobile_id || '').toLowerCase().startsWith('android whatsapp'))
+      .map((c) => ({ ...c, _status: effectiveStatus(c) }));
     const total = enriched.reduce((sum, c) => sum + countSims(c), 0);
     const active = enriched.filter((c) => c._status === 'Active').reduce((sum, c) => sum + countSims(c), 0) + enriched.filter((c) => c._status === 'Expiring Soon').reduce((sum, c) => sum + countSims(c), 0);
     const expiring = enriched.filter((c) => c._status === 'Expiring Soon').reduce((sum, c) => sum + countSims(c), 0);
@@ -273,7 +275,7 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
   }, []);
 
   const nokiaCards = data.enriched.filter((c) => (c.mobile_id || '').toLowerCase().startsWith('ufrs'));
-  const androidCards = data.enriched.filter((c) => (c.mobile_id || '').toLowerCase().startsWith('android'));
+  const androidCards = data.enriched.filter((c) => { const id = (c.mobile_id || '').toLowerCase(); return id.startsWith('android ') && !id.startsWith('android whatsapp'); });
 
   if (loading && cards.length === 0) {
     return <div className="empty-state"><div className="big">Loading SIM data...</div></div>;
@@ -397,7 +399,7 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
 
       <div className="dash-row">
         <section className="dash-panel">
-          <div className="panel-head"><h3>Nokia Mobile Summary</h3><span className="ln" style={{ fontSize: 12, fontWeight: 700, color: '#2563eb', background: '#eff6ff', padding: '3px 8px', borderRadius: 6 }}>total {nokiaCards.length}</span></div>
+          <div className="panel-head"><h3>Nokia Mobile Summary</h3><span className="ln" style={{ fontSize: 16, fontWeight: 800, color: '#2563eb', background: '#eff6ff', padding: '5px 12px', borderRadius: 6 }}>total {nokiaCards.length}</span></div>
           {(() => {
             const teamMap = {};
             nokiaCards.forEach((c) => { const t = c.team || 'Unassigned'; teamMap[t] = (teamMap[t] || 0) + countSims(c); });
@@ -433,7 +435,7 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
 
       <div className="dash-row">
         <section className="dash-panel">
-          <div className="panel-head"><h3>Android Mobile Summary</h3><span className="ln" style={{ fontSize: 12, fontWeight: 700, color: '#2563eb', background: '#eff6ff', padding: '3px 8px', borderRadius: 6 }}>total {androidCards.length}</span></div>
+          <div className="panel-head"><h3>Android Mobile Summary</h3><span className="ln" style={{ fontSize: 16, fontWeight: 800, color: '#2563eb', background: '#eff6ff', padding: '5px 12px', borderRadius: 6 }}>total {androidCards.length}</span></div>
           {(() => {
             const teamMap = {};
             androidCards.forEach((c) => { const t = c.team || 'Unassigned'; teamMap[t] = (teamMap[t] || 0) + countSims(c); });
