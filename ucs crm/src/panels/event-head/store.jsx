@@ -403,6 +403,7 @@ export const createBeneficiary = (data) => apiPost('/event-head/beneficiaries', 
 export const fetchVolunteers = () => apiGet('/event-head/volunteers')
 export const createVolunteer = (data) => apiPost('/event-head/volunteers', data)
 export const updateVolunteer = (id, data) => apiPut('/event-head/volunteers/' + id, data)
+export const fetchVolunteerPeople = () => apiGet('/event-head/volunteers/people')
 export const fetchVolunteerAttendance = (eventId) => apiGet('/event-head/events/' + eventId + '/volunteer-attendance')
 export const markVolunteerAttendance = (eventId, data) => apiPost('/event-head/events/' + eventId + '/volunteer-attendance', data)
 
