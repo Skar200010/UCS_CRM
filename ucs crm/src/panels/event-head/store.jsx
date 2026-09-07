@@ -25,6 +25,7 @@ export const fetchEvents = (params = {}) => {
 }
 export const fetchEventById = (id) => apiGet('/event-head/events/' + id)
 export const createEvent = (data) => apiPost('/event-head/events', data)
+export const uploadEventBanner = (formData) => api('/event-head/events/banner/upload', { method: 'POST', body: formData, _prefix: 'ucs', timeout: 120000 })
 export const suggestEventSpelling = (fields) => apiPost('/event-head/events/spell-check', { fields })
 export const updateEvent = (id, data) => apiPut('/event-head/events/' + id, data)
 export const deleteEvent = (id) => apiDelete('/event-head/events/' + id)

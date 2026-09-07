@@ -26,6 +26,7 @@ router.get('/events/calendar', eh, (req, res) => {
 });
 // Event sheet import/export (static paths BEFORE /events/:id)
 router.post('/events/import', eh, upload.single('file'), ctrl.importEvents);
+router.post('/events/banner/upload', eh, mediaUpload.single('file'), ctrl.uploadEventBanner);
 router.get('/events/export', eh, ctrl.exportEvents);
 router.get('/events/ngo/:ngoId/media', eh, ctrl.listMediaByNgo);
 router.get('/events/ngo/:ngoId', eh, ctrl.getEventHeadEventsByNgo);
