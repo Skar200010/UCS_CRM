@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CATEGORIES, PRIORITIES, fetchWorkspaceNgos, fetchSectors, fetchActivities, createEvent, createActivity, suggestEventSpelling } from '../store'
+import { CATEGORIES, PRIORITIES, fetchWorkspaceNgos, fetchSectors, fetchActivities, createEvent, createActivity, suggestEventSpelling, uploadEventBanner } from '../store'
 import { PageHeader } from '../components/ui'
+import VoluntaryPicker from '../components/VoluntaryPicker'
+import usePasteImage from '../../../utils/usePasteImage'
 
 export default function CreateEvent() {
   const navigate = useNavigate()
@@ -16,11 +18,33 @@ export default function CreateEvent() {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [volunteers, setVolunteers] = useState([])
+  const [bannerUploading, setBannerUploading] = useState(false)
+  const [bannerError, setBannerError] = useState('')
   const [aiSuggestions, setAiSuggestions] = useState({})
   const [aiChecking, setAiChecking] = useState(false)
   const [aiUnavailable, setAiUnavailable] = useState(false)
   const [aiDismissed, setAiDismissed] = useState({})
   const [aiRan, setAiRan] = useState(false)
+  const bannerFileRef = useRef(null)
+  const onBannerPaste = usePasteImage(({ file }) => { if (file) uploadBanner(file) })
+
+  const uploadBanner = (file) => {
+    if (!file || bannerUploading) return
+    setBannerUploading(true)
+    setBannerError('')
+    const fd = new FormData()
+    fd.append('file', file, file.name)
+    uploadEventBanner(fd)
+      .then(res => {
+        const url = (res && res.url) || ''
+        if (!url) { setBannerError('Upload succeeded but no URL was returned.'); return }
+        setForm(prev => ({ ...prev, banner: url }))
+        if (bannerFileRef.current) bannerFileRef.current.value = ''
+      })
+      .catch(err => setBannerError(err.message || 'Banner upload failed'))
+      .finally(() => setBannerUploading(false))
+  }
 
   useEffect(() => {
     Promise.all([
@@ -162,6 +186,7 @@ export default function CreateEvent() {
         organizer: form.organizer || null,
         event_manager: form.event_manager || null,
         coordinator: form.coordinator || null,
+        volunteers: volunteers && volunteers.length ? volunteers : null,
       }
       await createEvent(payload)
       const params = new URLSearchParams({ ngo_id: form.ngo_id, created: 1 })
@@ -317,10 +342,33 @@ export default function CreateEvent() {
               <div className="field"><label>Coordinator</label><input name="coordinator" value={form.coordinator} onChange={handleChange} />{inlineSuggestion('coordinator')}</div>
             </div>
 
+            {section('Voluntary (optional)')}
+            <VoluntaryPicker ngoId={form.ngo_id} value={volunteers} onChange={setVolunteers} />
+
             {section('Banner (optional)')}
-            <div className="field"><label>Banner image URL</label><input name="banner" value={form.banner} onChange={handleChange} placeholder="https://…/banner.jpg" /></div>
-            <div style={{ fontSize: 12, color: 'var(--eh-ink-soft, #6b7280)', marginTop: 6 }}>Optional — you can submit without a banner, or add the banner later in Media / Banners under this event's NGO.</div>
-            {form.banner && <img src={form.banner} alt="banner preview" style={{ marginTop: 8, maxHeight: 90, borderRadius: 10, objectFit: 'cover' }} onError={e => { e.currentTarget.style.display = 'none' }} />}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <button type="button" className="eh-btn" disabled={bannerUploading} onClick={() => bannerFileRef.current?.click()} onPaste={onBannerPaste} style={{ position: 'relative' }}>
+                {bannerUploading ? 'Uploading…' : form.banner ? 'Change Banner' : 'Upload banner image'}
+              </button>
+              <input ref={bannerFileRef} type="file" hidden accept="image/*" onChange={e => uploadBanner(e.target.files[0] || null)} />
+              {form.banner && (
+                <button
+                  type="button"
+                  className="eh-btn"
+                  disabled={bannerUploading}
+                  onClick={() => { setForm(prev => ({ ...prev, banner: '' })); if (bannerFileRef.current) bannerFileRef.current.value = '' }}
+                >
+                  Remove
+                </button>
+              )}
+              <span style={{ fontSize: 12, color: 'var(--eh-ink-soft, #6b7280)' }}>Optional — add an event banner, or paste an image (Ctrl+V).</span>
+            </div>
+            {bannerError && <div style={{ marginTop: 8, fontSize: 12.5, color: '#b91c1c' }}>{bannerError}</div>}
+            {form.banner && (
+              <div style={{ position: 'relative', marginTop: 10, padding: 8, border: '1px solid var(--line)', borderRadius: 12, background: 'var(--card-bg)' }}>
+                <img src={form.banner} alt="banner preview" style={{ maxHeight: 160, width: '100%', objectFit: 'cover', borderRadius: 8, display: 'block' }} onError={e => { e.currentTarget.style.display = 'none' }} />
+              </div>
+            )}
 
             <div className="eh-toolbar" style={{ marginTop: 24, justifyContent: 'flex-end' }}>
               <button type="submit" className="eh-btn eh-btn-primary" disabled={saving}>{saving ? 'Creating…' : 'Create Event'}</button>
