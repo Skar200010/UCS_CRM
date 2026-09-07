@@ -326,6 +326,41 @@ export const updateVolunteer = async (id, updates) => {
   return data;
 };
 
+// NGO-wise volunteer roster for the Voluntary section. Reads the HR workers
+// table (the volunteer team in the database) and joins the NGO name/code.
+export const getVolunteerPeople = async () => {
+  const [workersRes, ngosRes] = await Promise.all([
+    db.from('workers')
+      .select('id, name, ngo_id, is_test')
+      .eq('employment_status', 'active')
+      .order('name'),
+    db.from('ngos').select('id, name, code'),
+  ]);
+  if (workersRes.error) throw workersRes.error;
+  if (ngosRes.error) throw ngosRes.error;
+  const ngoMap = {};
+  for (const n of ngosRes.data || []) {
+    ngoMap[String(n.id)] = { name: n.name || n.code || 'NGO ' + n.id, code: n.code };
+  }
+  return (workersRes.data || [])
+    .filter((w) => !w.is_test)
+    .map((w) => {
+      const n = w.ngo_id != null ? ngoMap[String(w.ngo_id)] : null;
+      return {
+        id: w.id,
+        name: w.name,
+        ngo_id: w.ngo_id ?? null,
+        ngo_name: n ? n.name : null,
+        ngo_code: n ? n.code : null,
+      };
+    })
+    .sort((a, b) => {
+      const na = a.ngo_name || 'Other';
+      const nb = b.ngo_name || 'Other';
+      return na.localeCompare(nb) || (a.name || '').localeCompare(b.name || '');
+    });
+};
+
 // ─── EXPENSES ───
 export const createExpense = async (eventId, data) => {
   const { data: result, error } = await db.from('event_head_expenses').insert([{ ...data, event_id: eventId }]).select().single();

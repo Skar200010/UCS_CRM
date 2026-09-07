@@ -73,6 +73,7 @@ router.post('/beneficiaries', eh, ctrl.createBeneficiary);
 // Volunteers
 router.post('/volunteers', eh, ctrl.createVolunteer);
 router.get('/volunteers', eh, ctrl.listVolunteers);
+router.get('/volunteers/people', eh, ctrl.listVolunteerPeople);
 router.put('/volunteers/:id', eh, ctrl.editVolunteer);
 
 // Expenses (scoped under event)
