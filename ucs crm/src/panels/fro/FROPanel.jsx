@@ -24,6 +24,7 @@ import Donors from './pages/Donors'
 import Scheduled from './pages/Scheduled'
 import IncentiveInfo from './pages/IncentiveInfo'
 import AkiBanner from '../../components/AkiBanner'
+import SpecialIncentive from '../../components/SpecialIncentive'
 import History from './pages/History'
 import FroTickets from './pages/Tickets'
 import FroSuspense from './pages/Suspense'
@@ -954,6 +955,7 @@ export default function FROPanel() {
         sections={drawerSections}
         onItemClick={handleDrawerItemClick}
       />
+      <SpecialIncentive />
       <ToastContainer />
     </div>
     </CallProvider>

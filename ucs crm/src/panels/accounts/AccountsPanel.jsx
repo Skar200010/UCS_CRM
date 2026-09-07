@@ -8,6 +8,7 @@ import { api } from '../../api/auth'
 import { requestNotifPermission, showDesktopNotification } from '../../utils/desktopNotif'
 import { useRealtime } from '../../hooks/useRealtime'
 import ToastContainer from '../../components/Toast'
+import SpecialIncentive from '../../components/SpecialIncentive'
 import LeadAudit from './pages/LeadAudit'
 import Reports from './pages/Reports'
 import TeamsPage from './pages/Teams'
@@ -375,6 +376,7 @@ export default function AccountsPanel() {
           </Routes>
         </div>
       </div>
+      <SpecialIncentive />
       <ToastContainer />
     </div>
   )

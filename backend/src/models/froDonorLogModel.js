@@ -1,4 +1,5 @@
 import db, { sql } from '../config/db.js';
+import { maybeRefreshSpecialIncentives } from '../services/specialIncentiveService.js';
 
 // Keep the id sequence ahead of the highest existing id before inserting, so a
 // default-sequence insert never collides with a row that was written earlier
@@ -27,6 +28,7 @@ export const createDonorLog = async (data) => {
     .select()
     .single();
   if (error) throw error;
+  maybeRefreshSpecialIncentives().catch(() => {});
   return result;
 };
 
@@ -55,6 +57,7 @@ export const updateDonorLog = async (id, updates) => {
     .select()
     .single();
   if (error) throw error;
+  maybeRefreshSpecialIncentives().catch(() => {});
   return data;
 };
 

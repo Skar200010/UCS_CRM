@@ -5,6 +5,7 @@ import { themes, applyTheme } from '../hr/theme'
 import SettingsDrawer from '../../components/SettingsDrawer'
 import NotificationDrawer from '../../components/NotificationDrawer'
 import ToastContainer from '../../components/Toast'
+import SpecialIncentive from '../../components/SpecialIncentive'
 import { api } from '../../api/auth'
 import { requestNotifPermission, showDesktopNotification } from '../../utils/desktopNotif'
 import { useRealtime } from '../../hooks/useRealtime'
@@ -18,7 +19,8 @@ import DataManagement from './pages/DataManagement'
 import Tickets from './pages/Tickets'
 import Events from './pages/Events'
 import AssetOverview from './pages/AssetOverview'
-import { Radio, Clipboard, CurrencyCircleDollar, CalendarBlank, BuildingOffice, MagnifyingGlass } from '@phosphor-icons/react'
+import SpecialIncentives from './pages/SpecialIncentives'
+import { Radio, Clipboard, CurrencyCircleDollar, CalendarBlank, BuildingOffice, MagnifyingGlass, Trophy } from '@phosphor-icons/react'
 
 const NAV = [
   { id: 'dashboard', path: '/sa/dashboard', label: 'Dashboard', icon: GridFour },
@@ -34,6 +36,7 @@ const NAV = [
   { id: 'recruiter', path: '/sa/recruiter', label: 'Recruiter', icon: MagnifyingGlass },
   { id: 'fro', path: '/sa/fro', label: 'FRO', icon: Radio },
   { id: 'assets', path: '/sa/assets', label: 'Assets Overview', icon: Clipboard },
+  { id: 'special-incentive', path: '/sa/special-incentive', label: 'Sir ka Incentive', icon: Trophy },
 ]
 
 const navMap = {}
@@ -43,7 +46,7 @@ const GROUPS = [
   { id: 'org', label: 'Organization', icon: Buildings, items: ['organization', 'employees'] },
 ]
 
-const standaloneIds = ['dashboard', 'data-management', 'leaves', 'tickets', 'ngo-admin', 'accounts', 'event-head', 'hr', 'recruiter', 'fro', 'assets']
+const standaloneIds = ['dashboard', 'data-management', 'leaves', 'tickets', 'ngo-admin', 'accounts', 'event-head', 'hr', 'recruiter', 'fro', 'assets', 'special-incentive']
 
 function Sidebar({ mobileOpen }) {
   const location = useLocation()
@@ -209,6 +212,7 @@ function PageShell({ children }) {
   return (
     <div className="app">
       <ToastContainer />
+      <SpecialIncentive />
       <div className={`sa-sidebar-overlay${mobileSidebar ? ' open' : ''}`} onClick={() => setMobileSidebar(false)} />
       <Sidebar mobileOpen={mobileSidebar} />
       <div className="main">
@@ -316,6 +320,7 @@ export default function SuperAdminPanel() {
         <Route path="event-head" element={<PanelFrame src="/event-head" />} />
         <Route path="recruiter" element={<PanelFrame src="/recruiter" />} />
         <Route path="assets" element={<AssetOverview />} />
+        <Route path="special-incentive" element={<SpecialIncentives />} />
         <Route path="*" element={<Navigate to="dashboard" replace />} />
       </Routes>
     </PageShell>

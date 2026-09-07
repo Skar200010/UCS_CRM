@@ -3,6 +3,7 @@ import groq from '../config/groq.js';
 import db from '../config/db.js';
 import { getAllWorkers } from '../models/workerModel.js';
 import { settleMonthlyLoanDeductions } from '../models/loanModel.js';
+import { maybeRefreshSpecialIncentives } from './specialIncentiveService.js';
 import { getUpcomingEvents } from '../models/eventModel.js';
 import { getRecentNotices } from '../models/noticeModel.js';
 import { getRecentAchievements } from '../models/achievementModel.js';
@@ -385,6 +386,14 @@ async function runMonthlyLoanSettlement() {
   }
 }
 
+async function runSpecialIncentiveRefresh() {
+  try {
+    await maybeRefreshSpecialIncentives();
+  } catch (e) {
+    console.error('Special incentive refresh error:', e.message);
+  }
+}
+
 function start() {
   if (running) return;
   running = true;
@@ -421,6 +430,8 @@ function start() {
     cronJobs.push(cron.schedule('0 0 10 * *', () => runMonthlyLoanSettlement()));
     console.log('Scheduled: 10th of month - auto loan/advance settlement for previous month');
   }
+  cronJobs.push(cron.schedule('*/20 * * * * *', () => runSpecialIncentiveRefresh()));
+  console.log('Scheduled: every 20s - special incentive ("Sir ka Incentive") live tracking');
   console.log('Scheduled: every-minute check for expired lead transfers');
 
   // Email imports and Razorpay synchronization are manual-only. Do not schedule
@@ -741,4 +752,4 @@ function stop() {
 
 start();
 
-export { runNotificationCycle, sendScheduledNotifications, sendPunchInReminders, sendPunchOutReminders, start, stop };
+export { runNotificationCycle, sendScheduledNotifications, sendPunchInReminders, sendPunchOutReminders, start, stop, runSpecialIncentiveRefresh };
