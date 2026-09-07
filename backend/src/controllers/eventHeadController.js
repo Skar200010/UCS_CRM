@@ -864,6 +864,17 @@ const pickMediaMeta = (body, file, s3Url = null) => {
   if (size != null && !Number.isNaN(size)) meta.size = size;
   return meta;
 };
+export const uploadEventBanner = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    const { url } = await uploadEventFile(req.file);
+    return res.json({ url });
+  } catch (error) {
+    console.error('uploadEventBanner error:', error.message || error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const uploadMedia = async (req, res) => {
   try {
     // multer.fields() yields req.files = { file: [...], files: [...] };

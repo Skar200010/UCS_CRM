@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { CATEGORIES, PRIORITIES, EVENT_STATUSES, fetchEventById, updateEvent, updateEventStatus, fetchWorkspaceNgos, fetchSectors, fetchActivities, fetchMedia } from '../store'
 import EditBannerModal from '../components/EditBannerModal'
+import VoluntaryPicker from '../components/VoluntaryPicker'
 
 const statusColor = (s) => {
   const map = { Completed:'green', Approved:'blue', Draft:'gray', Submitted:'yellow', Rejected:'red', Cancelled:'red', Closed:'green', Postponed:'yellow' }
@@ -90,6 +91,7 @@ export default function EventDetail() {
       csr_partner: event.csr_partner || '', donor: event.donor || '', funding_source: event.funding_source || '',
       expected_beneficiaries: event.expected_beneficiaries || '', budget: event.budget || '',
       description: event.description || '', notes: event.notes || '',
+      volunteers: Array.isArray(event.volunteers) ? event.volunteers : [],
     })
     setError('')
     setEditing(true)
@@ -240,6 +242,10 @@ export default function EventDetail() {
               <div className="form-row" style={{ marginBottom: 12 }}>
                 <div className="field"><label>Notes</label><textarea name="notes" value={form.notes} onChange={handleChange} rows={2} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', fontSize: 13, resize: 'vertical', fontFamily: 'inherit' }} /></div>
               </div>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--ink-soft)', margin: '16px 0 12px' }}>Voluntary</div>
+              <div className="form-row" style={{ marginBottom: 12 }}>
+                <VoluntaryPicker ngoId={form.ngo_id} value={Array.isArray(form.volunteers) ? form.volunteers : []} onChange={v => setForm(prev => ({ ...prev, volunteers: v }))} />
+              </div>
               {error && <div style={{ marginBottom: 10, fontSize: 12, color: '#dc2626' }}>{error}</div>}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
@@ -303,6 +309,42 @@ export default function EventDetail() {
           </div>
         </div>
       )}
+
+      {(() => {
+          const vols = Array.isArray(event.volunteers) ? event.volunteers : []
+          if (!vols.length) return null
+          const teamOrder = ['Volunteer', 'Management']
+          const teamLabel = { Volunteer: 'Volunteer Team', Management: 'Management Team' }
+          const ngoSort = (a, b) => {
+            const m = { BSCT: 0, AFLF: 1, MANN: 2, MAN: 2, OTHERS: 3, OTHER: 3 }
+            const ai = m[String(a).toUpperCase()] ?? 100
+            const bi = m[String(b).toUpperCase()] ?? 100
+            return ai - bi || String(a).localeCompare(String(b))
+          }
+          return teamOrder.map(team => {
+            const items = vols.filter(v => (v.team === 'Management' ? 'Management' : 'Volunteer') === team)
+            if (!items.length) return null
+            const groups = {}
+            for (const v of items) (groups[v.ngo || 'Others'] = groups[v.ngo || 'Others'] || []).push(v.name)
+            return (
+              <div className="card" key={team} style={{ marginBottom: 16 }}>
+                <div className="card-head"><h3>{teamLabel[team]}</h3></div>
+                <div className="card-pad">
+                  {Object.keys(groups).sort(ngoSort).map(ngo => (
+                    <div key={ngo} style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--ink-soft)', marginBottom: 5 }}>{ngo} <span style={{ color: '#9ca3af' }}>· {groups[ngo].length}</span></div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {groups[ngo].map(name => (
+                          <span key={name} className="pill pill-gray" style={{ fontSize: 12 }}>{name}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })
+        })()}
 
       <div className="card">
         <div className="card-head"><h3>Activity Link</h3></div>

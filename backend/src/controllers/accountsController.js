@@ -4547,21 +4547,39 @@ export const deleteAssignment = async (req, res) => {
       return res.status(400).json({ message: 'Assignment does not belong to this donor' });
     }
 
-    const { data: logs } = await db
-      .from('fro_donor_logs')
-      .select('id')
-      .eq('assignment_id', row.id);
-    if (logs && logs.length > 0) {
-      await db.from('fro_donor_logs').delete().eq('assignment_id', row.id);
-    }
-    const { error: scheduleErr } = await db.from('fro_scheduled_contacts').delete().eq('assignment_id', row.id);
-    if (scheduleErr) throw scheduleErr;
-    await db.from('fro_assignments').delete().eq('id', row.id);
+    const result = await db.transaction(async (tx) => {
+      const { data: logs } = await tx.from('fro_donor_logs').select('id').eq('assignment_id', row.id);
+      const logIds = (logs || []).map(l => l.id).filter(Boolean);
 
-    // Re-sync donor_profiles from the donor's remaining active assignment
-    // (latest by assigned_at), or clear ngo/station if none remain.
-    try {
-      const { data: next } = await db
+      if (logIds.length > 0) {
+        // Detach financial receipts that point at these logs; the receipt itself
+        // is kept (matches deleteDonor), just unlinked from the removed logs.
+        const { error: receiptErr } = await tx.from('receipts').update({ log_id: null }).in('log_id', logIds);
+        if (receiptErr) throw receiptErr;
+
+        // Clear child rows that reference the logs so the logs can be removed.
+        try { await tx.from('notification_log').delete().in('fro_donor_log_id', logIds); } catch (_) {}
+        try { await tx.from('rejected_lead_tickets').delete().in('fro_donor_log_id', logIds); } catch (_) {}
+
+        const { error: logErr } = await tx.from('fro_donor_logs').delete().in('id', logIds);
+        if (logErr) throw logErr;
+      }
+
+      const { error: scheduleErr } = await tx.from('fro_scheduled_contacts').delete().eq('assignment_id', row.id);
+      if (scheduleErr) throw scheduleErr;
+
+      // Remove stale queue positions so the donor can't linger in the worker's
+      // active queue (work_queue has no FK cascade on fro_assignments).
+      try {
+        await tx.from('work_queue').delete().eq('worker_id', row.fro_worker_id).eq('donor_id', row.donor_id);
+      } catch (_) {}
+
+      const { error: deleteErr } = await tx.from('fro_assignments').delete().eq('id', row.id);
+      if (deleteErr) throw deleteErr;
+
+      // Re-sync donor_profiles from the donor's remaining active assignment
+      // (latest by assigned_at), or clear ngo/station if none remain.
+      const { data: next } = await tx
         .from('fro_assignments')
         .select('ngo_id, station')
         .eq('donor_id', row.donor_id)
@@ -4570,23 +4588,24 @@ export const deleteAssignment = async (req, res) => {
         .maybeSingle();
       let ngoVal = null;
       if (next) {
-        const { data: ngoRow } = await db.from('ngos').select('name').eq('id', next.ngo_id).maybeSingle();
+        const { data: ngoRow } = await tx.from('ngos').select('name').eq('id', next.ngo_id).maybeSingle();
         ngoVal = ngoRow?.name ?? null;
       }
-      await db.from('donor_profiles')
+      const { error: profileErr } = await tx.from('donor_profiles')
         .update({ ngo: ngoVal ?? null, station: next?.station ?? null })
         .eq('id', row.donor_id);
-    } catch (syncErr) {
-      console.error(`deleteAssignment: donor-profile re-sync failed (non-fatal):`, syncErr.message);
-    }
+      if (profileErr) throw profileErr;
 
-    return res.json({
-      deleted: true,
-      assignment_id: row.id,
-      donor_id: row.donor_id,
-      logs_deleted: logs?.length || 0,
-      message: 'Agent removed',
+      return {
+        deleted: true,
+        assignment_id: row.id,
+        donor_id: row.donor_id,
+        logs_deleted: logIds.length,
+        message: 'Agent removed',
+      };
     });
+
+    return res.json(result);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

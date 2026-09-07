@@ -212,7 +212,9 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
   function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim() && !['NA', 'NO SIM', 'NOT SHOW NO'].includes(String(c[f]).trim().toUpperCase())).length; }
 
   const data = useMemo(() => {
-    const enriched = cards.map((c) => ({ ...c, _status: effectiveStatus(c) }));
+    const enriched = cards
+      .filter((c) => !(c.mobile_id || '').toLowerCase().startsWith('android whatsapp'))
+      .map((c) => ({ ...c, _status: effectiveStatus(c) }));
     const total = enriched.reduce((sum, c) => sum + countSims(c), 0);
     const active = enriched.filter((c) => c._status === 'Active').reduce((sum, c) => sum + countSims(c), 0) + enriched.filter((c) => c._status === 'Expiring Soon').reduce((sum, c) => sum + countSims(c), 0);
     const expiring = enriched.filter((c) => c._status === 'Expiring Soon').reduce((sum, c) => sum + countSims(c), 0);
@@ -273,7 +275,7 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
   }, []);
 
   const nokiaCards = data.enriched.filter((c) => (c.mobile_id || '').toLowerCase().startsWith('ufrs'));
-  const androidCards = data.enriched.filter((c) => (c.mobile_id || '').toLowerCase().startsWith('android'));
+  const androidCards = data.enriched.filter((c) => { const id = (c.mobile_id || '').toLowerCase(); return id.startsWith('android ') && !id.startsWith('android whatsapp'); });
 
   if (loading && cards.length === 0) {
     return <div className="empty-state"><div className="big">Loading SIM data...</div></div>;

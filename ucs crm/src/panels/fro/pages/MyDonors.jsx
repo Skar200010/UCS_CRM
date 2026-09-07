@@ -12,7 +12,7 @@ import { extractTransactionData } from '../utils/ocr';
 import usePasteImage from '../../../utils/usePasteImage';
 import { API_BASE } from '../../../lib/apiBase';
 import { useIsMobile } from '../../../hooks/useIsMobile';
-import { NOT_CONNECTED, CONNECTED, isConnected, findDisp, STATUS_PILL_MAP, SCHEDULE_DATE_TYPES, SCHEDULE_TIME_TYPES, NOT_CONNECTED_IDS } from '../dispositions';
+import { NOT_CONNECTED_GROUPS, CONNECTED_GROUPS, isConnected, findDisp, STATUS_PILL_MAP, SCHEDULE_DATE_TYPES, SCHEDULE_TIME_TYPES, NOT_CONNECTED_IDS } from '../dispositions';
 import { istDateString, istDateTimeToIso } from '../utils/time';
 
 function callFmt(seconds) {
@@ -1718,7 +1718,7 @@ export default function MyDonors() {
                 <div className="dd">
                   <label>Connected</label>
                   <DispositionDropdown
-                    options={CONNECTED}
+                    groups={CONNECTED_GROUPS}
                     value={selected !== null && isConnected(selected) ? selected : ''}
                     onChange={id => { if (id) handleDropdownChange(id); }}
                     tone={selected !== null && isConnected(selected) ? 'green' : null}
@@ -1727,7 +1727,7 @@ export default function MyDonors() {
                 <div className="dd">
                   <label>Not Connected</label>
                   <DispositionDropdown
-                    options={NOT_CONNECTED}
+                    groups={NOT_CONNECTED_GROUPS}
                     value={selected !== null && !isConnected(selected) ? selected : ''}
                     onChange={id => { if (id) handleDropdownChange(id); }}
                     tone={selected !== null && !isConnected(selected) ? 'red' : null}

@@ -222,6 +222,12 @@
 .panel-accounts .sim-scope .days-expired { color: var(--sim-red); }
 
 .panel-accounts .sim-scope .cell-actions { display: inline-flex; gap: 4px; }
+.panel-accounts .sim-scope .sim-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.panel-accounts .sim-scope .sim-tab {
+  padding: 8px 18px; border-radius: 8px; border: 1px solid var(--sim-line); background: #fff;
+  font-size: 13px; font-weight: 600; color: var(--sim-ink); cursor: pointer; font-family: inherit;
+}
+.panel-accounts .sim-scope .sim-tab.active { background: var(--sim-blue); border-color: var(--sim-blue); color: #fff; font-weight: 700; box-shadow: 0 0 0 2px rgba(37,99,235,.25); }
 .panel-accounts .sim-scope .mini-btn {
   border: 1px solid var(--sim-line); background: var(--sim-white); border-radius: 6px;
   padding: 4px 8px; font-size: 11px; cursor: pointer; color: var(--sim-ink-soft); font-family: inherit;
@@ -456,6 +462,13 @@
 .panel-accounts .sim-scope .dash-kpi .kpi-sub { font-size: 11px; color: var(--sim-ink-soft); margin-top: 4px; }
 .panel-accounts .sim-scope .dash-kpi .kpi-foot { margin-top: 12px; height: 4px; border-radius: 99px; background: #e8edf5; overflow: hidden; }
 .panel-accounts .sim-scope .dash-kpi .kpi-foot > span { display: block; height: 100%; border-radius: 99px; }
+.panel-accounts .sim-scope .dash-kpi.compact { padding: 12px 14px; }
+.panel-accounts .sim-scope .dash-kpi.compact .kpi-top { margin-bottom: 8px; }
+.panel-accounts .sim-scope .dash-kpi.compact .kpi-ic { width: 30px; height: 30px; border-radius: 8px; }
+.panel-accounts .sim-scope .dash-kpi.compact .kpi-num { font-size: 22px; }
+.panel-accounts .sim-scope .dash-kpi.compact .kpi-sub { margin-top: 2px; }
+.panel-accounts .sim-scope .dash-kpi.compact .kpi-foot { margin-top: 8px; height: 3px; }
+.panel-accounts .sim-scope .postpaid-hl { background: #dcfce7; color: #166534; font-weight: 700; }
 .panel-accounts .sim-scope .dash-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 20px; }
 .panel-accounts .sim-scope .dash-panel {
   background: var(--sim-white); border: 1px solid var(--sim-line);
