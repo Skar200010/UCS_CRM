@@ -7,7 +7,7 @@ import { toast } from './Toast';
 
 const STATUS_FILTERS = ['All', 'Active', 'Expiring Soon', 'Expired', 'Replaced', 'Inactive'];
 const EXPIRY_FILTERS = ['All', 'Expired', 'Within 5 Days', 'Within 28 Days', 'More than 28 Days'];
-const SIM_NAME_FILTERS = ['Android', 'Nokia'];
+const SIM_NAME_FILTERS = ['Android', 'Nokia', 'Android Whatsapp'];
 const OWNER_UFS = ['UFS 1', 'UFS 2', 'UFS 3', 'UFS 4', 'UFS 5', 'Locker'];
 const normOwner = (v) => String(v || '').toLowerCase().replace(/\s+/g, '');
 const SORTABLE = ['mobile_id', 'calling_mobile', 'device_model', 'imei', 'status', 'use_for', 'team_leader_name', 'user_name', 'team', 'signature', 'remark', 'issue_date', 'expiry_date', 'days_left', 'sim_1', 'sim_2', 'replacement_count'];
@@ -44,6 +44,18 @@ const NOKIA_COLUMNS = [
   { key: 'sim_1', label: 'Sim 1' },
   { key: 'sim_2', label: 'Sim 2' },
   { key: 'replacement_count', label: 'Sim Card Repla. Count', num: true },
+];
+
+const WHATSAPP_COLUMNS = [
+  { key: 'mobile_id', label: 'Android No.' },
+  { key: 'w1_name', label: 'W1 Name' },
+  { key: 'sim_1', label: 'W1 Number' },
+  { key: 'w2_name', label: 'W2 Name' },
+  { key: 'sim_2', label: 'W2 Number' },
+  { key: 'w3_name', label: 'W3 Name' },
+  { key: 'sim_3', label: 'W3 Number' },
+  { key: 'w4_name', label: 'W4 Name' },
+  { key: 'sim_4', label: 'W4 Number' },
 ];
 
 export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, onHistory }) {
@@ -131,7 +143,7 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
   const start = (safePage - 1) * perPage;
   const pageRows = filtered.slice(start, start + perPage);
   const selectedCount = Object.values(selected).filter(Boolean).length;
-  const activeColumns = simName === 'Nokia' ? NOKIA_COLUMNS : COLUMNS;
+  const activeColumns = simName === 'Nokia' ? NOKIA_COLUMNS : simName === 'Android Whatsapp' ? WHATSAPP_COLUMNS : COLUMNS;
 
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
