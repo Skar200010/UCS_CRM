@@ -6,7 +6,8 @@ import { useCall } from '../CallContext';
 import { toast } from '../../../components/Toast';
 import { extractTransactionData } from '../utils/ocr';
 import usePasteImage from '../../../utils/usePasteImage';
-import { NOT_CONNECTED, CONNECTED, CONNECTED_IDS, findDisp, SCHEDULE_DATE_TYPES, SCHEDULE_TIME_TYPES } from '../dispositions';
+import { NOT_CONNECTED_GROUPS, CONNECTED_GROUPS, CONNECTED_IDS, findDisp, SCHEDULE_DATE_TYPES, SCHEDULE_TIME_TYPES } from '../dispositions';
+import { GroupedDispositionOptions } from './GroupedDispositionOptions';
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import { istDateString, istDateTimeToIso } from '../utils/time';
 
@@ -295,7 +296,7 @@ export default function DispositionModal({ donorId, ngoId, donorName, donorMobil
                         <select value={selected !== null && CONNECTED_IDS.has(selected) ? selected : ''} onChange={e => { if (e.target.value) handleDropdownChange(e.target.value); }}
                           style={{ borderColor: selected !== null && CONNECTED_IDS.has(selected) ? '#16a34a' : undefined }}>
                           <option value="">— Select —</option>
-                          {CONNECTED.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                          <GroupedDispositionOptions groups={CONNECTED_GROUPS} />
                         </select>
                       </div>
                       <div className="dd">
@@ -303,7 +304,7 @@ export default function DispositionModal({ donorId, ngoId, donorName, donorMobil
                         <select value={selected !== null && !CONNECTED_IDS.has(selected) ? selected : ''} onChange={e => { if (e.target.value) handleDropdownChange(e.target.value); }}
                           style={{ borderColor: selected !== null && !CONNECTED_IDS.has(selected) ? '#dc2626' : undefined }}>
                           <option value="">— Select —</option>
-                          {NOT_CONNECTED.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                          <GroupedDispositionOptions groups={NOT_CONNECTED_GROUPS} />
                         </select>
                       </div>
                     </div>
