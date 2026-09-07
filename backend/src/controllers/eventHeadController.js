@@ -1310,6 +1310,18 @@ export const listSectors = async (req, res) => {
   }
 };
 
+export const createSector = async (req, res) => {
+  try {
+    const clean = sanitize(req.body);
+    if (!String(clean.name || '').trim()) return res.status(400).json({ message: 'Sector name is required' });
+    const sector = await EventHead.createEventHeadSector({ name: clean.name, description: clean.description });
+    return res.status(201).json(sector);
+  } catch (error) {
+    console.error('eventHeadController error:', error.message || error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 // ─── ACTIVITIES ───
 export const listActivities = async (req, res) => {
   try {

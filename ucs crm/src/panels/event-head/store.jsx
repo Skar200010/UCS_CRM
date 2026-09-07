@@ -470,6 +470,7 @@ export const fetchSectors = (params = {}) => {
   const q = qs.toString()
   return apiGet('/event-head/sectors' + (q ? '?' + q : ''))
 }
+export const createSector = (data) => apiPost('/event-head/sectors', data)
 export const fetchActivities = (params = {}) => {
   const qs = new URLSearchParams()
   if (params.ngo_id) qs.set('ngo_id', params.ngo_id)

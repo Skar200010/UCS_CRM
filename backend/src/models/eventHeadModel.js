@@ -535,6 +535,32 @@ export const getAllEventHeadSectors = async () => {
   return data;
 };
 
+export const createEventHeadSector = async ({ name, description } = {}) => {
+  const cleanName = String(name || '').trim();
+  if (!cleanName) throw new Error('Sector name is required');
+  const { data: existing, error: findError } = await db
+    .from('event_head_sectors')
+    .select('*')
+    .ilike('name', cleanName)
+    .maybeSingle();
+  if (findError) throw findError;
+  if (existing) return { ...existing, existing: true };
+  const { data: maxRow, error: maxError } = await db
+    .from('event_head_sectors')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1);
+  if (maxError) throw maxError;
+  const sort_order = (maxRow && maxRow[0] && maxRow[0].sort_order != null ? Number(maxRow[0].sort_order) : 0) + 1;
+  const { data, error } = await db
+    .from('event_head_sectors')
+    .insert({ name: cleanName, description: description ? String(description).trim() || null : null, is_active: true, sort_order })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+};
+
 export const getSectorActivityCounts = async (ngoId) => {
   let query = db.from('event_head_activities').select('id, sector_id, ngo_id');
   if (ngoId) query = query.eq('ngo_id', ngoId);

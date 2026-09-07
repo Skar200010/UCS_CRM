@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CATEGORIES, PRIORITIES, fetchWorkspaceNgos, fetchSectors, fetchActivities, createEvent, createActivity, suggestEventSpelling, uploadEventBanner } from '../store'
+import { CATEGORIES, PRIORITIES, fetchWorkspaceNgos, fetchSectors, fetchActivities, createEvent, createActivity, createSector, suggestEventSpelling, uploadEventBanner, CHECKLIST_ITEMS, createChecklistItem } from '../store'
 import { PageHeader } from '../components/ui'
 import VoluntaryPicker from '../components/VoluntaryPicker'
 import usePasteImage from '../../../utils/usePasteImage'
@@ -19,8 +19,14 @@ export default function CreateEvent() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [volunteers, setVolunteers] = useState([])
+  const [checklist, setChecklist] = useState(CHECKLIST_ITEMS.map(label => ({ label, status: false, notes: '' })))
   const [bannerUploading, setBannerUploading] = useState(false)
   const [bannerError, setBannerError] = useState('')
+  const [addingSector, setAddingSector] = useState(false)
+  const [newSectorName, setNewSectorName] = useState('')
+  const [sectorSaving, setSectorSaving] = useState(false)
+  const [sectorNote, setSectorNote] = useState('')
+  const [sectorNoteError, setSectorNoteError] = useState(false)
   const [aiSuggestions, setAiSuggestions] = useState({})
   const [aiChecking, setAiChecking] = useState(false)
   const [aiUnavailable, setAiUnavailable] = useState(false)
@@ -158,6 +164,31 @@ export default function CreateEvent() {
     }
   }
 
+  const saveNewSector = async () => {
+    const name = String(newSectorName || '').trim()
+    if (!name) { setSectorNote('Enter a sector name first'); setSectorNoteError(true); return }
+    setSectorSaving(true)
+    setSectorNote('')
+    setSectorNoteError(false)
+    try {
+      const saved = await createSector({ name })
+      const id = saved && (saved.id != null ? saved.id : saved.sector_id != null ? saved.sector_id : null)
+      if (id == null) { setSectorNote('Could not create the sector'); setSectorNoteError(true); return }
+      setSectors(prev => {
+        const exists = prev.some(s => String(s.id != null ? s.id : s.sector_id) === String(id))
+        return exists ? prev : [{ id, name: saved.name || name }, ...prev]
+      })
+      setForm(prev => ({ ...prev, sector_id: String(id) }))
+      setAddingSector(false)
+      setNewSectorName('')
+      setSectorNote(saved && saved.existing ? `"${saved.name}" already exists — selected it.` : `Sector "${saved.name || name}" created and selected.`)
+      setSectorNoteError(false)
+    } catch (err) {
+      setSectorNote(err.message || 'Failed to create sector')
+      setSectorNoteError(true)
+    } finally { setSectorSaving(false) }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault(); setSaving(true); setError('')
     if (!form.name.trim()) { setError('Please enter an Event Name'); setSaving(false); return }
@@ -188,7 +219,10 @@ export default function CreateEvent() {
         coordinator: form.coordinator || null,
         volunteers: volunteers && volunteers.length ? volunteers : null,
       }
-      await createEvent(payload)
+      const created = await createEvent(payload)
+      if (created && created.id != null) {
+        await Promise.allSettled(checklist.map(item => createChecklistItem(created.id, { label: item.label, status: !!item.status, notes: item.notes || '' }).catch(e => console.error('Seed checklist item failed:', e))))
+      }
       const params = new URLSearchParams({ ngo_id: form.ngo_id, created: 1 })
       if (form.sector_id) params.set('sector_id', form.sector_id)
       navigate('/event-head/events?' + params.toString())
@@ -291,10 +325,21 @@ export default function CreateEvent() {
                 </select>
               </div>
               <div className="field"><label>Sector *</label>
-                <select name="sector_id" value={form.sector_id} onChange={handleChange} disabled={!ngoId}>
-                  <option value="">{ngoId ? 'Select sector' : 'Select NGO first'}</option>
-                  {relevantSectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <select name="sector_id" value={form.sector_id} onChange={handleChange} disabled={!ngoId} style={{ flex: 1 }}>
+                    <option value="">{ngoId ? 'Select sector' : 'Select NGO first'}</option>
+                    {relevantSectors.map(s => <option key={s.id ?? s.sector_id} value={s.id ?? s.sector_id}>{s.name}</option>)}
+                  </select>
+                  <button type="button" className="eh-btn" disabled={!ngoId} title="Add a new sector" onClick={() => { setAddingSector(v => !v); setSectorNote('') }} style={{ whiteSpace: 'nowrap', padding: '7px 12px' }}>+ Add</button>
+                </div>
+                {addingSector && (
+                  <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input value={newSectorName} onChange={e => setNewSectorName(e.target.value)} placeholder="New sector name…" onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); saveNewSector() } }} style={{ flex: '1 1 200px', padding: '7px 10px', fontSize: 13, border: '1px solid var(--eh-line,#e8e6f2)', borderRadius: 10 }} />
+                    <button type="button" className="eh-btn eh-btn-primary" disabled={sectorSaving} onClick={saveNewSector} style={{ padding: '7px 12px' }}>{sectorSaving ? 'Saving…' : 'Save'}</button>
+                    <button type="button" className="eh-btn" disabled={sectorSaving} onClick={() => { setAddingSector(false); setNewSectorName(''); setSectorNote('') }} style={{ padding: '7px 12px' }}>Cancel</button>
+              </div>
+                )}
+                {sectorNote && <div style={{ marginTop: 6, fontSize: 12, color: sectorNoteError ? '#b91c1c' : '#16a34a' }}>{sectorNote}</div>}
               </div>
             </div>
             <div className="form-row">
@@ -344,6 +389,39 @@ export default function CreateEvent() {
 
             {section('Voluntary (optional)')}
             <VoluntaryPicker ngoId={form.ngo_id} value={volunteers} onChange={setVolunteers} />
+
+            {section('General Checklist')}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {checklist.map((item, idx) => (
+                <div key={item.label} style={{
+                  display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                  background: 'var(--eh-surface-2,#fff)', border: '1px solid var(--eh-line,#e8e6f2)', borderRadius: 11,
+                  opacity: item.status ? 0.7 : 1, flexWrap: 'wrap'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={!!item.status}
+                    onChange={() => setChecklist(checklist.map((c, i) => i === idx ? { ...c, status: !c.status } : c))}
+                    style={{ width: 18, height: 18, accentColor: 'var(--eh-success,#16a34a)', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, textDecoration: item.status ? 'line-through' : 'none', color: item.status ? 'var(--eh-ink-soft,#6a6f8f)' : 'var(--eh-ink,#0f1128)' }}>
+                      {item.label}
+                    </div>
+                    <input
+                      value={item.notes || ''}
+                      onChange={e => setChecklist(checklist.map((c, i) => i === idx ? { ...c, notes: e.target.value } : c))}
+                      placeholder={item.status ? 'Note saved (uncheck to edit)…' : 'Add note…'}
+                      disabled={!!item.status}
+                      style={{
+                        marginTop: 6, width: '100%', maxWidth: 460, padding: '6px 10px',
+                        fontSize: 12, border: '1px solid var(--eh-line,#e8e6f2)', borderRadius: 8,
+                        background: item.status ? 'rgba(0,0,0,.03)' : '#fff', fontFamily: 'inherit'
+                      }} />
+                  </div>
+                </div>
+              ))}
+              <div style={{ fontSize: 12, color: 'var(--eh-ink-soft,#6a6f8f)' }}>Tick items already arranged — they will be saved to this event's checklist when you create it.</div>
+            </div>
 
             {section('Banner (optional)')}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
