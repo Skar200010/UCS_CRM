@@ -1,8 +1,17 @@
 import db from '../config/db.js';
 
-export const getUserNgoAccess = async (userId) => {
+export const getUserNgoAccess = async (userId, roleHint) => {
   // Super admin sentinel — return all NGOs
   if (userId === 0 || userId === '0') {
+    const { data: allNgos } = await db.from('ngos').select('id, name');
+    return (allNgos || []).map(n => ({ ngo_id: n.id, ngo_name: n.name }));
+  }
+
+  // Panel-level admins (JWT role 'admin' from ngo-admin workers, 'accounts'
+  // from accounts workers, 'super_admin') manage all NGOs. The NGO-Admin
+  // panel is admin-only and lists all NGOs in its tabs, so no per-ngo
+  // restriction applies here.
+  if (roleHint && ['admin', 'super_admin', 'accounts'].includes(roleHint)) {
     const { data: allNgos } = await db.from('ngos').select('id, name');
     return (allNgos || []).map(n => ({ ngo_id: n.id, ngo_name: n.name }));
   }

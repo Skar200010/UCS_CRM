@@ -19,7 +19,7 @@ export default function QueryRunner({ open, sqlText, setSqlText, runStatus, onRu
 
       <textarea
         value={sqlText}
-        onChange={(e) => { setSqlText(e.target.value); localStorage.setItem('db-viewer-sql', e.target.value); }}
+        onChange={(e) => { setSqlText(e.target.value); try { localStorage.setItem('db-viewer-sql', e.target.value); } catch (_) {} }}
         onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); onRun(); } }}
         spellCheck={false}
         placeholder="Enter SQL…  (Ctrl+Enter to run)"
@@ -42,7 +42,7 @@ export default function QueryRunner({ open, sqlText, setSqlText, runStatus, onRu
               <div
                 key={i}
                 className="hist-item"
-                onClick={() => { setSqlText(sql); localStorage.setItem('db-viewer-sql', sql); onPickHistory(); }}
+                onClick={() => { setSqlText(sql); try { localStorage.setItem('db-viewer-sql', sql); } catch (_) {} onPickHistory(); }}
               >
                 {sql.length > 400 ? sql.slice(0, 400) + '…' : sql}
               </div>

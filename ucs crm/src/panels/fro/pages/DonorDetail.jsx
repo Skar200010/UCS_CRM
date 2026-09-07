@@ -6,7 +6,8 @@ import { extractTransactionData } from '../utils/ocr';
 import usePasteImage from '../../../utils/usePasteImage';
 import { toast } from '../../../components/Toast';
 import { useIsMobile } from '../../../hooks/useIsMobile';
-import { NOT_CONNECTED, CONNECTED, findDisp, SCHEDULE_DATE_TYPES, SCHEDULE_TIME_TYPES } from '../dispositions';
+import { NOT_CONNECTED_GROUPS, CONNECTED_GROUPS, findDisp, SCHEDULE_DATE_TYPES, SCHEDULE_TIME_TYPES } from '../dispositions';
+import { GroupedDispositionOptions } from '../components/GroupedDispositionOptions';
 
 const isThisMonth = (dateStr) => {
   if (!dateStr) return false;
@@ -320,9 +321,7 @@ export default function DonorDetail({ assignmentId, donor, onBack, hideHeader })
               <label style={{ display: 'block', fontSize: 12, marginBottom: 4, color: 'var(--ink-soft)' }}>Not Connected — Reason</label>
               <select value={selected || ''} onChange={e => handleChipClick(e.target.value)} style={{ padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }}>
                 <option value="">— Select —</option>
-                {NOT_CONNECTED.map(opt => (
-                  <option key={opt.id} value={opt.id}>{opt.label}</option>
-                ))}
+                <GroupedDispositionOptions groups={NOT_CONNECTED_GROUPS} />
               </select>
             </div>
           )}
@@ -332,9 +331,7 @@ export default function DonorDetail({ assignmentId, donor, onBack, hideHeader })
               <label style={{ display: 'block', fontSize: 12, marginBottom: 4, color: 'var(--ink-soft)' }}>Connected — Type</label>
               <select value={selected || ''} onChange={e => handleChipClick(e.target.value)} style={{ padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', fontFamily: 'inherit', fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }}>
                 <option value="">— Select —</option>
-                {CONNECTED.map(opt => (
-                  <option key={opt.id} value={opt.id}>{opt.label}</option>
-                ))}
+                <GroupedDispositionOptions groups={CONNECTED_GROUPS} />
               </select>
             </div>
           )}

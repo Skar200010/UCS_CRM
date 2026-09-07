@@ -220,7 +220,7 @@ export default function App() {
     if (!runnerOpen) toggleRunner();
     const template = '-- CREATE TABLE example (\n--   id bigserial PRIMARY KEY,\n--   name text NOT NULL\n-- );\n\n';
     setSqlText(template);
-    localStorage.setItem(STORE_KEY, template);
+    try { localStorage.setItem(STORE_KEY, template); } catch (_) {}
   };
 
   // ---- query runner ----
@@ -228,7 +228,7 @@ export default function App() {
     setHistory((h) => {
       if (h[h.length - 1] === sql) return h;
       const nh = [...h, sql].slice(-100);
-      localStorage.setItem(HIST_KEY, JSON.stringify(nh));
+      try { localStorage.setItem(HIST_KEY, JSON.stringify(nh)); } catch (_) { setHistory((h2) => [...h2].slice(-20)); }
       return nh;
     });
   };

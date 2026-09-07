@@ -26,6 +26,7 @@ export default function Attendance() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
+  const [attendanceFilter, setAttendanceFilter] = useState('all');
   const [previewImg, setPreviewImg] = useState(null);
 
   // detailed drill-down (read-only)
@@ -100,6 +101,12 @@ export default function Attendance() {
     const isAbs = String(r.employment_status || '').toLowerCase().trim() === 'absconded';
     if (statusFilter === 'active' && isAbs) return false;
     if (statusFilter === 'absconded' && !isAbs) return false;
+    if (attendanceFilter !== 'all') {
+      const st = r.record?.status || '';
+      if (attendanceFilter === 'present' && (!r.hasPunch || st === 'half-day' || st === 'leave')) return false;
+      else if (attendanceFilter === 'halfday' && st !== 'half-day') return false;
+      else if (attendanceFilter === 'absent' && r.hasPunch) return false;
+    }
     if (!search) return true;
     const name = r.name || '';
     const dept = r.department || '';
@@ -193,6 +200,12 @@ export default function Attendance() {
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, background: 'white' }}>
             <option value="active">Active</option>
             <option value="absconded">Absconded</option>
+          </select>
+          <select value={attendanceFilter} onChange={e => setAttendanceFilter(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, background: 'white' }}>
+            <option value="all">All</option>
+            <option value="present">Present</option>
+            <option value="halfday">Half Day</option>
+            <option value="absent">Absent</option>
           </select>
           <input
             type="text"
