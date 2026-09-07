@@ -203,7 +203,7 @@ export default function Attendance() {
           </select>
           <select value={attendanceFilter} onChange={e => setAttendanceFilter(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #e5e7eb', fontSize: 13, background: 'white' }}>
             <option value="all">All</option>
-            <option value="present">Present (incl. Late)</option>
+            <option value="present">Present</option>
             <option value="halfday">Half Day</option>
             <option value="absent">Absent</option>
           </select>
