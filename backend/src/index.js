@@ -735,6 +735,17 @@ const requireCronAuth = (req, res, next) => {
       }
     });
 
+    app.post('/api/cron/db-health', requireCronAuth, async (req, res) => {
+      try {
+        const { runDbHealthCheck } = await import('./services/dbHealthWatchdog.js');
+        const result = await runDbHealthCheck();
+        res.json(result);
+      } catch (error) {
+        console.error('DB health cron error:', error.message);
+        res.status(500).json({ success: false, message: error.message });
+      }
+    });
+
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ message: 'Internal server error' });
@@ -779,6 +790,7 @@ if (!process.env.VERCEL) {
     await ensureLoanDeductionSchema().catch(e => console.error('ensureLoanDeductionSchema failed:', e?.message || e));
     await ensureSpecialIncentiveSchema().catch(e => console.error('ensureSpecialIncentiveSchema failed:', e?.message || e));
     import('./services/notificationScheduler.js');
+    import('./services/dbHealthWatchdog.js');
   });
   const { initRealtime } = await import('./socket.js');
   initRealtime(server);
