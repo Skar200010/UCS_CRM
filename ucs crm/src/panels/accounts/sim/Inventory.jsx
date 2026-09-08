@@ -39,6 +39,7 @@ const NOKIA_COLUMNS = [
   { key: 'imei', label: 'IMEI No.' },
   { key: 'status', label: 'Sim Card Status' },
   { key: 'team', label: 'Team' },
+  { key: 'owner', label: 'Owner' },
   { key: 'remark', label: 'Remark' },
   { key: 'issue_date', label: 'Sim Card Issue Date' },
   { key: 'expiry_date', label: 'Auto Expiry Date' },

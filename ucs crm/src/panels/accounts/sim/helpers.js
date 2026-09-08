@@ -49,7 +49,7 @@ export function daysLeft(expiryDate) {
 export function effectiveStatus(card) {
   const base = card.status || 'Active';
   if (base === 'Replaced') return base;
-  const dl = card.days_left !== undefined && card.days_left !== null ? card.days_left : daysLeft(card.expiry_date);
+  const dl = card.expiry_date ? daysLeft(card.expiry_date) : (card.days_left !== undefined && card.days_left !== null ? card.days_left : null);
   if (dl === null) return base === 'Active' ? 'Active' : 'Inactive';
   if (dl < 0) return 'Expired';
   if (base === 'Inactive') return base;
@@ -118,6 +118,74 @@ export const EXPORT_COLUMNS = [
   'Sim Card Repla. Count',
 ];
 
+export const ANDROID_EXPORT_COLUMNS = [
+  'Mobile ID No.',
+  'GB',
+  'Device & Model Name',
+  'IMEI No.',
+  'Team',
+  'NGO',
+  'W1 Number',
+  'NGO',
+  'W2 Number',
+  'NGO',
+  'W3 Number',
+  'NGO',
+  'W4 Number',
+];
+
+export function androidExportRow(c) {
+  return [
+    c.mobile_id || '',
+    c.gb || '',
+    c.device_model || '',
+    c.imei || '',
+    c.team || '',
+    c.w1_name || '',
+    c.sim_1 || '',
+    c.w2_name || '',
+    c.sim_2 || '',
+    c.w3_name || '',
+    c.sim_3 || '',
+    c.w4_name || '',
+    c.sim_4 || '',
+  ];
+}
+
+export const NOKIA_EXPORT_COLUMNS = [
+  'Mobile ID No.',
+  'Calling Mobile',
+  'Device & Model Name',
+  'IMEI No.',
+  'Sim Card Status',
+  'Team',
+  'Remark',
+  'Sim Card Issue Date',
+  'Auto Expiry Date',
+  'Sim Expiry Days Left',
+  'Sim 1',
+  'Sim 2',
+  'Sim Card Repla. Count',
+];
+
+export function nokiaExportRow(c) {
+  return [
+    c.mobile_id || '',
+    c.calling_mobile || '',
+    c.device_model || '',
+    c.imei || '',
+    c.status || '',
+    c.team || '',
+    c.remark || '',
+    formatDate(c.issue_date),
+    formatDate(c.expiry_date),
+    c.days_left === null || c.days_left === undefined || Number.isNaN(c.days_left) ? '—' : `${c.days_left} days`,
+    c.sim_1 || '',
+    c.sim_2 || '',
+    c.replacement_count || 0,
+  ];
+}
+
 function baseRow(c) {
   return [
     c.mobile_id || '',
@@ -145,12 +213,12 @@ function baseRow(c) {
   ];
 }
 
-function buildColumns() {
-  return [...EXPORT_COLUMNS];
+function buildColumns(columns) {
+  return columns ? [...columns] : [...EXPORT_COLUMNS];
 }
 
-function buildRow(c) {
-  return baseRow(c);
+function buildRow(c, row) {
+  return row ? row(c) : baseRow(c);
 }
 
 export function toExportRow(c) {
@@ -170,9 +238,9 @@ function downloadBlob(content, filename, mime) {
   setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 
-export function exportToCSV(cards) {
-  const header = buildColumns();
-  const rows = [header, ...cards.map((c) => buildRow(c))];
+export function exportToCSV(cards, columns, row) {
+  const header = buildColumns(columns);
+  const rows = [header, ...cards.map((c) => buildRow(c, row))];
   const csv = rows.map((r) => r.map((v) => {
     const s = String(v ?? '');
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -180,8 +248,8 @@ export function exportToCSV(cards) {
   downloadBlob('\ufeff' + csv, `sim-cards-${todayStr()}.csv`, 'text/csv;charset=utf-8;');
 }
 
-export function exportToExcel(cards) {
-  const xml = buildSpreadsheetXml(cards);
+export function exportToExcel(cards, columns, row) {
+  const xml = buildSpreadsheetXml(cards, columns, row);
   downloadBlob(xml, `sim-cards-${todayStr()}.xls`, 'application/vnd.ms-excel');
 }
 
@@ -196,9 +264,9 @@ function xmlEscape(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function buildSpreadsheetXml(cards) {
-  const header = buildColumns();
-  const rows = cards.map((c) => buildRow(c));
+function buildSpreadsheetXml(cards, columns, row) {
+  const header = buildColumns(columns);
+  const rows = cards.map((c) => buildRow(c, row));
   const all = [header, ...rows];
   const body = all.map((r) => {
     const cells = r.map((v) => `<Cell><Data ss:Type="String">${xmlEscape(v)}</Data></Cell>`).join('');
