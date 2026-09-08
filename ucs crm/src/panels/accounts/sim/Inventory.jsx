@@ -285,15 +285,20 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
                   <th className="check-cell">
                     <input type="checkbox" checked={selectedCount === pageRows.length && selectedCount > 0} onChange={toggleAll} />
                   </th>
-                  {activeColumns.map((col) => (
-                    <Fragment key={col.key}>
-                      <th className={SORTABLE.includes(col.key) ? `sortable ${col.num ? 'num' : ''}` : (col.num ? 'num' : '')} onClick={() => SORTABLE.includes(col.key) && toggleSort(col.key)}>
-                        {col.label}
-                        {col.key === sortKey && <span className="sort-arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>}
-                      </th>
-                      {col.key === 'mobile_id' && simName === 'Android' && <th>GB</th>}
-                    </Fragment>
-                  ))}
+                  {activeColumns.map((col) => {
+                    const headN = simName === 'Android' && /^w[1-4]_name$/.test(col.key);
+                    const headS = simName === 'Android' && /^sim_[1-4]$/.test(col.key);
+                    const headPair = headN ? ' w-pair w-pair-n' : headS ? ' w-pair w-pair-s' : '';
+                    return (
+                      <Fragment key={col.key}>
+                        <th className={(SORTABLE.includes(col.key) ? `sortable ${col.num ? 'num' : ''}` : (col.num ? 'num' : '')) + headPair} onClick={() => SORTABLE.includes(col.key) && toggleSort(col.key)}>
+                          {col.label}
+                          {col.key === sortKey && <span className="sort-arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                        </th>
+                        {col.key === 'mobile_id' && simName === 'Android' && <th>GB</th>}
+                      </Fragment>
+                    );
+                  })}
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -332,7 +337,10 @@ if (simName === 'Android' && waName !== 'All') {
                               if (ngo !== waName) cellVal = null;
                             }
                           }
-                          return <td key={col.key} className={hl}>{cellVal || '—'}</td>;
+                          const isNgoName = simName === 'Android' && /^w[1-4]_name$/.test(col.key);
+                          const isSimSlot = simName === 'Android' && /^sim_[1-4]$/.test(col.key);
+                          const pairCls = isNgoName ? ' w-pair w-pair-n' : isSimSlot ? ' w-pair w-pair-s' : '';
+                          return <td key={col.key} className={hl + pairCls}>{cellVal || '—'}{isNgoName && cellVal ? ' →' : ''}</td>;
                       }
                     })}
                       <td>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { SimProvider, useSim } from '../sim/store'
 import { SimFormModal, SimViewModal, ReplaceModal, SimHistoryModal } from '../sim/modals'
 import { ImportModal, DeleteConfirmModal } from '../sim/ImportModal'
@@ -31,6 +31,8 @@ const PAGE_META = {
 
 function SectionInner() {
   const sim = useSim()
+  const location = useLocation()
+  const isOwner = location.pathname.endsWith('/owner')
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -73,9 +75,11 @@ function SectionInner() {
   return (
     <div className="sim-scope">
       <div className="sim-actions" style={{ marginBottom: 16, justifyContent: 'flex-end' }}>
-        <button className="sim-btn" onClick={() => setImportOpen(true)}>Import</button>
-        <button className="sim-btn" onClick={() => exportToCSV(sim.cards)}>Export CSV</button>
-        <button className="sim-btn" onClick={() => exportToExcel(sim.cards)}>Export</button>
+        {!isOwner && <>
+          <button className="sim-btn" onClick={() => setImportOpen(true)}>Import</button>
+          <button className="sim-btn" onClick={() => exportToCSV(sim.cards)}>Export CSV</button>
+          <button className="sim-btn" onClick={() => exportToExcel(sim.cards)}>Export</button>
+        </>}
       </div>
 
       <Routes>
@@ -96,7 +100,7 @@ function SectionInner() {
       <SimViewModal card={viewCard} open={!!viewCard} onClose={() => setViewCard(null)} onEdit={() => { if (viewCard) openEdit(viewCard) }} onReplace={() => { if (viewCard) { setReplaceCard(viewCard); setViewCard(null) } }} />
       <ReplaceModal card={replaceCard} open={!!replaceCard} onClose={() => setReplaceCard(null)} onDone={() => sim.refresh()} />
       <SimHistoryModal card={historyCard} open={!!historyCard} onClose={() => setHistoryCard(null)} />
-      <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onDone={() => setImportOpen(false)} />
+      <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onDone={() => { setImportOpen(false); sim.refresh() }} />
       <DeleteConfirmModal card={deleteCard} deleting={deleting} onClose={() => { if (!deleting) setDeleteCard(null) }} onConfirm={() => deleteCard && doDelete(deleteCard)} />
     </div>
   )

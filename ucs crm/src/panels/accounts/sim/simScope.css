@@ -571,3 +571,78 @@
 @media (max-width: 480px) {
   .panel-accounts .sim-scope .dc-modal { padding: 28px 20px 20px; }
 }
+
+/* All SIM Owner — wide fixed-layout table */
+.panel-accounts .sim-scope .owner-wrap {
+  width: calc(100% - 32px);
+  margin: 0 16px;
+}
+
+.panel-accounts .sim-scope .owner-card {
+  background: var(--sim-white); border: 1px solid var(--sim-line);
+  border-radius: var(--sim-radius); box-shadow: var(--sim-shadow);
+  margin-bottom: 18px; overflow: hidden;
+}
+.panel-accounts .sim-scope .owner-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border-bottom: 1px solid var(--sim-line); background: #fbfdff;
+  font-size: 13px; font-weight: 700; color: var(--sim-ink);
+}
+.panel-accounts .sim-scope .owner-card-head .tag {
+  font-size: 11px; font-weight: 700; color: var(--sim-blue-dark);
+  background: var(--sim-blue-soft); padding: 3px 10px; border-radius: 99px; white-space: nowrap;
+}
+
+.panel-accounts .sim-scope .owner-table-wrap { overflow-x: auto; }
+
+.panel-accounts .sim-scope .owner-table {
+  width: 100%; min-width: 760px; table-layout: fixed; border-collapse: collapse; font-size: 13px;
+}
+.panel-accounts .sim-scope .owner-table col.col-num { width: 18%; }
+.panel-accounts .sim-scope .owner-table col.col-role { width: 18%; }
+.panel-accounts .sim-scope .owner-table col.col-family { width: 20%; }
+.panel-accounts .sim-scope .owner-table col.col-owner { width: 24%; }
+.panel-accounts .sim-scope .owner-table col.col-actions { width: 20%; }
+
+.panel-accounts .sim-scope .owner-table thead th {
+  background: var(--sim-blue-soft); color: var(--sim-blue-dark);
+  text-align: left; padding: 10px 8px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .03em;
+  border-bottom: 1px solid var(--sim-line); white-space: nowrap;
+}
+.panel-accounts .sim-scope .owner-table thead th.th-role { text-align: center; }
+
+.panel-accounts .sim-scope .owner-table tbody td {
+  padding: 10px 8px; border-bottom: 1px solid var(--sim-line);
+  color: var(--sim-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  vertical-align: middle; line-height: 1.4;
+}
+.panel-accounts .sim-scope .owner-table tbody tr:last-child td { border-bottom: none; }
+.panel-accounts .sim-scope .owner-table tbody tr:hover { background: var(--sim-blue-soft); }
+.panel-accounts .sim-scope .owner-table tbody td.td-role { text-align: center; }
+.panel-accounts .sim-scope .owner-table .td-num { font-weight: 600; }
+.panel-accounts .sim-scope .owner-table .td-inline { overflow: visible; }
+
+.panel-accounts .sim-scope .owner-pill {
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+  height: 22px; padding: 0 12px; border-radius: 99px;
+  font-size: 11px; font-weight: 600; line-height: 1; white-space: nowrap;
+}
+.panel-accounts .sim-scope .owner-pill.primary { background: var(--sim-green-soft); color: var(--sim-green); }
+.panel-accounts .sim-scope .owner-pill.secondary { background: var(--sim-gray-soft); color: var(--sim-gray); }
+
+.panel-accounts .sim-scope .owner-actions { display: inline-flex; align-items: center; vertical-align: middle; flex-wrap: nowrap; gap: 4px; white-space: nowrap; }
+.panel-accounts .sim-scope .owner-actions .mini-btn { white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .panel-accounts .sim-scope .owner-wrap { width: calc(100% - 24px); margin: 0 12px; }
+}
+
+.panel-accounts .sim-scope .w-pair-n {
+  border: 1px solid #94a3b8; border-right: none; border-radius: 6px 0 0 6px;
+  background: #f8fafc; white-space: nowrap; padding: 2px 6px !important;
+}
+.panel-accounts .sim-scope .w-pair-s {
+  border: 1px solid #94a3b8; border-left: none; border-radius: 0 6px 6px 0;
+  white-space: nowrap; padding: 2px 6px !important;
+}
