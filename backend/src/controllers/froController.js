@@ -1948,6 +1948,7 @@ export const getMyDonors = async (req, res) => {
       'not_interested', 'not_interested_now', 'dnd', 'wrong_person', 'not_possible', 'language_barrier',
       'call_disconnected', 'email_sent', 'whatsapp_sent', 'transferred_senior',
       'query_complaint', 'receipt_request', 'csr_inquiry', 'wants_80g_details', 'wants_trust_documents',
+      'office_program_visit', 'promise_pay_wa_email', 'not_interested_np',
     ]);
     const notConnectedForeverIds = new Set();
     const terminalForeverIds = new Set();
@@ -2560,7 +2561,7 @@ export const createDonorLogHandler = async (req, res) => {
         const statusFromDetail = dispositionDetailToStatus(disposition_detail);
         const statusUpdates = { status: statusFromDetail, last_contacted_at: now };
 
-        if (['scheduled', 'office_visit_scheduled', 'program_visit_scheduled', 'callback'].includes(disposition_detail) && scheduled_at) {
+        if (['scheduled', 'office_visit_scheduled', 'program_visit_scheduled', 'office_program_visit', 'callback'].includes(disposition_detail) && scheduled_at) {
           await createScheduledContact({
             assignment_id: assignment.id,
             scheduled_at,

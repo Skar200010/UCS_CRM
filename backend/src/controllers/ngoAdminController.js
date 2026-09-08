@@ -1737,7 +1737,7 @@ export const getDonorsByStation = async (req, res) => {
 
 export const getDonorsByFro = async (req, res) => {
   try {
-    const { fro_worker_id, status, period } = req.query;
+    const { fro_worker_id, status, period, from, to } = req.query;
     if (!fro_worker_id) {
       return res.status(400).json({ message: 'fro_worker_id query param is required' });
     }
@@ -1746,11 +1746,16 @@ export const getDonorsByFro = async (req, res) => {
     if (ngoIds.length === 0 && req.user.ngo_id) ngoIds.push(req.user.ngo_id);
     if (ngoIds.length === 0) return res.json([]);
 
-    if (period && period !== 'all') {
+    let startDate, endDate;
+    if (from || to) {
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+      startDate = from ? new Date(`${from}T00:00:00`) : todayStart;
+      endDate = to ? new Date(`${to}T23:59:59.999`) : todayEnd;
+    } else if (period && period !== 'all') {
       const now = new Date();
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
       const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
-      let startDate, endDate;
       if (period === 'today') {
         startDate = todayStart; endDate = todayEnd;
       } else if (period === 'week') {
@@ -2719,8 +2724,20 @@ export const resolveDataRequest = async (req, res) => {
   }
 };
 
-const CONNECTED_DISPOSITIONS = ['contacted', 'lead_done', 'done', 'donation_collected', 'follow_up', 'scheduled', 'callback', 'visit_donate', 'will_donate_online', 'promise_to_pay', 'payment_pending', 'already_donated', 'email_sent', 'whatsapp_sent', 'csr_inquiry', 'wants_80g_details', 'wants_trust_documents', 'language_barrier', 'transferred_senior', 'query_complaint', 'receipt_request', 'not_interested_now', 'not_interested', 'dnd', 'wrong_person', 'call_disconnected'];
-const NOT_CONNECTED_DISPOSITIONS = ['busy', 'ringing', 'call_waiting', 'unreachable', 'switched_off', 'out_of_coverage', 'wrong_number', 'invalid', 'invalid_number', 'rejected', 'temporary_network_issue', 'voicemail'];
+const CONNECTED_DISPOSITIONS = ['contacted', 'lead_done', 'done', 'donation_collected', 'follow_up', 'scheduled', 'callback', 'visit_donate', 'will_donate_online', 'promise_to_pay', 'payment_pending', 'already_donated', 'email_sent', 'whatsapp_sent', 'csr_inquiry', 'wants_80g_details', 'wants_trust_documents', 'language_barrier', 'transferred_senior', 'query_complaint', 'receipt_request', 'not_interested_now', 'not_interested', 'dnd', 'wrong_person', 'call_disconnected', 'office_program_visit', 'promise_pay_wa_email', 'not_interested_np', 'office_visit_scheduled', 'program_visit_scheduled', 'not_possible', 'resolved_suspense'];
+const NOT_CONNECTED_DISPOSITIONS = ['busy', 'ringing', 'call_waiting', 'unreachable', 'switched_off', 'out_of_coverage', 'wrong_number', 'invalid', 'invalid_number', 'rejected', 'temporary_network_issue', 'voicemail', 'busy_call_waiting', 'ooc_unreachable_network', 'ringing_voicemail', 'incoming_out'];
+
+// Three-tier classifier: known disposition set first, then disposition_category
+// (every FRO save carries it), else unclassified. Mirrors fro/dispositions.js.
+function classifyLogSide(l) {
+  const detail = l?.disposition_detail || '';
+  if (CONNECTED_DISPOSITIONS.includes(detail)) return 'connected';
+  if (NOT_CONNECTED_DISPOSITIONS.includes(detail)) return 'not_connected';
+  const cat = String(l?.disposition_category || '').toLowerCase();
+  if (cat === 'connected') return 'connected';
+  if (cat === 'not_connected') return 'not_connected';
+  return 'unclassified';
+}
 
 export const masterSearch = async (req, res) => {
   try {
@@ -2872,8 +2889,9 @@ export const getCallAnalytics = async (req, res) => {
     const { data: logs, error } = await logQuery;
     if (error) throw error;
 
-    const connected = (logs || []).filter(l => CONNECTED_DISPOSITIONS.includes(l.disposition_detail));
-    const notConnected = (logs || []).filter(l => NOT_CONNECTED_DISPOSITIONS.includes(l.disposition_detail));
+    const classification = (logs || []).map(l => ({ log: l, side: classifyLogSide(l) }));
+    const connected = classification.filter(x => x.side === 'connected').map(x => x.log);
+    const notConnected = classification.filter(x => x.side === 'not_connected').map(x => x.log);
     const totalTalkSeconds = (logs || []).reduce((s, l) => s + (parseInt(l.call_duration_seconds) || 0), 0);
 
     // Per FRO breakdown
@@ -2890,8 +2908,9 @@ export const getCallAnalytics = async (req, res) => {
         };
       }
       froMap[wid].total++;
-      if (CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) froMap[wid].connected++;
-      if (NOT_CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) froMap[wid].not_connected++;
+      const side = classifyLogSide(l);
+      if (side === 'connected') froMap[wid].connected++;
+      if (side === 'not_connected') froMap[wid].not_connected++;
       froMap[wid].talk_seconds += parseInt(l.call_duration_seconds) || 0;
     }
 
@@ -2904,8 +2923,9 @@ export const getCallAnalytics = async (req, res) => {
         stationMap[st] = { station: st, total: 0, connected: 0, not_connected: 0 };
       }
       stationMap[st].total++;
-      if (CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) stationMap[st].connected++;
-      if (NOT_CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) stationMap[st].not_connected++;
+      const side = classifyLogSide(l);
+      if (side === 'connected') stationMap[st].connected++;
+      if (side === 'not_connected') stationMap[st].not_connected++;
     }
 
     // Per disposition breakdown
@@ -2922,8 +2942,9 @@ export const getCallAnalytics = async (req, res) => {
       const day = l.created_at?.slice(0, 10) || 'unknown';
       if (!dailyMap[day]) dailyMap[day] = { date: day, connected: 0, not_connected: 0, total: 0 };
       dailyMap[day].total++;
-      if (CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) dailyMap[day].connected++;
-      if (NOT_CONNECTED_DISPOSITIONS.includes(l.disposition_detail)) dailyMap[day].not_connected++;
+      const side = classifyLogSide(l);
+      if (side === 'connected') dailyMap[day].connected++;
+      if (side === 'not_connected') dailyMap[day].not_connected++;
     }
 
     return res.json({
@@ -4259,7 +4280,7 @@ export const getDataOverview = async (req, res) => {
 // Combined TL Dashboard Summary
 export const getTLDashboard = async (req, res) => {
   try {
-    const tlCacheKey = `tl:${req.user.id}:${req.query.ngo_id || 'all'}`;
+    const tlCacheKey = `tl:${req.user.id}:${req.query.ngo_id || 'all'}:${req.query.from || ''}:${req.query.to || ''}:${req.query.fro_id || ''}`;
     if (req.query.fresh !== '1') {
       const cached = cacheGet(tlCacheKey, 15000);
       if (cached) return res.json(cached);
@@ -4273,7 +4294,7 @@ export const getTLDashboard = async (req, res) => {
       if (ngo) { ngoNames.push(ngo.name); ngoIds.push(req.user.ngo_id); }
     }
 
-    const { ngo_id: filterNgoId } = req.query;
+    const { ngo_id: filterNgoId, from, to, fro_id } = req.query;
     const origNgoNames = [...ngoNames];
     const origNgoIds = [...ngoIds];
 
@@ -4286,7 +4307,7 @@ export const getTLDashboard = async (req, res) => {
     }
 
     if (ngoIds.length === 0) return res.json({ 
-      kpis: { total_fros: 0, calling: 0, idle: 0, offline: 0, total_calls: 0, connected: 0, interested: 0, received_amount: 0, followups_due: 0, target_pct: 0 },
+      kpis: { total_fros: 0, calling: 0, idle: 0, offline: 0, total_calls: 0, connected: 0, interested: 0, received_amount: 0, followups_due: 0, target_pct: 0, unclassified: 0 },
       funnel: [],
       hourly: [],
       top_performers: [],
@@ -4297,7 +4318,8 @@ export const getTLDashboard = async (req, res) => {
     // Get all FRO workers
     const allWorkers = (await Promise.all(ngoIds.map(ngoId => getFroWorkersByNgo(ngoId)))).flat();
     const seen = new Set();
-    const froWorkers = allWorkers.filter(w => { const k = w.id; if (seen.has(k)) return false; seen.add(k); return true; });
+    let froWorkers = allWorkers.filter(w => { const k = w.id; if (seen.has(k)) return false; seen.add(k); return true; }).filter(w => w.is_active !== false);
+    if (fro_id) froWorkers = froWorkers.filter(w => String(w.id) === String(fro_id));
     const workerIds = froWorkers.map(w => w.id);
 
     const now = new Date();
@@ -4306,6 +4328,14 @@ export const getTLDashboard = async (req, res) => {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
 
+    // Effective date range for KPIs/analytics (default = today)
+    let rangeStart = from ? new Date(from) : todayStart;
+    let rangeEnd = to ? new Date(to) : todayEnd;
+    if (from && from.length <= 10) rangeStart = new Date(`${from}T00:00:00`);
+    if (to && to.length <= 10) rangeEnd = new Date(`${to}T23:59:59.999`);
+    if (isNaN(rangeStart.valueOf())) rangeStart = todayStart;
+    if (isNaN(rangeEnd.valueOf())) rangeEnd = todayEnd;
+
     // 1. Live status counts (use the detailed query from later)
     const { data: liveStatus } = await db.from('fro_live_status').select('fro_worker_id, status, today_talk_seconds, today_idle_seconds, updated_at').in('fro_worker_id', workerIds);
     const calling = (liveStatus || []).filter(s => s.status === 'on_call').length;
@@ -4313,40 +4343,57 @@ export const getTLDashboard = async (req, res) => {
     const online = (liveStatus || []).filter(s => s.status === 'online').length;
     const offline = froWorkers.length - calling - idle - online;
 
-    // 2. Call analytics for today
-    const { data: callLogs } = await db
+    // 2. Call analytics for the selected range
+    let callLogsQuery = db
       .from('fro_donor_logs')
-      .select('disposition_detail, accounts_status, amount_collected, fro_assignments!inner(ngo_id)')
+      .select('disposition_detail, disposition_category, accounts_status, amount_collected, fro_assignments!inner(ngo_id)')
       .in('fro_assignments.ngo_id', ngoIds)
-      .gte('created_at', todayStart.toISOString())
-      .lte('created_at', todayEnd.toISOString());
+      .gte('created_at', rangeStart.toISOString())
+      .lte('created_at', rangeEnd.toISOString());
+    if (fro_id) callLogsQuery = callLogsQuery.eq('fro_worker_id', fro_id);
+    const { data: callLogs } = await callLogsQuery;
 
-    const connectedStatuses = new Set([
-      'donation_collected', 'promise_to_pay', 'lead_done', 'done',
-      'visit_donate', 'will_donate_online', 'payment_pending', 'already_donated',
-      'pending', 'contacted', 'follow_up', 'scheduled',
-      'email_sent', 'whatsapp_sent', 'csr_inquiry',
-      'wants_80g_details', 'wants_trust_documents'
-    ]);
+    const connectedStatuses = new Set(CONNECTED_DISPOSITIONS);
     const interestedStatuses = new Set(['lead_done', 'donation_collected', 'visit_donate', 'will_donate_online', 'promise_to_pay', 'payment_pending']);
+    const notConnectedStatuses = new Set(NOT_CONNECTED_DISPOSITIONS);
 
     const totalCalls = (callLogs || []).length;
-    const connected = (callLogs || []).filter(l => connectedStatuses.has(l.disposition_detail)).length;
+    const connected = (callLogs || []).filter(l => classifyLogSide(l) === 'connected').length;
+    const notConnected = (callLogs || []).filter(l => classifyLogSide(l) === 'not_connected').length;
+    const unclassified = (callLogs || []).filter(l => classifyLogSide(l) === 'unclassified').length;
     const interested = (callLogs || []).filter(l => interestedStatuses.has(l.disposition_detail)).length;
+    const donations = (callLogs || []).filter(l => l.accounts_status === 'verified').length;
     const receivedAmount = (callLogs || []).filter(l => l.accounts_status === 'verified').reduce((sum, l) => sum + parseFloat(l.amount_collected || 0), 0);
+    const connectionRate = totalCalls > 0 ? Math.round((connected / totalCalls) * 100) : 0;
+
+    // Connected / non-connected reason breakdowns
+    const connectedBreakdownMap = {};
+    const notConnectedBreakdownMap = {};
+    for (const l of callLogs || []) {
+      const d = l.disposition_detail || 'unknown';
+      const side = classifyLogSide(l);
+      if (side === 'connected') connectedBreakdownMap[d] = (connectedBreakdownMap[d] || 0) + 1;
+      else if (side === 'not_connected') notConnectedBreakdownMap[d] = (notConnectedBreakdownMap[d] || 0) + 1;
+    }
+    const connectedBreakdown = Object.entries(connectedBreakdownMap).map(([status, count]) => ({ status, count })).sort((a, b) => b.count - a.count);
+    const notConnectedBreakdown = Object.entries(notConnectedBreakdownMap).map(([status, count]) => ({ status, count })).sort((a, b) => b.count - a.count);
 
     // 3. Follow-ups due
-    const { data: followups } = await db
+    let followupsQuery = db
       .from('fro_assignments')
       .select('id, next_follow_up')
       .in('ngo_id', ngoIds)
       .not('status', 'in', '("reassigned", "donation_collected")')
       .not('next_follow_up', 'is', null);
+    if (fro_id) followupsQuery = followupsQuery.eq('fro_worker_id', fro_id);
+    const { data: followups } = await followupsQuery;
     const followupsDue = (followups || []).filter(f => f.next_follow_up && new Date(f.next_follow_up) <= todayEnd).length;
 
     // 4. Target achievement
     const monthStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
-    const { data: targets } = await db.from('fro_targets').select('target_amount, achieved_target').in('ngo_id', ngoIds).eq('month', monthStr);
+    let targetsQuery = db.from('fro_targets').select('target_amount, achieved_target').in('ngo_id', ngoIds).eq('month', monthStr);
+    if (fro_id) targetsQuery = targetsQuery.eq('fro_worker_id', fro_id);
+    const { data: targets } = await targetsQuery;
     const totalTarget = (targets || []).reduce((sum, t) => sum + parseFloat(t.target_amount || 0), 0);
     const totalAchieved = (targets || []).reduce((sum, t) => sum + parseFloat(t.achieved_target || 0), 0);
     const targetPct = totalTarget > 0 ? Math.round((totalAchieved / totalTarget) * 100) : 0;
@@ -4357,11 +4404,11 @@ export const getTLDashboard = async (req, res) => {
     
     const { data: funnelLogs } = await db
       .from('fro_donor_logs')
-      .select('donor_id, disposition_detail, accounts_status, fro_assignments!inner(ngo_id)')
+      .select('donor_id, disposition_detail, disposition_category, accounts_status, fro_assignments!inner(ngo_id)')
       .in('fro_assignments.ngo_id', ngoIds);
 
     const calledDonorIds = new Set((funnelLogs || []).map(l => l.donor_id).filter(Boolean));
-    const connectedDonorIds = new Set((funnelLogs || []).filter(l => connectedStatuses.has(l.disposition_detail)).map(l => l.donor_id).filter(Boolean));
+    const connectedDonorIds = new Set((funnelLogs || []).filter(l => classifyLogSide(l) === 'connected').map(l => l.donor_id).filter(Boolean));
     const interestedDonorIds = new Set((funnelLogs || []).filter(l => interestedStatuses.has(l.disposition_detail)).map(l => l.donor_id).filter(Boolean));
     const receivedDonorIds = new Set((funnelLogs || []).filter(l => l.accounts_status === 'verified').map(l => l.donor_id).filter(Boolean));
 
@@ -4376,7 +4423,7 @@ export const getTLDashboard = async (req, res) => {
     // 6. Hourly Performance
     const { data: hourlyLogs } = await db
       .from('fro_donor_logs')
-      .select('created_at, disposition_detail, accounts_status, amount_collected, fro_assignments!inner(ngo_id)')
+      .select('created_at, disposition_detail, disposition_category, accounts_status, amount_collected, fro_assignments!inner(ngo_id)')
       .in('fro_assignments.ngo_id', ngoIds)
       .gte('created_at', todayStart.toISOString())
       .lte('created_at', todayEnd.toISOString());
@@ -4393,7 +4440,7 @@ export const getTLDashboard = async (req, res) => {
       const hourStr = `${String(hour).padStart(2, '0')}:00-${String(hour+1).padStart(2, '0')}:00`;
       if (!hourlyMap[hourStr]) continue;
       hourlyMap[hourStr].calls++;
-      if (connectedStatuses.has(l.disposition_detail)) hourlyMap[hourStr].connected++;
+      if (classifyLogSide(l) === 'connected') hourlyMap[hourStr].connected++;
       if (interestedStatuses.has(l.disposition_detail)) hourlyMap[hourStr].interested++;
       if (l.accounts_status === 'verified') {
         hourlyMap[hourStr].donations++;
@@ -4441,11 +4488,11 @@ export const getTLDashboard = async (req, res) => {
       else if (log.accounts_status === 'rejected') claimStatusMap[log.fro_worker_id].rejected++;
     }
 
-    // Actual call counts per FRO (for today, week, and month)
+    // Actual call counts per FRO (for today, week, month, and selected range)
     const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
     const { data: callCountLogs } = await db
       .from('fro_donor_logs')
-      .select('fro_worker_id, created_at, disposition_detail, fro_assignments!inner(ngo_id)')
+      .select('fro_worker_id, created_at, disposition_detail, disposition_category, accounts_status, amount_collected, fro_assignments!inner(ngo_id)')
       .in('fro_assignments.ngo_id', ngoIds)
       .in('fro_worker_id', workerIds)
       .gte('created_at', monthStart)
@@ -4455,20 +4502,36 @@ export const getTLDashboard = async (req, res) => {
     for (const log of callCountLogs || []) {
       if (!callCounts[log.fro_worker_id]) {
         callCounts[log.fro_worker_id] = {
-          month: 0, today: 0, week: 0,
-          monthConnected: 0, todayConnected: 0, weekConnected: 0,
-          monthInterested: 0, todayInterested: 0, weekInterested: 0,
+          month: 0, today: 0, week: 0, range: 0,
+          monthConnected: 0, todayConnected: 0, weekConnected: 0, rangeConnected: 0,
+          monthInterested: 0, todayInterested: 0, weekInterested: 0, rangeInterested: 0,
+          monthNonConnected: 0, todayNonConnected: 0, weekNonConnected: 0, rangeNonConnected: 0,
+          monthDonations: 0, todayDonations: 0, weekDonations: 0, rangeDonations: 0,
+          rangeAmount: 0,
           connectedStatuses_month: {},
           connectedStatuses_today: {},
           connectedStatuses_week: {},
+          connectedStatuses_range: {},
         };
       }
       callCounts[log.fro_worker_id].month++;
-      const isToday = new Date(log.created_at) >= todayStart && new Date(log.created_at) <= todayEnd;
-      const isWeek = new Date(log.created_at) >= weekStart && new Date(log.created_at) <= todayEnd;
+      const logDate = new Date(log.created_at);
+      const isToday = logDate >= todayStart && logDate <= todayEnd;
+      const isWeek = logDate >= weekStart && logDate <= todayEnd;
+      const isRange = logDate >= rangeStart && logDate <= rangeEnd;
       if (isToday) callCounts[log.fro_worker_id].today++;
       if (isWeek) callCounts[log.fro_worker_id].week++;
-      if (connectedStatuses.has(log.disposition_detail)) {
+      if (isRange) callCounts[log.fro_worker_id].range++;
+      if (log.accounts_status === 'verified') {
+        if (isToday) callCounts[log.fro_worker_id].todayDonations++;
+        if (isWeek) callCounts[log.fro_worker_id].weekDonations++;
+        if (isRange) {
+          callCounts[log.fro_worker_id].rangeDonations++;
+          callCounts[log.fro_worker_id].rangeAmount += parseFloat(log.amount_collected || 0);
+        }
+      }
+      const side = classifyLogSide(log);
+      if (side === 'connected') {
         const ds = log.disposition_detail;
         callCounts[log.fro_worker_id].monthConnected++;
         callCounts[log.fro_worker_id].connectedStatuses_month[ds] = (callCounts[log.fro_worker_id].connectedStatuses_month[ds] || 0) + 1;
@@ -4480,11 +4543,20 @@ export const getTLDashboard = async (req, res) => {
           callCounts[log.fro_worker_id].weekConnected++;
           callCounts[log.fro_worker_id].connectedStatuses_week[ds] = (callCounts[log.fro_worker_id].connectedStatuses_week[ds] || 0) + 1;
         }
+        if (isRange) {
+          callCounts[log.fro_worker_id].rangeConnected++;
+          callCounts[log.fro_worker_id].connectedStatuses_range[ds] = (callCounts[log.fro_worker_id].connectedStatuses_range[ds] || 0) + 1;
+        }
+      } else if (side === 'not_connected') {
+        if (isToday) callCounts[log.fro_worker_id].todayNonConnected++;
+        if (isWeek) callCounts[log.fro_worker_id].weekNonConnected++;
+        if (isRange) callCounts[log.fro_worker_id].rangeNonConnected++;
       }
       if (interestedStatuses.has(log.disposition_detail)) {
         callCounts[log.fro_worker_id].monthInterested++;
         if (isToday) callCounts[log.fro_worker_id].todayInterested++;
         if (isWeek) callCounts[log.fro_worker_id].weekInterested++;
+        if (isRange) callCounts[log.fro_worker_id].rangeInterested++;
       }
     }
 
@@ -4525,16 +4597,30 @@ export const getTLDashboard = async (req, res) => {
         calls: callCounts[w.id]?.month || 0,
         calls_today: callCounts[w.id]?.today || 0,
         calls_week: callCounts[w.id]?.week || 0,
+        calls_range: callCounts[w.id]?.range || 0,
         connected: callCounts[w.id]?.monthConnected || 0,
         connected_today: callCounts[w.id]?.todayConnected || 0,
         connected_week: callCounts[w.id]?.weekConnected || 0,
+        connected_range: callCounts[w.id]?.rangeConnected || 0,
+        non_connected: callCounts[w.id]?.monthNonConnected || 0,
+        non_connected_today: callCounts[w.id]?.todayNonConnected || 0,
+        non_connected_week: callCounts[w.id]?.weekNonConnected || 0,
+        non_connected_range: callCounts[w.id]?.rangeNonConnected || 0,
         interested: callCounts[w.id]?.monthInterested || 0,
         interested_today: callCounts[w.id]?.todayInterested || 0,
         interested_week: callCounts[w.id]?.weekInterested || 0,
+        interested_range: callCounts[w.id]?.rangeInterested || 0,
+        donations: callCounts[w.id]?.monthDonations || 0,
+        donations_today: callCounts[w.id]?.todayDonations || 0,
+        donations_week: callCounts[w.id]?.weekDonations || 0,
+        donations_range: callCounts[w.id]?.rangeDonations || 0,
+        receivedAmount_range: callCounts[w.id]?.rangeAmount || 0,
+        connect_rate_range: (callCounts[w.id]?.range || 0) > 0 ? Math.round((callCounts[w.id]?.rangeConnected / callCounts[w.id].range) * 100) : 0,
         connectedStatuses: callCounts[w.id]?.connectedStatuses_month || {},
         connectedStatuses_today: callCounts[w.id]?.connectedStatuses_today || {},
         connectedStatuses_week: callCounts[w.id]?.connectedStatuses_week || {},
         connectedStatuses_month: callCounts[w.id]?.connectedStatuses_month || {},
+        connectedStatuses_range: callCounts[w.id]?.connectedStatuses_range || {},
         stations: froStationMap[w.id] || [],
         receivedDonors: leads,
         receivedAmount: coll,
@@ -4595,10 +4681,20 @@ export const getTLDashboard = async (req, res) => {
         offline,
         total_calls: totalCalls,
         connected,
+        not_connected: notConnected,
+        unclassified,
+        connect_rate: connectionRate,
         interested,
+        donations,
         received_amount: receivedAmount,
         followups_due: followupsDue,
         target_pct: targetPct,
+      },
+      connected_breakdown: connectedBreakdown,
+      not_connected_breakdown: notConnectedBreakdown,
+      range: {
+        from: rangeStart.toISOString(),
+        to: rangeEnd.toISOString(),
       },
       funnel,
       hourly,
@@ -4644,7 +4740,7 @@ export const getDonationFunnel = async (req, res) => {
 
     if (ngoIds.length === 0) return res.json([]);
 
-    const connectedStatuses = new Set(['contacted', 'lead_done', 'done', 'donation_collected', 'follow_up', 'scheduled', 'visit_donate', 'will_donate_online', 'promise_to_pay', 'payment_pending', 'already_donated', 'email_sent', 'whatsapp_sent', 'csr_inquiry', 'wants_80g_details', 'wants_trust_documents', 'language_barrier', 'transferred_senior', 'query_complaint', 'receipt_request', 'not_interested_now', 'not_interested', 'dnd', 'wrong_person', 'call_disconnected', 'callback']);
+    const connectedStatuses = new Set(CONNECTED_DISPOSITIONS);
     const interestedStatuses = new Set(['lead_done', 'donation_collected', 'visit_donate', 'will_donate_online', 'promise_to_pay', 'payment_pending']);
 
     const allFunnel = [];
@@ -4652,10 +4748,10 @@ export const getDonationFunnel = async (req, res) => {
       const { data: assignments } = await db.from('fro_assignments').select('donor_id').eq('ngo_id', ngoId).neq('status', 'reassigned');
       const assignedDonorIds = new Set((assignments || []).map(a => a.donor_id).filter(Boolean));
       
-      const { data: logs } = await db.from('fro_donor_logs').select('donor_id, disposition_detail, accounts_status, fro_assignments!inner(ngo_id)').eq('fro_assignments.ngo_id', ngoId);
+      const { data: logs } = await db.from('fro_donor_logs').select('donor_id, disposition_detail, disposition_category, accounts_status, fro_assignments!inner(ngo_id)').eq('fro_assignments.ngo_id', ngoId);
       
       const calledDonorIds = new Set((logs || []).map(l => l.donor_id).filter(Boolean));
-      const connectedDonorIds = new Set((logs || []).filter(l => connectedStatuses.has(l.disposition_detail)).map(l => l.donor_id).filter(Boolean));
+      const connectedDonorIds = new Set((logs || []).filter(l => classifyLogSide(l) === 'connected').map(l => l.donor_id).filter(Boolean));
       const interestedDonorIds = new Set((logs || []).filter(l => interestedStatuses.has(l.disposition_detail)).map(l => l.donor_id).filter(Boolean));
       const receivedDonorIds = new Set((logs || []).filter(l => l.accounts_status === 'verified').map(l => l.donor_id).filter(Boolean));
 
@@ -4726,7 +4822,7 @@ export const getHourlyPerformance = async (req, res) => {
       const hourStr = `${String(hour).padStart(2, '0')}:00-${String(hour+1).padStart(2, '0')}:00`;
       if (!hourlyMap[hourStr]) continue;
       hourlyMap[hourStr].calls++;
-      if (connectedStatuses.has(l.disposition_detail)) hourlyMap[hourStr].connected++;
+      if (classifyLogSide(l) === 'connected') hourlyMap[hourStr].connected++;
       if (interestedStatuses.has(l.disposition_detail)) hourlyMap[hourStr].interested++;
       if (l.accounts_status === 'verified') {
         hourlyMap[hourStr].donations++;

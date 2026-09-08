@@ -19,12 +19,28 @@ const DISPOSITION_LABELS = {
   language_barrier: 'Language Barrier', transferred_senior: 'Transferred to Senior',
   query_complaint: 'Query/Complaint', receipt_request: 'Receipt Request',
   donation_collected: 'Lead Done',
+  office_program_visit: 'Office / Program Visit',
+  promise_pay_wa_email: 'Promise To Pay / WA / Email',
+  not_interested_np: 'Not Interested / Disconnected / NP',
+  busy_call_waiting: 'Busy / Call Waiting',
+  ooc_unreachable_network: 'OOC / Unreachable / Network',
+  ringing_voicemail: 'Ringing / Voicemail',
+  resolved_suspense: 'Resolved Suspense',
 };
 
+const CONNECTED_STATUS_COLUMNS = [
+  { key: 'scheduled', label: 'Follow Up', color: '#2563eb' },
+  { key: 'callback', label: 'Callback', color: '#7c3aed' },
+  { key: 'office_program_visit', label: 'Office / Prog Visit', color: '#0d9488' },
+  { key: 'promise_pay_wa_email', label: 'Promise Pay / WA / Email', color: '#16a34a' },
+  { key: 'not_interested_np', label: 'Not Inter / Disc / NP', color: '#f59e0b' },
+  { key: 'dnd', label: 'DND', color: '#ef4444' },
+];
+
 const DISPOSITION_GROUPS = [
-  { label: 'Converted', color: '#16a34a', bg: '#f0fdf4', statuses: ['donation_collected', 'promise_to_pay', 'lead_done', 'done', 'visit_donate', 'will_donate_online', 'payment_pending', 'already_donated'] },
-  { label: 'In Progress', color: '#d97706', bg: '#fffbeb', statuses: ['pending', 'contacted', 'follow_up', 'scheduled', 'email_sent', 'whatsapp_sent', 'csr_inquiry', 'wants_80g_details', 'wants_trust_documents'] },
-  { label: 'Negative', color: '#dc2626', bg: '#fef2f2', statuses: ['not_interested', 'not_interested_now', 'dnd', 'wrong_person', 'call_disconnected', 'rejected', 'busy', 'ringing', 'call_waiting', 'unreachable', 'switched_off', 'out_of_coverage', 'wrong_number', 'invalid_number', 'temporary_network_issue', 'voicemail', 'language_barrier'] },
+  { label: 'Converted', color: '#16a34a', bg: '#f0fdf4', statuses: ['donation_collected', 'promise_to_pay', 'lead_done', 'done', 'visit_donate', 'will_donate_online', 'payment_pending', 'already_donated', 'promise_pay_wa_email'] },
+  { label: 'In Progress', color: '#d97706', bg: '#fffbeb', statuses: ['pending', 'contacted', 'follow_up', 'scheduled', 'email_sent', 'whatsapp_sent', 'csr_inquiry', 'wants_80g_details', 'wants_trust_documents', 'office_program_visit'] },
+  { label: 'Negative', color: '#dc2626', bg: '#fef2f2', statuses: ['not_interested', 'not_interested_now', 'dnd', 'wrong_person', 'call_disconnected', 'rejected', 'busy', 'ringing', 'call_waiting', 'unreachable', 'switched_off', 'out_of_coverage', 'wrong_number', 'invalid_number', 'temporary_network_issue', 'voicemail', 'language_barrier', 'busy_call_waiting', 'ooc_unreachable_network', 'ringing_voicemail', 'not_interested_np'] },
   { label: 'Other', color: '#5B6B4E', bg: '#f0f2ee', statuses: ['transferred_senior', 'query_complaint', 'receipt_request'] },
 ];
 
@@ -32,6 +48,15 @@ const PER_PAGE = 50;
 
 const toIstDate = (d = new Date()) =>
   new Date(new Date(d).getTime() + ((5 * 60) + 30) * 60000).toISOString().slice(0, 10);
+
+const PERIOD_LABELS = { today: 'Today', weekly: 'This Week', monthly: 'This Month', custom: 'Custom Range' };
+
+const NGO_TABS = [
+  ['', 'All'],
+  ['bsct', 'BSCT'],
+  ['aflf', 'AFLF'],
+  ['mann', 'MANN'],
+];
 
 function StationDetailModal({ station, stats, stationInfo, onClose }) {
   const [donors, setDonors] = useState([]);
@@ -605,11 +630,11 @@ function FollowupDetailModal({ worker, label, onClose, onChanged }) {
   );
 }
 
-function FroDetailModal({ froId, froName, filterType, perfPeriod, onClose }) {
+function FroDetailModal({ froId, froName, filterType, perfPeriod, status, onClose }) {
   const [allDonors, setAllDonors] = useState([]);
   const [loadingDonors, setLoadingDonors] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(status || '');
   const [page, setPage] = useState(1);
 
   useEffect(() => {
@@ -629,12 +654,13 @@ function FroDetailModal({ froId, froName, filterType, perfPeriod, onClose }) {
   const isNonConnected = filterType === 'non_connected';
   const filterColor = isNonConnected ? '#dc2626' : '#16a34a';
   const filterBg = isNonConnected ? '#fef2f2' : '#f0fdf4';
-  const filterLabel = isNonConnected ? 'Non-Connected' : 'Connected';
+  const filterLabel = status ? (DISPOSITION_LABELS[status] || status) : (isNonConnected ? 'Non-Connected' : 'Connected');
 
   const hasPeriodData = perfPeriod && perfPeriod !== 'all';
 
   const baseList = useMemo(() => {
     const getKey = (d) => hasPeriodData && d.call_status ? d.call_status : d.status;
+    if (status) return allDonors.filter(d => getKey(d) === status);
     if (isNonConnected) {
       return allDonors.filter(d => {
         const grp = DISPOSITION_GROUPS.find(g => g.statuses.includes(getKey(d)));
@@ -645,7 +671,7 @@ function FroDetailModal({ froId, froName, filterType, perfPeriod, onClose }) {
       const grp = DISPOSITION_GROUPS.find(g => g.statuses.includes(getKey(d)));
       return grp && (grp.label === 'Converted' || grp.label === 'In Progress');
     });
-  }, [allDonors, isNonConnected, hasPeriodData]);
+  }, [allDonors, isNonConnected, hasPeriodData, status]);
 
   const total = baseList.length;
 
@@ -875,6 +901,11 @@ export default function Dashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [selectedNgoId, setSelectedNgoId] = useState('all');
+  const [ngoTab, setNgoTab] = useState('');
+  const [dashPeriod, setDashPeriod] = useState('today');
+  const [customFrom, setCustomFrom] = useState(() => toIstDate());
+  const [customTo, setCustomTo] = useState(() => toIstDate());
+  const [selectedFroId, setSelectedFroId] = useState('');
   const [accessibleNgos, setAccessibleNgos] = useState([]);
   const [weakPeriod, setWeakPeriod] = useState('today');
   const [weakPerformers, setWeakPerformers] = useState([]);
@@ -997,16 +1028,37 @@ export default function Dashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    const ngoParam = selectedNgoId !== 'all' ? `?ngo_id=${selectedNgoId}` : '';
+    const buildParams = () => {
+      const params = [];
+      if (selectedNgoId !== 'all') params.push(`ngo_id=${selectedNgoId}`);
+      let from, to;
+      if (dashPeriod === 'today') { from = toIstDate(); to = from; }
+      else if (dashPeriod === 'weekly') {
+        const now = new Date();
+        const start = new Date(now); start.setDate(now.getDate() - now.getDay());
+        from = toIstDate(start); to = toIstDate(now);
+      } else if (dashPeriod === 'monthly') {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        from = toIstDate(start); to = toIstDate(now);
+      } else {
+        from = customFrom; to = customTo;
+      }
+      if (from) params.push(`from=${from}`);
+      if (to) params.push(`to=${to}`);
+      if (selectedFroId) params.push(`fro_id=${selectedFroId}`);
+      return params.length ? `?${params.join('&')}` : '';
+    };
+    const ngoParam = () => buildParams();
     const fetchTl = () => {
-      apiGet(`/ngo-admin/tl-dashboard${ngoParam}`)
+      apiGet(`/ngo-admin/tl-dashboard${ngoParam()}`)
         .then(d => { if (!cancelled) setTlData(d); })
         .catch(() => { if (!cancelled) setTlData(null); });
     };
     fetchTl();
     const interval = setInterval(fetchTl, 30000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [selectedNgoId]);
+  }, [selectedNgoId, dashPeriod, customFrom, customTo, selectedFroId]);
 
   useEffect(() => {
     if (!showFollowups) return;
@@ -1072,6 +1124,16 @@ export default function Dashboard() {
     const controller = fetchDashboard();
     return () => controller.abort();
   }, [fetchDashboard]);
+
+  const handleNgoTab = (code) => {
+    setNgoTab(code);
+    setData(null);
+    setStationStats(null);
+    setStationsData([]);
+    if (!code) { setSelectedNgoId('all'); return; }
+    const ngo = (accessibleNgos || []).find(n => (n.name || '').toLowerCase().includes(code));
+    setSelectedNgoId(ngo ? ngo.id : 'all');
+  };
 
   if (loading && !data) return <SkeletonDashboard />;
   if (error && !data) {
@@ -1248,27 +1310,21 @@ export default function Dashboard() {
 
     // ── Sheet 1: Telecaller Performance ─────────────────────────────
     const headers1 = [
-      'Telecaller', 'Login ID', 'Period', 'Calls', 'Connected', 'Non-Connected',
-      `Status Breakdown (${periodLabel})`, 'Interested', 'Received Donors', 'Amount (₹)', 'Target %',
-      'Claims Pending', 'Claims Verified', 'Claims Rejected', 'Live Status'
+      'Telecaller', 'Login ID', 'Period', 'Total Calls', 'Connected',
+      ...CONNECTED_STATUS_COLUMNS.map(c => c.label),
+      'Non-Connected', 'Interested', 'Amount (₹)', 'Live Status'
     ];
-    const aoa1 = calcRows1.map(({ p, c }) => {
-      const connectedBreakdown = Object.entries(c.statuses)
-        .map(([status, count]) => `${(DISPOSITION_LABELS[status] || status)}: ${count}`)
-        .filter(s => !s.endsWith(': 0'))
-        .join('; ');
-      return [
-        p.fro_name, p.fro_login_id || '', periodLabel, c.calls, c.connected, c.nonConnected,
-        connectedBreakdown || '—', c.interested, c.donors, c.received, p.target_pct || 0,
-        p.claims_pending || 0, p.claims_verified || 0, p.claims_rejected || 0, p.status || 'offline'
-      ];
-    });
+    const aoa1 = calcRows1.map(({ p, c }) => [
+      p.fro_name, p.fro_login_id || '', periodLabel, c.calls, c.connected,
+      ...CONNECTED_STATUS_COLUMNS.map(col => c.statuses[col.key] || 0),
+      c.nonConnected, c.interested, c.received, p.status || 'offline'
+    ]);
     const t1 = calcRows1.reduce((a, { p, c }) => ({
       calls: a.calls + c.calls, connected: a.connected + c.connected, nonConnected: a.nonConnected + c.nonConnected,
-      interested: a.interested + c.interested, donors: a.donors + c.donors, amount: a.amount + c.received,
-      cp: a.cp + (p.claims_pending || 0), cv: a.cv + (p.claims_verified || 0), cr: a.cr + (p.claims_rejected || 0),
-    }), { calls: 0, connected: 0, nonConnected: 0, interested: 0, donors: 0, amount: 0, cp: 0, cv: 0, cr: 0 });
-    aoa1.push(['TOTAL', '', '', t1.calls, t1.connected, t1.nonConnected, '', t1.interested, t1.donors, t1.amount, '', t1.cp, t1.cv, t1.cr, '']);
+      interested: a.interested + c.interested, donors: a.donors + (p.receivedDonors || 0), amount: a.amount + c.received,
+      statuses: CONNECTED_STATUS_COLUMNS.map((col, i) => a.statuses[i] + (c.statuses[col.key] || 0)),
+    }), { calls: 0, connected: 0, nonConnected: 0, interested: 0, donors: 0, amount: 0, statuses: CONNECTED_STATUS_COLUMNS.map(() => 0) });
+    aoa1.push(['TOTAL', '', '', t1.calls, t1.connected, ...t1.statuses, t1.nonConnected, t1.interested, t1.amount, '']);
 
     const ws1 = XLSX.utils.aoa_to_sheet([]);
     ws1[enc({ r: 0, c: 0 })] = { t: 's', v: `Telecaller Performance — ${periodLabel}` };
@@ -1278,21 +1334,21 @@ export default function Dashboard() {
     XLSX.utils.sheet_add_aoa(ws1, aoa1, { origin: 'A3' });
     spanRef(ws1);
     ws1['!cols'] = [
-      { wch: 25 }, { wch: 18 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 14 },
-      { wch: 45 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 10 },
-      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }
+      { wch: 25 }, { wch: 18 }, { wch: 12 }, { wch: 10 }, { wch: 12 },
+      ...CONNECTED_STATUS_COLUMNS.map(() => ({ wch: 16 })),
+      { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }
     ];
     styleCell(ws1, 0, 0, TITLE);
     for (let c = 0; c <= 14; c++) styleCell(ws1, 1, c, HDR);
-    const numCols1 = [3, 4, 5, 7, 8, 10, 11, 12, 13];
+    const numCols1 = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
     for (let r = 2; r < 2 + aoa1.length; r++) {
       for (let c = 0; c <= 14; c++) {
-        const s = { font: FONT, alignment: { vertical: 'center', horizontal: numCols1.includes(c) || c === 9 ? 'center' : 'left' } };
-        if (c === 9) s.numFmt = AMT.numFmt;
+        const s = { font: FONT, alignment: { vertical: 'center', horizontal: numCols1.includes(c) ? 'center' : 'left' } };
+        if (c === 13) s.numFmt = AMT.numFmt;
         styleCell(ws1, r, c, s);
       }
     }
-    for (let c = 0; c <= 14; c++) styleCell(ws1, 1 + aoa1.length, c, { ...SUB, numFmt: c === 9 ? AMT.numFmt : undefined });
+    for (let c = 0; c <= 14; c++) styleCell(ws1, 1 + aoa1.length, c, { ...SUB, numFmt: c === 13 ? AMT.numFmt : undefined });
     ws1['!freeze'] = { xSplit: 0, ySplit: 1 };
     ws1['!autofilter'] = { ref: `A2:O${1 + aoa1.length}` };
     XLSX.utils.book_append_sheet(wb, ws1, 'Telecaller Performance');
@@ -1466,16 +1522,22 @@ export default function Dashboard() {
   return (
     <div>
       <div className="filter-bar">
-        <span style={{fontSize:13, fontWeight:600, color:'var(--ink-soft)'}}>NGO:</span>
-        <select value={selectedNgoId} onChange={e => {
-          setData(null);
-          setStationStats(null);
-          setStationsData([]);
-          setSelectedNgoId(e.target.value);
-        }}>
-          <option value="all">All NGOs</option>
-          {accessibleNgos.map(ngo => (
-            <option key={ngo.id} value={ngo.id}>{ngo.name}</option>
+        <div style={{ display: 'inline-flex', gap: 4, padding: 4, background: '#eef1f6', borderRadius: 12 }}>
+          {[['today', 'Today'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['custom', 'Custom']].map(([val, label]) => (
+            <button key={val} onClick={() => setDashPeriod(val)} style={{ fontSize: 12.5, fontWeight: 700, padding: '7px 15px', borderRadius: 9, border: 'none', cursor: 'pointer', background: dashPeriod === val ? '#111827' : 'transparent', color: dashPeriod === val ? '#fff' : '#475569', transition: 'background .12s, color .12s' }}>{label}</button>
+          ))}
+        </div>
+        {dashPeriod === 'custom' && (
+          <>
+            <input type="date" value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} style={{ padding: '8px 12px', border: '1.5px solid var(--line)', borderRadius: 10, fontSize: 13, fontFamily: 'inherit', background: '#fff' }} />
+            <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>to</span>
+            <input type="date" value={customTo} min={customFrom} onChange={(e) => setCustomTo(e.target.value)} style={{ padding: '8px 12px', border: '1.5px solid var(--line)', borderRadius: 10, fontSize: 13, fontFamily: 'inherit', background: '#fff' }} />
+          </>
+        )}
+        <select value={selectedFroId} onChange={(e) => setSelectedFroId(e.target.value)} style={{ padding: '8px 12px', border: '1.5px solid var(--line)', borderRadius: 10, fontSize: 13, fontFamily: 'inherit', background: '#fff' }}>
+          <option value="">All Telecallers</option>
+          {(tlData?.performance || []).map(p => (
+            <option key={p.fro_id} value={p.fro_id}>{p.fro_name}</option>
           ))}
         </select>
         <button
@@ -1496,38 +1558,16 @@ export default function Dashboard() {
         gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         gap: 14, marginBottom: 16,
       }}>
-        <div className="card" style={{ marginBottom: 0, padding: '16px 18px', cursor: 'pointer' }} onClick={() => setSelectedPeriod('month')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-            <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Month Collection</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>₹{month_collection.toLocaleString('en-IN')}</span>
-          </div>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-            <div style={{ width: 64, height: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
-                <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Total</span>
-                <span style={{ fontWeight: 600 }}>₹{month_collection.toLocaleString('en-IN')}</span>
-              </div>
-              {month_collection > 0 && (
-                <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', overflow: 'hidden' }}>
-                  <div style={{ width: '100%', height: '100%', borderRadius: 2, background: '#16a34a', opacity: 0.6 }} />
-                </div>
-              )}
-              <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: month_collection > 0 ? 2 : 0 }}>
-                {month_collection === 0 ? 'No collections yet' : 'Current month'}
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div className="card" style={{ marginBottom: 0, padding: '16px 18px', cursor: 'pointer' }} onClick={() => setSelectedPeriod('today')}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Today Collection</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>₹{today_collection.toLocaleString('en-IN')}</span>
+            <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Collection</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>₹{Number(tlData?.kpis?.received_amount ?? today_collection).toLocaleString('en-IN')}</span>
+          </div>
+          <div style={{ display: 'inline-flex', gap: 4, padding: 4, background: '#eef1f6', borderRadius: 12, marginBottom: 8 }}>
+            {NGO_TABS.map(([code, label]) => (
+              <button key={code || 'all'} onClick={(e) => { e.stopPropagation(); handleNgoTab(code); }} style={{ fontSize: 12.5, fontWeight: 700, padding: '7px 15px', borderRadius: 9, border: 'none', cursor: 'pointer', background: ngoTab === code ? '#111827' : 'transparent', color: ngoTab === code ? '#fff' : '#475569', transition: 'background .12s, color .12s' }}>{label}</button>
+            ))}
           </div>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
             <div style={{ width: 64, height: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1536,15 +1576,15 @@ export default function Dashboard() {
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
                 <span style={{ fontWeight: 600, color: 'var(--ink)' }}>Total</span>
-                <span style={{ fontWeight: 600 }}>₹{today_collection.toLocaleString('en-IN')}</span>
+                <span style={{ fontWeight: 600 }}>₹{Number(tlData?.kpis?.received_amount ?? today_collection).toLocaleString('en-IN')}</span>
               </div>
-              {today_collection > 0 && (
+              {Number(tlData?.kpis?.received_amount ?? today_collection) > 0 && (
                 <div style={{ height: 4, borderRadius: 2, background: '#e5e7eb', overflow: 'hidden' }}>
                   <div style={{ width: '100%', height: '100%', borderRadius: 2, background: '#f59e0b', opacity: 0.6 }} />
                 </div>
               )}
-              <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: today_collection > 0 ? 2 : 0 }}>
-                {today_collection === 0 ? 'No collections yet' : 'Today'}
+              <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: Number(tlData?.kpis?.received_amount ?? today_collection) > 0 ? 2 : 0 }}>
+                {Number(tlData?.kpis?.received_amount ?? today_collection) === 0 ? 'No collections yet' : PERIOD_LABELS[dashPeriod]}
               </div>
             </div>
           </div>
@@ -1554,32 +1594,15 @@ export default function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Verified</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: '#16a34a' }}>₹{verified_month_amount.toLocaleString('en-IN')}</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: '#16a34a' }}>₹{Number(tlData?.kpis?.received_amount ?? verified_month_amount).toLocaleString('en-IN')}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-soft)' }}>
-            <span>Month: {verified_month_count} leads</span>
-            <span>Today: ₹{verified_today_amount.toLocaleString('en-IN')} ({verified_today_count})</span>
+            <span>{tlData?.kpis?.donations ?? verified_month_count} verified donations</span>
+            <span>{PERIOD_LABELS[dashPeriod]}</span>
           </div>
-          {direct_donation_month > 0 && (
-            <div style={{ fontSize: 10, color: 'var(--ink-soft)', marginTop: 4 }}>
-              + ₹{direct_donation_month.toLocaleString('en-IN')} in direct donations (total ₹{month_collection.toLocaleString('en-IN')})
-            </div>
-          )}
-          <div style={{ fontSize: 10, color: '#16a34a', marginTop: direct_donation_month > 0 ? 2 : 4 }}>Verified by Accounts panel</div>
+          <div style={{ fontSize: 10, color: '#16a34a', marginTop: 4 }}>Verified by Accounts panel</div>
         </div>
 
-        <div className="card" style={{ marginBottom: 0, padding: '16px 18px', cursor: 'pointer', border: '1px solid #f59e0b33' }} onClick={() => setSelectedStatus('unverified')}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Unverified</span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: '#f59e0b' }}>₹{unverified_month_amount.toLocaleString('en-IN')}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-soft)' }}>
-            <span>Month: {unverified_month_count} leads</span>
-            <span>Today: ₹{unverified_today_amount.toLocaleString('en-IN')} ({unverified_today_count})</span>
-          </div>
-          <div style={{ fontSize: 10, color: '#f59e0b', marginTop: 4 }}>Awaiting Accounts verification</div>
-        </div>
       </div>
 
       {/* Idle Alert Banner */}
@@ -1605,6 +1628,9 @@ export default function Dashboard() {
             { label: 'Offline', value: tlData.kpis.offline || 0, color: '#dc2626', bg: '#fef2f2' },
             { label: 'Total Calls', value: tlData.kpis.total_calls || 0, color: '#7c3aed', bg: '#f5f3ff' },
             { label: 'Connected', value: tlData.kpis.connected || 0, color: '#0891b2', bg: '#ecfeff' },
+            { label: 'Not Connected', value: tlData.kpis.not_connected || 0, color: '#dc2626', bg: '#fef2f2' },
+            { label: 'Connect %', value: (tlData.kpis.connect_rate || 0) + '%', color: '#334155', bg: '#f1f5f9' },
+            { label: 'Donations', value: tlData.kpis.donations || 0, color: '#16a34a', bg: '#f0fdf4' },
             { label: 'Interested', value: tlData.kpis.interested || 0, color: '#db2777', bg: '#fdf2f8' },
             { label: 'Received', value: '₹' + Number(tlData.kpis.received_amount || 0).toLocaleString('en-IN'), color: '#16a34a', bg: '#f0fdf4', isAmount: true },
             { label: 'Follow-ups Due', value: tlData.kpis.followups_due || 0, color: '#ea580c', bg: '#fff7ed' },
@@ -1672,104 +1698,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* REQUIREMENT 4: Donor Assignment (Left) & Donor Funnel (Right) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, marginBottom: 16 }}>
-        {/* Left: Donor Assignment */}
-        <div className="card" style={{ marginBottom: 0, padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Donor Assignment</span>
-              <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{total_donors}</span>
-            </div>
-            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-              <div style={{ width: 64, height: 64, flexShrink: 0 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={[
-                      { name: 'Assigned', value: assigned_donors, color: 'var(--sage)' },
-                      { name: 'Unassigned', value: unassigned, color: '#e5e7eb' },
-                    ]} cx="50%" cy="50%" innerRadius={20} outerRadius={30} dataKey="value" startAngle={90} endAngle={-270}>
-                      <Cell fill="var(--sage)" />
-                      <Cell fill="#e5e7eb" />
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 2 }}>
-                  <span style={{ color: 'var(--sage)', fontWeight: 600 }}>Assigned</span>
-                  <span style={{ fontWeight: 600 }}>{assigned_donors}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span style={{ color: '#9ca3af', fontWeight: 500 }}>Unassigned</span>
-                  <span style={{ fontWeight: 500, color: '#9ca3af' }}>{unassigned}</span>
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>{assignPct}% assigned</div>
-              </div>
-            </div>
-          </div>
-          <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div style={{ flex: 1, background: '#f0fdf4', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#16a34a' }}>{data_used}</div>
-                <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Used</div>
-              </div>
-              <div style={{ flex: 1, background: '#fef2f2', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#dc2626' }}>{data_unused}</div>
-                <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Unused</div>
-              </div>
-            </div>
-            {(data_used + data_unused) > 0 && (
-              <div style={{ height: 4, borderRadius: 2, background: '#fee2e2', marginTop: 8, overflow: 'hidden' }}>
-                <div style={{ width: `${(data_used / (data_used + data_unused)) * 100}%`, height: '100%', borderRadius: 2, background: '#16a34a' }} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Donation Funnel */}
-        <div className="card" style={{ marginBottom: 0, padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-              Donation Funnel — Stage Drop-off
-            </div>
-            {tlData?.funnel?.length > 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', padding: '4px 0' }}>
-                {tlData.funnel.map((stage, i) => {
-                  const colors = ['#3b82f6', '#8b5cf6', '#06b6d4', '#ec4899', '#16a34a'];
-                  const color = colors[i] || '#94a3b8';
-                  const isLast = i === tlData.funnel.length - 1;
-                  const maxCount = Math.max(...tlData.funnel.map(s => s.count), 1);
-                  return (
-                    <div key={stage.stage} style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, flex: 1, minWidth: 68 }}>
-                      <div style={{ width: '100%', textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: color + '12', border: `1px solid ${color}30` }}>
-                        <div style={{ fontSize: 9, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: '0.02em', marginBottom: 2 }}>{stage.stage}</div>
-                        <div style={{ fontSize: 14, fontWeight: 800, color }}>{(stage.count || 0).toLocaleString('en-IN')}</div>
-                        <div style={{ fontSize: 8, color: 'var(--ink-soft)', marginTop: 1 }}>{stage.pct}%</div>
-                        <div style={{ height: 3, borderRadius: 2, background: '#e5e7eb', marginTop: 4, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', borderRadius: 2, background: color, width: `${(stage.count / maxCount) * 100}%`, transition: 'width .6s ease' }} />
-                        </div>
-                      </div>
-                      {!isLast && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6"/></svg>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div style={{ fontSize: 12, color: 'var(--ink-soft)', padding: 16, textAlign: 'center' }}>No funnel data available</div>
-            )}
-          </div>
-          <div style={{ fontSize: 10, color: 'var(--ink-soft)', marginTop: 8, borderTop: '1px solid var(--line)', paddingTop: 6, display: 'flex', justifyContent: 'space-between' }}>
-            <span>Conversion tracking</span>
-            <span>Total Assigned: {total_donors}</span>
-          </div>
-        </div>
-      </div>
 
       {/* REQUIREMENT 3: Workforce / Attendance (Left) & FRO Workers (Right) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, marginBottom: 16 }}>
@@ -2117,17 +2045,18 @@ export default function Dashboard() {
                 <tr>
                   <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'left', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>#</th>
                   <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'left', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Name</th>
-                  <th className="perf-hide-mobile" style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'left', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Station</th>
                   <th className="perf-hide-mobile" style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'center', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Status</th>
-                  <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Calls{perfPeriod === 'today' ? ' (Today)' : perfPeriod === 'week' ? ' (Week)' : ' (Month)'}</th>
+                  <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Total Calls{perfPeriod === 'today' ? ' (Today)' : perfPeriod === 'week' ? ' (Week)' : ' (Month)'}</th>
                   <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Connected</th>
+                  {CONNECTED_STATUS_COLUMNS.map(c => (
+                    <th key={c.key} className="perf-hide-mobile" title={DISPOSITION_LABELS[c.key] || c.label} style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 9, textTransform: 'uppercase', color: c.color, fontWeight: 700, borderBottom: '2px solid var(--line)' }}>
+                      {c.label}
+                      <span style={{ display: 'block', fontSize: 8, color: 'var(--ink-soft)', fontWeight: 500 }}>{perfPeriod === 'today' ? 'Today' : perfPeriod === 'week' ? 'Week' : 'Month'}</span>
+                    </th>
+                  ))}
                   <th className="perf-hide-mobile" style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Non-Connected</th>
-                  <th className="perf-hide-mobile" style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'left', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Status Breakdown ({perfPeriod === 'today' ? 'Today' : perfPeriod === 'week' ? 'Week' : 'Month'})</th>
                   <th className="perf-hide-mobile" style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Interested</th>
                   <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Received{perfPeriod === 'today' ? ' (Today)' : perfPeriod === 'week' ? ' (Week)' : ' (Month)'}</th>
-                  <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Target %</th>
-                  <th className="perf-hide-mobile" style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'center', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Claims</th>
-                  <th className="perf-hide-mobile" style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'center', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Conv %</th>
                 </tr>
               </thead>
               <tbody>
@@ -2145,7 +2074,6 @@ export default function Dashboard() {
                     perfPeriod === 'today' ? (p.connectedStatuses_today || {}) :
                     perfPeriod === 'week' ? (p.connectedStatuses_week || {}) :
                     (p.connectedStatuses_month || p.connectedStatuses || {});
-                  const statusEntries = Object.entries(activeStatuses).filter(([, c]) => c > 0);
 
                   return (
                     <tr key={p.fro_id} style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
@@ -2157,16 +2085,6 @@ export default function Dashboard() {
                         <span className="perf-show-inline" style={{ fontSize: 10, color: sc, fontWeight: 500, marginLeft: 6 }}>
                           {statusLabels[p.status] || 'Offline'}
                         </span>
-                        {p.stations?.length > 0 && (
-                          <span className="perf-show-inline" style={{ display: 'block', fontSize: 9, color: 'var(--ink-soft)', fontWeight: 400, marginTop: 1 }}>
-                            {p.stations.join(', ')}
-                          </span>
-                        )}
-                      </td>
-                      <td className="perf-hide-mobile" style={{ padding: '10px', fontSize: 11, color: 'var(--ink-soft)' }}>
-                        {p.stations?.length > 0 ? p.stations.map(s => (
-                          <span key={s} style={{ display: 'inline-block', padding: '1px 6px', borderRadius: 4, background: '#f3f4f6', fontWeight: 500, marginRight: 3, marginBottom: 2 }}>{s}</span>
-                        )) : '—'}
                       </td>
                       <td className="perf-hide-mobile" style={{ padding: '10px', textAlign: 'center' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500, color: sc }}>
@@ -2177,43 +2095,18 @@ export default function Dashboard() {
                       <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600 }}>{periodCalls}</td>
                       <td style={{ padding: '10px', textAlign: 'right', color: '#16a34a', fontWeight: 600, cursor: 'pointer', textDecoration: periodConnected > 0 ? 'underline' : 'none' }}
                         onClick={(e) => { e.stopPropagation(); if (periodConnected > 0) setSelectedFro({ froId: p.fro_id, froName: p.fro_name, filterType: 'connected' }); }}>{periodConnected}</td>
+                      {CONNECTED_STATUS_COLUMNS.map(col => {
+                        const count = activeStatuses[col.key] || 0;
+                        return (
+                          <td key={col.key} className="perf-hide-mobile" style={{ padding: '10px', textAlign: 'right', color: count > 0 ? col.color : 'var(--ink-soft)', fontWeight: 600, cursor: count > 0 ? 'pointer' : 'default', textDecoration: count > 0 ? 'underline' : 'none', fontSize: 11 }}
+                            onClick={(e) => { e.stopPropagation(); if (count > 0) setSelectedFro({ froId: p.fro_id, froName: p.fro_name, filterType: 'connected', status: col.key }); }}>{count > 0 ? count : '—'}</td>
+                        );
+                      })}
                       <td className="perf-hide-mobile" style={{ padding: '10px', textAlign: 'right', color: '#dc2626', fontWeight: 600, cursor: 'pointer', textDecoration: periodNonConnected > 0 ? 'underline' : 'none' }}
                         onClick={(e) => { e.stopPropagation(); if (periodNonConnected > 0) setSelectedFro({ froId: p.fro_id, froName: p.fro_name, filterType: 'non_connected' }); }}>{periodNonConnected}</td>
-                      <td className="perf-hide-mobile" style={{ padding: '10px', fontSize: 11 }}>
-                        {statusEntries.length === 0 ? (
-                          <span style={{ color: 'var(--ink-soft)' }}>—</span>
-                        ) : (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, maxWidth: 220 }}>
-                            {statusEntries.slice(0, 2).map(([status, count]) => (
-                              <span key={status} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', fontWeight: 600 }}>
-                                {status}: {count}
-                              </span>
-                            ))}
-                            {statusEntries.length > 2 && (
-                              <span style={{ fontSize: 9, padding: '1px 4px', borderRadius: 4, background: '#f3f4f6', color: 'var(--ink-soft)' }} title={statusEntries.slice(2).map(([s, c]) => `${s}: ${c}`).join(', ')}>
-                                +{statusEntries.length - 2} more
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
                       <td className="perf-hide-mobile" style={{ padding: '10px', textAlign: 'right', color: '#ec4899' }}>{periodInterested}</td>
                       <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: (periodReceived || 0) > 0 ? '#16a34a' : 'var(--ink-soft)' }}>
                         ₹{Number(periodReceived || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td style={{ padding: '10px', textAlign: 'right' }}>
-                        <span style={{ fontWeight: 700, color: (p.target_pct || 0) >= 75 ? '#16a34a' : (p.target_pct || 0) >= 50 ? '#f59e0b' : '#dc2626' }}>
-                          {p.target_pct || 0}%
-                        </span>
-                      </td>
-                      <td className="perf-hide-mobile" style={{ padding: '10px', textAlign: 'center', fontSize: 11 }}>
-                        {p.claims_pending > 0 && <span style={{ background: '#fef3c7', color: '#92400e', padding: '1px 6px', borderRadius: 8, fontWeight: 600, marginRight: 3 }}>{p.claims_pending}p</span>}
-                        {p.claims_verified > 0 && <span style={{ background: '#f0fdf4', color: '#16a34a', padding: '1px 6px', borderRadius: 8, fontWeight: 600, marginRight: 3 }}>{p.claims_verified}v</span>}
-                        {p.claims_rejected > 0 && <span style={{ background: '#fef2f2', color: '#dc2626', padding: '1px 6px', borderRadius: 8, fontWeight: 600 }}>{p.claims_rejected}r</span>}
-                        {(!p.claims_pending && !p.claims_verified && !p.claims_rejected) && <span style={{ color: 'var(--ink-soft)' }}>—</span>}
-                      </td>
-                      <td className="perf-hide-mobile" style={{ padding: '10px', textAlign: 'center', fontWeight: 600, color: (p.conversion_pct || 0) >= 50 ? '#16a34a' : '#f59e0b' }}>
-                        {p.conversion_pct || 0}%
                       </td>
                     </tr>
                   );
@@ -2477,6 +2370,7 @@ export default function Dashboard() {
           froId={selectedFro.froId}
           froName={selectedFro.froName}
           filterType={selectedFro.filterType}
+          status={selectedFro.status}
           perfPeriod={perfPeriod}
           onClose={() => setSelectedFro(null)}
         />
