@@ -443,7 +443,7 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
 
       <div className="dash-row">
         <section className="dash-panel">
-          <div className="panel-head"><h3>Nokia Mobile Summary</h3><span className="ln" style={{ fontSize: 16, fontWeight: 800, color: '#2563eb', background: '#eff6ff', padding: '5px 12px', borderRadius: 6 }}>total {nokiaCards.length}</span></div>
+          <div className="panel-head"><h3>Nokia Mobile Summary</h3><span className="ln" style={{ fontSize: 16, fontWeight: 800, color: '#2563eb', background: '#eff6ff', padding: '5px 12px', borderRadius: 6 }}>TOTAL COUNT {nokiaCards.length}</span></div>
           {(() => {
             const teamMap = {};
             nokiaCards.forEach((c) => { const t = c.team || 'Unassigned'; teamMap[t] = (teamMap[t] || 0) + countSims(c); });
@@ -478,7 +478,7 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
 
       <div className="dash-row">
         <section className="dash-panel">
-          <div className="panel-head"><h3>Android Mobile Summary</h3><span className="ln" style={{ fontSize: 16, fontWeight: 800, color: '#2563eb', background: '#eff6ff', padding: '5px 12px', borderRadius: 6 }}>total {androidCards.length}</span></div>
+          <div className="panel-head"><h3>Android Mobile Summary</h3><span className="ln" style={{ fontSize: 16, fontWeight: 800, color: '#2563eb', background: '#eff6ff', padding: '5px 12px', borderRadius: 6 }}>TOTAL COUNT {androidCards.length}</span></div>
           {(() => {
             const teamMap = {};
             androidCards.forEach((c) => { const t = c.team || 'Unassigned'; teamMap[t] = (teamMap[t] || 0) + countSims(c); });
