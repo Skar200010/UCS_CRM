@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react'
 import * as XLSX from 'xlsx'
 import { apiGet, apiPost, apiPatch, apiDelete } from '../api/auth'
-import { UserCog, Trash2, MapPin, AlertCircle, CheckCircle2, X, MoreHorizontal, Eye, PencilLine, History, UserMinus, Search } from 'lucide-react'
+import { UserCog, Trash2, MapPin, AlertCircle, CheckCircle2, X, MoreHorizontal, Eye, PencilLine, History, UserMinus, Search, ChevronDown, ChevronUp } from 'lucide-react'
 import { useUcs } from '../../../store'
+import { useIsMobile } from '../../../hooks/useIsMobile'
 
 // Soft accent palette cycled per NGO so each assignment card is instantly
 // recognizable even when a donor spans several NGOs.
@@ -34,6 +35,57 @@ const SkeletonNum = ({ w = 48 }) => (
 const SkeletonRow = ({ cols }) => (
   <tr>{Array.from({ length: cols }, (_, i) => <td key={i}><span className="sk-num" style={{ display: 'inline-block', width: i === 0 ? 140 : i === 1 ? 110 : i === 2 ? 90 : i === 3 ? 80 : i === 4 ? 60 : 90, height: 14, borderRadius: 4, background: 'linear-gradient(90deg,var(--bg) 25%,var(--line) 50%,var(--bg) 75%)', backgroundSize: '200% 100%', animation: 'sk-shimmer 1.4s infinite' }} /></td>)}</tr>
 )
+
+const SkeletonCard = () => (
+  <div className="donor-card">
+    <div className="donor-card-head">
+      <div className="donor-avatar" style={{ background: 'var(--line)' }} />
+      <div style={{ flex: 1 }}><SkeletonNum w={140} /></div>
+    </div>
+    <SkeletonNum w={90} />
+  </div>
+)
+
+const donorMeta = (d) => {
+  const nameSource = String(d.name || '').trim()
+  const altSource = String(d.bank_donor_name || d.agent_donor_name || '').trim()
+  const name = nameSource || altSource || '-'
+  const parts = name.split(' ').filter(Boolean)
+  let secondary = ''
+  if (altSource && altSource !== name) secondary = altSource
+  else if (parts.length > 1) secondary = parts.slice(1).join(' ')
+  else if (d.city) secondary = String(d.city)
+  return { name, secondary, initial: String(name[0] || '?').toUpperCase() }
+}
+
+const donorCategory = (d) => String(d.data_category || d.category || '').trim()
+
+const AssignmentBlock = ({ list, isOpen, onToggle }) => {
+  const hasMore = list.length > 3
+  const visible = isOpen ? list : list.slice(0, 3)
+  return (
+    <div className="assign-cell-inner">
+      <div className="assign-list">
+        {visible.map((a, i) => (
+          <Fragment key={a.id ?? `${a.name}|${a.station}|${i}`}>
+            {i > 0 && <div className="assign-sep" />}
+            <div className="assign-item">
+              <span className="assign-name" title={a.name}>{a.name || '—'}</span>
+              <span className={`station-chip${a.station && String(a.station).trim() ? '' : ' missing'}`}>
+                {a.station && String(a.station).trim() ? a.station : '—'}
+              </span>
+            </div>
+          </Fragment>
+        ))}
+      </div>
+      {hasMore && (
+        <button className="assign-expand" onClick={onToggle} aria-label={isOpen ? 'Show less assignments' : 'Show more assignments'} title={isOpen ? 'Show less assignments' : 'Show more assignments'}>
+          {isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+        </button>
+      )}
+    </div>
+  )
+}
 
 const StatCard = ({ icon, label, value, color, loading: l }) => (
   <div className="stat-card">
@@ -719,6 +771,7 @@ function RemoveAssignmentModal({ donor, ngoOptions, onClose, onChanged }) {
 
 export default function Donors() {
   const { user } = useUcs()
+  const isMobile = useIsMobile()
   const [donors, setDonors] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -908,11 +961,29 @@ export default function Donors() {
     setRowMenu(new Set())
   }
 
+  const buildRowMenu = (d) => (
+    <>
+      <button onClick={() => { setRowMenu(new Set()); setSelectedId(d.id) }}><Eye size={13} /> View donor</button>
+      <button onClick={() => { setRowMenu(new Set()); setSelectedId(d.id) }}><PencilLine size={13} /> Edit assignments</button>
+      <button onClick={() => { setRowMenu(new Set()); setSelectedId(d.id) }}><History size={13} /> View history</button>
+      {hasBlankStationEntry(d) && (
+        <button onClick={() => { setRowMenu(new Set()); setStationDonor(d) }}><UserCog size={13} /> Fix station</button>
+      )}
+      {canManage && (
+        <>
+          <div className="menu-sep" />
+          <button className="danger" onClick={() => { setRowMenu(new Set()); setRemoveDonorId(d.id) }}><UserMinus size={13} /> Remove assignment</button>
+        </>
+      )}
+    </>
+  )
+
   return (
     <div>
       <div className="donors-hero">
         <div>
-          <h1>DONORS</h1>
+          <div className="eyebrow">ACCOUNTS</div>
+          <h1>Donors</h1>
           <p>Manage donor records and assignments</p>
         </div>
         {user && <div className="user-chip" title={(user.name || user.email || '').trim() || 'User'}>{initialsOf(user?.name)}</div>}
@@ -950,12 +1021,11 @@ export default function Donors() {
               {stationOptions.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <button
-              className={`btn btn-sm${missingOnly ? ' btn-primary' : ''}`}
+              className={`btn btn-sm issue-btn${missingOnly ? ' active' : ''}`}
               onClick={() => { setMissingOnly(v => !v); setPage(1) }}
               title="Donors whose agent is assigned but station is blank"
-              style={missingOnly ? {} : { background: '#fff7ed', color: '#9a3412', border: '1px solid #fdba74' }}
             >
-              ⚠ Issues
+              Missing station
             </button>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
@@ -963,7 +1033,7 @@ export default function Donors() {
               <Search size={14} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-soft)', pointerEvents: 'none' }} />
               <input
                 className="search-input"
-                placeholder="Search donor..."
+                placeholder="Search by name, mobile, or ID..."
                 value={search}
                 onChange={handleSearch}
                 style={{ paddingLeft: 30 }}
@@ -971,7 +1041,7 @@ export default function Donors() {
             </div>
             <button className="btn" onClick={handleExport} disabled={exporting} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              {exporting ? 'Exporting...' : 'Export'}
+              {exporting ? 'Exporting...' : 'Export Excel'}
             </button>
             <div style={{ position: 'relative' }}>
               <button className="btn" onClick={openMore} aria-label="More actions" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
@@ -990,94 +1060,116 @@ export default function Donors() {
             </div>
           </div>
         </div>
-        <div className="table-wrap">
-          <table className="donors-table">
-            <colgroup>
-              <col style={{ width: '34%' }} />
-              <col style={{ width: '15%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '37%' }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Donor</th>
-                <th>Mobile</th>
-                <th>Category</th>
-                <th>Assignments</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 6 }, (_, i) => <SkeletonRow key={i} cols={4} />)
-              ) : donors.length === 0 ? (
-                <tr><td colSpan={4} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>No donors found</td></tr>
-              ) : donors.map(d => {
-                const assignments = parseAssignments(d, ngoFilter, agentFilter, !!missingOnly)
-                if (assignments.length === 0) return null
-                const isOpen = !!expanded[d.id]
-                const visible = isOpen ? assignments : assignments.slice(0, 3)
-                const hiddenCount = assignments.length - 3
-                const name = String(d.name || d.bank_donor_name || d.agent_donor_name || '').trim() || '-'
-                const initial = name[0]
-                const parts = name.split(' ')
-                const secondary = d.city || (parts.length > 1 ? parts.slice(1).join(' ') : '')
-                return (
-                  <tr key={d.id} className="clickable-row" onClick={() => setSelectedId(d.id)}>
-                    <td className="donor-cell">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                        <div className="donor-avatar">{initial}</div>
-                        <div style={{ minWidth: 0 }}>
-                          <div className="donor-name" title={name}>{name}</div>
-                          {secondary && <div className="donor-sub" title={secondary}>{secondary}</div>}
-                        </div>
-                      </div>
-                      <button className="kebab" onClick={e => toggleRowMenu(e, d.id)} aria-label="Row actions"><MoreHorizontal size={15} /></button>
+        {isMobile ? (
+          <div className="donor-cards-list">
+            {loading ? (
+              Array.from({ length: 5 }, (_, i) => <SkeletonCard key={i} />)
+            ) : donors.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>No donors found</div>
+            ) : donors.map(d => {
+              const assignments = parseAssignments(d, ngoFilter, agentFilter, !!missingOnly)
+              if (assignments.length === 0) return null
+              const isOpen = !!expanded[d.id]
+              const { name, secondary, initial } = donorMeta(d)
+              const category = donorCategory(d)
+              return (
+                <div key={d.id} className="donor-card" onClick={() => setSelectedId(d.id)}>
+                  <div className="donor-card-head">
+                    <div className="donor-avatar">{initial}</div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div className="donor-name" title={name}>{name}</div>
+                      {secondary && <div className="donor-sub" title={secondary}>{secondary}</div>}
+                    </div>
+                    <span className="action-wrap">
+                      <button className="kebab" onClick={e => toggleRowMenu(e, d.id)} aria-label="Row actions"><MoreHorizontal size={16} /></button>
                       {rowMenu.has(d.id) && (
                         <div className="row-menu" onClick={e => e.stopPropagation()}>
-                          <button onClick={() => { setRowMenu(new Set()); setSelectedId(d.id) }}><Eye size={13} /> View donor</button>
-                          <button onClick={() => { setRowMenu(new Set()); setSelectedId(d.id) }}><PencilLine size={13} /> Edit assignments</button>
-                          <button onClick={() => { setRowMenu(new Set()); setSelectedId(d.id) }}><History size={13} /> View history</button>
-                          {canManage && (
-                            <>
-                              <div className="menu-sep" />
-                              <button className="danger" onClick={() => { setRowMenu(new Set()); setRemoveDonorId(d.id) }}><UserMinus size={13} /> Remove assignment</button>
-                            </>
-                          )}
+                          {buildRowMenu(d)}
                         </div>
                       )}
-                    </td>
-                    <td className="mobile-cell">{d.mobile_number || '-'}</td>
-                    <td className="cat-cell"><span className="cat-badge">{d.data_category || d.category || '—'}</span></td>
-                    <td className="assign-cell">
-                      <div className="assign-list">
-                        {visible.map((a, i) => (
-                          <div className="assign-item" key={a.id ?? `${a.name}|${a.station}|${i}`}>
-                            <span className="assign-avatar">{String(a.name || '?')[0].toUpperCase()}</span>
-                            <span className="assign-name" title={a.name}>{a.name || '—'}</span>
-                            <span className="station-chip">{a.station && String(a.station).trim() ? a.station : '⚠'}</span>
+                    </span>
+                  </div>
+                  <div className="donor-card-sub">
+                    <span className="donor-card-mobile">{d.mobile_number || '-'}</span>
+                    <span className={`cat-badge${category ? '' : ' empty'}`}>{category || '—'}</span>
+                  </div>
+                  <div className="assign-label">Assignments</div>
+                  <AssignmentBlock
+                    list={assignments}
+                    isOpen={isOpen}
+                    onToggle={e => { e.stopPropagation(); setExpanded(s => ({ ...s, [d.id]: !isOpen })) }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="donors-table">
+              <colgroup>
+                <col style={{ width: '29%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '13%' }} />
+                <col style={{ width: '36%' }} />
+                <col style={{ width: '8%' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Donor</th>
+                  <th>Mobile</th>
+                  <th>Category</th>
+                  <th>Assignments</th>
+                  <th className="th-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 6 }, (_, i) => <SkeletonRow key={i} cols={5} />)
+                ) : donors.length === 0 ? (
+                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: 20, color: 'var(--ink-soft)' }}>No donors found</td></tr>
+                ) : donors.map(d => {
+                  const assignments = parseAssignments(d, ngoFilter, agentFilter, !!missingOnly)
+                  if (assignments.length === 0) return null
+                  const isOpen = !!expanded[d.id]
+                  const { name, secondary, initial } = donorMeta(d)
+                  const category = donorCategory(d)
+                  return (
+                    <tr key={d.id} className="clickable-row" onClick={() => setSelectedId(d.id)}>
+                      <td className="donor-cell">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                          <div className="donor-avatar">{initial}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div className="donor-name" title={name}>{name}</div>
+                            {secondary && <div className="donor-sub" title={secondary}>{secondary}</div>}
                           </div>
-                        ))}
-                        {hiddenCount > 0 && !isOpen && (
-                          <button className="more-btn" onClick={e => { e.stopPropagation(); setExpanded(s => ({ ...s, [d.id]: true })) }}>
-                            + {hiddenCount} more
-                          </button>
-                        )}
-                        {isOpen && assignments.length > 3 && (
-                          <button className="more-btn" onClick={e => { e.stopPropagation(); setExpanded(s => ({ ...s, [d.id]: false })) }}>
-                            ▲ Show less
-                          </button>
-                        )}
-                      </div>
-                      {hasBlankStationEntry(d) && (
-                        <button className="btn btn-sm fix-btn" onClick={e => { e.stopPropagation(); setStationDonor(d) }}><UserCog size={11} /> Fix station</button>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                        </div>
+                      </td>
+                      <td className="mobile-cell">{d.mobile_number || '-'}</td>
+                      <td className="cat-cell"><span className={`cat-badge${category ? '' : ' empty'}`}>{category || '—'}</span></td>
+                      <td className="assign-cell">
+                        <AssignmentBlock
+                          list={assignments}
+                          isOpen={isOpen}
+                          onToggle={e => { e.stopPropagation(); setExpanded(s => ({ ...s, [d.id]: !isOpen })) }}
+                        />
+                      </td>
+                      <td className="action-cell">
+                        <span className="action-wrap">
+                          <button className="kebab" onClick={e => toggleRowMenu(e, d.id)} aria-label="Row actions"><MoreHorizontal size={16} /></button>
+                          {rowMenu.has(d.id) && (
+                            <div className="row-menu" onClick={e => e.stopPropagation()}>
+                              {buildRowMenu(d)}
+                            </div>
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {!loading && totalPages > 1 && (
@@ -1125,21 +1217,28 @@ export default function Donors() {
 
       <style>{`
         .donors-hero { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 2px 14px; }
-        .donors-hero h1 { font-size: 18px; font-weight: 700; color: var(--ink); margin: 0; letter-spacing: .5px; }
+        .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 1.2px; color: #4f6ef7; text-transform: uppercase; margin-bottom: 3px; }
+        .donors-hero h1 { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0; letter-spacing: .3px; }
         .donors-hero p { font-size: 12.5px; color: var(--ink-soft); margin: 3px 0 0; }
         .user-chip { width: 34px; height: 34px; border-radius: 50%; background: var(--sage); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,.08); cursor: default; }
         .pill-divider { width: 1px; height: 18px; background: var(--line); margin: 0 4px; flex-shrink: 0; }
+        .issue-btn { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
+        .issue-btn:hover { background: #ffedd5; border-color: #f59e0b; }
+        .issue-btn.active { background: #ea580c; border-color: #ea580c; color: #fff; }
         .donors-table { table-layout: fixed; width: 100%; border-collapse: collapse; }
         .donors-table th { font-size: 10.5px; font-weight: 700; letter-spacing: .8px; color: var(--ink-soft); text-transform: uppercase; padding: 10px 12px; text-align: left; background: #fafbf8; }
         .donors-table td { padding: 12px; vertical-align: top; border-bottom: 1px solid var(--line); }
         .donors-table tr:last-child td { border-bottom: none; }
+        .th-actions { text-align: center !important; }
         .donor-cell { position: relative; display: flex; align-items: flex-start; gap: 10px; }
         .donor-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--sage); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
         .donor-name { font-weight: 600; font-size: 13px; color: var(--ink); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
         .donor-sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-        .kebab { background: transparent; border: none; color: var(--ink-soft); padding: 5px; border-radius: 8px; cursor: pointer; flex-shrink: 0; margin-left: auto; }
+        .kebab { background: transparent; border: none; color: var(--ink-soft); padding: 5px; border-radius: 8px; cursor: pointer; flex-shrink: 0; margin: 0; }
         .kebab:hover { background: var(--sage-soft, #E8EDE1); color: var(--sage); }
-        .row-menu { position: absolute; right: 8px; top: 34px; z-index: 80; min-width: 178px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 26px rgba(0,0,0,.12); padding: 5px; }
+        .action-cell { text-align: center; vertical-align: middle; }
+        .action-wrap { position: relative; display: inline-flex; }
+        .row-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 80; min-width: 178px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 26px rgba(0,0,0,.12); padding: 5px; }
         .row-menu button { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; text-align: left; padding: 8px 10px; font-size: 12.5px; color: var(--ink); border-radius: 7px; cursor: pointer; }
         .row-menu button:hover { background: var(--sage-soft, #E8EDE1); }
         .row-menu button.danger { color: #b91c1c; }
@@ -1148,20 +1247,29 @@ export default function Donors() {
         .mobile-cell { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: var(--ink); padding-top: 15px !important; }
         .cat-cell { padding-top: 14px !important; }
         .cat-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--sage-soft, #E8EDE1); color: #44543a; border: 1px solid #cdd9c2; white-space: nowrap; }
-        .assign-list { display: flex; flex-direction: column; gap: 6px; }
-        .assign-item { display: flex; align-items: center; gap: 8px; min-height: 22px; }
-        .assign-avatar { width: 20px; height: 20px; border-radius: 50%; background: var(--sage-soft, #E8EDE1); color: #44543a; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
-        .assign-name { flex: 1; min-width: 0; font-size: 12px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .station-chip { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: #fff; border: 1px solid var(--line); color: var(--ink-soft); white-space: nowrap; flex-shrink: 0; }
-        .more-btn { align-self: flex-start; background: none; border: none; color: var(--sage); font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
-        .more-btn:hover { background: var(--sage-soft, #E8EDE1); }
-        .fix-btn { margin-top: 8px; font-size: 11px; padding: 3px 10px; display: inline-flex; align-items: center; gap: 5px; background: var(--sage-soft, #E8EDE1); color: #44543a; border: 1px solid #cdd9c2; border-radius: 20px; font-weight: 600; width: fit-content; }
+        .cat-badge.empty { background: #f4f4f5; color: #71717a; border-color: #e4e4e7; }
+        .assign-cell-inner { position: relative; }
+        .assign-list { display: flex; flex-direction: column; }
+        .assign-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 26px; }
+        .assign-name { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .station-chip { font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: #fff; border: 1px solid var(--line); color: var(--ink-soft); white-space: nowrap; flex-shrink: 0; }
+        .station-chip.missing { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+        .assign-sep { height: 1px; background: var(--line); opacity: .45; margin: 6px 2px 6px 0; }
+        .assign-expand { display: flex; align-items: center; justify-content: center; margin: 4px 0 0 auto; background: none; border: none; color: var(--ink-soft); padding: 2px 4px; border-radius: 6px; cursor: pointer; }
+        .assign-expand:hover { background: var(--sage-soft, #E8EDE1); color: var(--sage); }
+        .assign-label { font-size: 9.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
         .act-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 80; min-width: 200px; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 26px rgba(0,0,0,.12); padding: 5px; display: flex; flex-direction: column; }
         .act-menu button { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: none; text-align: left; padding: 8px 10px; font-size: 12.5px; color: var(--ink); border-radius: 7px; cursor: pointer; }
         .act-menu button:hover { background: var(--sage-soft, #E8EDE1); }
         .act-menu button:disabled { color: var(--ink-soft); cursor: default; background: none; }
         .donors-table th, .donors-table td { border-right: 1px solid var(--line); }
         .donors-table th:last-child, .donors-table td:last-child { border-right: none; }
+        .donor-cards-list { display: flex; flex-direction: column; gap: 10px; }
+        .donor-card { position: relative; border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 12px 14px; box-shadow: 0 1px 3px rgba(30,41,59,.06); }
+        .donor-card-head { display: flex; align-items: center; gap: 10px; }
+        .donor-card-sub { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; flex-wrap: wrap; }
+        .donor-card-mobile { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: var(--ink); }
+        .donor-card .assign-expand { position: absolute; right: 14px; bottom: 6px; }
       `}</style>
     </div>
   )
