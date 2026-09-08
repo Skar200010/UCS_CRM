@@ -52,8 +52,7 @@ export function computeExpiry(expiryDate, today = new Date()) {
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
   const end = new Date(`${expiryDate}T00:00:00`).getTime();
   const days = Math.round((end - start) / 86400000);
-  if (days > 30) return { daysLeft: days, dcStatus: 'Active' };
-  if (days >= 8) return { daysLeft: days, dcStatus: 'Expiring Soon' };
+  if (days > 5) return { daysLeft: days, dcStatus: 'Active' };
   if (days >= 1) return { daysLeft: days, dcStatus: 'Expiring Soon' };
   return { daysLeft: days, dcStatus: 'Expired' };
 }
@@ -62,6 +61,7 @@ function finalStatus(card, expiry) {
   const base = (card.status || 'Active').trim();
   if (base === 'Replaced') return 'Replaced';
   if (base === 'Inactive') return 'Inactive';
+  if (base === 'Expired') return 'Expired';
   return expiry.dcStatus;
 }
 
@@ -72,10 +72,11 @@ export const addSimCard = async (req, res) => {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
     const { daysLeft, dcStatus } = computeExpiry(body.expiry_date);
-    body.status = finalStatus({ status: body.status || 'Active' }, { daysLeft, dcStatus });
+    body.status = body.status && SIM_STATUSES.includes(body.status)
+      ? body.status
+      : finalStatus({ status: body.status || 'Active' }, { daysLeft, dcStatus });
     body.replacement_count = Number(body.replacement_count) || 0;
     body.created_by = req.user?.login_id || req.user?.id || req.user?.name || null;
-    if (body.status === 'Inactive' && body.expiry_date && !body.status) body.status = 'Inactive';
     const sim = await createSimCard(body);
     return res.status(201).json({ message: 'SIM card added', sim, daysLeft });
   } catch (error) {
@@ -147,8 +148,6 @@ export const editSimCard = async (req, res) => {
       daysLeft = computed.daysLeft;
       if (patch.status === null || patch.status === undefined) {
         patch.status = finalStatus({ status: 'Active' }, computed);
-      } else {
-        patch.status = finalStatus({ status: patch.status }, computed);
       }
     }
     const beforeSim = await getSimCardById(req.params.id);
@@ -313,7 +312,9 @@ export const importSimCards = async (req, res) => {
       if (row.mobile_id) usedMobile.add(String(row.mobile_id).trim());
       const { daysLeft, dcStatus } = computeExpiry(row.expiry_date);
       row.status = row.status && SIM_STATUSES.includes(row.status) ? row.status : (row.status || 'Active');
-      row.status = finalStatus({ status: row.status }, { daysLeft, dcStatus });
+      if (!row.status || !SIM_STATUSES.includes(row.status)) {
+        row.status = finalStatus({ status: row.status || 'Active' }, { daysLeft, dcStatus });
+      }
       row.replacement_count = Number(row.replacement_count) || 0;
       row.created_by = req.user?.login_id || req.user?.name || null;
       valid.push(row);

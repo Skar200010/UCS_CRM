@@ -53,7 +53,8 @@ export function effectiveStatus(card) {
   if (dl === null) return base === 'Active' ? 'Active' : 'Inactive';
   if (dl < 0) return 'Expired';
   if (base === 'Inactive') return base;
-  if (dl > 28) return 'Active';
+  if (base === 'Expired') return base;
+  if (dl > 5) return 'Active';
   return 'Expiring Soon';
 }
 
