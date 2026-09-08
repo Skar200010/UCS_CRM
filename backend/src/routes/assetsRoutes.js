@@ -135,7 +135,7 @@ router.post('/import', adminHrAccounts, async (req, res) => {
   const skipped = []
 
   const MERGE_FIELDS = [
-    'name', 'category', 'location', 'quantity', 'team_leader', 'owner_name',
+    'name', 'category', 'location', 'quantity', 'team_leader', 'owner_name', 'company',
     'brand', 'model', 'serial_no', 'storage', 'ram', 'processor', 'motherboard',
     'condition', 'status', 'assigned_to_name', 'purchase_date', 'purchase_price',
     'warranty_expiry', 'sim_number', 'remarks',

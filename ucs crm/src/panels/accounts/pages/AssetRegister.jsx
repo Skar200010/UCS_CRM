@@ -36,6 +36,24 @@ const catIcon = c => CAT_META[c] || Package
 const catColor = c => CAT_COLORS[CATEGORIES.indexOf(c) % CAT_COLORS.length] || MINT
 const isMachineAsset = c => c === 'Desktop' || c === 'Laptop' || c === 'Server Desktop'
 
+const CODE_COMPANY = {
+  AFLF: 'Ashray for Life Foundation',
+  MANN: 'Mann Care Foundation',
+  BSCT: 'Being Sevak Charitable Trust',
+}
+function companyFromCode(code) {
+  const s = String(code || '')
+  const m = s.match(/\(([^)]+)\)/)
+  if (!m) return ''
+  return CODE_COMPANY[m[1].trim().toUpperCase()] || ''
+}
+
+function companyOf(a) {
+  if (String(a.company || '').trim()) return a.company
+  if (String(a.brand || '').trim()) return a.brand
+  return companyFromCode(a.code)
+}
+
 const ITEM_SUGGESTIONS = {
   'Desktop': ['Desktop', 'Desktop Computer', 'Dell Desktop', 'HP Desktop', 'Lenovo Desktop', 'Acer Desktop'],
   'Laptop': ['Laptop', 'Dell Laptop', 'HP Laptop', 'Lenovo Laptop', 'Asus Laptop', 'MacBook'],
@@ -119,9 +137,9 @@ function downloadCSV(csv, name) {
 
 function exportAssets(assets) {
   const rows = [['ASSET REGISTER'], ['Generated', new Date().toLocaleString('en-IN')], []]
-  rows.push(['Code', 'Name', 'Category', 'Location', 'Quantity', 'Team Leader', 'Owner Name', 'Brand', 'Model', 'Serial No', 'Hard Drive / SSD', 'RAM', 'Processor', 'Motherboard', 'Condition', 'Status', 'Assigned To', 'Purchase Date', 'Price', 'Warranty Expiry', 'SIM Number', 'Remarks'])
+  rows.push(['Code', 'Name', 'Category', 'Location', 'Quantity', 'Team Leader', 'Owner Name', 'Company', 'Brand', 'Model', 'Serial No', 'Hard Drive / SSD', 'RAM', 'Processor', 'Motherboard', 'Condition', 'Status', 'Assigned To', 'Purchase Date', 'Price', 'Warranty Expiry', 'SIM Number', 'Remarks'])
   assets.forEach(a => rows.push([
-    a.code, a.name, a.category, locOf(a), uq(a), a.team_leader || '', a.owner_name || '',
+    a.code, a.name, a.category, locOf(a), uq(a), a.team_leader || '', a.owner_name || '', a.company || '',
     a.brand || '', a.model || '', a.serial_no || '',
     a.storage || '', a.ram || '', a.processor || '', a.motherboard || '',
     a.condition || '', STATUS_META[a.status]?.label || a.status, a.assigned_to_name || '',
@@ -385,8 +403,8 @@ function ImportModal({ onClose, onImported, pushToast }) {
           const ws = wb.Sheets[sn]
           if (!ws) continue
           const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
-          // Find header row: first row with 22+ cells starting with "Code"
-          const headerIdx = data.findIndex(r => r && r.length >= 22 && r[0] === 'Code' && r[1] === 'Name')
+          // Find header row: first row with 23+ cells starting with "Code"
+          const headerIdx = data.findIndex(r => r && r.length >= 23 && r[0] === 'Code' && r[1] === 'Name')
           if (headerIdx < 0) continue
           foundNewFormat = true
           data.forEach((r, i) => {
@@ -405,21 +423,22 @@ function ImportModal({ onClose, onImported, pushToast }) {
               quantity: Number(r[4]) || 1,
               team_leader: String(r[5] || '').trim(),
               owner_name: String(r[6] || '').trim(),
-              brand: String(r[7] || '').trim(),
-              model: String(r[8] || '').trim(),
-              serial_no: String(r[9] || '').trim(),
-              storage: String(r[10] || '').trim(),
-              ram: String(r[11] || '').trim(),
-              processor: String(r[12] || '').trim(),
-              motherboard: String(r[13] || '').trim(),
-              condition: String(r[14] || '').trim() || 'New',
-              status: String(r[15] || '').trim() || 'available',
-              assigned_to_name: String(r[16] || '').trim(),
-              purchase_date: String(r[17] || '').trim() || null,
-              purchase_price: Number(r[18]) || null,
-              warranty_expiry: String(r[19] || '').trim() || null,
-              sim_number: String(r[20] || '').trim(),
-              remarks: String(r[21] || '').trim(),
+              company: String(r[7] || '').trim(),
+              brand: String(r[8] || '').trim(),
+              model: String(r[9] || '').trim(),
+              serial_no: String(r[10] || '').trim(),
+              storage: String(r[11] || '').trim(),
+              ram: String(r[12] || '').trim(),
+              processor: String(r[13] || '').trim(),
+              motherboard: String(r[14] || '').trim(),
+              condition: String(r[15] || '').trim() || 'New',
+              status: String(r[16] || '').trim() || 'available',
+              assigned_to_name: String(r[17] || '').trim(),
+              purchase_date: String(r[18] || '').trim() || null,
+              purchase_price: Number(r[19]) || null,
+              warranty_expiry: String(r[20] || '').trim() || null,
+              sim_number: String(r[21] || '').trim(),
+              remarks: String(r[22] || '').trim(),
             })
           })
           break
@@ -542,7 +561,7 @@ function ImportModal({ onClose, onImported, pushToast }) {
                         <input type="checkbox" checked={selected.length === rows.length}
                           onChange={e => setRows(rows.map(r => ({ ...r, include: e.target.checked })))} />
                       </th>
-                      <th>Code</th><th>Name</th><th>Category</th><th>Location</th><th>Qty</th><th>Team Leader</th><th>Owner Name</th>
+                      <th>Code</th><th>Name</th><th>Category</th><th>Location</th><th>Qty</th><th>Team Leader</th><th>Owner Name</th><th>Company</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -559,6 +578,7 @@ function ImportModal({ onClose, onImported, pushToast }) {
                         <td>{r.quantity}</td>
                         <td>{r.team_leader || '—'}</td>
                         <td>{r.owner_name || '—'}</td>
+                        <td>{r.company || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -593,13 +613,17 @@ function Field({ label, icon: Icon, span, children }) {
 
 function AssetFormModal({ initial, onClose, onSave }) {
   const [f, setF] = useState(() => {
-    if (initial) return { ...initial, quantity: Number(initial.quantity || 1), location: initial.location || initial.department || '' }
+    if (initial) {
+      const isMachine = initial.category === 'Desktop' || initial.category === 'Laptop' || initial.category === 'Server Desktop'
+      const derivedCompany = isMachine && !String(initial.brand || '').trim() ? companyFromCode(initial.code) : ''
+      return { ...initial, quantity: Number(initial.quantity || 1), location: initial.location || initial.department || '', brand: initial.brand || derivedCompany }
+    }
     return {
       name: '', category: 'Desktop', brand: '', model: '', serial_no: '',
       location: '', quantity: 1, team_leader: '', condition: 'New', status: 'available',
       purchase_date: '', purchase_price: '', vendor: '', warranty_expiry: '',
       sim_number: '', sim_operator: '', sim_plan: '', remarks: '',
-      storage: '', ram: '', processor: '', motherboard: '', owner_name: '',
+      storage: '', ram: '', processor: '', motherboard: '', owner_name: '', company: '',
     }
   })
   const set = (k, v) => setF(p => ({ ...p, [k]: v }))
@@ -646,6 +670,7 @@ function AssetFormModal({ initial, onClose, onSave }) {
             {!isMachine && <Field label="Quantity" icon={Boxes}><input type="number" min="1" value={f.quantity} onChange={e => set('quantity', e.target.value)} /></Field>}
             {isMachine && <Field label="Team Leader (opt.)" icon={UserCheck}><input value={f.team_leader} onChange={e => set('team_leader', e.target.value)} placeholder="e.g. Anjana Vyas" /></Field>}
             <Field label="Owner Name" icon={UserCheck}><input value={f.owner_name} onChange={e => set('owner_name', e.target.value)} placeholder="e.g. Rajesh Kumar" /></Field>
+            <Field label="Company" icon={Building2}><input value={f.company} onChange={e => set('company', e.target.value)} placeholder="e.g. AFLF Foundation" /></Field>
             <Field label="Condition" icon={ShieldCheck}>
               <select value={f.condition} onChange={e => set('condition', e.target.value)}>
                 {CONDITIONS.map(c => <option key={c}>{c}</option>)}
@@ -797,7 +822,7 @@ function AssetDetailModal({ asset, onClose, onAction, onEdit, onScrap, onLost })
 
   const kv = [
     ['Category', <span className="arx-kv-cat" style={{ color: catColor(asset.category) }}><CIcon size={14} /> {asset.category}</span>],
-    ['Brand / Model', [asset.brand, asset.model].filter(Boolean).join(' ') || '—'],
+    ['Brand / Company', [asset.brand, asset.model].filter(Boolean).join(' ') || '—'],
     ['Serial No / IMEI', asset.serial_no ? <code>{asset.serial_no}</code> : '—'],
     ['Location', locOf(asset) || '—'],
     ...(uq(asset) > 1 ? [['Quantity', <>{uq(asset)} pcs <em className="arx-kv-note">(grouped line item)</em></>]] : []),
@@ -985,7 +1010,7 @@ export default function AssetRegister() {
     if (fCond !== 'all' && a.condition !== fCond) return false
     if (q.trim()) {
       const s = q.trim().toLowerCase()
-      return [a.code, a.name, a.brand, a.model, a.serial_no, a.assigned_to_name, a.sim_number, a.location, a.team_leader, a.owner_name]
+      return [a.code, a.name, a.brand, a.model, a.serial_no, a.assigned_to_name, a.sim_number, a.location, a.team_leader, a.owner_name, a.company]
         .some(v => (v || '').toLowerCase().includes(s))
     }
     return true
@@ -1752,6 +1777,7 @@ export default function AssetRegister() {
                     <STh label="Qty" k="qty" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <th className="col-tl">Team Leader</th>
                     <th>Owner Name</th>
+                    <th>Company</th>
                     <th>Assigned To</th>
                     <STh label="Status" k="status" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                   </tr>
@@ -1762,7 +1788,7 @@ export default function AssetRegister() {
                     return (
                       <Fragment key={g.category}>
                         <tr className="arx-ghead" style={{ '--gcol': g.color }} onClick={() => setFCat(fCat === g.category ? 'all' : g.category)}>
-                          <td colSpan={9}>
+                            <td colSpan={10}>
                             <span className="arx-ghead-inner">
                               <span className="arx-ghead-name">
                                 <span className="ci" style={{ background: g.color + '18', color: g.color }}><GIcon size={14} /></span>
@@ -1791,6 +1817,7 @@ export default function AssetRegister() {
                               <td><span className="arx-qty">{uq(a)}</span></td>
                               <td className="col-tl">{a.team_leader || '—'}</td>
                               <td>{a.owner_name || '—'}</td>
+                              <td>{isMachineAsset(a.category) ? (companyOf(a) || '—') : (a.company || '—')}</td>
                               <td>{a.assigned_to_name || '—'}</td>
                               <td><StatusBadge status={a.status} /></td>
                             </tr>
@@ -1829,6 +1856,7 @@ export default function AssetRegister() {
                             <span><Boxes size={12} /> {uq(a)} {uq(a) > 1 ? 'units' : 'unit'}</span>
                             {a.team_leader && <span><UserCheck size={12} /> {a.team_leader}</span>}
                             {a.owner_name && <span><UserCheck size={12} /> {a.owner_name}</span>}
+                            {a.company && <span><Building2 size={12} /> {a.company}</span>}
                             {a.assigned_to_name && <span><UserPlus size={12} /> {a.assigned_to_name}</span>}
                           </div>
                           <ChevronRight size={16} className="arx-mchev" />
