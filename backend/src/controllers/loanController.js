@@ -61,6 +61,69 @@ export const apply = async (req, res) => {
   }
 };
 
+export const createLoan = async (req, res) => {
+  try {
+    let { worker_id, type, amount, total_amount, monthly_deduction, reason, start_month, end_month } = req.body;
+
+    const total = parseFloat(total_amount !== undefined ? total_amount : amount);
+    if (!worker_id) {
+      return res.status(400).json({ message: 'worker_id is required' });
+    }
+    if (!type || !['advance', 'loan'].includes(type)) {
+      return res.status(400).json({ message: 'type must be advance or loan' });
+    }
+    if (isNaN(total) || total <= 0) {
+      return res.status(400).json({ message: 'Invalid total_amount' });
+    }
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({ message: 'reason is required' });
+    }
+
+    const monthly = parseFloat(monthly_deduction);
+    if (isNaN(monthly) || monthly <= 0) {
+      return res.status(400).json({ message: 'monthly_deduction is required and must be > 0' });
+    }
+    if (monthly > total) {
+      return res.status(400).json({ message: 'monthly_deduction cannot exceed total_amount' });
+    }
+
+    const record = {
+      worker_id,
+      type,
+      total_amount: total,
+      remaining_amount: total,
+      monthly_deduction: monthly,
+      reason: String(reason).trim(),
+      start_month: start_month || null,
+      end_month: end_month || null,
+      status: 'active',
+      applied_at: new Date().toISOString(),
+      decided_at: new Date().toISOString(),
+      decided_by: req.user?.id || null,
+    };
+
+    const result = await applyLoan(record);
+
+    try {
+      const { getWorkerById } = await import('../models/workerModel.js');
+      const worker = await getWorkerById(worker_id);
+      await notifyNgoAdmins(
+        worker?.ngo_id,
+        'Loan / advance recorded',
+        `A ${type} of ${total} was recorded for ${worker?.name || `worker ${worker_id}`}`,
+        'loan',
+        result?.id
+      );
+    } catch (err) {
+      console.error('Manual loan notification skipped:', err.message);
+    }
+
+    return res.status(201).json({ message: `${type} created and activated`, loan: result });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const myLoans = async (req, res) => {
   try {
     const loans = await getWorkerLoans(req.user.id);

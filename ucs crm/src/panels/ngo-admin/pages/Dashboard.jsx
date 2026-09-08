@@ -630,7 +630,7 @@ function FollowupDetailModal({ worker, label, onClose, onChanged }) {
   );
 }
 
-function FroDetailModal({ froId, froName, filterType, perfPeriod, status, onClose }) {
+function FroDetailModal({ froId, froName, filterType, rangeFrom, rangeTo, status, onClose }) {
   const [allDonors, setAllDonors] = useState([]);
   const [loadingDonors, setLoadingDonors] = useState(true);
   const [search, setSearch] = useState('');
@@ -645,18 +645,18 @@ function FroDetailModal({ froId, froName, filterType, perfPeriod, status, onClos
   useEffect(() => {
     if (!froId) return;
     setLoadingDonors(true);
-    apiGet(`/ngo-admin/donors-by-fro?fro_worker_id=${froId}&period=${perfPeriod || 'today'}`)
+    apiGet(`/ngo-admin/donors-by-fro?fro_worker_id=${froId}&from=${rangeFrom || ''}&to=${rangeTo || ''}`)
       .then(data => setAllDonors(data || []))
       .catch(() => setAllDonors([]))
       .finally(() => setLoadingDonors(false));
-  }, [froId, perfPeriod]);
+  }, [froId, rangeFrom, rangeTo]);
 
   const isNonConnected = filterType === 'non_connected';
   const filterColor = isNonConnected ? '#dc2626' : '#16a34a';
   const filterBg = isNonConnected ? '#fef2f2' : '#f0fdf4';
   const filterLabel = status ? (DISPOSITION_LABELS[status] || status) : (isNonConnected ? 'Non-Connected' : 'Connected');
 
-  const hasPeriodData = perfPeriod && perfPeriod !== 'all';
+  const hasPeriodData = Boolean(rangeFrom || rangeTo);
 
   const baseList = useMemo(() => {
     const getKey = (d) => hasPeriodData && d.call_status ? d.call_status : d.status;
@@ -911,7 +911,6 @@ export default function Dashboard() {
   const [weakPerformers, setWeakPerformers] = useState([]);
   const [weakLoading, setWeakLoading] = useState(false);
   const [showAllLowPerformers, setShowAllLowPerformers] = useState(false);
-  const [perfPeriod, setPerfPeriod] = useState('today');
   const [froSearch, setFroSearch] = useState('');
   const [selectedFro, setSelectedFro] = useState(null);
   const [callAnalytics, setCallAnalytics] = useState(null);
@@ -922,23 +921,26 @@ export default function Dashboard() {
   const [hourlyList, setHourlyList] = useState([]);
   const [hourlyLoading, setHourlyLoading] = useState(false);
 
-  // Auto-update hourly export date range when period changes
-  useEffect(() => {
+  // Global date range (derived from the header filter) used by the table & exports
+  const activeRange = useMemo(() => {
     const now = new Date();
-    let from = new Date(now), to = new Date(now);
-    if (perfPeriod === 'today') {
-      from = new Date(now);
-      to = new Date(now);
-    } else if (perfPeriod === 'week') {
-      from.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
-      to = new Date(now);
-    } else if (perfPeriod === 'month') {
-      from = new Date(now.getFullYear(), now.getMonth(), 1);
-      to = new Date(now);
+    if (dashPeriod === 'today') return { from: toIstDate(), to: toIstDate() };
+    if (dashPeriod === 'weekly') {
+      const s = new Date(now); s.setDate(now.getDate() - now.getDay());
+      return { from: toIstDate(s), to: toIstDate(now) };
     }
-    setHourlyExportFrom(from.toISOString().slice(0,10));
-    setHourlyExportTo(to.toISOString().slice(0,10));
-  }, [perfPeriod]);
+    if (dashPeriod === 'monthly') {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { from: toIstDate(s), to: toIstDate(now) };
+    }
+    return { from: customFrom, to: customTo };
+  }, [dashPeriod, customFrom, customTo]);
+
+  // Auto-update hourly export date range from the global header filter
+  useEffect(() => {
+    if (activeRange.from) setHourlyExportFrom(activeRange.from);
+    if (activeRange.to) setHourlyExportTo(activeRange.to);
+  }, [activeRange]);
 
   // Fetch FRO-level hourly performance when date range or NGO changes
   useEffect(() => {
@@ -1267,7 +1269,7 @@ export default function Dashboard() {
       ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: cur.e });
     };
 
-    const periodLabel = perfPeriod === 'today' ? 'Today' : perfPeriod === 'week' ? 'This Week' : 'This Month';
+    const periodLabel = PERIOD_LABELS[dashPeriod] || 'Range';
     const filteredPerformance = tlData.performance.filter(p =>
       !froSearch || p.fro_name?.toLowerCase().includes(froSearch.toLowerCase())
     );
@@ -1291,16 +1293,16 @@ export default function Dashboard() {
     const FONT = { name: 'Calibri', sz: 10 };
 
     const calc = (p) => {
-      const calls = perfPeriod === 'today' ? (p.calls_today || 0) : perfPeriod === 'week' ? (p.calls_week || 0) : (p.calls || 0);
-      const connected = perfPeriod === 'today' ? (p.connected_today || 0) : perfPeriod === 'week' ? (p.connected_week || 0) : (p.connected || 0);
-      const interested = perfPeriod === 'today' ? (p.interested_today || 0) : perfPeriod === 'week' ? (p.interested_week || 0) : (p.interested || 0);
-      const received = perfPeriod === 'today' ? (p.receivedAmount_today || 0) : perfPeriod === 'week' ? (p.receivedAmount_week || 0) : (p.receivedAmount || 0);
+      const calls = p.calls_range || 0;
+      const connected = p.connected_range || 0;
+      const interested = p.interested_range || 0;
+      const received = p.receivedAmount_range || 0;
       return {
         calls, connected,
-        nonConnected: Math.max(0, calls - connected),
+        nonConnected: p.non_connected_range ?? Math.max(0, calls - connected),
         interested, received,
         donors: p.receivedDonors || 0,
-        statuses: perfPeriod === 'today' ? (p.connectedStatuses_today || {}) : perfPeriod === 'week' ? (p.connectedStatuses_week || {}) : (p.connectedStatuses_month || p.connectedStatuses || {}),
+        statuses: p.connectedStatuses_range || {},
       };
     };
     const calcRows1 = filteredPerformance.map(p => ({ p, c: calc(p) }));
@@ -1516,7 +1518,7 @@ export default function Dashboard() {
     XLSX.utils.book_append_sheet(wb, ws3, 'Computations');
 
     const dateStr = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `telecaller-performance-${perfPeriod}-${dateStr}.xlsx`);
+    XLSX.writeFile(wb, `telecaller-performance-${dateStr}.xlsx`);
   };
 
   return (
@@ -2007,12 +2009,6 @@ export default function Dashboard() {
               <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--ink-soft)' }}> — {froSearch ? tlData.performance.filter(p => p.fro_name?.toLowerCase().includes(froSearch.toLowerCase())).length : tlData.performance.length} FROs</span>
             </h3>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 'auto', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '2px 6px', background: 'var(--bg)', borderRadius: 6, border: '1px solid var(--line)' }}>
-                <span style={{ fontSize: 10, color: 'var(--ink-soft)', fontWeight: 600 }}>Hourly Range:</span>
-                <input type="date" value={hourlyExportFrom} onChange={e => setHourlyExportFrom(e.target.value)} style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--line)', fontSize: 11, fontFamily: 'inherit', width: 120, background: '#fff', color: 'var(--ink)' }} />
-                <span style={{ fontSize: 10, color: 'var(--ink-soft)' }}>–</span>
-                <input type="date" value={hourlyExportTo} onChange={e => setHourlyExportTo(e.target.value)} style={{ padding: '2px 6px', borderRadius: 4, border: '1px solid var(--line)', fontSize: 11, fontFamily: 'inherit', width: 120, background: '#fff', color: 'var(--ink)' }} />
-              </div>
               <input
                 type="text"
                 placeholder="Search FRO name..."
@@ -2020,15 +2016,6 @@ export default function Dashboard() {
                 onChange={e => setFroSearch(e.target.value)}
                 style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--line)', fontSize: 11, fontFamily: 'inherit', outline: 'none', width: 150, background: 'var(--bg)', color: 'var(--ink)' }}
               />
-              {[{ key: 'today', label: 'Today' }, { key: 'week', label: 'This Week' }, { key: 'month', label: 'This Month' }].map(opt => (
-                <button key={opt.key} onClick={() => setPerfPeriod(opt.key)} style={{
-                  padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'inherit',
-                  border: `1px solid ${perfPeriod === opt.key ? 'var(--sage)' : 'var(--line)'}`,
-                  background: perfPeriod === opt.key ? 'var(--sage)' : 'var(--bg)',
-                  color: perfPeriod === opt.key ? '#fff' : 'var(--ink-soft)',
-                  cursor: 'pointer',
-                }}>{opt.label}</button>
-              ))}
               <button 
                 onClick={handleTelecallerExport}
                 style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 14px', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'inherit', border: 'none', background: 'var(--sage)', color: '#fff', cursor: 'pointer' }}
@@ -2046,17 +2033,17 @@ export default function Dashboard() {
                   <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'left', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>#</th>
                   <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'left', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Name</th>
                   <th className="perf-hide-mobile" style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'center', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Status</th>
-                  <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Total Calls{perfPeriod === 'today' ? ' (Today)' : perfPeriod === 'week' ? ' (Week)' : ' (Month)'}</th>
+                  <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Total Calls ({PERIOD_LABELS[dashPeriod]})</th>
                   <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Connected</th>
                   {CONNECTED_STATUS_COLUMNS.map(c => (
                     <th key={c.key} className="perf-hide-mobile" title={DISPOSITION_LABELS[c.key] || c.label} style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 9, textTransform: 'uppercase', color: c.color, fontWeight: 700, borderBottom: '2px solid var(--line)' }}>
                       {c.label}
-                      <span style={{ display: 'block', fontSize: 8, color: 'var(--ink-soft)', fontWeight: 500 }}>{perfPeriod === 'today' ? 'Today' : perfPeriod === 'week' ? 'Week' : 'Month'}</span>
+                      <span style={{ display: 'block', fontSize: 8, color: 'var(--ink-soft)', fontWeight: 500 }}>{PERIOD_LABELS[dashPeriod]}</span>
                     </th>
                   ))}
                   <th className="perf-hide-mobile" style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Non-Connected</th>
                   <th className="perf-hide-mobile" style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Interested</th>
-                  <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Received{perfPeriod === 'today' ? ' (Today)' : perfPeriod === 'week' ? ' (Week)' : ' (Month)'}</th>
+                  <th style={{ position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg, #fff)', padding: '10px', textAlign: 'right', fontSize: 10, textTransform: 'uppercase', color: 'var(--ink-soft)', fontWeight: 600, borderBottom: '2px solid var(--line)' }}>Received ({PERIOD_LABELS[dashPeriod]})</th>
                 </tr>
               </thead>
               <tbody>
@@ -2064,16 +2051,13 @@ export default function Dashboard() {
                   const statusColors = { on_call: '#16a34a', online: '#3b82f6', idle: '#f59e0b', offline: '#9ca3af' };
                   const statusLabels = { on_call: 'Calling', online: 'Online', idle: 'Idle', offline: 'Offline' };
                   const sc = statusColors[p.status] || '#9ca3af';
-                  const periodCalls = perfPeriod === 'today' ? (p.calls_today || 0) : perfPeriod === 'week' ? (p.calls_week || 0) : (p.calls || 0);
-                  const periodConnected = perfPeriod === 'today' ? (p.connected_today || 0) : perfPeriod === 'week' ? (p.connected_week || 0) : (p.connected || 0);
-                  const periodInterested = perfPeriod === 'today' ? (p.interested_today || 0) : perfPeriod === 'week' ? (p.interested_week || 0) : (p.interested || 0);
-                  const periodReceived = perfPeriod === 'today' ? (p.receivedAmount_today || 0) : perfPeriod === 'week' ? (p.receivedAmount_week || 0) : (p.receivedAmount || 0);
-                  const periodNonConnected = Math.max(0, periodCalls - periodConnected);
+                  const periodCalls = p.calls_range || 0;
+                  const periodConnected = p.connected_range || 0;
+                  const periodInterested = p.interested_range || 0;
+                  const periodReceived = p.receivedAmount_range || 0;
+                  const periodNonConnected = p.non_connected_range ?? Math.max(0, periodCalls - periodConnected);
                   
-                  const activeStatuses = 
-                    perfPeriod === 'today' ? (p.connectedStatuses_today || {}) :
-                    perfPeriod === 'week' ? (p.connectedStatuses_week || {}) :
-                    (p.connectedStatuses_month || p.connectedStatuses || {});
+                  const activeStatuses = p.connectedStatuses_range || {};
 
                   return (
                     <tr key={p.fro_id} style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer' }}
@@ -2371,7 +2355,8 @@ export default function Dashboard() {
           froName={selectedFro.froName}
           filterType={selectedFro.filterType}
           status={selectedFro.status}
-          perfPeriod={perfPeriod}
+          rangeFrom={activeRange.from}
+          rangeTo={activeRange.to}
           onClose={() => setSelectedFro(null)}
         />
       )}

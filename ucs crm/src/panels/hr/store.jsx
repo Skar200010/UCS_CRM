@@ -19,7 +19,7 @@ export function useHR() {
     generateAllTargets, fetchCurrentMonthTargets,
     setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchMonthlyIncentiveSummary,
     fetchWorkerAllocations, setWorkerAllocations, fetchWorkerSalaryAllocations,
-    fetchLoans, fetchPendingLoans, decideLoan, fetchWorkerLoans, fetchWorkerActiveLoans, settleLoans, updateLoanApi, deleteLoanApi,
+    fetchLoans, fetchPendingLoans, decideLoan, createLoanApi, fetchWorkerLoans, fetchWorkerActiveLoans, settleLoans, updateLoanApi, deleteLoanApi,
     fetchPendingTickets, fetchAllTickets, fetchTicketCount, verifyTicket, rejectTicket,
     generateQR, fetchQRCodes, removeQRCode,
     fetchSettings, updateSettings,
@@ -166,6 +166,7 @@ export const fetchNgoSalaryReportFallback = async (filters = {}) => {
 export const fetchEmployeeReport = (workerId) => apiGet('/ngo-allocations/report/employee/' + workerId);
 export const fetchNgoReport = (ngoId, month) => apiGet('/ngo-allocations/report/ngo/' + ngoId + (month ? '?month=' + month : ''));
 export const fetchLoans = () => apiGet('/loans');
+export const createLoanApi = (data) => apiPost('/loans/create', data);
 export const fetchPendingLoans = () => apiGet('/loans/pending');
 export const decideLoan = (id, status, monthly_deduction, hr_remark) => apiPut('/loans/' + id + '/decide', { status: status === 'approved' ? 'approved' : 'rejected', monthly_deduction, hr_remark });
 export const fetchWorkerLoans = (workerId) => apiGet('/loans/worker/' + workerId);

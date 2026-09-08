@@ -40,7 +40,7 @@ const inputStyle = { width: '100%', border: '1px solid var(--line)', borderRadiu
 const labelStyle = { fontSize: 11, color: 'var(--ink-soft)' };
 
 export default function Loans() {
-  const { fetchLoans, decideLoan, settleLoans, updateLoanApi, deleteLoanApi } = useHR();
+  const { fetchLoans, fetchWorkers, decideLoan, settleLoans, updateLoanApi, deleteLoanApi, createLoanApi } = useHR();
   const [loans, setLoans] = useState([]);
   const [approving, setApproving] = useState(null);
   const [monthlyDeduction, setMonthlyDeduction] = useState('');
@@ -57,11 +57,63 @@ export default function Loans() {
   const [editForm, setEditForm] = useState({});
   const [editBusy, setEditBusy] = useState(false);
 
+  const [showCreate, setShowCreate] = useState(false);
+  const [workers, setWorkers] = useState([]);
+  const [createForm, setCreateForm] = useState({
+    worker_id: '', type: 'loan', total_amount: '',
+    monthly_deduction: '', reason: '', start_month: '',
+    end_month: '',
+  });
+  const [createBusy, setCreateBusy] = useState(false);
+  const [workerSearch, setWorkerSearch] = useState('');
+
   useEffect(() => {
     let cancelled = false;
     fetchLoans().then(data => { if (!cancelled) setLoans(data); }).catch((err) => { console.error('API error:', err.message); }).finally(() => { if (!cancelled) setLoading(false); });
+    fetchWorkers('active').then(data => { if (!cancelled) setWorkers(Array.isArray(data) ? data : []); }).catch((err) => { console.error('API error:', err.message); });
     return () => { cancelled = true; };
   }, []);
+
+  const openCreate = () => {
+    const d = new Date();
+    setCreateForm({
+      worker_id: '', type: 'loan', total_amount: '',
+      monthly_deduction: '', reason: '',
+      start_month: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'),
+      end_month: '',
+    });
+    setWorkerSearch('');
+    setShowCreate(true);
+  };
+
+  const submitCreate = async () => {
+    const worker = workers.find(w => w.id === createForm.worker_id);
+    if (!worker) { alert('Please select a worker'); return; }
+    if (!createForm.total_amount || parseFloat(createForm.total_amount) <= 0) { alert('Please enter a valid amount'); return; }
+    if (!createForm.monthly_deduction || parseFloat(createForm.monthly_deduction) <= 0) { alert('Please enter a monthly deduction amount'); return; }
+    if (parseFloat(createForm.monthly_deduction) > parseFloat(createForm.total_amount)) { alert('Monthly deduction cannot exceed the total amount'); return; }
+    if (!createForm.reason || !createForm.reason.trim()) { alert('Please enter a reason'); return; }
+    setCreateBusy(true);
+    try {
+      await createLoanApi({
+        worker_id: createForm.worker_id,
+        type: createForm.type,
+        total_amount: parseFloat(createForm.total_amount),
+        monthly_deduction: parseFloat(createForm.monthly_deduction),
+        reason: createForm.reason.trim(),
+        start_month: createForm.start_month ? createForm.start_month + '-01' : null,
+        end_month: createForm.end_month ? createForm.end_month + '-01' : null,
+      });
+      setShowCreate(false);
+      setCreateForm({ worker_id: '', type: 'loan', total_amount: '', monthly_deduction: '', reason: '', start_month: '', end_month: '' });
+      setWorkerSearch('');
+      refresh();
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setCreateBusy(false);
+    }
+  };
 
   const refresh = () => fetchLoans().then(setLoans).catch((err) => { console.error('API error:', err.message); });
 
@@ -140,6 +192,10 @@ export default function Loans() {
   const pending = loans.filter(l => l.status === 'pending');
   const other = loans.filter(l => l.status !== 'pending');
 
+  const filteredWorkers = workerSearch
+    ? workers.filter(w => (w.name || '').toLowerCase().includes(workerSearch.toLowerCase()))
+    : workers;
+
   const handleSettle = async () => {
     if (!settleMonth) {
       alert('Select a month first');
@@ -167,8 +223,97 @@ export default function Loans() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-head">
           <h3>Loan & Advance Requests</h3>
-          <span className="sub">{pending.length} pending</span>
+          <span style={{ display:'inline-flex', alignItems:'center', gap:10 }}>
+            <span className="sub">{pending.length} pending</span>
+            <button className="btn btn-sm" style={{ background:'var(--sage)', color:'#fff', border:'none' }}
+              onClick={openCreate}>
+              + New Loan / Advance
+            </button>
+          </span>
         </div>
+        {showCreate && (
+          <div className="card-pad" style={{ borderTop:'1px solid var(--line)', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:12 }}>
+            <div>
+              <span style={labelStyle}>Worker</span>
+              <input type="text"
+                placeholder="Search worker…"
+                value={workerSearch}
+                onChange={e => setWorkerSearch(e.target.value)}
+                style={inputStyle} />
+              <select
+                value={createForm.worker_id}
+                onChange={e => setCreateForm({ ...createForm, worker_id: e.target.value })}
+                style={{ ...inputStyle, marginTop: 4 }}>
+                <option value="">Select worker</option>
+                {filteredWorkers
+                  .filter(w => w.employment_status === 'active' || w.is_active === true)
+                  .map(w => <option key={w.id} value={w.id}>{w.name}{w.employee_id ? ` (${w.employee_id})` : ''}</option>)}
+              </select>
+            </div>
+            <div>
+              <span style={labelStyle}>Type</span>
+              <div style={{ display:'flex', gap:6, marginTop:4 }}>
+                <button type="button" className={`btn btn-sm ${createForm.type === 'loan' ? '' : ''}`}
+                  onClick={() => setCreateForm({ ...createForm, type: 'loan' })}
+                  style={createForm.type === 'loan' ? { background:'var(--sage)', color:'#fff', border:'none' } : {}}>
+                  Loan
+                </button>
+                <button type="button" className="btn btn-sm"
+                  onClick={() => setCreateForm({ ...createForm, type: 'advance' })}
+                  style={createForm.type === 'advance' ? { background:'var(--sage)', color:'#fff', border:'none' } : {}}>
+                  Advance
+                </button>
+              </div>
+            </div>
+            <div>
+              <span style={labelStyle}>Amount (₹)</span>
+              <input type="number" min="1" step="1"
+                value={createForm.total_amount}
+                onChange={e => setCreateForm({ ...createForm, total_amount: e.target.value })}
+                style={inputStyle} />
+            </div>
+            <div>
+              <span style={labelStyle}>Monthly Deduction (₹)</span>
+              <input type="number" min="1" step="1"
+                value={createForm.monthly_deduction}
+                onChange={e => setCreateForm({ ...createForm, monthly_deduction: e.target.value })}
+                style={inputStyle} />
+            </div>
+            <div>
+              <span style={labelStyle}>Reason</span>
+              <input type="text"
+                value={createForm.reason}
+                onChange={e => setCreateForm({ ...createForm, reason: e.target.value })}
+                placeholder="e.g. PG rent, one-time advance"
+                style={inputStyle} />
+            </div>
+            <div>
+              <span style={labelStyle}>Start Month</span>
+              <input type="month"
+                value={createForm.start_month}
+                onChange={e => setCreateForm({ ...createForm, start_month: e.target.value })}
+                style={inputStyle} />
+            </div>
+            <div>
+              <span style={labelStyle}>End Month (optional)</span>
+              <input type="month"
+                value={createForm.end_month}
+                onChange={e => setCreateForm({ ...createForm, end_month: e.target.value })}
+                style={inputStyle} />
+            </div>
+            <div style={{ display:'flex', alignItems:'flex-end', gap:6 }}>
+              <button className="btn btn-sm" disabled={createBusy}
+                onClick={() => { setShowCreate(false); setWorkerSearch(''); }}>
+                Cancel
+              </button>
+              <button className="btn btn-sm" disabled={createBusy}
+                style={{ background:'var(--sage)', color:'#fff', border:'none' }}
+                onClick={submitCreate}>
+                {createBusy ? 'Creating…' : 'Create'}
+              </button>
+            </div>
+          </div>
+        )}
         <table>
           <thead>
             <tr>

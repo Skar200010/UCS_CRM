@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   apply,
+  createLoan,
   myLoans,
   listAll,
   listPending,
@@ -18,6 +19,7 @@ const router = Router();
 const adminOrHrOrAccounts = authenticateRole('super_admin', 'admin', 'hr', 'accounts');
 
 router.post('/apply', authenticate, apply);
+router.post('/create', adminOrHrOrAccounts, createLoan);
 router.get('/my', authenticate, myLoans);
 
 router.get('/', adminOrHrOrAccounts, listAll);
