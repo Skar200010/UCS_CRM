@@ -979,7 +979,7 @@ export default function Donors() {
   )
 
   return (
-    <div>
+    <div className="donors-page">
       <div className="donors-hero">
         <div>
           <div className="eyebrow">ACCOUNTS</div>
@@ -994,7 +994,7 @@ export default function Donors() {
         <StatCard icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="12 2 2 7 2 9 22 9 22 7 12 2"/><rect x="4" y="11" width="3" height="7"/><rect x="10.5" y="11" width="3" height="7"/><rect x="17" y="11" width="3" height="7"/></svg>} label="Total Donations" value={stats.count.toLocaleString('en-IN')} color="#e67e22" loading={loading} />
       </div>
 
-      <div className="card">
+      <div className="card donors-panel">
         <div className="filter-bar" style={{ flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginRight: 'auto' }}>
             <button className={`btn btn-sm${ngoFilter === '' ? ' btn-primary' : ''}`} onClick={() => handleNgoChange('')}>All</button>
@@ -1214,22 +1214,27 @@ export default function Donors() {
       })()}
 
       <style>{`
-        .donors-hero { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 2px 14px; }
+        .donors-page { min-width: 0; }
+        .donors-hero { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 2px 18px; }
         .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 1.2px; color: #4f6ef7; text-transform: uppercase; margin-bottom: 3px; }
-        .donors-hero h1 { font-size: 20px; font-weight: 800; color: var(--ink); margin: 0; letter-spacing: .3px; }
+        .donors-hero h1 { font-size: 22px; font-weight: 800; color: var(--ink); margin: 0; letter-spacing: .2px; }
         .donors-hero p { font-size: 12.5px; color: var(--ink-soft); margin: 3px 0 0; }
         .user-chip { width: 34px; height: 34px; border-radius: 50%; background: var(--sage); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,.08); cursor: default; }
-        .pill-divider { width: 1px; height: 18px; background: var(--line); margin: 0 4px; flex-shrink: 0; }
+        .pill-divider { width: 1px; height: 24px; background: var(--line); margin: 0 2px; flex-shrink: 0; }
         .issue-btn { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
         .issue-btn:hover { background: #ffedd5; border-color: #f59e0b; }
         .issue-btn.active { background: #ea580c; border-color: #ea580c; color: #fff; }
-        .donors-table { table-layout: fixed; width: 100%; border-collapse: collapse; }
-        .donors-table th { font-size: 10.5px; font-weight: 700; letter-spacing: .8px; color: var(--ink-soft); text-transform: uppercase; padding: 10px 12px; text-align: left; background: #fafbf8; }
-        .donors-table td { padding: 12px; vertical-align: top; border-bottom: 1px solid var(--line); }
+        .donors-panel { overflow: visible; }
+        .donors-panel > .filter-bar { padding: 14px 16px; margin: 0; border-bottom: 1px solid var(--line); background: #fff; }
+        .table-wrap { overflow-x: auto; }
+        .donors-table { table-layout: fixed; width: 100%; min-width: 760px; border-collapse: separate; border-spacing: 0; }
+        .donors-table th { font-size: 10.5px; font-weight: 700; letter-spacing: .8px; color: var(--ink-soft); text-transform: uppercase; padding: 11px 14px; text-align: left; background: #fafbf8; border-bottom: 1px solid var(--line); }
+        .donors-table td { padding: 11px 14px; vertical-align: top; border-bottom: 1px solid var(--line); background: #fff; }
+        .donors-table tbody tr:hover td { background: #fbfcfa; }
         .donors-table tr:last-child td { border-bottom: none; }
         .th-actions { text-align: center !important; }
-        .donor-cell { position: relative; display: flex; align-items: flex-start; gap: 10px; }
-        .donor-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--sage); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+        .donor-cell { position: relative; display: flex; align-items: center; gap: 10px; }
+        .donor-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--sage); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
         .donor-info { flex: 1; min-width: 0; }
         .donor-name { font-weight: 600; font-size: 13px; color: var(--ink); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; word-break: break-word; max-height: calc(1.35em * 2); }
         .donor-sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
@@ -1244,17 +1249,17 @@ export default function Donors() {
         .row-menu button.danger { color: #b91c1c; }
         .row-menu button.danger:hover { background: #fef2f2; }
         .menu-sep { height: 1px; background: var(--line); margin: 4px 6px; }
-        .mobile-cell { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: var(--ink); padding-top: 15px !important; }
-        .cat-cell { padding-top: 14px !important; }
+        .mobile-cell { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: var(--ink); vertical-align: middle !important; }
+        .cat-cell { vertical-align: middle !important; }
         .cat-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--sage-soft, #E8EDE1); color: #44543a; border: 1px solid #cdd9c2; white-space: nowrap; }
         .cat-badge.empty { background: #f4f4f5; color: #71717a; border-color: #e4e4e7; }
         .assign-cell-inner { position: relative; }
         .assign-list { display: flex; flex-direction: column; }
-        .assign-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 26px; }
+        .assign-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; }
         .assign-name { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .station-chip { font-size: 10.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: #fff; border: 1px solid var(--line); color: var(--ink-soft); white-space: nowrap; flex-shrink: 0; }
         .station-chip.missing { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
-        .assign-sep { height: 1px; background: var(--line); opacity: .45; margin: 6px 2px 6px 0; }
+        .assign-sep { height: 1px; background: var(--line); opacity: .45; margin: 2px 2px 2px 0; }
         .assign-expand { display: flex; align-items: center; justify-content: center; margin: 4px 0 0 auto; background: none; border: none; color: var(--ink-soft); padding: 2px 4px; border-radius: 6px; cursor: pointer; }
         .assign-expand:hover { background: var(--sage-soft, #E8EDE1); color: var(--sage); }
         .assign-label { font-size: 9.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px; }
@@ -1270,6 +1275,12 @@ export default function Donors() {
         .donor-card-sub { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; flex-wrap: wrap; }
         .donor-card-mobile { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: var(--ink); }
         .donor-card .assign-expand { position: absolute; right: 14px; bottom: 6px; }
+        @media (max-width: 900px) {
+          .donors-panel > .filter-bar { align-items: stretch; }
+          .donors-panel > .filter-bar > div { width: 100%; }
+          .donors-panel > .filter-bar > div:last-child { margin-left: 0 !important; }
+          .donors-panel .search-input { width: 100%; box-sizing: border-box; }
+        }
       `}</style>
     </div>
   )
