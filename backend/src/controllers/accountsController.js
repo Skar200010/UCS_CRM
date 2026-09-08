@@ -3752,7 +3752,7 @@ export const quickSearchDonors = async (req, res) => {
 
 export const getDonorsList = async (req, res) => {
   try {
-    const { search, page = '1', limit = '50', ngo, missing_station, agent } = req.query;
+    const { search, page = '1', limit = '50', ngo, missing_station, agent, station } = req.query;
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100000, Math.max(1, parseInt(limit) || 50));
     const from = (pageNum - 1) * limitNum;
@@ -3805,6 +3805,21 @@ export const getDonorsList = async (req, res) => {
       }
       if (agentDonorIds.length === 0) return res.json({ data: [], total: 0, page: pageNum, limit: limitNum });
       query = query.in('id', agentDonorIds);
+    }
+
+    // "Station" narrowing: donors with at least one live assignment at the
+    // selected station. Mirrors the agent filter so combos compose correctly.
+    if (station && String(station).trim()) {
+      const st = String(station).trim();
+      const { data: stationRows, error: stationErr } = await db
+        .from('fro_assignments')
+        .select('donor_id')
+        .eq('station', st)
+        .not('status', 'eq', 'reassigned');
+      if (stationErr) throw stationErr;
+      const stationDonorIds = [...new Set((stationRows || []).map(a => a.donor_id).filter(Boolean))];
+      if (stationDonorIds.length === 0) return res.json({ data: [], total: 0, page: pageNum, limit: limitNum });
+      query = query.in('id', stationDonorIds);
     }
 
     let ngoRow = null;
