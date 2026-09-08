@@ -41,7 +41,19 @@ if (process.env.DATABASE_URL) {
 // The business operates on IST calendar days. Pinning each session's timezone
 // makes now(), ::date casts and naive timestamp comparisons mean IST
 // everywhere, killing the UTC-vs-IST date-filter bug class at the root.
-poolConfig.options = [poolConfig.options, '-c timezone=Asia/Kolkata'].filter(Boolean).join(' ');
+// statement_timeout caps any runaway query (seq-scan floods, lock stalls) so a
+// single bad query can't pin the RDS CPU for minutes. lock_timeout aborts long
+// lock waits (e.g. an UPDATE blocked behind a big transaction) before they
+// silently bind a connection. Both are overridable via env for rare legit
+// long-running jobs.
+const STATEMENT_TIMEOUT_MS = Number(process.env.PG_STATEMENT_TIMEOUT_MS || 60000);
+const LOCK_TIMEOUT_MS = Number(process.env.PG_LOCK_TIMEOUT_MS || 10000);
+poolConfig.options = [
+  poolConfig.options,
+  '-c timezone=Asia/Kolkata',
+  `-c statement_timeout=${STATEMENT_TIMEOUT_MS}`,
+  `-c lock_timeout=${LOCK_TIMEOUT_MS}`,
+].filter(Boolean).join(' ');
 const pgPool = new pg.Pool(poolConfig);
 pgPool.on('error', (err) => console.error('pg pool idle client error:', err.message));
 

@@ -260,10 +260,11 @@ export default function FroSuspense() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {list.map(r => {
-              const badge = r.waiting_receipt_no ? { text: 'Waiting for receipt number', color: '#6b7280', bg: '#f3f4f6' } : r.kind === 'receipt_sent' ? CLAIM_BADGES.receipt_sent : r.my_claim_status ? CLAIM_BADGES[r.my_claim_status] : r.kind === 'no_receipt' ? { text: 'Unclaimed', color: '#b45309', bg: '#fef3c7' } : null;
+              const badge = r.waiting_receipt_no ? { text: 'Waiting for receipt number', color: '#6b7280', bg: '#f3f4f6' } : r.kind === 'receipt_sent' ? CLAIM_BADGES.receipt_sent : r.my_claim_status ? CLAIM_BADGES[r.my_claim_status] : null;
               const claimable = !r.waiting_receipt_no && (!r.my_claim_status || r.kind === 'receipt_sent');
               const amtStr = currency(r.amount);
-              const amtFont = amtStr.length >= 10 ? 11 : amtStr.length >= 8 ? 12.5 : amtStr.length >= 6 ? 13.5 : 15;
+              const amtW = isCompact ? 78 : 96;
+              const amtFont = amtStr.length >= 12 ? (isCompact ? 8 : 10) : amtStr.length >= 10 ? (isCompact ? 9 : 11) : amtStr.length >= 8 ? (isCompact ? 10 : 12.5) : amtStr.length >= 6 ? (isCompact ? 11.5 : 13.5) : (isCompact ? 13 : 15);
               return (
                 <div key={r.id} onClick={() => claimable && openClaimModal(r)}
                   onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
@@ -304,13 +305,13 @@ export default function FroSuspense() {
                     {claimable ? (
                       <button
                         onClick={e => { e.stopPropagation(); openClaimModal(r); }}
-                        style={{ minWidth: isCompact ? 78 : 96, fontSize: amtFont, fontWeight: 700, color: '#fff', background: 'var(--sage)', padding: isCompact ? '5px 8px' : '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', animation: 'froPulse 1.6s ease-in-out infinite', transition: 'transform .15s, box-shadow .15s' }}
+                        style={{ width: amtW, maxWidth: '100%', fontSize: amtFont, fontWeight: 700, color: '#fff', background: 'var(--sage)', padding: isCompact ? '5px 8px' : '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', animation: 'froPulse 1.6s ease-in-out infinite', transition: 'transform .15s, box-shadow .15s' }}
                         onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(91,107,78,.45)'; }}
                         onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}>
                         {amtStr}
                       </button>
                     ) : (
-                      <div style={{ minWidth: isCompact ? 78 : 96, textAlign: 'right', fontSize: amtFont, fontWeight: 700, color: 'var(--ink)' }}>{amtStr}</div>
+                      <div style={{ width: amtW, textAlign: 'right', fontSize: amtFont, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{amtStr}</div>
                     )}
                     {r.claim_count > 1 && !claimable && (
                       <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{r.claim_count} claims</div>
