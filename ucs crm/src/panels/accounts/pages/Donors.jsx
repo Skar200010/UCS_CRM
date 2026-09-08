@@ -1076,7 +1076,7 @@ export default function Donors() {
                 <div key={d.id} className="donor-card" onClick={() => setSelectedId(d.id)}>
                   <div className="donor-card-head">
                     <div className="donor-avatar">{initial}</div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="donor-info">
                       <div className="donor-name" title={name}>{name}</div>
                       {secondary && <div className="donor-sub" title={secondary}>{secondary}</div>}
                     </div>
@@ -1136,12 +1136,10 @@ export default function Donors() {
                   return (
                     <tr key={d.id} className="clickable-row" onClick={() => setSelectedId(d.id)}>
                       <td className="donor-cell">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                          <div className="donor-avatar">{initial}</div>
-                          <div style={{ minWidth: 0 }}>
-                            <div className="donor-name" title={name}>{name}</div>
-                            {secondary && <div className="donor-sub" title={secondary}>{secondary}</div>}
-                          </div>
+                        <div className="donor-avatar">{initial}</div>
+                        <div className="donor-info">
+                          <div className="donor-name" title={name}>{name}</div>
+                          {secondary && <div className="donor-sub" title={secondary}>{secondary}</div>}
                         </div>
                       </td>
                       <td className="mobile-cell">{d.mobile_number || '-'}</td>
@@ -1232,8 +1230,10 @@ export default function Donors() {
         .th-actions { text-align: center !important; }
         .donor-cell { position: relative; display: flex; align-items: flex-start; gap: 10px; }
         .donor-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--sage); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
-        .donor-name { font-weight: 600; font-size: 13px; color: var(--ink); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
-        .donor-sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+        .donor-info { flex: 1; min-width: 0; }
+        .donor-name { font-weight: 600; font-size: 13px; color: var(--ink); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; word-break: break-word; max-height: calc(1.35em * 2); }
+        .donor-sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .donor-card-head .donor-info { flex: 1; min-width: 0; }
         .kebab { background: transparent; border: none; color: var(--ink-soft); padding: 5px; border-radius: 8px; cursor: pointer; flex-shrink: 0; margin: 0; }
         .kebab:hover { background: var(--sage-soft, #E8EDE1); color: var(--sage); }
         .action-cell { text-align: center; vertical-align: middle; }
