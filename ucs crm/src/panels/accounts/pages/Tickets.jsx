@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiGet, apiPut, apiPost } from '../api/auth';
 import { toast } from '../../../components/Toast';
 import { deptLabel } from '../../../lib/labels';
+import { routeFor, routeLabel } from '../../../lib/ticketRouting';
 
 const DEPARTMENTS = ['accounts', 'developers', 'hr', 'fro'];
 const CATEGORIES = [
   { value: 'suspense', label: 'Suspense' },
   { value: 'payment_issue', label: 'Payment Issue' },
+  { value: 'receipt_issue', label: 'Receipt Issue' },
   { value: 'technical', label: 'Technical' },
+  { value: 'hr_issue', label: 'HR Related' },
   { value: 'other', label: 'Other' },
 ];
+
+const ACCOUNTS_QUEUE_CATEGORIES = ['suspense', 'payment_issue', 'receipt_issue'];
 
 const PRIORITIES = [
   { value: 'low', label: 'Low' },
@@ -41,12 +46,12 @@ export default function AccountsTickets() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
-  const [deptFilter, setDeptFilter] = useState('');
   const [showDetail, setShowDetail] = useState(null);
   const [replies, setReplies] = useState([]);
   const [replyText, setReplyText] = useState('');
   const [resolution, setResolution] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  const seenTicketsRef = useRef(null);
 
   const [showRaise, setShowRaise] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -69,37 +74,39 @@ export default function AccountsTickets() {
     try {
       const params = new URLSearchParams();
       if (statusFilter) params.set('status', statusFilter);
-      if (deptFilter && deptFilter !== 'developers') params.set('department', deptFilter);
       const qs = params.toString();
 
-      const promises = [apiGet(`/tickets${qs ? '?' + qs : ''}`)];
-
-      if (!deptFilter || deptFilter === 'developers') {
-        const devParams = new URLSearchParams();
-        if (statusFilter) devParams.set('status', statusFilter);
-        const devQs = devParams.toString();
-        promises.push(apiGet(`/developer-tickets${devQs ? '?' + devQs : ''}`));
-      } else {
-        promises.push(Promise.resolve([]));
-      }
-
-      const [regularTickets, devTickets] = await Promise.all(promises);
+      const regularTickets = await apiGet(`/tickets${qs ? '?' + qs : ''}`);
       const allTickets = [
         ...(regularTickets || []).map(t => ({ ...t, _source: 'regular' })),
-        ...(devTickets || []).map(t => ({ ...t, _source: 'developer' })),
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-      setTickets(allTickets);
+      const queueTickets = allTickets.filter(t => ACCOUNTS_QUEUE_CATEGORIES.includes(t.category));
+      const keys = queueTickets.map(t => `${t._source}:${t.id}`);
+      if (seenTicketsRef.current === null) {
+        seenTicketsRef.current = new Set(keys);
+      } else {
+        const fresh = queueTickets.filter(t => !seenTicketsRef.current.has(`${t._source}:${t.id}`));
+        fresh.forEach(t => seenTicketsRef.current.add(`${t._source}:${t.id}`));
+        if (fresh.length === 1) {
+          const t = fresh[0];
+          toast(`New ticket raised by ${t.workers?.name || t.raised_by_name || 'Someone'}: ${t.subject}`, 'info');
+        } else if (fresh.length > 1) {
+          toast(`${fresh.length} new tickets received`, 'info');
+        }
+      }
+
+      setTickets(queueTickets);
       setLastUpdated(new Date());
     } catch (err) { console.error(err); }
     finally { setRefreshing(false); setLoading(false); }
   };
 
-  useEffect(() => { load(); }, [statusFilter, deptFilter]);
+  useEffect(() => { load(); }, [statusFilter]);
   useEffect(() => {
     const id = setInterval(() => load(true), 30000);
     return () => clearInterval(id);
-  }, [statusFilter, deptFilter]);
+  }, [statusFilter]);
 
   const fetchMyAsset = async () => {
     setDeskLoading(true);
@@ -127,29 +134,21 @@ export default function AccountsTickets() {
     setFormErrors({});
     setSubmitting(true);
     try {
-      if (form.department === 'developers') {
-        await apiPost('/developer-tickets', {
-          subject: form.subject,
-          description: form.description,
-          category: form.category,
-          priority: form.priority,
-          reference_id: form.reference_id,
-          desk_number: form.desk_number,
-          ngo: form.ngo,
-          raised_by_panel: 'accounts',
-        });
+      const route = routeFor(form.category);
+      const base = {
+        subject: form.subject,
+        description: form.description,
+        category: form.category,
+        priority: form.priority,
+        reference_id: form.reference_id,
+        desk_number: form.desk_number,
+        ngo: form.ngo,
+        raised_by_panel: 'accounts',
+      };
+      if (route.system === 'developer') {
+        await apiPost('/developer-tickets', base);
       } else {
-        await apiPost('/tickets', {
-          department: form.department,
-          category: form.category,
-          subject: form.subject,
-          description: form.description,
-          reference_id: form.reference_id,
-          priority: form.priority,
-          desk_number: form.desk_number,
-          ngo: form.ngo,
-          raised_by_panel: 'accounts',
-        });
+        await apiPost('/tickets', { ...base, department: route.department });
       }
       toast('Ticket submitted successfully', 'success');
       setShowRaise(false);
@@ -175,16 +174,26 @@ export default function AccountsTickets() {
     if (!showDetail) return;
     try {
       const endpoint = showDetail._source === 'developer' ? '/developer-tickets' : '/tickets';
-      await apiPut(`${endpoint}/${showDetail.id}`, {
-        status: newStatus,
-        resolution: newStatus === 'resolved' || newStatus === 'closed' ? resolution : undefined,
-      });
+      if (newStatus === 'resolved') {
+        if (!resolution || !resolution.trim()) {
+          toast('Please provide a resolution note', 'warning');
+          return;
+        }
+        await apiPut(`${endpoint}/${showDetail.id}/resolve`, { resolution });
+        toast('Ticket resolved successfully', 'success');
+      } else {
+        await apiPut(`${endpoint}/${showDetail.id}`, {
+          status: newStatus,
+          resolution: newStatus === 'closed' ? resolution : undefined,
+        });
+        toast('Status updated to ' + newStatus.replace('_', ' '), 'success');
+      }
       const data = await apiGet(`${endpoint}/${showDetail.id}`);
       setShowDetail(data);
       setReplies(data.replies || []);
       setResolution(data.resolution || '');
       load();
-    } catch (err) { alert(err.message); }
+    } catch (err) { toast(err.message, 'error'); }
   };
 
   const handleReply = async () => {
@@ -234,12 +243,6 @@ export default function AccountsTickets() {
             <option value="in_progress">In Progress</option>
             <option value="resolved">Resolved</option>
             <option value="closed">Closed</option>
-          </select>
-          <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
-            <option value="">All Departments</option>
-            {DEPARTMENTS.map(d => (
-              <option key={d} value={d} style={{ textTransform: 'capitalize' }}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
-            ))}
           </select>
           <button className="btn btn-sm" onClick={load} style={{ marginLeft: 'auto' }}>Refresh</button>
           <button className="btn btn-sm btn-primary" onClick={() => setShowRaise(true)}>+ Raise Ticket</button>
@@ -329,6 +332,7 @@ export default function AccountsTickets() {
                   <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
                     {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#0369a1', marginTop: 4 }}>→ Routed to: {routeLabel(form.category)}</div>
                 </label>
               </div>
               <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>

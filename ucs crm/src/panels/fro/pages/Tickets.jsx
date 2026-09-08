@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../../../api/auth';
 import { toast } from '../../../components/Toast';
 import { deptLabel } from '../../../lib/labels';
+import { routeFor, routeLabel } from '../../../lib/ticketRouting';
 
 const DEPARTMENTS = [
   { value: 'accounts', label: 'Accounts' },
@@ -13,7 +14,9 @@ const DEPARTMENTS = [
 const CATEGORIES = [
   { value: 'suspense', label: 'Suspense' },
   { value: 'payment_issue', label: 'Payment Issue' },
+  { value: 'receipt_issue', label: 'Receipt Issue' },
   { value: 'technical', label: 'Technical' },
+  { value: 'hr_issue', label: 'HR Related' },
   { value: 'other', label: 'Other' },
 ];
 
@@ -131,19 +134,21 @@ export default function FroTickets() {
     setFormErrors({});
     setSubmitting(true);
     try {
-      if (form.department === 'developers') {
-        await apiPost('/developer-tickets', {
-          subject: form.subject,
-          description: form.description,
-          category: form.category,
-          priority: form.priority,
-          reference_id: form.reference_id,
-          desk_number: form.desk_number,
-          ngo: form.ngo,
-          raised_by_panel: 'fro',
-        });
+      const route = routeFor(form.category);
+      const base = {
+        subject: form.subject,
+        description: form.description,
+        category: form.category,
+        priority: form.priority,
+        reference_id: form.reference_id,
+        desk_number: form.desk_number,
+        ngo: form.ngo,
+        raised_by_panel: 'fro',
+      };
+      if (route.system === 'developer') {
+        await apiPost('/developer-tickets', base);
       } else {
-        await apiPost('/tickets', { ...form, raised_by_panel: 'fro' });
+        await apiPost('/tickets', { ...base, department: route.department });
       }
       toast('Ticket submitted successfully', 'success');
       setShowRaise(false);
@@ -317,6 +322,7 @@ export default function FroTickets() {
                   <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
                     {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#0369a1', marginTop: 4 }}>→ Routed to: {routeLabel(form.category)}</div>
                 </label>
               </div>
               <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>

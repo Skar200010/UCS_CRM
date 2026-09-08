@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/auth';
 import { deptLabel } from '../lib/labels';
+import { routeFor, routeLabel } from '../lib/ticketRouting';
 
 const AUTO_REFRESH_MS = 30000;
 
@@ -18,9 +19,11 @@ const DEPARTMENTS = [
 ];
 
 const CATEGORIES = [
-  { value: 'technical', label: 'Technical' },
   { value: 'suspense', label: 'Suspense' },
   { value: 'payment_issue', label: 'Payment Issue' },
+  { value: 'receipt_issue', label: 'Receipt Issue' },
+  { value: 'technical', label: 'Technical' },
+  { value: 'hr_issue', label: 'HR Related' },
   { value: 'other', label: 'Other' },
 ];
 
@@ -223,29 +226,23 @@ export default function TechnicalTickets({ panel, viewOnly = false, canRaise = t
     setFormErrors({});
     setSubmitting(true);
     try {
-      if (form.department === 'developers') {
-        await apiPost('/developer-tickets', {
-          subject: form.subject,
-          description: form.description,
-          category: form.category,
-          priority: form.priority,
-          reference_id: form.reference_id,
-          raised_by_panel: panel || 'event_head',
-          desk_number: form.desk_number || null,
-          ngo: form.ngo || null,
-        });
+      const route = routeFor(form.category);
+      const base = {
+        subject: form.subject,
+        description: form.description,
+        category: form.category,
+        priority: form.priority,
+        reference_id: form.reference_id,
+        raised_by_panel: panel || 'event_head',
+        desk_number: form.desk_number || null,
+        ngo: form.ngo || null,
+        department: route.department,
+      };
+      if (route.system === 'developer') {
+        const { department, ...devPayload } = base;
+        await apiPost('/developer-tickets', devPayload);
       } else {
-        await apiPost('/tickets', {
-          department: form.department,
-          category: form.category,
-          subject: form.subject,
-          description: form.description,
-          reference_id: form.reference_id,
-          priority: form.priority,
-          desk_number: form.desk_number || null,
-          ngo: form.ngo || null,
-          raised_by_panel: panel || 'event_head',
-        });
+        await apiPost('/tickets', base);
       }
       alert('Ticket submitted successfully');
       setShowRaise(false);
@@ -674,6 +671,7 @@ export default function TechnicalTickets({ panel, viewOnly = false, canRaise = t
                   <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
                     {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#0369a1', marginTop: 4 }}>→ Routed to: {routeLabel(form.category)}</div>
                 </label>
               </div>
               <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>

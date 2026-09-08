@@ -14,7 +14,7 @@ const STATUS_TABS = [
 ];
 
 const PRIORITIES = ['low', 'medium', 'high', 'critical'];
-const CATEGORIES = ['bug', 'feature_request', 'enhancement', 'data_issue', 'payment_issue', 'technical', 'other'];
+const CATEGORIES = ['receipt_issue', 'technical', 'hr_issue', 'other', 'bug', 'feature_request', 'enhancement', 'data_issue', 'payment_issue'];
 const PANELS = [
   { value: 'fro', label: 'FRO' },
   { value: 'accounts', label: 'Accounts' },
@@ -67,7 +67,7 @@ export default function TicketList({ filter = 'all' }) {
         data = await getMyUnifiedTickets();
       } else if (filter === 'unassigned') {
         const all = await getUnifiedDevTickets();
-        data = all.filter(t => !t.assigned_to);
+        data = all.filter(t => !t.assigned_to && t.category === 'other');
       } else {
         const params = {};
         if (statusFilter) params.status = statusFilter;
@@ -78,7 +78,7 @@ export default function TicketList({ filter = 'all' }) {
         if (search) params.search = search;
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo + 'T23:59:59';
-        data = await getUnifiedDevTickets(params);
+        data = (await getUnifiedDevTickets(params)).filter(t => t.category === 'other');
       }
       setTickets(data || []);
       setLastUpdated(new Date());
