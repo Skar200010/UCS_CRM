@@ -24,10 +24,11 @@ export default function MyLeadsSuspense() {
   const suspFlex = isMobile ? '1 1 50%' : '2 1 0';
 
   return (
-    <div style={{ height: '100%', position: 'relative', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap, padding: pad, boxSizing: 'border-box', minHeight: 0 }}>
+    <div className="my-leads-shell" style={{ height: '100%', position: 'relative', display: 'flex', gap, padding: pad, boxSizing: 'border-box', minHeight: 0 }}>
       <div style={{
         flex: leadFlex,
         minWidth: 0, minHeight: 0,
+        position: 'relative',
         background: '#fff',
         border: '1px solid var(--line)',
         borderRadius: 10,
@@ -43,6 +44,7 @@ export default function MyLeadsSuspense() {
       <div style={{
         flex: suspFlex,
         minWidth: 0, minHeight: 0,
+        position: 'relative',
         background: '#f8fafc',
         border: '1px solid var(--line)',
         borderRadius: 10,
@@ -54,6 +56,35 @@ export default function MyLeadsSuspense() {
           <FroSuspense />
         </div>
       </div>
+
+      <style>{`
+        .my-leads-shell { container-type: inline-size; container-name: my-leads; }
+
+        /* Base layout: two usable panes on wide screens. */
+        .my-leads-shell > div { min-width: 0; }
+
+        /* Use the available content width, not the browser viewport. This is
+           important when DevTools, a split window, or a tablet layout reduces
+           the FRO content area while the viewport itself remains wide. */
+        @container my-leads (max-width: 900px) {
+          .my-leads-shell {
+            flex-direction: column !important;
+            overflow-y: auto;
+            align-items: stretch;
+          }
+
+          .my-leads-shell > div {
+            flex: 1 1 360px !important;
+            width: 100%;
+            max-width: none;
+          }
+        }
+
+        @container my-leads (max-width: 520px) {
+          .my-leads-shell { gap: 8px !important; padding: 6px !important; }
+          .my-leads-shell > div { flex-basis: 340px !important; border-radius: 8px; }
+        }
+      `}</style>
     </div>
   );
 }
