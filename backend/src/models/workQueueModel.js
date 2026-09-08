@@ -26,6 +26,7 @@ const RE_SORTABLE = ["'PENDING'", "'IN_PROGRESS'", "'BUTTON_PRESSED'"];
 // for the queue (donor is removed from the active set so it never reappears).
 export const RETRYABLE_NOT_CONNECTED_DETAILS = new Set([
   'ringing', 'unreachable', 'busy', 'out_of_coverage', 'voicemail', 'call_waiting', 'switched_off',
+  'ringing_voicemail', 'busy_call_waiting', 'ooc_unreachable_network',
 ]);
 
 export function classifyDisposition(detail) {

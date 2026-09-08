@@ -12,7 +12,7 @@ import { extractTransactionData } from '../utils/ocr';
 import usePasteImage from '../../../utils/usePasteImage';
 import { API_BASE } from '../../../lib/apiBase';
 import { useIsMobile } from '../../../hooks/useIsMobile';
-import { NOT_CONNECTED_GROUPS, CONNECTED_GROUPS, isConnected, findDisp, STATUS_PILL_MAP, SCHEDULE_DATE_TYPES, SCHEDULE_TIME_TYPES, NOT_CONNECTED_IDS } from '../dispositions';
+import { CONNECTED_QUICK, NOT_CONNECTED_QUICK, OTHERS_ID, isConnected, findDisp, STATUS_PILL_MAP, SCHEDULE_DATE_TYPES, SCHEDULE_TIME_TYPES } from '../dispositions';
 import { istDateString, istDateTimeToIso } from '../utils/time';
 
 function callFmt(seconds) {
@@ -54,7 +54,7 @@ const DONOR_STATUS_GROUPS = {
   retryable: ['ringing', 'busy', 'unreachable', 'switched_off', 'out_of_coverage', 'voicemail', 'call_waiting', 'incoming_out', 'temporary_network_issue', 'call_disconnected', 'language_barrier'],
   scheduled: ['scheduled', 'callback', 'follow_up', 'office_visit_scheduled', 'program_visit_scheduled'],
   donated: ['lead_done', 'done', 'donation_collected', 'promise_to_pay', 'already_donated'],
-  rejected: ['not_interested', 'not_interested_now', 'dnd', 'wrong_number', 'wrong_person', 'invalid_number', 'rejected', 'payment_rejected', 'not_possible'],
+  rejected: ['not_interested', 'not_interested_now', 'dnd', 'wrong_number', 'wrong_person', 'invalid_number', 'rejected', 'payment_rejected', 'not_possible', 'others'],
 };
 const DONOR_STATUS_GROUP_LABELS = {
   all: 'All statuses',
@@ -211,6 +211,9 @@ export default function MyDonors() {
   const [projectName, setProjectName] = useState('');
   const [leadRemark, setLeadRemark] = useState('');
   const [showRemark, setShowRemark] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [remarkError, setRemarkError] = useState(false);
+  const [showAllRemarks, setShowAllRemarks] = useState(false);
   const [upiTransactionId, setUpiTransactionId] = useState('');
   const [transactionDatetime, setTransactionDatetime] = useState('');
   const [ocrFromName, setOcrFromName] = useState('');
@@ -646,11 +649,17 @@ export default function MyDonors() {
   const logs = detail?.logs || [];
   const totalCollected = detail?.total_collected || 0;
   const nextSchedule = detail?.next_schedule;
+  const effCategory = selectedCategory || (selected ? (isConnected(selected) ? 'connected' : 'not_connected') : null);
+  const remarks = logs.filter(l => (l.remark && String(l.remark).trim()) || (l.notes && String(l.notes).trim()));
+  const dispLabel = (l) => l.action === 'disposition'
+    ? (findDisp(l.disposition_detail)?.label || String(l.disposition_detail || '').replace(/_/g, ' ') || 'Disposition')
+    : String(l.action || '').replace(/_/g, ' ');
 
   const resetFormState = () => {
-    setSelected(null); setNotes(''); setScheduledDate(''); setScheduledTime(''); setCallbackTime('');
+    setSelected(null); setSelectedCategory(null); setNotes(''); setScheduledDate(''); setScheduledTime(''); setCallbackTime('');
     setLeadScreenshot(null); setScreenshotPreview(null); setLeadAddress(''); setLeadPan(''); setPanError('');
     setLeadDob(''); setProjectName(''); setLeadAmount(''); setLeadRemark(''); setShowRemark(false);
+    setRemarkError(false); setShowAllRemarks(false);
     setUpiTransactionId(''); setTransactionDatetime(''); setOcrFromName(''); setOcrLoading(false);
     setShowDonationPrompt(false); setDonationEntering(false); setDonationAmt(''); setDonationSaving(false);
     setDonationDt(new Date().toISOString().slice(0, 10));
@@ -663,7 +672,7 @@ export default function MyDonors() {
     const f = formStateRef.current;
     if (!f.donor) return;
     const state = {
-      selected: f.selected, notes: f.notes, scheduledDate: f.scheduledDate, scheduledTime: f.scheduledTime, dateConfirmed: f.dateConfirmed, callbackTime: f.callbackTime,
+      selected: f.selected, selectedCat: f.selectedCategory, notes: f.notes, scheduledDate: f.scheduledDate, scheduledTime: f.scheduledTime, dateConfirmed: f.dateConfirmed, callbackTime: f.callbackTime,
       leadScreenshot: f.leadScreenshot, screenshotPreview: f.screenshotPreview, leadAddress: f.leadAddress, leadPan: f.leadPan, panError: f.panError,
       leadDob: f.leadDob, projectName: f.projectName, leadAmount: f.leadAmount, leadRemark: f.leadRemark, showRemark: f.showRemark,
       upiTransactionId: f.upiTransactionId, transactionDatetime: f.transactionDatetime, ocrFromName: f.ocrFromName,
@@ -679,6 +688,7 @@ export default function MyDonors() {
     try {
       const s = JSON.parse(saved);
       setSelected(s.selected);
+      setSelectedCategory(s.selectedCat || (s.selected ? (isConnected(s.selected) ? 'connected' : 'not_connected') : null));
       setNotes(s.notes || '');
       setScheduledDate(s.scheduledDate || '');
       setScheduledTime(s.scheduledTime || '');
@@ -832,7 +842,7 @@ export default function MyDonors() {
     }
     getDonorDetail(id, ngoId).then(d => {
       if (cancelledRef.current) return;
-      setDetail(d); setShowAllLogs(false);
+      setDetail(d); setShowAllLogs(false); setShowAllRemarks(false);
       // Prefill the Notes / Remark fields from the donor's most recent saved
       // log (latest first). The FRO's saved notes must show when a lead returns.
       const logs = d?.logs || [];
@@ -854,9 +864,14 @@ export default function MyDonors() {
 
   useEffect(() => { loadDetail(); }, [loadDetail]);
 
-  const handleDropdownChange = (detailId) => {
+  const handleDropdownChange = (detailId, category) => {
     setSelected(detailId);
+    setSelectedCategory(category);
+    setRemarkError(false);
     setMessage(null);
+    if (detailId === OTHERS_ID) {
+      setShowRemark(true);
+    }
     if (SCHEDULE_DATE_TYPES.has(detailId)) {
       const d = new Date();
       d.setDate(d.getDate() + 1);
@@ -892,7 +907,7 @@ export default function MyDonors() {
 
   const [screenshotPreview, setScreenshotPreview] = useState(null);
   formStateRef.current = {
-    donor, selected, notes, scheduledDate, scheduledTime, dateConfirmed, callbackTime,
+    donor, selected, selectedCategory, notes, scheduledDate, scheduledTime, dateConfirmed, callbackTime,
     leadScreenshot, screenshotPreview, leadAddress, leadPan, panError,
     leadDob, projectName, leadAmount, leadRemark, showRemark,
     upiTransactionId, transactionDatetime, ocrFromName,
@@ -1039,6 +1054,12 @@ export default function MyDonors() {
 
   const handleSave = async () => {
     if (!selected) { setMessage({ type: 'error', text: 'Select a disposition' }); return; }
+    if (selected === OTHERS_ID && !((notes || '').trim() || (leadRemark || '').trim())) {
+      setRemarkError(true);
+      setShowRemark(true);
+      setMessage({ type: 'error', text: 'Add a remark for Others before saving.' });
+      return;
+    }
     if (SCHEDULE_DATE_TYPES.has(selected) && (!scheduledDate || !scheduledTime)) { setMessage({ type: 'error', text: 'Select date & time' }); return; }
     if (SCHEDULE_TIME_TYPES.has(selected) && !callbackTime) { setMessage({ type: 'error', text: 'Select time for callback' }); return; }
     if ((selected === 'lead_done' || selected === 'done') && (!leadAmount || isNaN(leadAmount) || Number(leadAmount) <= 0)) { setMessage({ type: 'error', text: 'Enter a valid payment amount' }); return; }
@@ -1049,9 +1070,10 @@ export default function MyDonors() {
     try {
       const logData = {
         action: 'disposition',
-        disposition_category: isConnected(selected) ? 'connected' : 'not_connected',
+        disposition_category: effCategory,
         disposition_detail: selected,
         notes: notes || null,
+        remark: leadRemark || null,
         ngo_id: donor.ngo_id,
       };
       if (SCHEDULE_DATE_TYPES.has(selected)) logData.scheduled_at = istDateTimeToIso(scheduledDate, scheduledTime);
@@ -1069,7 +1091,6 @@ export default function MyDonors() {
         logData.donor_dob = leadDob || null;
         logData.project_name = projectName || null;
         logData.amount_collected = leadAmount !== '' ? Number(leadAmount) : null;
-        logData.remark = leadRemark || null;
         logData.upi_transaction_id = upiTransactionId || null;
         logData.transaction_datetime = transactionDatetime ? new Date(transactionDatetime).toISOString() : null;
       }
@@ -1242,13 +1263,6 @@ export default function MyDonors() {
   const logDate = (log) => (log.action === 'donation' || (log.disposition_detail === 'lead_done' && log.accounts_status === 'verified'))
     ? (log.transaction_datetime || log.verified_at || log.created_at)
     : log.created_at;
-
-  const isThisMonth = (dateStr) => {
-    if (!dateStr) return false;
-    const d = new Date(dateStr);
-    const now = new Date();
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-  };
 
   const statusPill = (status) => {
     const label = status ? status.replace(/_/g, ' ') : 'unknown';
@@ -1718,19 +1732,19 @@ export default function MyDonors() {
                 <div className="dd">
                   <label>Connected</label>
                   <DispositionDropdown
-                    groups={CONNECTED_GROUPS}
-                    value={selected !== null && isConnected(selected) ? selected : ''}
-                    onChange={id => { if (id) handleDropdownChange(id); }}
-                    tone={selected !== null && isConnected(selected) ? 'green' : null}
+                    options={CONNECTED_QUICK}
+                    value={selected !== null && effCategory === 'connected' ? selected : ''}
+                    onChange={id => { if (id) handleDropdownChange(id, 'connected'); }}
+                    tone={selected !== null && effCategory === 'connected' ? 'green' : null}
                   />
                 </div>
                 <div className="dd">
                   <label>Not Connected</label>
                   <DispositionDropdown
-                    groups={NOT_CONNECTED_GROUPS}
-                    value={selected !== null && !isConnected(selected) ? selected : ''}
-                    onChange={id => { if (id) handleDropdownChange(id); }}
-                    tone={selected !== null && !isConnected(selected) ? 'red' : null}
+                    options={NOT_CONNECTED_QUICK}
+                    value={selected !== null && effCategory === 'not_connected' ? selected : ''}
+                    onChange={id => { if (id) handleDropdownChange(id, 'not_connected'); }}
+                    tone={selected !== null && effCategory === 'not_connected' ? 'red' : null}
                   />
                 </div>
               </div>
@@ -1860,10 +1874,16 @@ export default function MyDonors() {
                       <input type="date" value={leadDob} onChange={e => setLeadDob(e.target.value)} />
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Remark — available for every disposition so the FRO can always note why */}
+              {selected && (
+                <>
                   <div className="detail-field-row">
                     <div className="fld">
                       <button onClick={() => setShowRemark(!showRemark)}
-                        style={{ padding:'6px 14px', border:`1px solid ${showRemark ? 'var(--sage)' : 'var(--line)'}`, borderRadius:6, background: showRemark ? 'var(--sage)' : '#fff', color: showRemark ? '#fff' : 'var(--ink)', fontSize:10, fontWeight:700, fontFamily:'inherit', cursor:'pointer', transition:'all .12s' }}>
+                        style={{ padding:'6px 14px', border:`1px solid ${showRemark ? 'var(--sage)' : (remarkError ? '#dc2626' : 'var(--line)')}`, borderRadius:6, background: showRemark ? 'var(--sage)' : '#fff', color: showRemark ? '#fff' : 'var(--ink)', fontSize:10, fontWeight:700, fontFamily:'inherit', cursor:'pointer', transition:'all .12s' }}>
                         {showRemark ? 'Hide Remark' : 'Add Remark'}
                       </button>
                     </div>
@@ -1871,18 +1891,44 @@ export default function MyDonors() {
                   {showRemark && (
                     <div className="detail-field-row">
                       <div className="fld">
-                        <textarea value={leadRemark} onChange={e => setLeadRemark(e.target.value)} rows={2} placeholder="Enter remark..." style={{ width:'100%', padding:'6px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:11, fontFamily:'inherit', resize:'vertical', boxSizing:'border-box' }} />
+                        <textarea value={leadRemark} onChange={e => { setLeadRemark(e.target.value); setRemarkError(false); }} rows={2} placeholder="Enter remark..." style={{ width:'100%', padding:'6px 8px', border:`1px solid ${remarkError ? '#dc2626' : 'var(--line)'}`, borderRadius:6, fontSize:11, fontFamily:'inherit', resize:'vertical', boxSizing:'border-box' }} />
                       </div>
                     </div>
                   )}
-                </div>
+                </>
               )}
 
               {/* Notes */}
               <div className="detail-notes">
                 <label style={{ display: 'block', fontSize: 9, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 3 }}>Notes</label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Add notes here..." />
+                <textarea value={notes} onChange={e => { setNotes(e.target.value); setRemarkError(false); }} rows={2} placeholder="Add notes here..." style={{ border: remarkError ? '1px solid #dc2626' : undefined }} />
               </div>
+
+              {/* Remarks & Notes — every saved remark/note for this donor, all time */}
+              {remarks.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--line)', paddingTop: 10, paddingBottom: 4 }}>
+                  <label style={{ display: 'block', fontSize: 9, fontWeight: 600, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 6 }}>Remarks &amp; Notes ({remarks.length})</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {remarks.slice(0, showAllRemarks ? remarks.length : 5).map(r => (
+                      <div key={r.id} style={{ background: '#f8fafc', border: '1px solid var(--line)', borderRadius: 6, padding: '6px 8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dispLabel(r)}</span>
+                          <span style={{ fontSize: 9, color: 'var(--ink-soft)', flexShrink: 0 }}>{formatTime(logDate(r))}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--ink)', marginTop: 2, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{r.remark || r.notes}</div>
+                      </div>
+                    ))}
+                    {remarks.length > 5 && (
+                      <div style={{ textAlign: 'center', padding: '4px 0 0' }}>
+                        <button onClick={() => setShowAllRemarks(s => !s)}
+                          style={{ padding: '4px 12px', border: '1px solid var(--line)', borderRadius: 6, background: 'transparent', fontSize: 10, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', color: 'var(--sage)' }}>
+                          {showAllRemarks ? 'Show Less' : `Show All ${remarks.length} Remarks`}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             </>
             )}
@@ -1909,7 +1955,7 @@ export default function MyDonors() {
                     const cat = log.disposition_category;
                     const icon = timelineIcon(log);
                     const connected = isDisp && cat === 'connected';
-                    const lbl = isDisp ? (log.disposition_detail?.replace(/_/g, ' ') || '') : log.action.replace(/_/g, ' ');
+                    const lbl = isDisp ? (findDisp(log.disposition_detail)?.label || String(log.disposition_detail || '').replace(/_/g, ' ') || '') : log.action.replace(/_/g, ' ');
                     const bg = isDisp ? (connected ? '#f0fdf4' : '#fef2f2') : 'var(--bg)';
                     return (
                       <div key={log.id} className="detail-timeline-item" style={{ background: bg }}>
@@ -1919,7 +1965,7 @@ export default function MyDonors() {
                             <span className="tl-lbl">{lbl}</span>
                             <span className="tl-time">{formatTime(logDate(log))}</span>
                           </div>
-                          {isThisMonth(logDate(log)) && (log.remark || log.notes) && <div className="tl-note">{log.remark || log.notes}</div>}
+                          {(log.remark || log.notes) && <div className="tl-note">{log.remark || log.notes}</div>}
                           {log.amount_collected != null && <div className="tl-note" style={{ color: 'var(--sage)', fontWeight: 600 }}>₹{Number(log.amount_collected).toLocaleString('en-IN')}</div>}
                           {isCollectionLog(log) && log.fro_worker_name && (
                             <div className="tl-note" style={{ color: 'var(--ink-soft)', fontSize: 9 }}>Collected by {log.fro_worker_name}</div>
