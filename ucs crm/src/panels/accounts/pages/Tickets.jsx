@@ -180,6 +180,7 @@ export default function AccountsTickets() {
           return;
         }
         await apiPut(`${endpoint}/${showDetail.id}/resolve`, { resolution });
+        await apiPost(`${endpoint}/${showDetail.id}/reply`, { message: resolution });
         toast('Ticket resolved successfully', 'success');
       } else {
         await apiPut(`${endpoint}/${showDetail.id}`, {
@@ -440,19 +441,9 @@ export default function AccountsTickets() {
                     />
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    {showDetail.status === 'open' && (
-                      <button className="btn btn-sm" onClick={() => handleStatusUpdate('in_progress')}
-                        style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
-                        Mark In Progress
-                      </button>
-                    )}
                     <button className="btn btn-sm" onClick={() => handleStatusUpdate('resolved')}
                       style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' }}>
-                      Resolve
-                    </button>
-                    <button className="btn btn-sm" onClick={() => handleStatusUpdate('closed')}
-                      style={{ background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb' }}>
-                      Close
+                      Resolve &amp; Submit
                     </button>
                   </div>
                 </div>
