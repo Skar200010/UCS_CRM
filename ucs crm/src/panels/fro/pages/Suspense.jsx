@@ -27,9 +27,9 @@ const CLAIM_BADGES = {
 const NGO_LABELS = { bsct: 'Being Sevak', mann: 'Mann Care', aflf: 'Ashray' };
 const NGO_SHORT = { bsct: 'BSCT', mann: 'MANN', aflf: 'AFLF' };
 const NGO_PILL = {
-  bsct: { bg: '#dbeafe', color: '#1e40af' },
-  mann: { bg: '#fce7f3', color: '#be185d' },
-  aflf: { bg: '#dcfce7', color: '#166534' },
+  bsct: { bg: '#f4f9ff', color: '#1e40af' },
+  mann: { bg: '#fcf6fb', color: '#be185d' },
+  aflf: { bg: '#f5fdf8', color: '#166534' },
 };
 
 const initials = (name) => (name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
@@ -202,23 +202,29 @@ export default function FroSuspense() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <style>{`
+        @keyframes froPulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(91,107,78,.22); }
+          50% { transform: scale(1.045); box-shadow: 0 4px 16px rgba(91,107,78,.4); }
+        }
+      `}</style>
       {/* Toolbar: NGO pill tabs + search */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '14px 18px', flexShrink: 0 }}>
-        <div style={{ display: 'inline-flex', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 999, padding: 3 }}>
+      <div style={{ padding: '14px 18px 8px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', width: '100%', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 10, padding: 3 }}>
           {[['', 'All']].concat(ngos.map(p => [p, NGO_SHORT[p] || p.toUpperCase()])).map(([v, l]) => {
             const count = v ? receipts.filter(r => r.project_id === v).length : receipts.length;
             const active = ngoFilter === v;
             return (
               <button key={v || 'all'} onClick={() => setNgoFilter(v)}
                 style={{
-                  padding: '6px 16px', borderRadius: 999, border: 'none', fontFamily: 'inherit',
-                  fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6,
+                  flex: 1, padding: '5px 10px', borderRadius: 999, border: 'none', fontFamily: 'inherit',
+                  fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, whiteSpace: 'nowrap',
                   background: active ? 'var(--sage)' : 'transparent', color: active ? '#fff' : 'var(--ink-soft)',
                   boxShadow: active ? '0 1px 4px rgba(0,0,0,.18)' : 'none', transition: 'all .15s',
                 }}>
                 {l}
                 <span style={{
-                  minWidth: 17, padding: '0 5px', borderRadius: 999, fontSize: 10, fontWeight: 700,
+                  minWidth: 16, padding: '0 4px', borderRadius: 999, fontSize: 9, fontWeight: 700,
                   background: active ? 'rgba(255,255,255,.22)' : 'var(--line)', color: active ? '#fff' : 'var(--ink-soft)',
                 }}>{count}</span>
               </button>
@@ -226,24 +232,18 @@ export default function FroSuspense() {
           })}
         </div>
 
-        <div style={{ position: 'relative' }}>
-          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-soft)' }} />
+        <div style={{ position: 'relative', marginTop: 10 }}>
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-soft)' }} />
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search name or mobile…"
             style={{
-              padding: '7px 12px 7px 30px', border: '1px solid var(--line)', borderRadius: 999, background: 'var(--card-bg)',
-              fontSize: 12, fontFamily: 'inherit', outline: 'none', width: isMobile ? '100%' : 210, color: 'var(--ink)',
+              width: '100%', padding: '8px 12px 8px 32px', border: '1px solid var(--line)', borderRadius: 10, background: 'var(--card-bg)',
+              fontSize: 12, fontFamily: 'inherit', outline: 'none', color: 'var(--ink)', boxSizing: 'border-box',
             }}
           />
         </div>
-      </div>
-
-      {/* Month strip */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 18px 8px', flexShrink: 0, fontSize: 11, color: 'var(--ink-soft)' }}>
-        <span>Unlinked donations received in <b style={{ color: 'var(--ink)' }}>{month}</b> waiting for an owner. Claim one to get credit after accounts verification.</span>
-        <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{currency(totalAmount)} · {list.length}</span>
       </div>
 
       {/* List */}
@@ -261,54 +261,58 @@ export default function FroSuspense() {
             {list.map(r => {
               const badge = r.waiting_receipt_no ? { text: 'Waiting for receipt number', color: '#6b7280', bg: '#f3f4f6' } : r.kind === 'receipt_sent' ? CLAIM_BADGES.receipt_sent : r.my_claim_status ? CLAIM_BADGES[r.my_claim_status] : r.kind === 'no_receipt' ? { text: 'Unclaimed', color: '#b45309', bg: '#fef3c7' } : null;
               const claimable = !r.waiting_receipt_no && (!r.my_claim_status || r.kind === 'receipt_sent');
+              const amtStr = currency(r.amount);
+              const amtFont = amtStr.length >= 10 ? 11 : amtStr.length >= 8 ? 12.5 : amtStr.length >= 6 ? 13.5 : 15;
               return (
                 <div key={r.id} onClick={() => claimable && openClaimModal(r)}
                   onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                   onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.boxShadow = 'var(--shadow)'; e.currentTarget.style.transform = 'none'; }}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-                    background: 'var(--card-bg)', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)',
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                    background: (NGO_PILL[r.project_id] || { bg: 'var(--card-bg)' }).bg, border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)',
                     boxShadow: 'var(--shadow)', cursor: claimable ? 'pointer' : 'default', transition: 'transform .12s, box-shadow .12s, border-color .12s',
                   }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#B5603A1A', color: '#B5603A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
                     {initials(r.donor_name)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.donor_name || 'Unknown donor'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.donor_name || 'Unknown donor'}</span>
+                      <span style={{
+                        padding: '2px 7px', borderRadius: 6, fontSize: 10, fontWeight: 700, flexShrink: 0,
+                        background: (NGO_PILL[r.project_id] || { bg: '#f3f4f6', color: '#6b7280' }).bg,
+                        color: (NGO_PILL[r.project_id] || { bg: '#f3f4f6', color: '#6b7280' }).color,
+                      }}>{NGO_SHORT[r.project_id] || NGO_LABELS[r.project_id] || r.project_id}</span>
                       {badge && (
                         <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: badge.bg, color: badge.color }}>
                           {badge.text}
                         </span>
                       )}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <span>{r.receipt_date || '\u2014'}{r.receipt_time ? ` · ${fmtTime12(r.receipt_time)}` : ''}</span>
-                      {r.payment_id ? (
-                        <>
-                          <span style={{ color: 'var(--line)' }}>•</span>
-                          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-soft)' }}>UPI: <span style={{ color: 'var(--ink)', fontWeight: 700 }}>{r.payment_id}</span></span>
-                        </>
-                      ) : null}
-                      <span style={{
-                        padding: '2px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700,
-                        background: (NGO_PILL[r.project_id] || { bg: '#f3f4f6', color: '#6b7280' }).bg,
-                        color: (NGO_PILL[r.project_id] || { bg: '#f3f4f6', color: '#6b7280' }).color,
-                      }}>{NGO_SHORT[r.project_id] || NGO_LABELS[r.project_id] || r.project_id}</span>
+                    <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 4 }}>
+                      {r.receipt_date || '\u2014'}{r.receipt_time ? ` | ${fmtTime12(r.receipt_time)}` : ''}
                     </div>
+                    {r.payment_id && (
+                      <div style={{ fontSize: 11, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ color: 'var(--ink-soft)' }}>UPI:</span>
+                        <span style={{ color: 'var(--ink)', fontWeight: 700 }}>{r.payment_id}</span>
+                      </div>
+                    )}
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{currency(r.amount)}</div>
-                    {claimable && (
+                  <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                    {claimable ? (
                       <button
                         onClick={e => { e.stopPropagation(); openClaimModal(r); }}
-                        className="btn btn-sm"
-                        style={{ fontSize: 11, padding: '3px 12px', background: 'var(--sage)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', marginTop: 4 }}>
-                        Claim
+                        style={{ minWidth: 96, fontSize: amtFont, fontWeight: 700, color: '#fff', background: 'var(--sage)', padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', animation: 'froPulse 1.6s ease-in-out infinite', transition: 'transform .15s, box-shadow .15s' }}
+                        onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(91,107,78,.45)'; }}
+                        onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}>
+                        {amtStr}
                       </button>
+                    ) : (
+                      <div style={{ minWidth: 96, textAlign: 'right', fontSize: amtFont, fontWeight: 700, color: 'var(--ink)' }}>{amtStr}</div>
                     )}
                     {r.claim_count > 1 && !claimable && (
-                      <div style={{ fontSize: 10, color: 'var(--ink-soft)', marginTop: 3 }}>{r.claim_count} claims</div>
+                      <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{r.claim_count} claims</div>
                     )}
                   </div>
                   {claimable && <ChevronRight size={16} style={{ color: 'var(--ink-soft)', flexShrink: 0 }} />}

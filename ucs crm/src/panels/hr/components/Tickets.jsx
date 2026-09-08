@@ -109,6 +109,7 @@ export default function Tickets() {
           Pending {pending.length > 0 && <span className="badge badge-pending2" style={{marginLeft:6}}>{pending.length}</span>}
         </button>
         <button className={'tab' + (tab === 'all' ? ' active' : '')} onClick={() => setTab('all')}>All Tickets</button>
+        <button className={'tab' + (tab === 'hr' ? ' active' : '')} onClick={() => setTab('hr')}>HR Related</button>
         <button className={'tab' + (tab === 'technical' ? ' active' : '')} onClick={() => setTab('technical')}>Technical</button>
       </div>
 
@@ -199,6 +200,12 @@ export default function Tickets() {
       {tab === 'technical' && (
         <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>Loading...</div>}>
           <TechnicalTickets panel="hr" />
+        </Suspense>
+      )}
+
+      {tab === 'hr' && (
+        <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>Loading...</div>}>
+          <TechnicalTickets panel="hr" viewOnly canRaise={false} category="hr_issue" />
         </Suspense>
       )}
 

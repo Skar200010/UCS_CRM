@@ -105,7 +105,11 @@ export const updateTicket = async (req, res) => {
     if (category !== undefined) updates.category = category;
     if (priority !== undefined) updates.priority = priority;
     if (status === 'resolved' || status === 'closed') {
-      updates.resolved_by = req.user.id;
+      // resolved_by is FK'd to users(id). Accounts staff may authenticate as
+      // workers (id lives in workers, not users) and super admin auth uses
+      // id 0 — neither exists in users. Only store a value that satisfies the FK.
+      const { data: resolver } = await db.from('users').select('id').eq('id', req.user.id).maybeSingle();
+      updates.resolved_by = resolver ? resolver.id : null;
     }
     updates.updated_at = new Date().toISOString();
 

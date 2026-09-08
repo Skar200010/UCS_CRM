@@ -3752,7 +3752,7 @@ export const quickSearchDonors = async (req, res) => {
 
 export const getDonorsList = async (req, res) => {
   try {
-    const { search, page = '1', limit = '50', ngo, missing_station, agent } = req.query;
+    const { search, page = '1', limit = '50', ngo, missing_station, agent, station } = req.query;
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100000, Math.max(1, parseInt(limit) || 50));
     const from = (pageNum - 1) * limitNum;
@@ -3805,6 +3805,21 @@ export const getDonorsList = async (req, res) => {
       }
       if (agentDonorIds.length === 0) return res.json({ data: [], total: 0, page: pageNum, limit: limitNum });
       query = query.in('id', agentDonorIds);
+    }
+
+    // "Station" narrowing: donors with at least one live assignment at the
+    // selected station. Mirrors the agent filter so combos compose correctly.
+    if (station && String(station).trim()) {
+      const st = String(station).trim();
+      const { data: stationRows, error: stationErr } = await db
+        .from('fro_assignments')
+        .select('donor_id')
+        .eq('station', st)
+        .not('status', 'eq', 'reassigned');
+      if (stationErr) throw stationErr;
+      const stationDonorIds = [...new Set((stationRows || []).map(a => a.donor_id).filter(Boolean))];
+      if (stationDonorIds.length === 0) return res.json({ data: [], total: 0, page: pageNum, limit: limitNum });
+      query = query.in('id', stationDonorIds);
     }
 
     let ngoRow = null;
@@ -5213,7 +5228,7 @@ const TARGETS_SETTING_KEY = 'accounts_report_targets';
 // Compute working days from month start -> today for a given NGO.
 // Working days = Mon-Sat days minus that NGO's holidays, PLUS one extra Sunday
 // (the last Sunday of the month) once it has arrived (<= today).
-export function computeReportWorkingDays({ month, today, ngoId, holidayDates }) {
+export function computeReportWorkingDays({ month, today, ngoId, holidayDates, fullMonth }) {
   const [y, m] = month.split('-').map(Number);
   const todayT = today || new Date();
   const todayISO = `${todayT.getFullYear()}-${String(todayT.getMonth() + 1).padStart(2, '0')}-${String(todayT.getDate()).padStart(2, '0')}`;
@@ -5231,16 +5246,49 @@ export function computeReportWorkingDays({ month, today, ngoId, holidayDates }) 
   let count = 0;
   for (let d = 1; d <= lastDay; d++) {
     const iso = `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    if (iso > todayISO) break; // only count days up to today
+    if (!fullMonth && iso > todayISO) break; // only count days up to today
     const dow = new Date(y, m - 1, d).getDay();
     if (dow === 0) continue; // every Sunday off by default
     if (holiday.has(iso)) continue;
     count++;
   }
-  // add the last Sunday of the month once it is <= today
-  if (lastSundayISO <= todayISO && !holiday.has(lastSundayISO)) count++;
+  // add the last Sunday of the month once it is <= today (always when fullMonth)
+  if ((fullMonth || lastSundayISO <= todayISO) && !holiday.has(lastSundayISO)) count++;
 
   return { count, lastSundayISO };
+}
+
+// Working days left from tomorrow until the end of the selected month. Past
+// months -> 0; future months -> the full month's working days. The current
+// month keeps the working-Sunday rule: every Sunday except the last (working)
+// counts as non-working, and configured holidays are excluded. `todayISO` is
+// the IST date string YYYY-MM-DD.
+function computeWorkingDaysLeft({ month, todayISO, holidayDates }) {
+  const [y, m] = month.split('-').map(Number);
+  const [ty, tm, td] = String(todayISO || '').split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const holiday = new Set((holidayDates || []).map((d) => String(d).slice(0, 10)));
+
+  if (y > ty || (y === ty && m > tm)) {
+    return computeReportWorkingDays({ month, holidayDates: [...holiday], fullMonth: true }).count;
+  }
+  if (y < ty || (y === ty && m < tm) || !td) return 0;
+  if (td >= lastDay) return 0;
+
+  let lastSunday = null;
+  for (let d = lastDay; d >= 1; d--) {
+    if (new Date(y, m - 1, d).getDay() === 0) { lastSunday = d; break; }
+  }
+
+  let left = 0;
+  for (let d = td + 1; d <= lastDay; d++) {
+    const iso = `${month}-${String(d).padStart(2, '0')}`;
+    const dow = new Date(y, m - 1, d).getDay();
+    if (dow === 0 && d !== lastSunday) continue; // all Sundays except the last (working)
+    if (holiday.has(iso)) continue;
+    left++;
+  }
+  return left;
 }
 
 // GET /accounts/report-targets
@@ -5414,23 +5462,20 @@ export const getReportData = async (req, res) => {
     const sourceSet = {};
     const byNgo = {};
     for (const n of reportBuckets) byNgo[n] = { sources: {} };
-    for (const r of monthReceipts || []) {
-      // Bucket a receipt into exactly one row. Suspense is agent-based
-      // (agent_name = 'Suspense'/'NA'/''); library/pg receipts are tagged only
-      // by agent_name (their project_id is still 'bsct'), so check those before
-      // falling back to the project_id bucket.
+    // Bucket a receipt into exactly one row. Suspense is agent-based
+    // (agent_name = 'Suspense'/'NA'/''); library/pg receipts are tagged only
+    // by agent_name (their project_id is still 'bsct'), so check those before
+    // falling back to the project_id bucket.
+    const bucketReceipt = (r) => {
       const agent = String(r.agent_name || '').trim().toLowerCase();
-      let ngo;
-      if (isSuspenseAgent(agent)) {
-        ngo = 'suspense';
-      } else if (agent === 'library') {
-        ngo = 'library';
-      } else if (agent === 'pg') {
-        ngo = 'pg';
-      } else {
-        const pid = String(r.project_id || '').trim().toLowerCase();
-        ngo = reportBuckets.includes(pid) ? pid : null;
-      }
+      if (isSuspenseAgent(agent)) return 'suspense';
+      if (agent === 'library') return 'library';
+      if (agent === 'pg') return 'pg';
+      const pid = String(r.project_id || '').trim().toLowerCase();
+      return reportBuckets.includes(pid) ? pid : null;
+    };
+    for (const r of monthReceipts || []) {
+      const ngo = bucketReceipt(r);
       if (!ngo) continue;
       receiptTotalByNgo[ngo].total += Number(r.amount || 0);
       receiptTotalByNgo[ngo].count += 1;
@@ -5438,6 +5483,24 @@ export const getReportData = async (req, res) => {
       const key = label.toLowerCase();
       if (!sourceSet[key]) { sourceSet[key] = true; sourceOrder.push(label); }
       byNgo[ngo].sources[label] = (byNgo[ngo].sources[label] || 0) + Number(r.amount || 0);
+    }
+
+    // Live "Today" collection per bucket (independent of the selected period).
+    const todayByNgo = {};
+    for (const n of reportBuckets) todayByNgo[n] = 0;
+    const istNow = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000);
+    const todayStr = istNow.toISOString().slice(0, 10);
+    const { data: todayReceipts, error: tErr } = await db
+      .from('receipts')
+      .select('project_id, amount, agent_name')
+      .not('receipt_no', 'is', null)
+      .gte('receipt_date', `${todayStr}T00:00:00+05:30`)
+      .lte('receipt_date', `${todayStr}T23:59:59.999+05:30`);
+    if (tErr) throw tErr;
+    for (const r of todayReceipts || []) {
+      const ngo = bucketReceipt(r);
+      if (!ngo) continue;
+      todayByNgo[ngo] += Number(r.amount || 0);
     }
 
     // Build per-bucket output rows (bsct/mann/aflf/library/pg/suspense)
@@ -5504,7 +5567,7 @@ export const getReportData = async (req, res) => {
         daysElapsed = elapsed;
         workingDaysSoFar = wd;
       } else {
-        const { count } = computeReportWorkingDays({ month, today, ngoId: n, holidayDates: holidayByNgo[n] });
+        const { count } = computeReportWorkingDays({ month, today, ngoId: n, holidayDates: holidayByNgo[n], fullMonth: true });
         workingDaysSoFar = count;
         const [cy, cm] = [today.getFullYear(), today.getMonth() + 1];
         if (cy === y && cm === m) daysElapsed = today.getDate();
@@ -5513,6 +5576,9 @@ export const getReportData = async (req, res) => {
       }
       const targetDaily = workingDaysSoFar > 0 ? ngoTarget / workingDaysSoFar : 0;
       const actualAvg = daysElapsed > 0 ? total / daysElapsed : 0;
+      const workingDaysFull = isNgo ? (computeReportWorkingDays({ month, holidayDates: holidayByNgo[n], fullMonth: true }).count || 0) : 0;
+      const workingDaysLeft = isNgo ? computeWorkingDaysLeft({ month, todayISO: todayStr, holidayDates: holidayByNgo[n] }) : 0;
+      const avgPerDay = workingDaysLeft > 0 ? Math.max(0, ngoTarget - total) / workingDaysLeft : 0;
       ngoRows.push({
         id: n,
         name: (ngoList.find((g) => g.id === n) || {}).name || bucketLabel[n] || n,
@@ -5521,11 +5587,36 @@ export const getReportData = async (req, res) => {
         sourceTotal,
         daysElapsed,
         workingDaysSoFar,
+        workingDaysFull,
+        workingDaysLeft,
+        avgPerDay,
         targetDaily,
         actualAvg,
         diff: actualAvg - targetDaily,
         monthlyTarget: ngoTarget,
       });
+    }
+
+    // Full-month working-days breakdown (monthly view only), using the union of
+    // all NGO holiday lists for a single headline figure. Working Days =
+    // calendar days - all Sundays except the last (working) - holidays, with
+    // the last Sunday counted unless it is itself a holiday.
+    let workDays = null;
+    if (!dayMode && !rangeMode) {
+      const unionHolidays = new Set();
+      for (const n of ngoIds) for (const h of holidayByNgo[n] || []) unionHolidays.add(String(h).slice(0, 10));
+      let sundays = 0;
+      for (let d = 1; d <= lastDay; d++) if (new Date(y, m - 1, d).getDay() === 0) sundays++;
+      const { count: workingDays, lastSundayISO } = computeReportWorkingDays({ month, holidayDates: [...unionHolidays], fullMonth: true });
+      workDays = {
+        calendarDays: lastDay,
+        sundays,
+        workingSundays: 1,
+        workingDays,
+        workingDaysLeft: computeWorkingDaysLeft({ month, todayISO: todayStr, holidayDates: [...unionHolidays] }),
+        holidays: lastDay - sundays + 1 - workingDays,
+        lastSundayISO,
+      };
     }
 
     return res.json({
@@ -5542,6 +5633,9 @@ export const getReportData = async (req, res) => {
       overallTarget: savedOverall,
       byNgoTargets: savedByNgo,
       holidayByNgo,
+      today: todayStr,
+      todayByNgo,
+      workDays,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });

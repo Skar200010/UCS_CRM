@@ -11,6 +11,9 @@ export const NOT_CONNECTED = [
   { id: 'temporary_network_issue', label: 'Temporary Network Issue' },
   { id: 'voicemail', label: 'Voicemail' },
   { id: 'incoming_out', label: 'Incoming Out' },
+  { id: 'busy_call_waiting', label: 'Busy / Call Waiting' },
+  { id: 'ooc_unreachable_network', label: 'OOC / Unreachable / Network Issue' },
+  { id: 'ringing_voicemail', label: 'Ringing / Voicemail' },
 ];
 
 export const CONNECTED = [
@@ -38,6 +41,9 @@ export const CONNECTED = [
   { id: 'wrong_person', label: 'Wrong Person' },
   { id: 'call_disconnected', label: 'Call Disconnected' },
   { id: 'not_possible', label: 'Not Possible' },
+  { id: 'office_program_visit', label: 'Office / Program Visit' },
+  { id: 'promise_pay_wa_email', label: 'Promise to Pay / WA Sent / Email Sent' },
+  { id: 'not_interested_np', label: 'Not Interested / Call Disconnected / NP' },
 ];
 
 export const ALL_DISPOSITIONS = [...NOT_CONNECTED, ...CONNECTED];
@@ -125,10 +131,38 @@ export const NOT_CONNECTED_GROUPS = [
     ],
   },
 ];
-export const CONNECTED_IDS = new Set(CONNECTED.map(d => d.id));
 export const NOT_CONNECTED_IDS = new Set(NOT_CONNECTED.map(d => d.id));
+export const CONNECTED_IDS = new Set(CONNECTED.map(d => d.id));
 export const isConnected = (id) => CONNECTED_IDS.has(id);
-export const findDisp = (id) => ALL_DISPOSITIONS.find(d => d.id === id);
+
+// "Others" marker id. It lives in BOTH quick lists (Connected + Not Connected)
+// but in neither of the IS-sets above — the dropdown that produced it decides
+// the category (see MyDonors selectedCategory). Its value is recorded literally
+// so it shows as "Others" everywhere; a remark/note is required before saving.
+export const OTHERS_ID = 'others';
+export const OTHERS_DISP = { id: OTHERS_ID, label: 'Others' };
+
+// One-tap quick options for the My Donors Connection Status card. Each row is
+// a single disposition, so every row stores exactly one id.
+export const CONNECTED_QUICK = [
+  { id: 'scheduled', label: 'Follow Up' },
+  { id: 'callback', label: 'Callback' },
+  { id: 'office_program_visit', label: 'Office / Program Visit' },
+  { id: 'promise_pay_wa_email', label: 'Promise to Pay / WA Sent / Email Sent' },
+  { id: 'not_interested_np', label: 'Not Interested / Call Disconnected / NP' },
+  { id: 'dnd', label: 'DND' },
+  OTHERS_DISP,
+];
+
+export const NOT_CONNECTED_QUICK = [
+  { id: 'switched_off', label: 'Switched Off' },
+  { id: 'busy_call_waiting', label: 'Busy / Call Waiting' },
+  { id: 'ooc_unreachable_network', label: 'OOC / Unreachable / Network Issue' },
+  { id: 'ringing_voicemail', label: 'Ringing / Voicemail' },
+  OTHERS_DISP,
+];
+
+export const findDisp = (id) => ALL_DISPOSITIONS.find(d => d.id === id) || (id === OTHERS_ID ? OTHERS_DISP : undefined);
 
 // Assignment status values (as stored in fro_assignments.status).
 export const NOT_CONNECTED_STATUSES = ['busy', 'ringing', 'call_waiting', 'unreachable', 'switched_off', 'out_of_coverage', 'wrong_number', 'invalid_number', 'rejected', 'temporary_network_issue', 'voicemail', 'incoming_out'];
@@ -160,4 +194,7 @@ export const STATUS_PILL_MAP = {
   language_barrier: 'pill-gray', transferred_senior: 'pill-blue', query_complaint: 'pill-yellow',
   receipt_request: 'pill-blue', dnd: 'pill-red', wrong_person: 'pill-gray',
   call_disconnected: 'pill-gray', payment_rejected: 'pill-red',
+  office_program_visit: 'pill-purple', promise_pay_wa_email: 'pill-blue',
+  not_interested_np: 'pill-red', busy_call_waiting: 'pill-gray',
+  ooc_unreachable_network: 'pill-gray', ringing_voicemail: 'pill-gray', others: 'pill-gray',
 };

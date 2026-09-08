@@ -2798,6 +2798,13 @@ function dispositionDetailToStatus(detail) {
     wrong_person: 'wrong_person',
     not_possible: 'not_possible',
     call_disconnected: 'call_disconnected',
+    office_program_visit: 'scheduled',
+    promise_pay_wa_email: 'promise_to_pay',
+    not_interested_np: 'not_interested',
+    busy_call_waiting: 'busy',
+    ooc_unreachable_network: 'unreachable',
+    ringing_voicemail: 'ringing',
+    others: 'others',
   };
   return map[detail] || 'contacted';
 }
@@ -2817,7 +2824,7 @@ function computeHiddenUntil(dispositionDetail, scheduledAt) {
   // Only unanswered calls are automatically retryable, from the next IST day.
   const RETRYABLE_NEXT_DAY = new Set([
     'busy', 'ringing', 'call_waiting', 'switched_off', 'out_of_coverage',
-    'unreachable', 'voicemail',
+    'unreachable', 'voicemail', 'busy_call_waiting', 'ooc_unreachable_network', 'ringing_voicemail',
   ]);
   if (RETRYABLE_NEXT_DAY.has(dispositionDetail)) {
     return startOfNextIstDayUtc();

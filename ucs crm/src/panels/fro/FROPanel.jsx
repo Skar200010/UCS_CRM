@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation, Navigate } from 'react-router-dom'
-import { LayoutDashboard, CalendarClock, Users, Gift, HeartCrack, Ticket, MessageCircle, Inbox, Coins } from 'lucide-react'
+import { LayoutDashboard, CalendarClock, Users, Gift, HeartCrack, Ticket, MessageCircle, Coins } from 'lucide-react'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
 import { getScheduled, getCallbacks } from './api/donors'
@@ -18,7 +18,7 @@ import NotificationDrawer from '../../components/NotificationDrawer'
 import SettingsDrawer from '../../components/SettingsDrawer'
 import ToastContainer from '../../components/Toast'
 import Dashboard from './pages/Dashboard'
-import MyDonors from './pages/MyDonors'
+import MyLeadsSuspense from './pages/MyLeadsSuspense'
 import RejectedLeads from './pages/RejectedLeads'
 import Donors from './pages/Donors'
 import Scheduled from './pages/Scheduled'
@@ -37,7 +37,6 @@ const NAV_BASE = [
   { id: 'my-leads', path: '/fro/my-leads', label: 'My Leads', Icon: Users },
   { id: 'donors', path: '/fro/donors', label: 'Donors', Icon: Gift },
   { id: 'rejected', path: '/fro/rejected-leads', label: 'Rejected Leads', Icon: HeartCrack },
-  { id: 'suspense', path: '/fro/suspense', label: 'Suspense', Icon: Inbox },
   { id: 'tickets', path: '/fro/tickets', label: 'Raise Ticket', Icon: Ticket },
 ]
 
@@ -924,7 +923,7 @@ export default function FROPanel() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="scheduled" element={<Scheduled />} />
-            <Route path="my-leads" element={<MyDonors />} />
+            <Route path="my-leads" element={<MyLeadsSuspense />} />
             <Route path="rejected-leads" element={<RejectedLeads />} />
             <Route path="suspense" element={<FroSuspense />} />
             <Route path="donors" element={<Donors />} />

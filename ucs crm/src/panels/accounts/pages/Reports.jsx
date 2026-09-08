@@ -256,6 +256,7 @@ export default function Reports() {
   const sourceTabs = (data?.sourceTabs && data.sourceTabs.length > 0) ? data.sourceTabs : ngos;
   const sourceOrder = data?.sourceOrder || [];
   const rows = data?.rows || [];
+  const workDays = data?.workDays || null;
 
   // Monthly target form derived state (allocation vs the overall anchor)
   const overallAnchor = Number(targetForm.overall) || 0;
@@ -275,7 +276,9 @@ export default function Reports() {
   const grandTotal = rows.reduce((s, r) => s + r.total, 0);
   const grandSourceTotal = rows.reduce((s, r) => s + (r.sourceTotal || 0), 0);
   const grandReceiptCount = rows.reduce((s, r) => s + (r.receiptCount || 0), 0);
-  const grandDiff = grandTotal - rows.reduce((s, r) => s + (r.monthlyTarget > 0 ? r.monthlyTarget : 0), 0);
+  const totalTargets = rows.reduce((s, r) => s + (r.monthlyTarget > 0 ? r.monthlyTarget : 0), 0);
+  const grandDiff = grandTotal - totalTargets;
+  const totalAvgPerDay = workDays && workDays.workingDaysLeft > 0 ? Math.max(0, totalTargets - grandTotal) / workDays.workingDaysLeft : null;
 
   // Agent / Team collection (from /report-agent-team)
   const atcAgents = atc?.agents || [];
@@ -287,14 +290,18 @@ export default function Reports() {
   // export CSV
   const exportCsv = async () => {
     if (locked) { const ok = await access.open(); if (!ok) return; setLocked(false); }
-    const header = ['NGO', 'Receipts', 'Collection Total', ...sourceOrder.map(s => `Source: ${s}`), 'Source Total', 'Monthly Target', 'Diff'];
+    const header = ['NGO', 'Receipts', 'Collection Total', ...sourceOrder.map(s => `Source: ${s}`), 'Source Total', 'Monthly Target', 'Diff (Total - Monthly)', 'Working Days Left', 'Avg / Day'];
     const body = rows.map(r => [
       r.name, r.receiptCount || 0, r.total,
       ...sourceOrder.map(s => (data?.byNgo?.[r.id]?.sources?.[s]) || 0),
-      r.sourceTotal || 0, r.monthlyTarget, round2((r.total || 0) - (r.monthlyTarget || 0)),
+      r.sourceTotal || 0,
+      r.monthlyTarget > 0 ? r.monthlyTarget : '',
+      r.monthlyTarget > 0 ? round2((r.total || 0) - r.monthlyTarget) : '',
+      r.workingDaysLeft > 0 ? r.workingDaysLeft : '',
+      r.monthlyTarget > 0 && r.workingDaysLeft > 0 ? round2(r.avgPerDay) : '',
     ]);
     const all = [header, ...body];
-    all.push([], ['Total', grandReceiptCount, grandTotal, '', grandTotal, rows.reduce((s, r) => s + (r.monthlyTarget > 0 ? r.monthlyTarget : 0), 0), round2(grandDiff)]);
+    all.push([], ['Total', grandReceiptCount, grandTotal, ...sourceOrder.map(() => ''), grandTotal, totalTargets, round2(grandDiff), workDays ? workDays.workingDaysLeft : '', totalAvgPerDay !== null ? round2(totalAvgPerDay) : '']);
     if (atc) {
       all.push([], ['Agent-wise Collection', ...atcSlugs.map(s => atcLabel[s] || s), 'Total', 'Receipts']);
       atcAgents.forEach(a => all.push([a.name, ...atcSlugs.map(s => a.byNgo?.[s] || 0), a.total, a.count]));
@@ -491,9 +498,16 @@ export default function Reports() {
         <>
           {/* Target & daily-average summary */}
           <div className="card rp-card" style={{ marginBottom: 16, overflow: 'hidden' }}>
-            <div className="card-head">
-              <h3 style={{ margin: 0, fontSize: 14 }}>NGO-wise Target vs Collection</h3>
-              <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>vs monthly target · {reportFrom && reportTo ? 'range' : (reportDay ? 'daily view' : 'monthly')}</span>
+            <div className="card-head" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 14 }}>NGO-wise Target vs Collection</h3>
+                <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>vs monthly target · {reportFrom && reportTo ? 'range' : (reportDay ? 'daily view' : 'monthly')}</span>
+              </div>
+              {workDays && (
+                <span style={{ fontSize: 12, color: 'var(--ink-soft)', marginLeft: 'auto' }}>
+                  <b style={{ color: 'var(--ink)' }}>Calendar Days:</b>&nbsp;{workDays.calendarDays}&nbsp;·&nbsp;<b style={{ color: 'var(--ink)' }}>Sundays:</b>&nbsp;{workDays.sundays}&nbsp;·&nbsp;<b style={{ color: 'var(--ink)' }}>Working Sundays:</b>&nbsp;{workDays.workingSundays}&nbsp;·&nbsp;<b style={{ color: 'var(--ink)' }}>Holidays:</b>&nbsp;{workDays.holidays}&nbsp;·&nbsp;<b style={{ color: 'var(--ink)' }}>Working Days Left:</b>&nbsp;{workDays.workingDaysLeft}
+                </span>
+              )}
             </div>
             <div className="table-wrap">
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -504,6 +518,8 @@ export default function Reports() {
                     <th style={{ padding: '9px 12px' }}>Monthly Target</th>
                     <th style={{ padding: '9px 12px' }}>Total Collected</th>
                     <th style={{ padding: '9px 12px' }}>Diff</th>
+                    <th style={{ padding: '9px 12px' }}>Working Days Left</th>
+                    <th style={{ padding: '9px 12px' }}>Avg / Day</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -511,6 +527,7 @@ export default function Reports() {
                     const hasTarget = r.monthlyTarget > 0;
                     const diffTotal = hasTarget ? round2((r.total || 0) - r.monthlyTarget) : null;
                     const diffColor = diffTotal !== null ? (diffTotal >= 0 ? '#1B7A3D' : '#B3392B') : null;
+                    const canAvg = hasTarget && r.workingDaysLeft > 0;
                     return (
                       <tr key={r.id} style={{ borderTop: '1px solid var(--line)', background: r.id === sourceTab ? '#F3FBF6' : 'transparent' }}>
                         <td style={{ padding: '9px 12px', fontWeight: 600 }}>{r.name}</td>
@@ -518,15 +535,19 @@ export default function Reports() {
                         <td style={{ padding: '9px 12px' }}>{hasTarget ? mask(currency(r.monthlyTarget)) : '—'}</td>
                         <td style={{ padding: '9px 12px', fontWeight: 700 }}>{mask(currency(r.total))}</td>
                         <td style={{ padding: '9px 12px', fontWeight: 700, color: diffColor }}>{diffTotal !== null ? mask((diffTotal >= 0 ? '+' : '') + currency(diffTotal)) : '—'}</td>
+                        <td style={{ padding: '9px 12px' }}>{r.workingDaysLeft > 0 ? mask(r.workingDaysLeft) : '—'}</td>
+                        <td style={{ padding: '9px 12px' }}>{canAvg ? mask(currency(round2(r.avgPerDay))) : '—'}</td>
                       </tr>
                     );
                   })}
                   <tr style={{ borderTop: '2px solid var(--sage)', fontWeight: 700, background: '#F6F8F7' }}>
                     <td style={{ padding: '9px 12px' }}>Total</td>
                     <td style={{ padding: '9px 12px' }}>{mask(grandReceiptCount.toLocaleString('en-IN'))}</td>
-                    <td style={{ padding: '9px 12px' }}>{mask(currency(rows.reduce((s, r) => s + r.monthlyTarget, 0)))}</td>
+                    <td style={{ padding: '9px 12px' }}>{mask(currency(totalTargets))}</td>
                     <td style={{ padding: '9px 12px' }}>{mask(currency(grandTotal))}</td>
                     <td style={{ padding: '9px 12px', color: grandDiff >= 0 ? '#1B7A3D' : '#B3392B' }}>{mask((grandDiff >= 0 ? '+' : '') + currency(grandDiff))}</td>
+                    <td style={{ padding: '9px 12px' }}>{workDays ? mask(workDays.workingDaysLeft) : '—'}</td>
+                    <td style={{ padding: '9px 12px' }}>{totalAvgPerDay !== null ? mask(currency(round2(totalAvgPerDay))) : '—'}</td>
                   </tr>
                 </tbody>
               </table>
