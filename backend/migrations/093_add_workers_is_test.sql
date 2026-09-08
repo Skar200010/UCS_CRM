@@ -3,3 +3,4 @@
 -- only dashboard stats (total workers, NGO split, dept/gender, attendance
 -- percentage, birthdays/anniversaries) exclude them.
 ALTER TABLE workers ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false;
+        

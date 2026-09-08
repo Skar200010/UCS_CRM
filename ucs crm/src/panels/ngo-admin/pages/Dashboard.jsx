@@ -25,7 +25,7 @@ const DISPOSITION_LABELS = {
   busy_call_waiting: 'Busy / Call Waiting',
   ooc_unreachable_network: 'OOC / Unreachable / Network',
   ringing_voicemail: 'Ringing / Voicemail',
-  resolved_suspense: 'Resolved Suspense',
+  resolved_suspense: 'Resolved Suspense', others: 'Others',
 };
 
 const CONNECTED_STATUS_COLUMNS = [
@@ -36,6 +36,38 @@ const CONNECTED_STATUS_COLUMNS = [
   { key: 'not_interested_np', label: 'Not Inter / Disc / NP', color: '#f59e0b' },
   { key: 'dnd', label: 'DND', color: '#ef4444' },
 ];
+
+const MERGED_STATUS_GROUPS = {
+  office_program_visit: ['office_visit_scheduled', 'program_visit_scheduled', 'office_program_visit'],
+  promise_pay_wa_email: ['promise_to_pay', 'whatsapp_sent', 'email_sent', 'promise_pay_wa_email'],
+  not_interested_np: ['not_interested', 'call_disconnected', 'not_possible', 'not_interested_np'],
+  busy_call_waiting: ['busy', 'call_waiting', 'busy_call_waiting'],
+  ooc_unreachable_network: ['out_of_coverage', 'unreachable', 'temporary_network_issue', 'ooc_unreachable_network'],
+  ringing_voicemail: ['ringing', 'voicemail', 'ringing_voicemail'],
+};
+
+const statusMatches = (key, target) =>
+  key === target || (MERGED_STATUS_GROUPS[target] || []).includes(key);
+
+const mergedKeyOf = (key) => {
+  if (!key) return null;
+  if (MERGED_STATUS_GROUPS[key]) return key;
+  for (const [group, members] of Object.entries(MERGED_STATUS_GROUPS)) {
+    if (members.includes(key)) return group;
+  }
+  return null;
+};
+
+const NOT_CONNECTED_STATUS_COLUMNS = [
+  { key: 'switched_off', label: 'Switched Off', color: '#64748b' },
+  { key: 'busy_call_waiting', label: 'Busy / Call Waiting', color: '#9ca3af' },
+  { key: 'ooc_unreachable_network', label: 'OOC / Unreach / Network', color: '#a16207' },
+  { key: 'ringing_voicemail', label: 'Ringing / Voicemail', color: '#0ea5e9' },
+];
+
+const CONNECTED_IDS = new Set(['contacted', 'lead_done', 'done', 'donation_collected', 'follow_up', 'scheduled', 'callback', 'visit_donate', 'will_donate_online', 'promise_to_pay', 'payment_pending', 'already_donated', 'email_sent', 'whatsapp_sent', 'csr_inquiry', 'wants_80g_details', 'wants_trust_documents', 'language_barrier', 'transferred_senior', 'query_complaint', 'receipt_request', 'not_interested_now', 'not_interested', 'dnd', 'wrong_person', 'call_disconnected', 'office_program_visit', 'promise_pay_wa_email', 'not_interested_np', 'office_visit_scheduled', 'program_visit_scheduled', 'not_possible', 'resolved_suspense']);
+
+const NOT_CONNECTED_IDS = new Set(['busy', 'ringing', 'call_waiting', 'unreachable', 'switched_off', 'out_of_coverage', 'wrong_number', 'invalid', 'invalid_number', 'rejected', 'temporary_network_issue', 'voicemail', 'incoming_out', 'busy_call_waiting', 'ooc_unreachable_network', 'ringing_voicemail']);
 
 const DISPOSITION_GROUPS = [
   { label: 'Converted', color: '#16a34a', bg: '#f0fdf4', statuses: ['donation_collected', 'promise_to_pay', 'lead_done', 'done', 'visit_donate', 'will_donate_online', 'payment_pending', 'already_donated', 'promise_pay_wa_email'] },
@@ -658,47 +690,44 @@ function FroDetailModal({ froId, froName, filterType, rangeFrom, rangeTo, status
 
   const hasPeriodData = Boolean(rangeFrom || rangeTo);
 
+  const stack = isNonConnected ? NOT_CONNECTED_STATUS_COLUMNS : CONNECTED_STATUS_COLUMNS;
+
   const baseList = useMemo(() => {
     const getKey = (d) => hasPeriodData && d.call_status ? d.call_status : d.status;
-    if (status) return allDonors.filter(d => getKey(d) === status);
-    if (isNonConnected) {
-      return allDonors.filter(d => {
-        const grp = DISPOSITION_GROUPS.find(g => g.statuses.includes(getKey(d)));
-        return !grp || grp.label === 'Negative' || grp.label === 'Other';
-      });
+    const deduped = [];
+    const seenDonors = new Set();
+    for (const d of allDonors) {
+      if (d.donor_id && seenDonors.has(d.donor_id)) continue;
+      if (d.donor_id) seenDonors.add(d.donor_id);
+      deduped.push(d);
     }
-    return allDonors.filter(d => {
-      const grp = DISPOSITION_GROUPS.find(g => g.statuses.includes(getKey(d)));
-      return grp && (grp.label === 'Converted' || grp.label === 'In Progress');
-    });
+    if (status) return deduped.filter(d => statusMatches(getKey(d), status));
+    const sideOf = (d) => {
+      const k = getKey(d);
+      if (NOT_CONNECTED_IDS.has(k)) return 'not_connected';
+      if (CONNECTED_IDS.has(k)) return 'connected';
+      if (hasPeriodData && d.call_category) return String(d.call_category).toLowerCase();
+      return null;
+    };
+    if (isNonConnected) return deduped.filter(d => sideOf(d) === 'not_connected');
+    return deduped.filter(d => sideOf(d) === 'connected');
   }, [allDonors, isNonConnected, hasPeriodData, status]);
 
   const total = baseList.length;
 
-  const statusCounts = useMemo(() => {
+  const stackCounts = useMemo(() => {
     const counts = {};
+    let others = 0;
     for (const d of baseList) {
       const key = hasPeriodData && d.call_status ? d.call_status : d.status;
-      if (!counts[key]) counts[key] = 0;
-      counts[key]++;
+      const mk = mergedKeyOf(key);
+      if (mk && stack.some(c => c.key === mk)) counts[mk] = (counts[mk] || 0) + 1;
+      else others++;
     }
-    const result = [];
-    for (const g of DISPOSITION_GROUPS) {
-      for (const s of g.statuses) {
-        if (counts[s] > 0) result.push({ status: s, count: counts[s], group: g });
-      }
-    }
-    return result;
-  }, [baseList, hasPeriodData]);
-
-  const groupData = useMemo(() => {
-    const grouped = {};
-    for (const { group, count } of statusCounts) {
-      if (!grouped[group.label]) grouped[group.label] = { label: group.label, color: group.color, bg: group.bg, total: 0 };
-      grouped[group.label].total += count;
-    }
-    return Object.values(grouped).filter(g => g.total > 0);
-  }, [statusCounts]);
+    const chips = stack.map(c => ({ ...c, count: counts[c.key] || 0 })).filter(c => c.count > 0);
+    if (others > 0) chips.push({ key: 'others', label: 'Others', color: '#5B6B4E', count: others });
+    return chips;
+  }, [baseList, hasPeriodData, stack]);
 
   const donorsRef = useRef(null);
   const fetchDonors = useCallback(async (status) => {
@@ -722,7 +751,11 @@ function FroDetailModal({ froId, froName, filterType, rangeFrom, rangeTo, status
     if (statusFilter) {
       list = list.filter(d => {
         const key = hasPeriodData && d.call_status ? d.call_status : d.status;
-        return key === statusFilter;
+        if (statusFilter === 'others') {
+          const mk = mergedKeyOf(key);
+          return !mk || !stack.some(c => c.key === mk);
+        }
+        return statusMatches(key, statusFilter);
       });
     }
     if (search) {
@@ -734,7 +767,7 @@ function FroDetailModal({ froId, froName, filterType, rangeFrom, rangeTo, status
       );
     }
     return list;
-  }, [baseList, statusFilter, search]);
+  }, [baseList, statusFilter, search, stack]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated = useMemo(() => {
@@ -768,23 +801,6 @@ function FroDetailModal({ froId, froName, filterType, rangeFrom, rangeTo, status
             <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: 'var(--ink-soft)' }}>No {filterLabel.toLowerCase()} donors found</div>
           ) : (
             <>
-              {groupData.length > 0 && (
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ height: 8, borderRadius: 4, background: '#e5e7eb', display: 'flex', overflow: 'hidden' }}>
-                    {groupData.map(g => (
-                      <div key={g.label} style={{ width: `${(g.total / total) * 100}%`, height: '100%', background: g.color, opacity: 0.6 }} />
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
-                    {groupData.map(g => (
-                      <span key={g.label} style={{ fontSize: 11, fontWeight: 600, color: g.color, background: g.bg, padding: '2px 10px', borderRadius: 10 }}>
-                        {g.label}: {g.total}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--ink-soft)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Disposition Breakdown
                 <span style={{ marginLeft: 8, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
@@ -792,21 +808,21 @@ function FroDetailModal({ froId, froName, filterType, rangeFrom, rangeTo, status
                 </span>
               </div>
 
-              {statusCounts.length > 0 && (
+              {stackCounts.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 16 }}>
-                  {statusCounts.map(({ status, count, group }) => (
-                    <button key={status} onClick={() => handleStatusClick(status)}
+                  {stackCounts.map(({ key, label, color, count }) => (
+                    <button key={key} onClick={() => handleStatusClick(key)}
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
-                        padding: '3px 10px', borderRadius: 20, border: `1px solid ${statusFilter === status ? group.color : 'transparent'}`,
-                        background: statusFilter === status ? group.bg : 'var(--bg)',
-                        cursor: 'pointer', fontSize: 12, fontWeight: statusFilter === status ? 700 : 500,
-                        color: statusFilter === status ? group.color : 'var(--ink-soft)',
+                        padding: '3px 10px', borderRadius: 20, border: `1px solid ${statusFilter === key ? color : 'transparent'}`,
+                        background: statusFilter === key ? `${color}1a` : 'var(--bg)',
+                        cursor: 'pointer', fontSize: 12, fontWeight: statusFilter === key ? 700 : 500,
+                        color: statusFilter === key ? color : 'var(--ink-soft)',
                         transition: 'all .15s',
                       }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: group.color, flexShrink: 0 }} />
-                      {DISPOSITION_LABELS[status] || status}
-                      <span style={{ fontWeight: 700, color: group.color, marginLeft: 2 }}>{count}</span>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                      {label}
+                      <span style={{ fontWeight: 700, color, marginLeft: 2 }}>{count}</span>
                     </button>
                   ))}
                 </div>
@@ -836,12 +852,15 @@ function FroDetailModal({ froId, froName, filterType, rangeFrom, rangeTo, status
                           <th>Phone</th>
                           <th>Station</th>
                           <th>Status</th>
+                          {statusFilter === 'others' && <th>Remark</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {paginated.map((d, i) => {
                           const displayStatus = hasPeriodData && d.call_status ? d.call_status : d.status;
-                          const grp = DISPOSITION_GROUPS.find(gr => gr.statuses.includes(displayStatus));
+                          const mk = mergedKeyOf(displayStatus);
+                          const col = mk ? [...CONNECTED_STATUS_COLUMNS, ...NOT_CONNECTED_STATUS_COLUMNS].find(c => c.key === mk) : null;
+                          const pillColor = col ? col.color : '#6b7280';
                           return (
                             <tr key={d.id || d.donor_id}>
                               <td style={{ fontSize: 11, color: 'var(--ink-soft)' }}>{(page - 1) * PER_PAGE + i + 1}</td>
@@ -849,9 +868,12 @@ function FroDetailModal({ froId, froName, filterType, rangeFrom, rangeTo, status
                               <td>{d.donor_mobile || '—'}</td>
                               <td style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{d.station || '—'}</td>
                               <td><span className="pill" style={{
-                                background: grp ? grp.bg : '#f3f4f6',
-                                color: grp ? grp.color : '#6b7280',
-                              }}>{DISPOSITION_LABELS[displayStatus] || displayStatus}</span></td>
+                                background: `${pillColor}1a`,
+                                color: pillColor,
+                              }}>{DISPOSITION_LABELS[mk || displayStatus] || displayStatus}</span></td>
+                              {statusFilter === 'others' && (
+                                <td style={{ fontSize: 12, color: 'var(--ink-soft)' }}>{d.call_remark || d.notes || '—'}</td>
+                              )}
                             </tr>
                           );
                         })}
@@ -1188,7 +1210,6 @@ export default function Dashboard() {
 
   const total_donors = Number(d.total) || 0;
   const assigned_donors = Number(d.assigned) || 0;
-  const active_fros = Number(f.active) || 0;
   const month_collection = Number(cm.total) || 0;
   const today_collection = Number(ct.total) || 0;
   const daily_target = Number(c.daily_target) || 0;
@@ -1213,9 +1234,8 @@ export default function Dashboard() {
   const inactive_donors = Number(d.inactive) || 0;
   const reactivated_today = Number(r.today) || 0;
   const reactivated_monthly = Number(r.month) || 0;
-  const total_fro_workers = Number(f.total) || 0;
-  const assigned_fro_count = Number(f.with_assignments) || 0;
-  const stations_per_ngo = data.stations_per_ngo || {};
+  const stations_per_ngo = tlData?.stations_per_ngo || data.stations_per_ngo || {};
+  const stations_summary = tlData?.stations_summary || data.stations_summary || { total: 0, active: 0 };
   const unassigned = Math.max(0, total_donors - assigned_donors);
   const assignPct = Number(d.assigned_pct) || 0;
   const direct_donation_month = Math.max(0, month_collection - verified_month_amount - unverified_month_amount);
@@ -1701,7 +1721,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* REQUIREMENT 3: Workforce / Attendance (Left) & FRO Workers (Right) */}
+      {/* REQUIREMENT 3: Workforce / Attendance (Left) & Stations (Right) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, marginBottom: 16 }}>
         {/* Left: Workforce & Attendance */}
         <div className="card" style={{ marginBottom: 0, padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -1774,44 +1794,42 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right: FRO Workers & Stations */}
+        {/* Right: Stations — Total & Currently Active */}
         <div className="card" style={{ marginBottom: 0, padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>FRO Workers</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sage)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 500, flex: 1 }}>Stations</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10, textAlign:'center' }}>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>{total_fro_workers}</div>
-                <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Total</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10, textAlign: 'center' }}>
+              <div style={{ background: 'var(--bg)', borderRadius: 6, padding: '8px 6px' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}>{stations_summary.total}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Total Stations</div>
               </div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--sage)' }}>{active_fros}</div>
-                <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Active</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#3b82f6' }}>{assigned_fro_count}</div>
-                <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Assigned</div>
+              <div style={{ background: '#f0fdf4', borderRadius: 6, padding: '8px 6px' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#16a34a' }}>{stations_summary.active}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>Active Now</div>
               </div>
             </div>
           </div>
-          {selectedNgoId === 'all' && Object.keys(stations_per_ngo).length > 0 && (
+          {Object.keys(stations_per_ngo).length > 0 && (
             <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 6, textTransform:'uppercase' }}>Stations per NGO</div>
-              {Object.entries(stations_per_ngo).map(([name, count]) => {
-                const maxCount = Math.max(...Object.values(stations_per_ngo), 1);
-                const pct = (count / maxCount) * 100;
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 6, textTransform: 'uppercase' }}>Stations per NGO — Active / Total</div>
+              {Object.entries(stations_per_ngo).map(([name, v]) => {
+                const total = typeof v === 'number' ? v : (Number(v?.total) || 0);
+                const active = v && typeof v === 'object' ? (Number(v.active) || 0) : 0;
+                const pct = total > 0 ? Math.min(100, (active / total) * 100) : 0;
                 return (
-                  <div key={name} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                    <span style={{ fontSize:11, fontWeight:600, minWidth:46, color:'var(--ink)' }}>{name}</span>
-                    <div style={{ flex:1, height:6, borderRadius:3, background:'#e5e7eb', overflow:'hidden' }}>
-                      <div style={{ width:`${pct}%`, height:'100%', borderRadius:3, background:'var(--sage)' }} />
+                  <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, minWidth: 50, color: 'var(--ink)' }}>{name}</span>
+                    <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#e5e7eb', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: '#16a34a', transition: 'width .3s ease' }} />
                     </div>
-                    <span style={{ fontSize:11, fontWeight:600, minWidth:24, textAlign:'right', color:'var(--ink)' }}>{count}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, minWidth: 40, textAlign: 'right', color: 'var(--ink)' }}>{active}/{total}</span>
                   </div>
-                )
+                );
               })}
+              <div style={{ fontSize: 10, color: 'var(--ink-soft)', marginTop: 6 }}>Active = station's FRO is online right now</div>
             </div>
           )}
         </div>
@@ -1875,7 +1893,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {weakPerformers.slice(0, showAllLowPerformers ? weakPerformers.length : 6).map((p, i) => (
+                  {weakPerformers.slice(0, showAllLowPerformers ? weakPerformers.length : 11).map((p, i) => (
                     <tr key={p.fro_id} style={{ borderBottom: '1px solid var(--line)' }}>
                       <td style={{color:'var(--ink-soft)', fontSize:10, padding:'5px 8px'}}>{i + 1}</td>
                       <td style={{fontWeight:600, fontSize:11, padding:'5px 8px'}}>{p.fro_name}</td>
@@ -1889,7 +1907,7 @@ export default function Dashboard() {
                     </tr>
                   ))}
                 </tbody>
-                {weakPerformers.length > 6 && !showAllLowPerformers && (
+                {weakPerformers.length > 11 && !showAllLowPerformers && (
                   <tfoot>
                     <tr>
                       <td colSpan={5} style={{padding:0}}>
