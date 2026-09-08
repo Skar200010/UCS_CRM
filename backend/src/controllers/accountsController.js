@@ -5543,6 +5543,7 @@ export const getReportData = async (req, res) => {
       }
       const targetDaily = workingDaysSoFar > 0 ? ngoTarget / workingDaysSoFar : 0;
       const actualAvg = daysElapsed > 0 ? total / daysElapsed : 0;
+      const workingDaysFull = isNgo ? (computeReportWorkingDays({ month, holidayDates: holidayByNgo[n], fullMonth: true }).count || 0) : 0;
       ngoRows.push({
         id: n,
         name: (ngoList.find((g) => g.id === n) || {}).name || bucketLabel[n] || n,
@@ -5551,6 +5552,7 @@ export const getReportData = async (req, res) => {
         sourceTotal,
         daysElapsed,
         workingDaysSoFar,
+        workingDaysFull,
         targetDaily,
         actualAvg,
         diff: actualAvg - targetDaily,
