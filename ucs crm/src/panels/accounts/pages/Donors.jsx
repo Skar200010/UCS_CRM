@@ -784,6 +784,7 @@ export default function Donors() {
   const [ngoOptions, setNgoOptions] = useState([])
   const [restoring, setRestoring] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [backfilling, setBackfilling] = useState(false)
   const [missingOnly, setMissingOnly] = useState(false)
   const [stationDonor, setStationDonor] = useState(null)
   const [agentFilter, setAgentFilter] = useState('')
@@ -942,6 +943,20 @@ export default function Donors() {
     }
   }
 
+  const handleBackfillReceipts = async () => {
+    if (!window.confirm('Create assignments for donors whose donations exist but have no FRO agent assigned yet (they are currently invisible in FRO My Leads). Each donor gets one assignment for the NGO their receipt belongs to. Continue?')) return
+    setBackfilling(true)
+    try {
+      const res = await apiPost('/accounts/donors/backfill-receipt-assignments')
+      alert(`Created ${res?.created_count || 0} assignment(s)\nSkipped (already assigned): ${res?.skipped_already_assigned || 0}\nSkipped (agent not found): ${res?.skipped_unresolved || 0}`)
+      load(search, page, ngoFilter, missingOnly, agentFilter, stationFilter)
+    } catch (e) {
+      alert('Failed: ' + e.message)
+    } finally {
+      setBackfilling(false)
+    }
+  }
+
   const closeMenus = () => { setRowMenu(new Set()); setMoreOpen(false) }
 
   const toggleRowMenu = (e, id) => {
@@ -1054,6 +1069,7 @@ export default function Donors() {
                     <button onClick={() => { closeMenus(); handleExportDuplicates() }} disabled={exportingDup}>{exportingDup ? 'Exporting...' : 'Export FRO Overlaps'}</button>
                     <button onClick={() => { closeMenus(); handleRestoreWrong() }} disabled={restoring}>{restoring ? 'Restoring...' : 'Restore Wrong Assignments'}</button>
                     <button onClick={() => { closeMenus(); handleRepairSync() }} disabled={syncing}>{syncing ? 'Repairing...' : 'Repair Donor Sync'}</button>
+                    <button onClick={() => { closeMenus(); handleBackfillReceipts() }} disabled={backfilling}>{backfilling ? 'Backfilling...' : 'Repair donation-only leads'}</button>
                   </div>
                 </>
               )}

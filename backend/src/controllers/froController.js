@@ -2662,50 +2662,6 @@ export const createDonorLogHandler = async (req, res) => {
   }
 };
 
-export const getRejectedLeads = async (req, res) => {
-  try {
-    const workerId = req.user.id;
-    const { scope: myScope, stationNames, allowedNgoIds } = await getMyStationScope(workerId, froActPairs(req));
-
-    if (stationNames.length === 0) return res.json([]);
-
-    const { data: tickets, error } = await db
-      .from('rejected_lead_tickets')
-      .select('*')
-      .eq('fro_worker_id', workerId)
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (error) throw error;
-    const data = tickets || [];
-
-    // Enrich with donor_id from fro_donor_logs
-    const logIds = data.map(t => t.fro_donor_log_id).filter(Boolean);
-    const donorMap = {};
-    if (logIds.length > 0) {
-      const { data: logs } = await db
-        .from('fro_donor_logs')
-        .select('id, fro_assignments!inner(donor_id, ngo_id, donor_profiles!inner(mobile_number))')
-        .in('id', logIds);
-      for (const log of logs || []) {
-        donorMap[log.id] = {
-          donor_id: log.fro_assignments?.donor_id,
-          ngo_id: log.fro_assignments?.ngo_id,
-          donor_mobile: log.fro_assignments?.donor_profiles?.mobile_number || '',
-        };
-      }
-    }
-
-    const result = data.map(t => {
-      const info = donorMap[t.fro_donor_log_id] || {};
-      return { ...t, donor_id: info.donor_id, donor_mobile: info.donor_mobile, ngo_id: info.ngo_id || t.ngo_id };
-    });
-
-    return res.json(result);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
 export const uploadPaymentScreenshot = async (req, res) => {
   try {
     const { file_base64, mime_type } = req.body;

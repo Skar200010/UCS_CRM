@@ -6,7 +6,7 @@ import { getEntryByPaymentId, getNextReceiptNo, isBlankSuspenseValue, projectCod
 import { getSetting, upsertSetting } from '../models/settingsModel.js';
 import { nameMatch } from '../services/autoMatchService.js';
 import { formatModeLabel } from '../services/modeLabels.js';
-import { normalizeAgentName } from '../utils/workerNameMatch.js';
+import { normalizeAgentName, resolveAgentToWorker } from '../utils/workerNameMatch.js';
 import XLSX from 'xlsx';
 import path from 'path';
 import fs from 'fs';
@@ -14,6 +14,74 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ─── Receipt-to-assignment bridge ──────────────────────────────────────────
+// Receipt/donor-link paths set receipt.donor_id (and agent_name) without always
+// creating a fro_assignments row, and every FRO view is assignment-scoped, so
+// such donors stay invisible to FROs. These helpers ensure an assignment exists
+// (status 'donation_collected') whenever a receipt resolves to an FRO worker.
+const PLACEHOLDER_AGENT_SET = new Set(['suspense', 'pg', 'library', 'na']);
+
+const ngoIdFromProjectCode = async (client, projectId) => {
+  const code = String(projectId || '').trim().toLowerCase();
+  if (!code) return null;
+  const { data } = await client.from('ngos').select('id').ilike('name', code).maybeSingle();
+  return data?.id || null;
+};
+
+const resolveWorkerStation = async (client, workerId, ngoId, fallback) => {
+  if (workerId && ngoId) {
+    const { data } = await client.from('fro_station_assignments')
+      .select('fro_worker_id, station')
+      .eq('fro_worker_id', workerId)
+      .eq('ngo_id', ngoId)
+      .maybeSingle();
+    if (data?.station) return data.station;
+  }
+  return fallback || null;
+};
+
+const ensureAssignmentForDonorReceipt = async ({ client = db, receipt, workerId }) => {
+  if (!receipt?.donor_id) return { created: false, assignment: null, reason: 'no_donor' };
+  if (!workerId) return { created: false, assignment: null, reason: 'no_worker' };
+  const agent = String(receipt.agent_name || '').trim();
+  if (!agent || PLACEHOLDER_AGENT_SET.has(agent.toLowerCase())) {
+    return { created: false, assignment: null, reason: 'placeholder_agent' };
+  }
+  const ngoId = await ngoIdFromProjectCode(client, receipt.project_id);
+  if (!ngoId) return { created: false, assignment: null, reason: 'no_ngo' };
+
+  const { data: existing } = await client.from('fro_assignments')
+    .select('id, donor_id, fro_worker_id, ngo_id, status')
+    .eq('donor_id', receipt.donor_id)
+    .eq('ngo_id', ngoId)
+    .limit(1);
+  const active = (existing || []).find(a => a.status === null || a.status !== 'reassigned');
+  if (active) return { created: false, assignment: active, reason: 'already_assigned' };
+
+  const station = await resolveWorkerStation(client, workerId, ngoId, receipt.station || null);
+  const now = new Date().toISOString();
+  const { data: assignment, error } = await client.from('fro_assignments').insert({
+    donor_id: receipt.donor_id,
+    fro_worker_id: workerId,
+    ngo_id: ngoId,
+    station,
+    status: 'donation_collected',
+    assigned_at: now,
+  }).select().single();
+  if (error) throw error;
+
+  try {
+    const { data: ngoRow } = await client.from('ngos').select('name').eq('id', ngoId).maybeSingle();
+    await client.from('donor_profiles')
+      .update({ ngo: ngoRow?.name ?? null, station: station ?? null })
+      .eq('id', receipt.donor_id);
+  } catch (syncErr) {
+    console.error('ensureAssignmentForDonorReceipt: donor-profile sync failed (non-fatal):', syncErr.message);
+  }
+
+  return { created: true, assignment, reason: 'created' };
+};
 
 export const getLeadList = async (req, res) => {
   try {
@@ -2144,6 +2212,18 @@ export const fixAndQueueReceipt = async (req, res) => {
       if (actions.length > 0) actions[actions.length - 1] = `assigned number ${patch.receipt_no}`;
     }
     if (!updated) throw new Error('Failed to update receipt');
+
+    if (updated?.donor_id) {
+      try {
+        const workerId = await resolveAgentToWorker(updated.agent_name);
+        const ensured = await ensureAssignmentForDonorReceipt({ receipt: updated, workerId });
+        if (ensured?.created && updated.agent_name) {
+          actions.push(`created assignment for ${updated.agent_name}`);
+        }
+      } catch (err) {
+        console.error('fixAndQueueReceipt: assignment ensure failed (non-fatal):', err.message);
+      }
+    }
 
     return res.json({ receipt: updated, actions });
   } catch (error) {
@@ -4327,6 +4407,99 @@ export const deleteDonor = async (req, res) => {
   }
 };
 
+// One-off repair for "donation-only" donors: receipts exist (with a resolvable
+// FRO agent) but their donor has no active fro_assignment for the receipt's
+// NGO, so the donor is invisible to every FRO. Creates one assignment per
+// (donor, NGO) with status 'donation_collected'. Never touches existing
+// assignments, money, logs, or un-attributable donors.
+export const backfillReceiptAssignments = async (req, res) => {
+  try {
+    const { rows } = await db._pool.query(`
+      SELECT r.id AS receipt_id, r.donor_id, r.project_id, r.agent_name, r.station, r.receipt_no,
+             n.id AS ngo_id
+      FROM receipts r
+      JOIN donor_profiles d ON d.id = r.donor_id
+      JOIN ngos n ON lower(n.name) = lower(r.project_id)
+      LEFT JOIN LATERAL (
+        SELECT fa.id
+        FROM fro_assignments fa
+        WHERE fa.donor_id = r.donor_id
+          AND fa.ngo_id = n.id
+          AND (fa.status IS NULL OR fa.status <> 'reassigned')
+        LIMIT 1
+      ) a ON true
+      WHERE r.voided_at IS NULL
+        AND r.donor_id IS NOT NULL
+        AND COALESCE(r.agent_name, '') <> ''
+        AND lower(r.agent_name) NOT IN ('suspense', 'pg', 'library', 'na')
+        AND a.id IS NULL
+      ORDER BY r.id ASC
+    `);
+
+    const byDonorNgo = new Map();
+    for (const row of rows || []) {
+      const key = `${row.donor_id}::${row.ngo_id}`;
+      if (!byDonorNgo.has(key)) byDonorNgo.set(key, row);
+    }
+
+    const created = [];
+    const skippedAlreadyAssigned = [];
+    const skippedUnresolved = [];
+    const now = new Date().toISOString();
+
+    for (const row of byDonorNgo.values()) {
+      const workerId = await resolveAgentToWorker(row.agent_name);
+      if (!workerId) {
+        skippedUnresolved.push({ donor_id: row.donor_id, ngo_id: row.ngo_id, agent_name: row.agent_name });
+        continue;
+      }
+
+      const { data: existing } = await db.from('fro_assignments')
+        .select('id, status')
+        .eq('donor_id', row.donor_id)
+        .eq('ngo_id', row.ngo_id)
+        .limit(1);
+      if ((existing || []).some(a => a.status === null || a.status !== 'reassigned')) {
+        skippedAlreadyAssigned.push({ donor_id: row.donor_id, ngo_id: row.ngo_id });
+        continue;
+      }
+
+      const station = await resolveWorkerStation(db, workerId, row.ngo_id, row.station || null);
+      const { data: assignment, error } = await db.from('fro_assignments').insert({
+        donor_id: row.donor_id,
+        fro_worker_id: workerId,
+        ngo_id: row.ngo_id,
+        station,
+        status: 'donation_collected',
+        assigned_at: now,
+      }).select().single();
+      if (error) throw error;
+
+      try {
+        const { data: ngoRow } = await db.from('ngos').select('name').eq('id', row.ngo_id).maybeSingle();
+        await db.from('donor_profiles')
+          .update({ ngo: ngoRow?.name ?? null, station: station ?? null })
+          .eq('id', row.donor_id);
+      } catch (syncErr) {
+        console.error('backfill: donor-profile sync failed (non-fatal):', syncErr.message);
+      }
+
+      created.push({ donor_id: row.donor_id, ngo_id: row.ngo_id, assignment_id: assignment.id, agent_name: row.agent_name });
+    }
+
+    return res.json({
+      created_count: created.length,
+      skipped_already_assigned: skippedAlreadyAssigned.length,
+      skipped_unresolved: skippedUnresolved.length,
+      created,
+      skipped_unresolved_samples: skippedUnresolved.slice(0, 50),
+    });
+  } catch (error) {
+    console.error('backfillReceiptAssignments error:', error.message);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const createDonorAssignment = async (req, res) => {
   try {
     const { id: donorId } = req.params;
@@ -5214,6 +5387,21 @@ export const updateReceipt = async (req, res) => {
         }
       } catch (err) {
         console.error('Failed to update donor profile on receipt edit:', err.message);
+      }
+    }
+
+    const finalDonorId = linkDonorId || updated?.donor_id || null;
+    if (finalDonorId && newAgentName && !['suspense', 'pg', 'library'].includes(newAgentName.toLowerCase())) {
+      try {
+        const workerId = await resolveAgentToWorker(newAgentName);
+        if (workerId) {
+          await ensureAssignmentForDonorReceipt({
+            receipt: { ...updated, donor_id: finalDonorId, agent_name: newAgentName, station: receiptPatch.station ?? updated.station ?? null },
+            workerId,
+          });
+        }
+      } catch (err) {
+        console.error('updateReceipt: assignment ensure failed (non-fatal):', err.message);
       }
     }
 

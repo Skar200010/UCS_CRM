@@ -29,7 +29,6 @@ import {
   getFullDonorHistory,
   getDonorDonations,
   getDonorReceipts,
-  getRejectedLeads,
   searchDonors,
   getMyDisposedLeads,
   updateLiveStatus,
@@ -108,7 +107,6 @@ router.get('/target', getMyTarget);
 router.post('/request-data', requestData);
 router.get('/database-requests', getMyDataRequests);
 router.get('/follow-ups', getFollowUps);
-router.get('/rejected-leads', getRejectedLeads);
 router.get('/lead-stats', getLeadStats);
 router.get('/monthly-donors', getMonthlyDonors);
 router.get('/donors/:id/history', getDonorHistory);

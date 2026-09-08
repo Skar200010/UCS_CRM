@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticateRole } from '../middleware/authMiddleware.js';
-import { getLeadList, verifyLead, quickVerifyLead, doneLead, rejectLead, goBackLead, undoLeadVerification, undoReceipt, deleteLead, deleteAllPendingLeads, getSuspenseList, createSuspense, addSuspenseNote, assignSuspense, generateReceipt, getReceipt, getReceiptList, getAddressSuggestions, getPendingReceipts, markReceiptAsSent, patchLeadField, getDonorHistory, getDayEndReport, importReceipts, importReceiptNames, getReceiptByMobile, clearReceipts, getReceiptCount, getReceiptNumbers, getSuspenseByNgo, getDonorsList, quickSearchDonors, exportDonors, exportDuplicateDonorAssignments, getDonorDetail, updateDonor, deleteDonor, createDonorAssignment, importDonorAddresses, getExcludedReceipts, fixAndQueueReceipt, deleteQueueReceipt, getImportNgoOptions, getFroWorkersList, updateReceipt, getStationOptions, updateAssignmentStations, deleteAssignment, replaceAssignment, repairDonorSync, getReportTargets, putReportTargets, getReportData, getAgentTeamCollections, getAccessCodeStatus, createAccessCode, verifyAccessCode, changeAccessCode } from '../controllers/accountsController.js';
+import { getLeadList, verifyLead, quickVerifyLead, doneLead, rejectLead, goBackLead, undoLeadVerification, undoReceipt, deleteLead, deleteAllPendingLeads, getSuspenseList, createSuspense, addSuspenseNote, assignSuspense, generateReceipt, getReceipt, getReceiptList, getAddressSuggestions, getPendingReceipts, markReceiptAsSent, patchLeadField, getDonorHistory, getDayEndReport, importReceipts, importReceiptNames, getReceiptByMobile, clearReceipts, getReceiptCount, getReceiptNumbers, getSuspenseByNgo, getDonorsList, quickSearchDonors, exportDonors, exportDuplicateDonorAssignments, getDonorDetail, updateDonor, deleteDonor, createDonorAssignment, importDonorAddresses, getExcludedReceipts, fixAndQueueReceipt, deleteQueueReceipt, getImportNgoOptions, getFroWorkersList, updateReceipt, getStationOptions, updateAssignmentStations, deleteAssignment, replaceAssignment, repairDonorSync, backfillReceiptAssignments, getReportTargets, putReportTargets, getReportData, getAgentTeamCollections, getAccessCodeStatus, createAccessCode, verifyAccessCode, changeAccessCode } from '../controllers/accountsController.js';
 import { restoreWrongAssignments } from '../controllers/ngoAdminController.js';
 
 const router = Router();
@@ -66,6 +66,7 @@ router.get('/donors', getDonorsList);
 router.get('/donors/export', exportDonors);
 router.get('/donors/export-duplicates', exportDuplicateDonorAssignments);
 router.post('/donors/restore-wrong-assignments', restoreWrongAssignments);
+router.post('/donors/backfill-receipt-assignments', donorManageRole, backfillReceiptAssignments);
 router.post('/donors/repair-sync', repairDonorSync);
 router.post('/donors/address-import', importDonorAddresses);
 router.get('/stations-options', getStationOptions);

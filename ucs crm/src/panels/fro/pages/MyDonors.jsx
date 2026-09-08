@@ -1211,7 +1211,10 @@ export default function MyDonors({ embedded = false }) {
     return [y, y - 1, y - 2, y - 3, y - 4, y - 5];
   })();
 
-  if (loading) return <SkeletonMyLeads />;
+  // NOTE: the `loading` early-return was removed so the filter bar stays
+  // mounted while the queue loads. Skeleton rows render in the list area below
+  // instead of blanking out the entire panel (which made the filters "flicker
+  // in" after load and looked like they were still loading).
 
   if (donors.length === 0) {
     return (
@@ -1417,7 +1420,13 @@ export default function MyDonors({ embedded = false }) {
 
         {/* List */}
         <div ref={listScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: isCompact ? '8px 8px' : '10px 12px' }}>
-          {isHistory && historyLoading ? (
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="sk" style={{ height: 56, borderRadius: 'var(--radius-sm)' }} />
+              ))}
+            </div>
+          ) : isHistory && historyLoading ? (
             <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
               Loading history…
             </div>
@@ -1488,11 +1497,13 @@ export default function MyDonors({ embedded = false }) {
           )}
         </div>
         <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', fontSize: 10, color: 'var(--ink-soft)' }}>
-          {isHistory
-            ? `${listItems.length} disposed lead(s)${searchQuery.trim() ? ' found' : ''}`
-            : searching
-              ? `${listItems.length} lead(s) found`
-              : `Showing ${listItems.length} of ${total || donors.length} leads`}
+          {loading
+            ? 'Loading leads…'
+            : isHistory
+              ? `${listItems.length} disposed lead(s)${searchQuery.trim() ? ' found' : ''}`
+              : searching
+                ? `${listItems.length} lead(s) found`
+                : `Showing ${listItems.length} of ${total || donors.length} leads`}
         </div>
       </div>
     );

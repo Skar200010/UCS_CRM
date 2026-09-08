@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation, Navigate } from 'react-router-dom'
-import { LayoutDashboard, CalendarClock, Users, Gift, HeartCrack, Ticket, MessageCircle, Coins } from 'lucide-react'
+import { LayoutDashboard, CalendarClock, Users, Gift, Ticket, MessageCircle, Coins } from 'lucide-react'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
 import { getScheduled, getCallbacks } from './api/donors'
@@ -19,7 +19,6 @@ import SettingsDrawer from '../../components/SettingsDrawer'
 import ToastContainer from '../../components/Toast'
 import Dashboard from './pages/Dashboard'
 import MyLeadsSuspense from './pages/MyLeadsSuspense'
-import RejectedLeads from './pages/RejectedLeads'
 import Donors from './pages/Donors'
 import Scheduled from './pages/Scheduled'
 import IncentiveInfo from './pages/IncentiveInfo'
@@ -36,13 +35,10 @@ const NAV_BASE = [
   { id: 'scheduled', path: '/fro/scheduled', label: 'Follow Ups', Icon: CalendarClock },
   { id: 'my-leads', path: '/fro/my-leads', label: 'My Leads', Icon: Users },
   { id: 'donors', path: '/fro/donors', label: 'Donors', Icon: Gift },
-  { id: 'rejected', path: '/fro/rejected-leads', label: 'Rejected Leads', Icon: HeartCrack },
   { id: 'tickets', path: '/fro/tickets', label: 'Raise Ticket', Icon: Ticket },
 ]
 
 const INBOX_SHORT = { bsct: 'BSCT', aflf: 'AFLF', mann: 'MANN' }
-
-const MAX_DROPDOWN = 4
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u2014'
 
@@ -289,11 +285,8 @@ export default function FROPanel() {
   const [rows, setRows] = useState([]);
   const [refetch, setRefetch] = useState(0);
   const [showNotifList, setShowNotifList] = useState(false);
-  const [rejectedCount, setRejectedCount] = useState(0);
   const [verifiedCount, setVerifiedCount] = useState(0);
-  const [rejectedItems, setRejectedItems] = useState([]);
   const [verifiedItems, setVerifiedItems] = useState([]);
-  const [allNotifs, setAllNotifs] = useState([]);
   const [allVerified, setAllVerified] = useState([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -329,23 +322,6 @@ export default function FROPanel() {
     }
   };
 
-  const handleRejectedClick = async (item) => {
-    setShowNotifList(false);
-    if (item.fro_donor_log_id) {
-      try {
-        const info = await api(`/notifications/${item.id}/lead-info`, { _prefix: 'ucs' });
-        setModalNotifId(item.id);
-        setModalDonor({
-          id: info.donorId,
-          ngo_id: info.ngoId,
-          assignment_id: info.assignmentId,
-          donor_name: info.donorName,
-          donor_mobile: info.donorMobile,
-        });
-      } catch { return; }
-    }
-  };
-
   const handlePopDone = async () => {
     if (modalDonor?.id) poppedIds.current.add(modalDonor.id);
     if (modalNotifId) await markRead(modalNotifId);
@@ -372,17 +348,8 @@ export default function FROPanel() {
     api(`/notifications/${workerId}`, { _prefix: 'ucs' })
       .then(data => {
         const allNotifs = data || [];
-        const rejected = allNotifs.filter(n => n.type === 'lead_rejected' && !n.read_at);
         const verified = allNotifs.filter(n => n.type === 'lead_verified' && !n.read_at);
-        const rejectedSlice = rejected.slice(0, 20);
         const verifiedSlice = verified.slice(0, 20);
-        rejectedSlice.forEach(n => {
-          if (!seenNotifIds.current.has(n.id)) {
-            seenNotifIds.current.add(n.id);
-            localStorage.setItem('fro_seen_notifs', JSON.stringify([...seenNotifIds.current]));
-            showDesktopNotification(n.title, n.body);
-          }
-        });
         verifiedSlice.forEach(n => {
           if (!seenNotifIds.current.has(n.id)) {
             seenNotifIds.current.add(n.id);
@@ -401,11 +368,8 @@ export default function FROPanel() {
               toast(`${n.title}: ${n.body}`, 'info');
             }
           });
-        setAllNotifs(rejected);
         setAllVerified(verified);
-        setRejectedItems(rejectedSlice);
         setVerifiedItems(verifiedSlice);
-        setRejectedCount(rejected.length);
         setVerifiedCount(verified.length);
       })
       .catch((err) => { console.error('Error:', err.message); });
@@ -519,29 +483,18 @@ export default function FROPanel() {
   const dueItems = dedupedRows.filter(r => r.scheduled_at && new Date(r.scheduled_at) <= new Date());
   const dueCount = dueItems.length;
 
-  const rejectedToShow = rejectedItems.slice(0, MAX_DROPDOWN);
-  const verifiedToShow = verifiedItems.slice(0, MAX_DROPDOWN - rejectedToShow.length);
-  const dueToShow = dueItems.slice(0, MAX_DROPDOWN - rejectedToShow.length - verifiedToShow.length);
-  const totalShown = rejectedToShow.length + verifiedToShow.length + dueToShow.length;
-  const totalHidden = rejectedCount + verifiedCount + dueCount - totalShown;
-
   const meta = NAV_BASE.find(n => location.pathname === n.path)
   const userName = user?.name || 'User'
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
   const drawerSections = [
-    { label: 'Rejected Leads', type: 'rejected', items: allNotifs },
     { label: 'Verified Leads', type: 'verified', items: allVerified },
     { label: 'Follow Up / Callback', type: 'schedule', items: dueItems },
   ];
 
   const handleDrawerItemClick = (item, section) => {
     setDrawerOpen(false);
-    if (section.type === 'rejected') {
-      handleRejectedClick(item);
-    } else {
-      setModalDonor(item);
-    }
+    setModalDonor(item);
   };
 
   return (
@@ -924,7 +877,6 @@ export default function FROPanel() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="scheduled" element={<Scheduled />} />
             <Route path="my-leads" element={<MyLeadsSuspense />} />
-            <Route path="rejected-leads" element={<RejectedLeads />} />
             <Route path="suspense" element={<FroSuspense />} />
             <Route path="donors" element={<Donors />} />
             <Route path="history" element={<History />} />

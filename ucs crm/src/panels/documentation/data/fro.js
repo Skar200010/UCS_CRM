@@ -509,43 +509,6 @@ Architecture:
       ],
     },
     {
-      name: 'Rejected Leads',
-      path: '/fro/rejected-leads',
-      description: 'View leads that were rejected by the FRO or system.',
-      features: [
-        {
-          name: 'List Rejected Leads',
-          description: 'Fetch list of leads rejected by the FRO with rejection reasons.',
-          apis: [{
-            method: 'GET',
-            path: '/api/fro/rejected-leads',
-            auth: 'Bearer token (fro/worker)',
-            description: 'Returns paginated list of rejected leads with rejection reason and metadata.',
-            curl: 'curl -X GET "https://ucs-crm-backend.vercel.app/api/fro/rejected-leads?page=1&limit=20" -H "Authorization: Bearer <token>"',
-            requestBody: null,
-            responseBody: {
-              success: true,
-              data: [
-                {
-                  id: 'donor_003',
-                  name: 'Amit Singh',
-                  phone: '+919876543212',
-                  amount: 2000,
-                  rejectionReason: 'not_interested',
-                  rejectionNote: 'Donor said do not call again',
-                  rejectedAt: '2026-07-12T15:30:00.000Z',
-                  originalStatusGroup: 'new',
-                },
-              ],
-              pagination: { total: 8, page: 1, limit: 20, totalPages: 1 },
-            },
-          }],
-          businessRules: ['Rejected leads cannot be reassigned to the same FRO', 'Rejection reason must be one of: not_interested, wrong_number, switched_off, invalid_number, duplicate', 'Rejected leads are archived after 30 days'],
-          workflow: [{ actor: 'FRO', action: 'Views rejected leads for reporting', api: 'GET /api/fro/rejected-leads' }],
-        },
-      ],
-    },
-    {
       name: 'Transferred Leads',
       path: '/fro/transferred-leads',
       description: 'View leads transferred to or from the FRO.',
