@@ -48,7 +48,7 @@ const NOKIA_COLUMNS = [
   { key: 'replacement_count', label: 'Sim Card Repla. Count', num: true },
 ];
 
-export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, onHistory }) {
+export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, onHistory, simName: simNameProp, onSimNameChange }) {
   const { cards, refresh } = useSim();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('All');
@@ -57,7 +57,10 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
   const [team, setTeam] = useState('All');
   const [simType, setSimType] = useState('All');
   const [device, setDevice] = useState('All');
-  const [simName, setSimName] = useState('All');
+  const [simNameLocal, setSimNameState] = useState('All');
+const simName = simNameProp || simNameLocal;
+const setSimName = (v) => { setSimNameState(v); if (onSimNameChange) onSimNameChange(v); };
+useEffect(() => { if (simNameProp !== undefined) setSimNameState(simNameProp); }, [simNameProp]);
   const [waName, setWaName] = useState('All');
   const [expiry, setExpiry] = useState('All');
   const [sortKey, setSortKey] = useState('mobile_id');
