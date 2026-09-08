@@ -36,6 +36,7 @@ const initials = (name) => (name || '?').trim().split(/\s+/).map(w => w[0]).slic
 
 export default function FroSuspense() {
   const isMobile = useIsMobile()
+  const isCompact = useIsMobile(480)
   const [month, setMonth] = useState('');
   const [receipts, setReceipts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -209,18 +210,18 @@ export default function FroSuspense() {
         }
       `}</style>
       {/* Toolbar: NGO pill tabs + search */}
-      <div style={{ padding: '14px 18px 8px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', width: '100%', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 10, padding: 3 }}>
+      <div style={{ padding: isCompact ? '10px 12px 6px' : '14px 18px 8px', flexShrink: 0, minWidth: 0 }}>
+        <div style={{ display: 'flex', width: '100%', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 10, padding: 3, overflowX: 'auto', minWidth: 0 }}>
           {[['', 'All']].concat(ngos.map(p => [p, NGO_SHORT[p] || p.toUpperCase()])).map(([v, l]) => {
             const count = v ? receipts.filter(r => r.project_id === v).length : receipts.length;
             const active = ngoFilter === v;
             return (
               <button key={v || 'all'} onClick={() => setNgoFilter(v)}
                 style={{
-                  flex: 1, padding: '5px 10px', borderRadius: 999, border: 'none', fontFamily: 'inherit',
+                  flex: isCompact ? '0 0 auto' : 1, padding: '5px 10px', borderRadius: 999, border: 'none', fontFamily: 'inherit',
                   fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, whiteSpace: 'nowrap',
                   background: active ? 'var(--sage)' : 'transparent', color: active ? '#fff' : 'var(--ink-soft)',
-                  boxShadow: active ? '0 1px 4px rgba(0,0,0,.18)' : 'none', transition: 'all .15s',
+                  boxShadow: active ? '0 1px 4px rgba(0,0,0,.18)' : 'none', transition: 'all .15s', flexShrink: 0,
                 }}>
                 {l}
                 <span style={{
@@ -247,7 +248,7 @@ export default function FroSuspense() {
       </div>
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '2px 18px 18px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: isCompact ? '2px 10px 10px' : '2px 18px 18px' }}>
         {list.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 220, gap: 10, color: 'var(--ink-soft)' }}>
             <span style={{ width: 54, height: 54, borderRadius: '50%', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -268,11 +269,11 @@ export default function FroSuspense() {
                   onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                   onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.boxShadow = 'var(--shadow)'; e.currentTarget.style.transform = 'none'; }}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                    display: 'flex', alignItems: 'center', gap: isCompact ? 8 : 12, padding: isCompact ? '10px 10px' : '12px 14px',
                     background: (NGO_PILL[r.project_id] || { bg: 'var(--card-bg)' }).bg, border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)',
                     boxShadow: 'var(--shadow)', cursor: claimable ? 'pointer' : 'default', transition: 'transform .12s, box-shadow .12s, border-color .12s',
                   }}>
-                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#B5603A1A', color: '#B5603A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
+                  <div style={{ width: isCompact ? 34 : 40, height: isCompact ? 34 : 40, borderRadius: '50%', background: '#B5603A1A', color: '#B5603A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isCompact ? 12 : 14, fontWeight: 700, flexShrink: 0 }}>
                     {initials(r.donor_name)}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -303,19 +304,18 @@ export default function FroSuspense() {
                     {claimable ? (
                       <button
                         onClick={e => { e.stopPropagation(); openClaimModal(r); }}
-                        style={{ minWidth: 96, fontSize: amtFont, fontWeight: 700, color: '#fff', background: 'var(--sage)', padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', animation: 'froPulse 1.6s ease-in-out infinite', transition: 'transform .15s, box-shadow .15s' }}
+                        style={{ minWidth: isCompact ? 78 : 96, fontSize: amtFont, fontWeight: 700, color: '#fff', background: 'var(--sage)', padding: isCompact ? '5px 8px' : '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', animation: 'froPulse 1.6s ease-in-out infinite', transition: 'transform .15s, box-shadow .15s' }}
                         onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(91,107,78,.45)'; }}
                         onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}>
                         {amtStr}
                       </button>
                     ) : (
-                      <div style={{ minWidth: 96, textAlign: 'right', fontSize: amtFont, fontWeight: 700, color: 'var(--ink)' }}>{amtStr}</div>
+                      <div style={{ minWidth: isCompact ? 78 : 96, textAlign: 'right', fontSize: amtFont, fontWeight: 700, color: 'var(--ink)' }}>{amtStr}</div>
                     )}
                     {r.claim_count > 1 && !claimable && (
                       <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{r.claim_count} claims</div>
                     )}
-                  </div>
-                  {claimable && <ChevronRight size={16} style={{ color: 'var(--ink-soft)', flexShrink: 0 }} />}
+                  </div>{claimable && <ChevronRight size={isCompact ? 14 : 16} style={{ color: 'var(--ink-soft)', flexShrink: 0 }} />}
                 </div>
               );
             })}
@@ -325,9 +325,9 @@ export default function FroSuspense() {
 
       {showClaimModal && claimReceipt && (
         <div onClick={() => { if (!claiming && !claimSuccess) setShowClaimModal(false) }} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.5)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 16, width: isMobile ? 'calc(100vw - 32px)' : 480, maxWidth: '100%', maxHeight: '90vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.2)', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: '#fff', borderRadius: 16, width: isCompact ? 'calc(100vw - 20px)' : isMobile ? 'calc(100vw - 32px)' : 480, maxWidth: '100%', maxHeight: '90vh', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.2)', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             {/* Header */}
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--line)', background: 'linear-gradient(135deg, #f8fafc 0%, #fff 100%)' }}>
+            <div style={{ padding: isCompact ? '16px 16px' : '20px 24px', borderBottom: '1px solid var(--line)', background: 'linear-gradient(135deg, #f8fafc 0%, #fff 100%)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--sage)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18 }}>
                   <Inbox size={18} />
@@ -340,7 +340,7 @@ export default function FroSuspense() {
             </div>
 
             {/* Content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: isCompact ? 16 : 24 }}>
               {claimSuccess ? (
                 <div style={{ textAlign: 'center', padding: '32px 20px' }}>
                   <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
@@ -441,9 +441,9 @@ export default function FroSuspense() {
                         <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 'normal', marginLeft: 6, color: 'var(--ink-soft)' }}>— editable, shown on the Accounts audit entry</span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                          <input value={claimDName} onChange={e => setClaimDName(e.target.value)} placeholder="Full name" style={{ ...fieldStyle, flex: 1.4 }} />
-                          <input value={claimDMobile} onChange={e => setClaimDMobile(e.target.value)} placeholder="Mobile number" style={{ ...fieldStyle, flex: 1 }} />
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <input value={claimDName} onChange={e => setClaimDName(e.target.value)} placeholder="Full name" style={{ ...fieldStyle, flex: '1.4 1 120px' }} />
+                          <input value={claimDMobile} onChange={e => setClaimDMobile(e.target.value)} placeholder="Mobile number" style={{ ...fieldStyle, flex: '1 1 120px' }} />
                         </div>
                         <div style={{ display: 'flex', gap: 10 }}>
                           <input value={claimDPan} onChange={e => setClaimDPan(e.target.value)} placeholder="PAN (ABCDE1234F)" style={fieldStyle} />
@@ -466,13 +466,13 @@ export default function FroSuspense() {
                         onFocus={e => e.target.style.borderColor = 'var(--sage)'}
                         onBlur={e => e.target.style.borderColor = 'var(--line)'}
                       />
-                      <div style={{ display: 'flex', gap: 10 }}>
+                      <div style={{ display: 'flex', gap: isCompact ? 8 : 10, flexWrap: 'wrap' }}>
                         <input type="date" value={claimDate} onChange={e => setClaimDate(e.target.value)}
-                          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--line)', borderRadius: 10, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none', transition: 'border-color .15s' }}
+                          style={{ flex: '1 1 120px', padding: '10px 12px', border: '1.5px solid var(--line)', borderRadius: 10, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none', transition: 'border-color .15s' }}
                           onFocus={e => e.target.style.borderColor = 'var(--sage)'}
                           onBlur={e => e.target.style.borderColor = 'var(--line)'} />
                         <input type="time" value={claimTime} onChange={e => setClaimTime(e.target.value)}
-                          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid var(--line)', borderRadius: 10, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none', transition: 'border-color .15s' }}
+                          style={{ flex: '1 1 120px', padding: '10px 12px', border: '1.5px solid var(--line)', borderRadius: 10, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none', transition: 'border-color .15s' }}
                           onFocus={e => e.target.style.borderColor = 'var(--sage)'}
                           onBlur={e => e.target.style.borderColor = 'var(--line)'} />
                       </div>
@@ -495,7 +495,7 @@ export default function FroSuspense() {
 
             {/* Footer */}
             {!claimSuccess && (
-              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--line)', background: 'var(--bg)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <div style={{ padding: isCompact ? '12px 16px' : '16px 24px', borderTop: '1px solid var(--line)', background: 'var(--bg)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button onClick={() => setShowClaimModal(false)} disabled={claiming}
                   style={{ padding: '10px 20px', border: '1.5px solid var(--line)', borderRadius: 10, background: '#fff', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', transition: 'all .15s' }}
                   onMouseOver={e => e.currentTarget.style.background = 'var(--bg)'}
@@ -503,7 +503,7 @@ export default function FroSuspense() {
                   Cancel
                 </button>
                 <button onClick={submitClaim} disabled={claiming || !claimDonor}
-                  style={{ padding: '10px 24px', border: 'none', borderRadius: 10, background: 'var(--sage)', color: '#fff', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 2px 8px rgba(91,107,78,.3)', transition: 'all .15s', opacity: (claiming || !claimDonor) ? .5 : 1 }}
+                  style={{ padding: '10px 20px', border: 'none', borderRadius: 10, background: 'var(--sage)', color: '#fff', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 2px 8px rgba(91,107,78,.3)', transition: 'all .15s', opacity: (claiming || !claimDonor) ? .5 : 1 }}
                   onMouseOver={e => { if (!claiming && claimDonor) e.currentTarget.style.transform = 'translateY(-1px)' }}
                   onMouseOut={e => e.currentTarget.style.transform = 'none'}>
                   {claiming ? (

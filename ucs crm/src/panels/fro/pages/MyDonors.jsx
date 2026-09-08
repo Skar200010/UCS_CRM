@@ -189,6 +189,7 @@ const initials = (name) => (name || '').split(' ').map(w => w[0]).slice(0, 2).jo
 
 export default function MyDonors({ embedded = false }) {
   const isMobile = useIsMobile()
+  const isCompact = useIsMobile(480)
   const [donors, setDonors] = useState([]);
   const [total, setTotal] = useState(0);
   const [dataTab, setDataTab] = useState('new');
@@ -1346,7 +1347,7 @@ export default function MyDonors({ embedded = false }) {
     return (
       <div className="detail-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', ...(embedded ? { border: 'none' } : {}) }}>
         {/* Filter bar */}
-        <div style={{ padding: '14px 18px 8px', flexShrink: 0 }}>
+        <div style={{ padding: isCompact ? '10px 10px 6px' : '14px 18px 8px', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <div style={{ display: 'inline-flex', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 10, padding: 3 }}>
               <button onClick={() => setListView('leads')}
@@ -1415,7 +1416,7 @@ export default function MyDonors({ embedded = false }) {
         )}
 
         {/* List */}
-        <div ref={listScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 12px' }}>
+        <div ref={listScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: isCompact ? '8px 8px' : '10px 12px' }}>
           {isHistory && historyLoading ? (
             <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
               Loading history…
@@ -1441,20 +1442,20 @@ export default function MyDonors({ embedded = false }) {
                     onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                     onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.boxShadow = 'var(--shadow)'; e.currentTarget.style.transform = 'none'; }}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      padding: '12px 14px',
+                      display: 'flex', alignItems: 'center', gap: isCompact ? 8 : 12,
+                      padding: isCompact ? '10px 10px' : '12px 14px',
                       background: 'var(--card-bg)', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)',
                       boxShadow: 'var(--shadow)', cursor: 'pointer', transition: 'transform .12s, box-shadow .12s, border-color .12s',
                     }}>
-                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: d.is_disposed ? '#eef2f7' : '#3b82f6', color: d.is_disposed ? '#64748b' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
+                    <div style={{ width: isCompact ? 34 : 40, height: isCompact ? 34 : 40, borderRadius: '50%', background: d.is_disposed ? '#eef2f7' : '#3b82f6', color: d.is_disposed ? '#64748b' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isCompact ? 12 : 14, fontWeight: 700, flexShrink: 0 }}>
                       {initials(d.donor_name || '')}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: isCompact ? 6 : 8 }}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.donor_name || 'Unknown'}</span>
+                          <span style={{ fontSize: isCompact ? 12.5 : 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.donor_name || 'Unknown'}</span>
                           {d.is_new && (
-                            <span style={{ flexShrink: 0, padding: '1px 6px', borderRadius: 999, background: '#16a34a', color: '#fff', fontSize: 9, fontWeight: 700 }}>NEW</span>
+                            <span style={{ flexShrink: 0, padding: '1px 6px', borderRadius: 999, background: '#16a34a', color: '#fff', fontSize: isCompact ? 8 : 9, fontWeight: 700 }}>NEW</span>
                           )}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -1479,7 +1480,7 @@ export default function MyDonors({ embedded = false }) {
                         ) : statusPill(d.status)}
                       </div>
                     </div>
-                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--sage)', flexShrink: 0 }}>chevron_right</span>
+                    <span className="material-symbols-outlined" style={{ fontSize: isCompact ? 15 : 16, color: 'var(--sage)', flexShrink: 0 }}>chevron_right</span>
                   </div>
                 );
               })}
