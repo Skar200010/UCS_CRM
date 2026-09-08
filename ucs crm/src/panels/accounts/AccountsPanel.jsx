@@ -7,7 +7,7 @@ import NotificationDrawer from '../../components/NotificationDrawer'
 import { api } from '../../api/auth'
 import { requestNotifPermission, showDesktopNotification } from '../../utils/desktopNotif'
 import { useRealtime } from '../../hooks/useRealtime'
-import ToastContainer from '../../components/Toast'
+import ToastContainer, { toast } from '../../components/Toast'
 import SpecialIncentive from '../../components/SpecialIncentive'
 import LeadAudit from './pages/LeadAudit'
 import Reports from './pages/Reports'
@@ -269,6 +269,35 @@ export default function AccountsPanel() {
     onInsert: () => loadNotifications(),
     enabled: !!user?.id,
   });
+
+  const seenAccountTicketsRef = useRef(null);
+  useEffect(() => {
+    const checkNewTickets = async () => {
+      try {
+        const data = await api('/tickets', { _prefix: 'ucs' });
+        if (!Array.isArray(data)) return;
+        const queue = data.filter(t => ['suspense', 'payment_issue', 'receipt_issue'].includes(t.category));
+        const keys = queue.map(t => `regular:${t.id}`);
+        if (seenAccountTicketsRef.current === null) {
+          seenAccountTicketsRef.current = new Set(keys);
+          return;
+        }
+        const fresh = queue.filter(t => !seenAccountTicketsRef.current.has(`regular:${t.id}`));
+        fresh.forEach(t => seenAccountTicketsRef.current.add(`regular:${t.id}`));
+        if (fresh.length === 0) return;
+        const others = fresh.filter(t => t.raised_by_panel !== 'accounts');
+        if (others.length === 1) {
+          const t = others[0];
+          toast(`New ticket raised by ${t.workers?.name || t.raised_by_name || 'Someone'}: ${t.subject}`, 'info');
+        } else if (others.length > 1) {
+          toast(`${others.length} new tickets received`, 'info');
+        }
+      } catch (err) { console.error('Ticket watcher:', err.message); }
+    };
+    checkNewTickets();
+    const id = setInterval(checkNewTickets, 30000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (themes[themeName]) {
