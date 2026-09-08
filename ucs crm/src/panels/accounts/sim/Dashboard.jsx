@@ -6,6 +6,38 @@ import { toast } from '../../../components/Toast';
 import { fetchReplacements } from './api';
 import { effectiveStatus, dayClass, formatDate, pillForStatus } from './helpers';
 
+const UFS_NGOS = ['BSCT', 'MANN', 'AFLF'];
+function normUfs(v) { return String(v || '').trim().toUpperCase(); }
+function ngoOf(c) { return String(c.use_for || c.ngo || '').trim().toUpperCase(); }
+function getUfsCount(records, team, countSims) {
+  return records.filter((c) => normUfs(c.team) === normUfs(team)).reduce((sum, c) => sum + countSims(c), 0);
+}
+function getNgoCountByUfs(records, team, ngo, countSims) {
+  return records.filter((c) => normUfs(c.team) === normUfs(team) && ngoOf(c) === ngo).reduce((sum, c) => sum + countSims(c), 0);
+}
+function countSlotNgo(records, team, ngo) {
+  let n = 0;
+  records.forEach((c) => {
+    if (normUfs(c.team) !== normUfs(team)) return;
+    for (let i = 1; i <= 4; i++) {
+      const slot = c[`sim_${i}`];
+      if (slot && String(slot).trim() && !['NA', 'NO SIM', 'NOT SHOW NO'].includes(String(slot).trim().toUpperCase()) && normUfs(c[`w${i}_name`]) === ngo) n += 1;
+    }
+  });
+  return n;
+}
+function countNgoSlots(records, team) {
+  let n = 0;
+  records.forEach((c) => {
+    if (normUfs(c.team) !== normUfs(team)) return;
+    for (let i = 1; i <= 4; i++) {
+      const slot = c[`sim_${i}`];
+      if (slot && String(slot).trim() && !['NA', 'NO SIM', 'NOT SHOW NO'].includes(String(slot).trim().toUpperCase()) && UFS_NGOS.includes(normUfs(c[`w${i}_name`]))) n += 1;
+    }
+  });
+  return n;
+}
+
 function Donut({ segments, total }) {
   const r = 44;
   const c = 2 * Math.PI * r;
@@ -147,7 +179,7 @@ function MobileSummaryModal({ open, mobileType, cardType, records, onClose }) {
   );
 }
 
-function UfsDistributionModal({ open, category, records, onClose }) {
+function UfsDistributionModal({ open, category, records, onClose, mode }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -162,13 +194,13 @@ function UfsDistributionModal({ open, category, records, onClose }) {
   const SIM_FIELDS = Array.from({ length: 20 }, (_, i) => `sim_${i + 1}`);
   function countSims(c) { return SIM_FIELDS.filter((f) => c[f] && String(c[f]).trim() && !['NA', 'NO SIM', 'NOT SHOW NO'].includes(String(c[f]).trim().toUpperCase())).length; }
 
-  const ngoMap = {};
-  records.forEach((c) => {
-    if ((c.team || '').trim().toUpperCase() !== category.toUpperCase()) return;
-    const ngo = (c.ngo || '').trim() || 'Unassigned';
-    ngoMap[ngo] = (ngoMap[ngo] || 0) + countSims(c);
-  });
-  const ngoRows = Object.entries(ngoMap).sort((a, b) => b[1] - a[1]);
+  const countNgo = mode === 'zero'
+    ? () => 0
+    : mode === 'slot'
+      ? (records, team, ngo) => countSlotNgo(records, team, ngo)
+      : (records, team, ngo) => getNgoCountByUfs(records, team, ngo, countSims);
+
+  const ngoRows = UFS_NGOS.map((ngo) => [ngo, countNgo(records, category, ngo)]);
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -182,16 +214,16 @@ function UfsDistributionModal({ open, category, records, onClose }) {
         </div>
         <div className="modal-body">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14 }}>
-            {ngoRows.length === 0 ? (
-              <div style={{ fontSize: 13, color: 'var(--sim-ink-soft)' }}>No SIMs found for {category}.</div>
-            ) : (
-              ngoRows.map(([ngo, count]) => (
-                <div key={ngo} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '18px 16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--sim-ink)', marginBottom: 6 }}>{ngo}</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: '#2563eb', lineHeight: 1 }}>{count}</div>
-                </div>
-              ))
-            )}
+            {ngoRows.map(([ngo, count]) => (
+              <div key={ngo} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '18px 16px', textAlign: 'center' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--sim-ink)', marginBottom: 6 }}>{ngo}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#2563eb', lineHeight: 1 }}>{count}</div>
+              </div>
+            ))}
+            <div key="Total" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '18px 16px', textAlign: 'center' }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--sim-ink)', marginBottom: 6 }}>Total</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: '#2563eb', lineHeight: 1 }}>{ngoRows.reduce((s, [, v]) => s + v, 0)}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -231,6 +263,7 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
 
     const urgent = enriched
       .filter((c) => c._status === 'Expiring Soon' || c._status === 'Expired')
+      .filter((c) => (c.mobile_id || '').trim().toLowerCase() !== 'android 1')
       .sort((a, b) => (a.days_left ?? 9999) - (b.days_left ?? 9999))
       .slice(0, 8);
 
@@ -275,6 +308,20 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
 
   const nokiaCards = data.enriched.filter((c) => (c.mobile_id || '').toLowerCase().startsWith('ufrs'));
   const androidCards = data.enriched.filter((c) => { const id = (c.mobile_id || '').toLowerCase(); return id.startsWith('android ') && !id.startsWith('android whatsapp'); });
+  const whatsappMap = useMemo(() => {
+    const map = {};
+    cards.forEach((c) => {
+      const m = String(c.mobile_id || '').match(/^android whatsapp\s+(\d+)/i);
+      if (m) map[m[1]] = c;
+    });
+    return map;
+  }, [cards]);
+  const androidNgoCards = androidCards.map((c) => {
+    const mm = String(c.mobile_id || '').match(/^android\s+(\d+)$/i);
+    const w = mm ? whatsappMap[mm[1]] : null;
+    if (!w) return c;
+    return { ...c, w1_name: w.w1_name, sim_1: w.sim_1, w2_name: w.w2_name, sim_2: w.sim_2, w3_name: w.w3_name, sim_3: w.sim_3, w4_name: w.w4_name, sim_4: w.sim_4 };
+  });
 
   if (loading && cards.length === 0) {
     return <div className="empty-state"><div className="big">Loading SIM data...</div></div>;
@@ -290,7 +337,6 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
   const statusSegments = [
     { label: 'Active', value: data.active, color: '#16a34a' },
     { label: 'Expiring Soon', value: data.expiring, color: '#d97706' },
-    { label: 'Expired', value: data.expired, color: '#dc2626' },
   ];
 
   const invItems = [
@@ -302,7 +348,6 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
 
   const statusSumAll = statusSegments.reduce((s, x) => s + x.value, 0) || 1;
   const expiryItems = [
-    { label: 'Expired', val: data.buckets.expired, color: '#dc2626' },
     { label: 'Expiring in 5 Days', val: data.buckets.exp7, color: '#d97706' },
     { label: 'Expiring in 28 Days', val: data.buckets.exp30, color: '#f59e0b' },
     { label: 'Active for 28+ Days', val: data.buckets.ok30, color: '#16a34a' },
@@ -402,10 +447,9 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
           {(() => {
             const teamMap = {};
             nokiaCards.forEach((c) => { const t = c.team || 'Unassigned'; teamMap[t] = (teamMap[t] || 0) + countSims(c); });
-            const teamRows = Object.entries(teamMap)
-              .filter(([team]) => /^ufs\s*\d+$/i.test((team || '').trim()))
-              .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-              .concat([['Locker', teamMap['Locker'] || 0], ['HR', teamMap['HR'] || 0]]);
+            const teamRows = [1, 2, 3, 4, 5]
+              .map((n) => [`UFS ${n}`, getUfsCount(nokiaCards, `UFS ${n}`, countSims)])
+              .concat([['Locker', nokiaCards.filter((c) => normUfs(c.team) === 'LOCKER').length], ['HR', teamMap['HR'] || 0]]);
             return (
               <div style={{ padding: '14px 18px', display: 'flex', flexWrap: 'nowrap', gap: 12, justifyContent: 'space-between' }}>
                 {teamRows.map(([team, count]) => {
@@ -439,8 +483,8 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
             const teamMap = {};
             androidCards.forEach((c) => { const t = c.team || 'Unassigned'; teamMap[t] = (teamMap[t] || 0) + countSims(c); });
             const order = ['UFS 1', 'UFS 2', 'UFS 3', 'UFS 4', 'UFS 5', 'Locker', 'Accounts', 'Social Media', 'Reception', 'Admin'];
-            const teamRows = order.map((team) => [team, teamMap[team] || 0]);
-            const rows = [teamRows.slice(0, 5), teamRows.slice(5, 10)];
+            const teamRows = order.map((team) => [/^ufs\s*\d+$/i.test(team) ? androidCards.filter((c) => normUfs(c.team) === normUfs(team)).length : (teamMap[team] || 0), team]);
+            const rows = [teamRows.slice(0, 5).map(([count, t]) => [t, count]), teamRows.slice(5, 10).map(([count, t]) => [t, count])];
             return (
               <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {rows.map((row, ri) => (
@@ -483,13 +527,15 @@ export default function Dashboard({ onAdd, onView, onEdit, onReplace }) {
         open={!!ufsModal}
         category={ufsModal}
         records={nokiaCards}
+        mode="zero"
         onClose={() => setUfsModal(null)}
       />
 
       <UfsDistributionModal
         open={!!androidUfsModal}
         category={androidUfsModal}
-        records={androidCards}
+        records={androidNgoCards}
+        mode="slot"
         onClose={() => setAndroidUfsModal(null)}
       />
 
