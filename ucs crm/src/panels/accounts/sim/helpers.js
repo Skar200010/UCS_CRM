@@ -105,6 +105,16 @@ export const EXPORT_COLUMNS = [
   'Sim Expiry Days Left',
   'Sim 1',
   'Sim 2',
+  'NGO 1',
+  'W1 Number',
+  'NGO 2',
+  'W2 Number',
+  'NGO 3',
+  'W3 Number',
+  'NGO 4',
+  'W4 Number',
+  'Sim 3',
+  'Sim 4',
   'Sim Card Repla. Count',
 ];
 
@@ -121,6 +131,16 @@ function baseRow(c) {
     c.days_left !== undefined && c.days_left !== null ? c.days_left : daysLeft(c.expiry_date),
     c.sim_1 || '',
     c.sim_2 || '',
+    c.w1_name || '',
+    c.sim_1 || '',
+    c.w2_name || '',
+    c.sim_2 || '',
+    c.w3_name || '',
+    c.sim_3 || '',
+    c.w4_name || '',
+    c.sim_4 || '',
+    c.sim_3 || '',
+    c.sim_4 || '',
     c.replacement_count || 0,
   ];
 }

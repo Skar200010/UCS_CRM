@@ -33,6 +33,8 @@ function SectionInner() {
   const sim = useSim()
   const location = useLocation()
   const isOwner = location.pathname.endsWith('/owner')
+  const isDashboard = location.pathname === '/accounts/sim' || location.pathname.endsWith('/sim/dashboard') || location.pathname.endsWith('/sim')
+  const isInventory = location.pathname.endsWith('/sim/inventory') || location.pathname.endsWith('/sim/cards')
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -43,6 +45,7 @@ function SectionInner() {
   const [importOpen, setImportOpen] = useState(false)
   const [deleteCard, setDeleteCard] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [simName, setSimName] = useState('All')
 
   useEffect(() => { sim.refresh(); /* eslint-disable-next-line */ }, [])
 
@@ -72,20 +75,39 @@ function SectionInner() {
     }
   }
 
+  function filteredCards() {
+    const id = (c) => (c.mobile_id || '').toLowerCase()
+    let list
+    if (simName === 'Android') list = sim.cards.filter((c) => id(c).startsWith('android ') && !id(c).startsWith('android whatsapp'))
+    else if (simName === 'Nokia') list = sim.cards.filter((c) => id(c).startsWith('ufrs'))
+    else list = sim.cards.filter((c) => !id(c).startsWith('android whatsapp'))
+    if (simName !== 'Nokia') {
+      const wmap = {}
+      sim.cards.forEach((c) => { const m = String(c.mobile_id || '').match(/^android whatsapp\s+(\d+)/i); if (m) wmap[m[1]] = c })
+      list = list.map((c) => {
+        const mm = String(c.mobile_id || '').match(/^android\s+(\d+)$/i)
+        const w = mm ? wmap[mm[1]] : null
+        if (!w) return c
+        return { ...c, w1_name: w.w1_name, sim_1: w.sim_1, w2_name: w.w2_name, sim_2: w.sim_2, w3_name: w.w3_name, sim_3: w.sim_3, w4_name: w.w4_name, sim_4: w.sim_4 }
+      })
+    }
+    return list
+  }
+
   return (
     <div className="sim-scope">
       <div className="sim-actions" style={{ marginBottom: 16, justifyContent: 'flex-end' }}>
-        {!isOwner && <>
-          <button className="sim-btn" onClick={() => setImportOpen(true)}>Import</button>
-          <button className="sim-btn" onClick={() => exportToCSV(sim.cards)}>Export CSV</button>
-          <button className="sim-btn" onClick={() => exportToExcel(sim.cards)}>Export</button>
+        {!isOwner && !isDashboard && <>
+          {!isInventory && <button className="sim-btn" onClick={() => setImportOpen(true)}>Import</button>}
+          <button className="sim-btn" onClick={() => exportToCSV(filteredCards())}>Export CSV</button>
+          <button className="sim-btn" onClick={() => exportToExcel(filteredCards())}>Export</button>
         </>}
       </div>
 
       <Routes>
         <Route index element={<Dashboard onAdd={openAdd} onView={setViewCard} onEdit={openEdit} onReplace={setReplaceCard} />} />
         <Route path="dashboard" element={<Dashboard onAdd={openAdd} onView={setViewCard} onEdit={openEdit} onReplace={setReplaceCard} />} />
-        <Route path="inventory" element={<Inventory onAdd={openAdd} onView={setViewCard} onEdit={openEdit} onReplace={setReplaceCard} onDelete={(c) => setDeleteCard(c)} onHistory={setHistoryCard} />} />
+        <Route path="inventory" element={<Inventory simName={simName} onSimNameChange={setSimName} onAdd={openAdd} onView={setViewCard} onEdit={openEdit} onReplace={setReplaceCard} onDelete={(c) => setDeleteCard(c)} onHistory={setHistoryCard} />} />
         <Route path="cards" element={<SimInventory />} />
         <Route path="expiring" element={<Expiring onView={setViewCard} onEdit={openEdit} onReplace={setReplaceCard} />} />
         <Route path="reports" element={<Reports />} />
