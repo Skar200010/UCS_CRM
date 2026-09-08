@@ -26,7 +26,7 @@ const HOT_TABLES = ['receipts', 'fro_assignments', 'fro_donor_logs', 'bank_audit
 export async function runDbHealthCheck() {
   const findings = [];
 
-  const longRunning = await db.query(`
+  const longRunning = await db._pool.query(`
     SELECT pid, usename, state, wait_event_type, wait_event,
            round(extract(epoch FROM (now() - query_start)))::int AS age_s,
            left(query, 300) AS query
@@ -45,7 +45,7 @@ export async function runDbHealthCheck() {
     });
   }
 
-  const tab = await db.query(`
+  const tab = await db._pool.query(`
     SELECT relname, seq_scan, seq_tup_read,
            coalesce(idx_scan, 0) AS idx_scan
     FROM pg_stat_user_tables
