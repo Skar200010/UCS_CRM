@@ -38,10 +38,7 @@ const NOKIA_COLUMNS = [
   { key: 'device_model', label: 'Device & Model Name' },
   { key: 'imei', label: 'IMEI No.' },
   { key: 'status', label: 'Sim Card Status' },
-  { key: 'use_for', label: 'USE FOR' },
-  { key: 'team_leader_name', label: 'TEAM LEADER Name' },
-  { key: 'user_name', label: 'USER NAME' },
-  { key: 'team', label: 'Owner' },
+  { key: 'team', label: 'Team' },
   { key: 'remark', label: 'Remark' },
   { key: 'issue_date', label: 'Sim Card Issue Date' },
   { key: 'expiry_date', label: 'Auto Expiry Date' },
@@ -234,7 +231,7 @@ export default function Inventory({ onAdd, onView, onEdit, onReplace, onDelete, 
           {(simName === 'Nokia' ? ['All', ...nokiaStatuses] : STATUS_FILTERS).map((s) => <option key={s}>{s}</option>)}
         </select>
         <select className="sim-select" value={owner} onChange={(e) => setOwner(e.target.value)}>
-          <option value="All">All Owners</option>
+          <option value="All">All Team</option>
           {OWNER_UFS.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
         <select className="sim-select" value={remark} onChange={(e) => setRemark(e.target.value)}>

@@ -7,7 +7,6 @@ const BILL_ACCOUNTS = [
       { num: '9967699295', role: 'Secondary', family: '', owner: 'Priyank Shah' },
       { num: '9892268000', role: 'Secondary', family: '', owner: 'Priyank Shah' },
       { num: '9930028300', role: 'Secondary', family: '', owner: 'Priyank Shah' },
-      { num: '7039006200', role: 'Secondary', family: '', owner: 'Suraj Patil' },
       { num: '7039006300', role: 'Secondary', family: '', owner: 'Anjana Vyas' },
       { num: '7039006400', role: 'Secondary', family: '', owner: 'Anjana Vyas' },
     ],
