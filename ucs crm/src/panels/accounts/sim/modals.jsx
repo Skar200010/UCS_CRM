@@ -22,6 +22,7 @@ export function SimFormModal({ open, onClose, card, onSaved }) {
   );
   const [extra, setExtra] = useState({
     team: card?.team || '',
+    owner: card?.owner || '',
     signature: card?.signature || '',
     ngo: card?.ngo || '',
     sim_type: card?.sim_type || '',
@@ -77,6 +78,7 @@ export function SimFormModal({ open, onClose, card, onSaved }) {
       ...form,
       ...simFields,
       team: extra.team,
+      owner: extra.owner,
       signature: extra.signature,
       ngo: extra.ngo,
       sim_type: extra.sim_type || null,
@@ -122,6 +124,7 @@ export function SimFormModal({ open, onClose, card, onSaved }) {
             <Field label="GB" value={extra.gb} onChange={(v) => setE('gb', v)} placeholder="e.g. 64 GB" />
             <Field label="IMEI No." value={form.imei} onChange={(v) => set('imei', v)} />
             <Field label="Team" value={extra.team} onChange={(v) => setE('team', v)} />
+            <Field label="Owner" value={extra.owner} onChange={(v) => setE('owner', v)} />
             <Field label="NGO" value={extra.ngo} onChange={(v) => setE('ngo', v)} />
             <Field label="Remark" value={extra.signature} onChange={(v) => setE('signature', v)} />
             <div className="form-row">
@@ -351,6 +354,7 @@ const HISTORY_FIELD_LABELS = {
   gb: 'GB',
   imei: 'IMEI No.',
   team: 'Team',
+  owner: 'Owner',
   signature: 'Remark',
   ngo: 'NGO',
   sim_type: 'SIM Type',

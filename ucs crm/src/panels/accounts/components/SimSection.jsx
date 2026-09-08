@@ -5,7 +5,7 @@ import { SimFormModal, SimViewModal, ReplaceModal, SimHistoryModal } from '../si
 import { ImportModal, DeleteConfirmModal } from '../sim/ImportModal'
 import { deleteSimCard } from '../sim/api'
 import { toast } from '../../../components/Toast'
-import { exportToCSV, exportToExcel } from '../sim/helpers'
+import { exportToCSV, exportToExcel, ANDROID_EXPORT_COLUMNS, androidExportRow, NOKIA_EXPORT_COLUMNS, nokiaExportRow } from '../sim/helpers'
 import Dashboard from '../sim/Dashboard'
 import Inventory from '../sim/Inventory'
 import SimInventory from '../sim/SimInventory'
@@ -99,8 +99,22 @@ function SectionInner() {
       <div className="sim-actions" style={{ marginBottom: 16, justifyContent: 'flex-end' }}>
         {!isOwner && !isDashboard && <>
           {!isInventory && <button className="sim-btn" onClick={() => setImportOpen(true)}>Import</button>}
-          <button className="sim-btn" onClick={() => exportToCSV(filteredCards())}>Export CSV</button>
-          <button className="sim-btn" onClick={() => exportToExcel(filteredCards())}>Export</button>
+          {simName === 'Android' ? (
+            <>
+              <button className="sim-btn" onClick={() => exportToCSV(filteredCards(), ANDROID_EXPORT_COLUMNS, androidExportRow)}>Export CSV</button>
+              <button className="sim-btn" onClick={() => exportToExcel(filteredCards(), ANDROID_EXPORT_COLUMNS, androidExportRow)}>Export</button>
+            </>
+          ) : simName === 'Nokia' ? (
+            <>
+              <button className="sim-btn" onClick={() => exportToCSV(filteredCards(), NOKIA_EXPORT_COLUMNS, nokiaExportRow)}>Export CSV</button>
+              <button className="sim-btn" onClick={() => exportToExcel(filteredCards(), NOKIA_EXPORT_COLUMNS, nokiaExportRow)}>Export</button>
+            </>
+          ) : (
+            <>
+              <button className="sim-btn" onClick={() => exportToCSV(filteredCards())}>Export CSV</button>
+              <button className="sim-btn" onClick={() => exportToExcel(filteredCards())}>Export</button>
+            </>
+          )}
         </>}
       </div>
 
