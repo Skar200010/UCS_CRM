@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { apiGet, apiPut, apiPost } from '../api/auth';
+import { useState, useEffect } from 'react';
+import { apiGet, apiPut, apiPost, apiDelete } from '../api/auth';
 import { toast } from '../../../components/Toast';
 import { deptLabel } from '../../../lib/labels';
 import { routeFor, routeLabel } from '../../../lib/ticketRouting';
@@ -51,7 +51,6 @@ export default function AccountsTickets() {
   const [replyText, setReplyText] = useState('');
   const [resolution, setResolution] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
-  const seenTicketsRef = useRef(null);
 
   const [showRaise, setShowRaise] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -82,19 +81,6 @@ export default function AccountsTickets() {
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
       const queueTickets = allTickets.filter(t => ACCOUNTS_QUEUE_CATEGORIES.includes(t.category));
-      const keys = queueTickets.map(t => `${t._source}:${t.id}`);
-      if (seenTicketsRef.current === null) {
-        seenTicketsRef.current = new Set(keys);
-      } else {
-        const fresh = queueTickets.filter(t => !seenTicketsRef.current.has(`${t._source}:${t.id}`));
-        fresh.forEach(t => seenTicketsRef.current.add(`${t._source}:${t.id}`));
-        if (fresh.length === 1) {
-          const t = fresh[0];
-          toast(`New ticket raised by ${t.workers?.name || t.raised_by_name || 'Someone'}: ${t.subject}`, 'info');
-        } else if (fresh.length > 1) {
-          toast(`${fresh.length} new tickets received`, 'info');
-        }
-      }
 
       setTickets(queueTickets);
       setLastUpdated(new Date());
@@ -179,7 +165,15 @@ export default function AccountsTickets() {
           toast('Please provide a resolution note', 'warning');
           return;
         }
-        await apiPut(`${endpoint}/${showDetail.id}/resolve`, { resolution });
+        try {
+          await apiPut(`${endpoint}/${showDetail.id}`, { status: 'resolved', resolution });
+        } catch (resolveErr) {
+          if (/request failed: 404|request failed: 405|not found/i.test(resolveErr.message)) {
+            await apiPut(`${endpoint}/${showDetail.id}/resolve`, { resolution });
+          } else {
+            throw resolveErr;
+          }
+        }
         await apiPost(`${endpoint}/${showDetail.id}/reply`, { message: resolution });
         toast('Ticket resolved successfully', 'success');
       } else {
@@ -208,6 +202,17 @@ export default function AccountsTickets() {
       setReplies(data.replies || []);
     } catch (err) { alert(err.message); }
     finally { setSendingReply(false); }
+  };
+
+  const handleDelete = async (ticket) => {
+    if (!window.confirm('Delete this ticket permanently?')) return;
+    try {
+      const endpoint = ticket._source === 'developer' ? '/developer-tickets' : '/tickets';
+      await apiDelete(`${endpoint}/${ticket.id}`);
+      setShowDetail(sd => (sd && (sd.id === ticket.id && (sd._source || 'regular') === (ticket._source || 'regular')) ? null : sd));
+      toast('Ticket deleted', 'success');
+      load(true);
+    } catch (err) { toast(err.message, 'error'); }
   };
 
   const totalCount = tickets.length;
@@ -294,9 +299,15 @@ export default function AccountsTickets() {
                     </td>
                     <td style={{ fontSize: 11 }}>{new Date(t.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
                     <td>
-                      <button className="btn btn-sm" onClick={() => openDetail(t)} style={{ fontSize: 11, padding: '2px 8px' }}>
-                        View
-                      </button>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-sm" onClick={() => openDetail(t)} style={{ fontSize: 11, padding: '2px 8px' }}>
+                          View
+                        </button>
+                        <button className="btn btn-sm" onClick={() => handleDelete(t)}
+                          style={{ fontSize: 11, padding: '2px 8px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -412,9 +423,15 @@ export default function AccountsTickets() {
                   Raised by <strong>{showDetail.workers?.name || 'Unknown'}</strong> &middot; {new Date(showDetail.created_at).toLocaleString('en-IN')}
                 </div>
               </div>
-              <button className="btn btn-sm btn-icon" onClick={() => setShowDetail(null)} style={{ padding: 4 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                <button className="btn btn-sm" onClick={() => handleDelete(showDetail)}
+                  style={{ fontSize: 11, background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                  Delete
+                </button>
+                <button className="btn btn-sm btn-icon" onClick={() => setShowDetail(null)} style={{ padding: 4 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
+            </div>
             </div>
             <div className="modal-body" style={{ flex: 1, overflowY: 'auto' }}>
               {showDetail.description && (
