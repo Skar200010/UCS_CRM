@@ -5258,6 +5258,39 @@ export function computeReportWorkingDays({ month, today, ngoId, holidayDates, fu
   return { count, lastSundayISO };
 }
 
+// Working days left from tomorrow until the end of the selected month. Past
+// months -> 0; future months -> the full month's working days. The current
+// month keeps the working-Sunday rule: every Sunday except the last (working)
+// counts as non-working, and configured holidays are excluded. `todayISO` is
+// the IST date string YYYY-MM-DD.
+function computeWorkingDaysLeft({ month, todayISO, holidayDates }) {
+  const [y, m] = month.split('-').map(Number);
+  const [ty, tm, td] = String(todayISO || '').split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const holiday = new Set((holidayDates || []).map((d) => String(d).slice(0, 10)));
+
+  if (y > ty || (y === ty && m > tm)) {
+    return computeReportWorkingDays({ month, holidayDates: [...holiday], fullMonth: true }).count;
+  }
+  if (y < ty || (y === ty && m < tm) || !td) return 0;
+  if (td >= lastDay) return 0;
+
+  let lastSunday = null;
+  for (let d = lastDay; d >= 1; d--) {
+    if (new Date(y, m - 1, d).getDay() === 0) { lastSunday = d; break; }
+  }
+
+  let left = 0;
+  for (let d = td + 1; d <= lastDay; d++) {
+    const iso = `${month}-${String(d).padStart(2, '0')}`;
+    const dow = new Date(y, m - 1, d).getDay();
+    if (dow === 0 && d !== lastSunday) continue; // all Sundays except the last (working)
+    if (holiday.has(iso)) continue;
+    left++;
+  }
+  return left;
+}
+
 // GET /accounts/report-targets
 export const getReportTargets = async (req, res) => {
   try {
@@ -5544,6 +5577,8 @@ export const getReportData = async (req, res) => {
       const targetDaily = workingDaysSoFar > 0 ? ngoTarget / workingDaysSoFar : 0;
       const actualAvg = daysElapsed > 0 ? total / daysElapsed : 0;
       const workingDaysFull = isNgo ? (computeReportWorkingDays({ month, holidayDates: holidayByNgo[n], fullMonth: true }).count || 0) : 0;
+      const workingDaysLeft = isNgo ? computeWorkingDaysLeft({ month, todayISO: todayStr, holidayDates: holidayByNgo[n] }) : 0;
+      const avgPerDay = workingDaysLeft > 0 ? Math.max(0, ngoTarget - total) / workingDaysLeft : 0;
       ngoRows.push({
         id: n,
         name: (ngoList.find((g) => g.id === n) || {}).name || bucketLabel[n] || n,
@@ -5553,6 +5588,8 @@ export const getReportData = async (req, res) => {
         daysElapsed,
         workingDaysSoFar,
         workingDaysFull,
+        workingDaysLeft,
+        avgPerDay,
         targetDaily,
         actualAvg,
         diff: actualAvg - targetDaily,
@@ -5576,6 +5613,7 @@ export const getReportData = async (req, res) => {
         sundays,
         workingSundays: 1,
         workingDays,
+        workingDaysLeft: computeWorkingDaysLeft({ month, todayISO: todayStr, holidayDates: [...unionHolidays] }),
         holidays: lastDay - sundays + 1 - workingDays,
         lastSundayISO,
       };
