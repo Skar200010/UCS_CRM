@@ -2215,8 +2215,8 @@ export const fixAndQueueReceipt = async (req, res) => {
 
     if (updated?.donor_id) {
       try {
-        const workerId = await resolveAgentToWorker(updated.agent_name);
-        const ensured = await ensureAssignmentForDonorReceipt({ receipt: updated, workerId });
+        const worker = await resolveAgentToWorker(updated.agent_name);
+        const ensured = await ensureAssignmentForDonorReceipt({ receipt: updated, workerId: worker?.id });
         if (ensured?.created && updated.agent_name) {
           actions.push(`created assignment for ${updated.agent_name}`);
         }
@@ -4448,11 +4448,12 @@ export const backfillReceiptAssignments = async (req, res) => {
     const now = new Date().toISOString();
 
     for (const row of byDonorNgo.values()) {
-      const workerId = await resolveAgentToWorker(row.agent_name);
-      if (!workerId) {
+      const worker = await resolveAgentToWorker(row.agent_name);
+      if (!worker?.id) {
         skippedUnresolved.push({ donor_id: row.donor_id, ngo_id: row.ngo_id, agent_name: row.agent_name });
         continue;
       }
+      const workerId = worker.id;
 
       const { data: existing } = await db.from('fro_assignments')
         .select('id, status')
@@ -5393,11 +5394,11 @@ export const updateReceipt = async (req, res) => {
     const finalDonorId = linkDonorId || updated?.donor_id || null;
     if (finalDonorId && newAgentName && !['suspense', 'pg', 'library'].includes(newAgentName.toLowerCase())) {
       try {
-        const workerId = await resolveAgentToWorker(newAgentName);
-        if (workerId) {
+        const worker = await resolveAgentToWorker(newAgentName);
+        if (worker?.id) {
           await ensureAssignmentForDonorReceipt({
             receipt: { ...updated, donor_id: finalDonorId, agent_name: newAgentName, station: receiptPatch.station ?? updated.station ?? null },
-            workerId,
+            workerId: worker.id,
           });
         }
       } catch (err) {

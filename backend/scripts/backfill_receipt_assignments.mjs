@@ -215,7 +215,7 @@ async function main() {
     const now = new Date().toISOString();
 
     for (const row of byDonorNgo.values()) {
-      const workerId = await resolveAgentToWorker(row.agent_name);
+      const workerId = (await resolveAgentToWorker(row.agent_name))?.id;
 
       const existing = await client.query(
         `SELECT id, status FROM fro_assignments
