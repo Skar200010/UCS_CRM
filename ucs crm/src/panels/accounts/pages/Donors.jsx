@@ -1227,11 +1227,14 @@ export default function Donors() {
         .donors-panel { overflow: visible; }
         .donors-panel > .filter-bar { padding: 14px 16px; margin: 0; border-bottom: 1px solid var(--line); background: #fff; }
         .table-wrap { overflow-x: auto; }
-        .donors-table { table-layout: fixed; width: 100%; min-width: 760px; border-collapse: separate; border-spacing: 0; }
-        .donors-table th { font-size: 10.5px; font-weight: 700; letter-spacing: .8px; color: var(--ink-soft); text-transform: uppercase; padding: 11px 14px; text-align: left; background: #fafbf8; border-bottom: 1px solid var(--line); }
-        .donors-table td { padding: 11px 14px; vertical-align: top; border-bottom: 1px solid var(--line); background: #fff; }
-        .donors-table tbody tr:hover td { background: #fbfcfa; }
-        .donors-table tr:last-child td { border-bottom: none; }
+        /* The shared Accounts table rules are more specific than the generic
+           table styles below. Keep this table scoped so every cell shares the
+           same row track when the assignment list contains multiple items. */
+        .panel-accounts .donors-table { table-layout: fixed; width: 100%; min-width: 760px; border-collapse: separate !important; border-spacing: 0; }
+        .panel-accounts .donors-table th { font-size: 10.5px; font-weight: 700; letter-spacing: .8px; color: var(--ink-soft); text-transform: uppercase; padding: 11px 14px; text-align: left; background: #fafbf8; border-bottom: 1px solid var(--line); }
+        .panel-accounts .donors-table td { padding: 11px 14px; vertical-align: top; border-bottom: 1px solid var(--line); background: #fff; }
+        .panel-accounts .donors-table tbody tr:hover td { background: #fbfcfa; }
+        .panel-accounts .donors-table tr:last-child td { border-bottom: none; }
         .th-actions { text-align: center !important; }
         .donor-cell { position: relative; display: flex; align-items: center; gap: 10px; }
         .donor-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--sage); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }

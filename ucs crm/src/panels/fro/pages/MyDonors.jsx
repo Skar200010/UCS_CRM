@@ -187,7 +187,7 @@ function useTomorrowStr() {
 
 const initials = (name) => (name || '').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
-export default function MyDonors() {
+export default function MyDonors({ embedded = false }) {
   const isMobile = useIsMobile()
   const [donors, setDonors] = useState([]);
   const [total, setTotal] = useState(0);
@@ -261,8 +261,11 @@ export default function MyDonors() {
   // MY LEADS list view: the currently opened lead (null = showing the list).
   const [activeDonor, setActiveDonor] = useState(null);
   const [listStatusFilter, setListStatusFilter] = useState('all');
-  const [listHideDonated, setListHideDonated] = useState(false);
+  const [listHideDonated, setListHideDonated] = useState(true);
   const [listView, setListView] = useState('leads'); // 'leads' | 'history'
+  useEffect(() => {
+    if (listView === 'leads' && listStatusFilter !== 'all' && listStatusFilter !== 'pending') setListStatusFilter('all');
+  }, [listView, listStatusFilter]);
   const [historyLeads, setHistoryLeads] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   // Preserves the list's vertical scroll position while the FRO opens a lead
@@ -1340,77 +1343,66 @@ export default function MyDonors() {
       setSelected(null); setNotes(''); setLeadAmount('');
     };
 
-    const fmtTrack = (d) => {
-      if (d.has_donated_current_month) return (
-        <span style={{ fontSize: 9, fontWeight: 700, color: d.has_verified_donation_current_month ? '#16a34a' : '#f59e0b' }}>
-          {d.has_verified_donation_current_month ? '✓ Donated' : '● Donated (unverified)'}
-        </span>
-      );
-      const s = d.status;
-      const isRetry = RETRYABLE_NOT_CONNECTED.has(s);
-      if (isRetry || !s || s === 'pending') return <span style={{ fontSize: 9, fontWeight: 700, color: '#16a34a' }}>Call now</span>;
-      return statusPill(s);
-    };
-
     return (
-      <div className="detail-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div className="detail-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', ...(embedded ? { border: 'none' } : {}) }}>
         {/* Filter bar */}
-        <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 4, background: 'var(--card-bg)', borderRadius: 8, border: '1px solid var(--line)', padding: 3 }}>
-            <button onClick={() => setListView('leads')} className={`fro-tab-btn ${listView === 'leads' ? 'fro-tab-active-new' : ''}`} style={{ fontSize: 10, fontWeight: 700 }}>
-              Leads{total ? ` (${total})` : ''}
-            </button>
-            <button onClick={() => setListView('history')} className={`fro-tab-btn ${listView === 'history' ? 'fro-tab-active-old' : ''}`} style={{ fontSize: 10, fontWeight: 700 }}>
-              History{historyLeads.length ? ` (${historyLeads.length})` : ''}
-            </button>
-          </div>
-          {listView === 'leads' && (
-          <div style={{ display: 'flex', gap: 4, background: 'var(--card-bg)', borderRadius: 8, border: '1px solid var(--line)', padding: 3 }}>
-            <button onClick={() => switchTab('new')} className={`fro-tab-btn ${dataTab === 'new' ? 'fro-tab-active-new' : ''}`} style={{ fontSize: 10 }}>
-              New
-            </button>
-            <button onClick={() => switchTab('old')} className={`fro-tab-btn ${dataTab === 'old' ? 'fro-tab-active-old' : ''}`} style={{ fontSize: 10 }}>
-              Old
-            </button>
-          </div>
-          )}
-          {ngoList.length > 1 && (
+        <div style={{ padding: '14px 18px 8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'inline-flex', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 10, padding: 3 }}>
+              <button onClick={() => setListView('leads')}
+                style={{ padding: '6px 12px', borderRadius: 10, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', background: listView === 'leads' ? 'var(--sage)' : 'transparent', color: listView === 'leads' ? '#fff' : 'var(--ink-soft)', boxShadow: listView === 'leads' ? '0 1px 4px rgba(0,0,0,.18)' : 'none', transition: 'all .15s' }}>
+                Leads
+                {total ? <span style={{ minWidth: 16, padding: '0 4px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: listView === 'leads' ? 'rgba(255,255,255,.22)' : 'var(--line)', color: listView === 'leads' ? '#fff' : 'var(--ink-soft)' }}>{total}</span> : null}
+              </button>
+              <button onClick={() => setListView('history')}
+                style={{ padding: '6px 12px', borderRadius: 10, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', background: listView === 'history' ? 'var(--sage)' : 'transparent', color: listView === 'history' ? '#fff' : 'var(--ink-soft)', boxShadow: listView === 'history' ? '0 1px 4px rgba(0,0,0,.18)' : 'none', transition: 'all .15s' }}>
+                History
+                {historyLeads.length ? <span style={{ minWidth: 16, padding: '0 4px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: listView === 'history' ? 'rgba(255,255,255,.22)' : 'var(--line)', color: listView === 'history' ? '#fff' : 'var(--ink-soft)' }}>{historyLeads.length}</span> : null}
+              </button>
+            </div>
+            {listView === 'leads' && (
+              <div style={{ display: 'inline-flex', background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 10, padding: 3 }}>
+                <button onClick={() => switchTab('new')}
+                  style={{ padding: '6px 12px', borderRadius: 10, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', background: dataTab === 'new' ? 'var(--sage)' : 'transparent', color: dataTab === 'new' ? '#fff' : 'var(--ink-soft)', boxShadow: dataTab === 'new' ? '0 1px 4px rgba(0,0,0,.18)' : 'none', transition: 'all .15s' }}>
+                  New
+                </button>
+                <button onClick={() => switchTab('old')}
+                  style={{ padding: '6px 12px', borderRadius: 10, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', background: dataTab === 'old' ? 'var(--sage)' : 'transparent', color: dataTab === 'old' ? '#fff' : 'var(--ink-soft)', boxShadow: dataTab === 'old' ? '0 1px 4px rgba(0,0,0,.18)' : 'none', transition: 'all .15s' }}>
+                  Old
+                </button>
+              </div>
+            )}
             <select value={selectedNgo || ''} onChange={e => { setSelectedNgo(e.target.value || null); setSelectedStation('all'); }}
-              style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--line)', fontSize: 11, fontFamily: 'inherit', background: '#fff' }}>
-              <option value="">All NGOs</option>
-              {ngoList.map(n => <option key={n.ngo_id} value={n.ngo_id}>{n.ngo_name}</option>)}
+              style={{ padding: '6px 12px', borderRadius: 10, border: '1px solid var(--line)', fontFamily: 'inherit', fontSize: 11, fontWeight: 600, cursor: 'pointer', background: selectedNgo ? 'var(--sage)' : 'var(--bg)', color: selectedNgo ? '#fff' : 'var(--ink-soft)', outline: 'none' }}>
+              <option value="" style={{ color: 'var(--ink)' }}>All NGOs</option>
+              {ngoList.map(n => <option key={n.ngo_id} value={n.ngo_id} style={{ color: 'var(--ink)' }}>{n.ngo_name}</option>)}
             </select>
-          )}
-          {stationList.length > 1 && (
             <select value={selectedStation || 'all'} onChange={e => setSelectedStation(e.target.value || 'all')}
-              style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--line)', fontSize: 11, fontFamily: 'inherit', background: '#fff' }}>
-              <option value="all">All stations</option>
-              {stationList.map(s => <option key={s} value={s}>{s}</option>)}
+              style={{ padding: '6px 12px', borderRadius: 10, border: '1px solid var(--line)', fontFamily: 'inherit', fontSize: 11, fontWeight: 600, cursor: 'pointer', background: selectedStation && selectedStation !== 'all' ? 'var(--sage)' : 'var(--bg)', color: selectedStation && selectedStation !== 'all' ? '#fff' : 'var(--ink-soft)', outline: 'none' }}>
+              <option value="all" style={{ color: 'var(--ink)' }}>All stations</option>
+              {stationList.map(s => <option key={s} value={s} style={{ color: 'var(--ink)' }}>{s}</option>)}
             </select>
-          )}
-          {listView === 'leads' && (
-          <>
-          <select value={listStatusFilter} onChange={e => setListStatusFilter(e.target.value)}
-            style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--line)', fontSize: 11, fontFamily: 'inherit', background: '#fff' }}>
-            {Object.entries(DONOR_STATUS_GROUP_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--ink)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            <input type="checkbox" checked={listHideDonated} onChange={e => setListHideDonated(e.target.checked)} />
-            Hide donated
-          </label>
-          </>
-          )}
-          <div style={{ position: 'relative', marginLeft: 'auto', display: 'flex', gap: 4, alignItems: 'center', background: 'var(--card-bg)', borderRadius: 8, border: '1px solid var(--line)', padding: '3px 8px', minWidth: 200 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 15, color: 'var(--ink-soft)' }}>search</span>
+            {isHistory && (
+              <select value={listStatusFilter} onChange={e => setListStatusFilter(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: 10, border: '1px solid var(--line)', fontFamily: 'inherit', fontSize: 11, fontWeight: 600, cursor: 'pointer', background: listStatusFilter !== 'all' ? 'var(--sage)' : 'var(--bg)', color: listStatusFilter !== 'all' ? '#fff' : 'var(--ink-soft)', outline: 'none' }}>
+                {Object.entries(DONOR_STATUS_GROUP_LABELS).map(([k, l]) => (
+                  <option key={k} value={k} style={{ color: 'var(--ink)' }}>{l}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div style={{ position: 'relative', marginTop: 10 }}>
+            <span className="material-symbols-outlined" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 14, color: 'var(--ink-soft)' }}>search</span>
             <input
               type="text"
               value={searchQuery}
               onChange={e => handleSearch(e.target.value)}
               placeholder="Search name or mobile..."
-              style={{ flex: 1, border: 'none', outline: 'none', fontSize: 11, fontFamily: 'inherit', background: 'transparent', padding: '3px 0', minWidth: 0 }}
+              style={{ width: '100%', padding: '8px 12px 8px 32px', border: '1px solid var(--line)', borderRadius: 10, background: 'var(--card-bg)', fontSize: 12, fontFamily: 'inherit', outline: 'none', color: 'var(--ink)', boxSizing: 'border-box' }}
             />
             {searchQuery && (
-              <span className="material-symbols-outlined" style={{ fontSize: 13, color: 'var(--ink-soft)', cursor: 'pointer' }} onClick={() => { setSearchQuery(''); setDisposedResults([]); }}>close</span>
+              <span className="material-symbols-outlined" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--ink-soft)', cursor: 'pointer' }} onClick={() => { setSearchQuery(''); setDisposedResults([]); }}>close</span>
             )}
           </div>
         </div>
@@ -1423,75 +1415,78 @@ export default function MyDonors() {
         )}
 
         {/* List */}
-        <div ref={listScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-            <thead style={{ position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 2 }}>
-              <tr style={{ borderBottom: '1px solid var(--line)' }}>
-                <th style={{ textAlign: 'left', padding: '8px 12px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Lead</th>
-                <th style={{ textAlign: 'left', padding: '8px 8px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Mobile</th>
-                <th style={{ textAlign: 'left', padding: '8px 8px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Station</th>
-                <th style={{ textAlign: 'left', padding: '8px 8px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Status</th>
-                <th style={{ textAlign: 'right', padding: '8px 12px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-soft)' }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {isHistory && historyLoading ? (
-                <tr><td colSpan="6" style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
-                  Loading history…
-                </td></tr>
-              ) : searching && disposedSearchLoading ? (
-                <tr><td colSpan="6" style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
-                  Searching leads…
-                </td></tr>
-              ) : searching && listItems.length === 0 ? (
-                <tr><td colSpan="6" style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
-                  No leads match "{searchQuery.trim()}". Clear the search to return to your queue.
-                </td></tr>
-              ) : listItems.length === 0 ? (
-                <tr><td colSpan="6" style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
-                  {isHistory ? 'No disposed leads yet. Work a lead and it will appear here.' : 'No leads match the current filters.'}
-                </td></tr>
-              ) : listItems.map((d, i) => {
+        <div ref={listScrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 12px' }}>
+          {isHistory && historyLoading ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
+              Loading history…
+            </div>
+          ) : searching && disposedSearchLoading ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
+              Searching leads…
+            </div>
+          ) : searching && listItems.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
+              No leads match "{searchQuery.trim()}". Clear the search to return to your queue.
+            </div>
+          ) : listItems.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
+              {isHistory ? 'No disposed leads yet. Work a lead and it will appear here.' : 'No leads match the current filters.'}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {listItems.map((d) => {
                 return (
-                  <tr key={`${d.id || d.donor_id}-${d.ngo_id || ''}`}
+                  <div key={`${d.id || d.donor_id}-${d.ngo_id || ''}`}
                     onClick={() => openLead(d)}
-                    style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer', transition: 'background .1s' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = ''; }}>
-                    <td style={{ padding: '8px 12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--md-primary-container, #e0e7ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: 'var(--md-on-primary-container, #4338ca)', flexShrink: 0 }}>
-                          {initials(d.donor_name || '')}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {d.donor_name || 'Unknown'}
-                            {d.is_new && <span style={{ marginLeft: 6, padding: '1px 5px', borderRadius: 4, background: '#16a34a', color: '#fff', fontSize: 8, fontWeight: 700 }}>NEW</span>}
-                          </div>
-                          {d.ngo_names && d.ngo_names.length > 0 && (
-                            <div style={{ fontSize: 9, color: 'var(--ink-soft)' }}>{d.ngo_names.join(', ')}</div>
+                    onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.boxShadow = 'var(--shadow)'; e.currentTarget.style.transform = 'none'; }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 14px',
+                      background: 'var(--card-bg)', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)',
+                      boxShadow: 'var(--shadow)', cursor: 'pointer', transition: 'transform .12s, box-shadow .12s, border-color .12s',
+                    }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: d.is_disposed ? '#eef2f7' : '#3b82f6', color: d.is_disposed ? '#64748b' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
+                      {initials(d.donor_name || '')}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.donor_name || 'Unknown'}</span>
+                          {d.is_new && (
+                            <span style={{ flexShrink: 0, padding: '1px 6px', borderRadius: 999, background: '#16a34a', color: '#fff', fontSize: 9, fontWeight: 700 }}>NEW</span>
                           )}
                         </div>
+                        <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{d.donor_mobile || '—'}</span>
+                          {d.ngo_names && d.ngo_names.length > 0 && (
+                            <>
+                              <span style={{ color: 'var(--line)' }}>•</span>
+                              {d.ngo_names.map((n, idx) => (
+                                <span key={idx} style={{ padding: '1px 7px', borderRadius: 6, fontSize: 10, fontWeight: 700, background: '#5B6B4E1A', color: '#5B6B4E' }}>{n}</span>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>{d.station || '—'}</div>
                       </div>
-                    </td>
-                    <td style={{ padding: '8px 8px', whiteSpace: 'nowrap' }}>{d.donor_mobile || '—'}</td>
-                    <td style={{ padding: '8px 8px', whiteSpace: 'nowrap' }}>{d.station || '—'}</td>
-                    <td style={{ padding: '8px 8px' }}>{d.is_disposed ? (
-                      <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 1 }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#6b7280' }}>{(d.disposition_detail || 'Disposed').replace(/_/g, ' ')}</span>
-                        {d.disposed_at && <span style={{ fontSize: 9, color: 'var(--ink-soft)' }}>{new Date(d.disposed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
-                      </span>
-                    ) : fmtTrack(d)}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--sage)' }}>chevron_right</span>
-                    </td>
-                  </tr>
+                      <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                        {d.is_disposed ? (
+                          <>
+                            {statusPill(d.disposition_detail || 'disposed')}
+                            {d.disposed_at && <span style={{ fontSize: 9, color: 'var(--ink-soft)' }}>{new Date(d.disposed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
+                          </>
+                        ) : statusPill(d.status)}
+                      </div>
+                    </div>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--sage)', flexShrink: 0 }}>chevron_right</span>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          )}
         </div>
-        <div style={{ padding: '8px 12px', borderTop: '1px solid var(--line)', fontSize: 10, color: 'var(--ink-soft)' }}>
+        <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', fontSize: 10, color: 'var(--ink-soft)' }}>
           {isHistory
             ? `${listItems.length} disposed lead(s)${searchQuery.trim() ? ' found' : ''}`
             : searching
@@ -1502,7 +1497,10 @@ export default function MyDonors() {
     );
   }
 
-  return (<>
+  return (
+    <div style={embedded
+      ? { position: 'absolute', inset: 0, zIndex: 1300, background: 'var(--bg)', display: 'flex', flexDirection: 'column', padding: '4px 10px 10px' }
+      : { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
     <div className="detail-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div className="detail-split">
         {/* LEFT PANEL — merged profile + details */}
@@ -2120,5 +2118,6 @@ export default function MyDonors() {
         </div>
       </div>
     )}
-  </>);
+    </div>
+  );
 }
