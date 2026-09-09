@@ -15,7 +15,6 @@ const STATUS_META = {
   draft: { label: 'Draft', cls: 'pill-yellow' },
   archived: { label: 'Archived', cls: 'pill-gray' },
 }
-const TYPE_ICON = { docx: FileText, pptx: Presentation }
 const TYPE_LABEL = { docx: 'DOCX', pptx: 'PPTX' }
 const FIELD_TYPES = ['text', 'number', 'date', 'time', 'datetime', 'longtext']
 const inputTypeFor = (t) => (t === 'datetime' ? 'datetime-local' : ['date', 'time', 'number'].includes(t) ? t : 'text')
@@ -32,6 +31,46 @@ function saveOrOpen(url, filename) {
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
+}
+
+const thumbCache = {}
+
+function TemplateThumb({ t }) {
+  const [html, setHtml] = useState(null)
+  const [state, setState] = useState('loading') // loading | done | error
+  useEffect(() => {
+    let cancelled = false
+    setHtml(null)
+    setState('loading')
+    if (t.file_format !== 'docx' || !t.template_file) { setState('error'); return }
+    const key = `${t.id}-v${t.version || 1}`
+    if (thumbCache[key]) { setHtml(thumbCache[key]); setState('done'); return }
+    ;(async () => {
+      try {
+        const resp = await certificateApi.getTemplateFile(t.id)
+        const buf = await resp.arrayBuffer()
+        const { value } = await mammoth.convertToHtml({ arrayBuffer: buf })
+        thumbCache[key] = value
+        if (!cancelled) { setHtml(value); setState('done') }
+      } catch (e) {
+        if (!cancelled) setState('error')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [t])
+  if (state === 'loading') {
+    return <div className="tpl-thumb-loading"><Loader2 size={16} className="spin" /></div>
+  }
+  if (state === 'error') {
+    return (
+      <div className="tpl-thumb-fallback">
+        {t.file_format === 'pptx'
+          ? <><Presentation size={26} color="#c2410c" /><span>PPTX template</span></>
+          : <><FileText size={26} color="var(--sage)" /><span>No preview</span></>}
+      </div>
+    )
+  }
+  return <div className="tpl-thumb-doc" dangerouslySetInnerHTML={{ __html: html }} />
 }
 
 const PREVIEW_CSS = `box-sizing:border-box;background:#fff;border:1px solid var(--line);border-radius:12px;padding:28px;min-height:220px;max-height:72vh;overflow:auto;box-shadow:var(--shadow);`
@@ -106,13 +145,19 @@ export default function Certificates() {
     } catch (e) { toast(e.message, 'error') }
   }, [])
 
-  const startGenerate = (tpl) => {
-    setGenTpl(tpl)
+  const startGenerate = async (tpl) => {
+    setView('generate')
     setValues({})
     setCertNumber('')
     setPreviewHtml(null)
     setPreviewNote('')
-    setView('generate')
+    try {
+      const full = tpl.fields ? tpl : await certificateApi.getTemplate(tpl.id)
+      setGenTpl(full.id ? full : tpl)
+    } catch (e) {
+      toast(e.message, 'error')
+      setGenTpl(tpl)
+    }
   }
 
   /* ------------------------------- upload/create ------------------------------- */
@@ -298,11 +343,14 @@ export default function Certificates() {
         .tabs { display:flex; gap:6px; flex-wrap:wrap; }
         .tab { padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:transparent; color:var(--ink-soft); font-size:12px; font-weight:500; cursor:pointer; font-family:inherit; }
         .tab.active { background:var(--sage); border-color:var(--sage); color:#fff; }
-        .tpl-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; padding:4px 18px 20px; }
-        .tpl-card { background:var(--card-bg); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:16px; display:flex; flex-direction:column; gap:10px; }
-        .tpl-card-head { display:flex; gap:10px; align-items:flex-start; }
-        .tpl-type { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; background:var(--sage); }
-        .tpl-type.pptx { background:#c2410c; }
+        .tpl-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; padding:4px 18px 20px; }
+        .tpl-card { background:var(--card-bg); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:12px; display:flex; flex-direction:column; gap:10px; }
+        .tpl-thumb { display:block; width:100%; height:210px; padding:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--bg,#f3f4f6); cursor:pointer; text-align:left; }
+        .tpl-thumb:hover { border-color:var(--sage); box-shadow:0 0 0 2px var(--sage-soft,#eef3ea); }
+        .tpl-thumb-doc { transform:scale(.5); transform-origin:top left; width:200%; pointer-events:none; word-break:break-word; }
+        .tpl-thumb-doc :is(img,svg,canvas) { max-width:100%; }
+        .tpl-thumb-loading { display:flex; align-items:center; justify-content:center; height:100%; color:var(--ink-soft); }
+        .tpl-thumb-fallback { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; height:100%; color:var(--ink-soft); font-size:12px; }
         .tpl-title { font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .tpl-desc { font-size:12px; color:var(--ink-soft); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:32px; }
         .tpl-meta { display:flex; gap:6px; flex-wrap:wrap; font-size:11px; color:var(--ink-soft); }
@@ -419,38 +467,22 @@ export default function Certificates() {
           ) : (
             <div className="tpl-grid">
               {templates.map((t) => {
-                const Icon = TYPE_ICON[t.file_format] || FileText
                 const st = STATUS_META[t.status] || STATUS_META.draft
                 return (
                   <div className="tpl-card" key={t.id}>
-                    <div className="tpl-card-head">
-                      <div className={`tpl-type ${t.file_format === 'pptx' ? 'pptx' : ''}`}><Icon size={20} /></div>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div className="tpl-title" title={t.name}>{t.name}</div>
-                        <div className="tpl-desc">{t.description || t.placeholders?.length ? '' : 'No description'}</div>
-                      </div>
-                    </div>
+                    <button type="button" className="tpl-thumb" onClick={() => startGenerate(t)} title={`Certify — ${t.name}`}>
+                      <TemplateThumb t={t} />
+                    </button>
+                    <div className="tpl-title" title={t.name}>{t.name}</div>
                     <div className="tpl-meta">
                       <span>{TYPE_LABEL[t.file_format] || 'FILE'}</span>
                       <span>v{t.version || 1}</span>
                       <span>{t.field_count || 0} fields</span>
-                      <span>{t.certificate_count || 0} generated</span>
                       <span className={`pill ${st.cls}`} style={{ padding: '1px 8px' }}>{st.label}</span>
                     </div>
-                    {(t.placeholders || []).length > 0 && (
-                      <div className="tpl-chips">
-                        {(t.placeholders || []).slice(0, 7).map((p) => (
-                          <span className="chip" key={p.key}>{"{"}{p.key}{"}"}</span>
-                        ))}
-                        {(t.placeholders || []).length > 7 && <span className="chip">+{(t.placeholders || []).length - 7}</span>}
-                      </div>
-                    )}
                     <div className="tpl-actions">
                       <button className="btn btn-sm btn-primary" onClick={() => startGenerate(t)}>
-                        <Wand2 size={14} /> Generate
-                      </button>
-                      <button className="btn btn-sm" onClick={() => saveOrOpen(t.template_file, `${t.name}.${t.file_format}`)} title="Open template file">
-                        <Download size={14} />
+                        <Wand2 size={14} /> Certify
                       </button>
                       {canManage && (
                         <>

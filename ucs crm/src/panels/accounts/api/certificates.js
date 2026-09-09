@@ -5,6 +5,8 @@ import { api, apiGet, apiPost, apiPut, apiPatch, apiDelete } from './auth'
 export const certificateApi = {
   listTemplates: (status = '') => apiGet(`/certificates/templates${status ? `?status=${status}` : ''}`),
   getTemplate: (id) => apiGet(`/certificates/templates/${id}`),
+  getTemplateFile: (id) =>
+    api(`/certificates/templates/${id}/file`, { method: 'GET', _prefix: 'ucs', raw: true, timeout: 60000 }),
   createTemplate: (formData) => apiPost(`/certificates/templates`, formData, 60000),
   updateTemplate: (id, body) => apiPut(`/certificates/templates/${id}`, { ...body, fields: body.fields }),
 

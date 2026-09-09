@@ -179,6 +179,20 @@ export const listTemplates = async (req, res) => {
   }
 };
 
+export const getTemplateFile = async (req, res) => {
+  try {
+    const { rows } = await db._pool.query(
+      `SELECT template_file FROM certificate_templates WHERE id = $1`, [req.params.id]);
+    if (!rows.length || !rows[0].template_file) return res.status(404).json({ message: 'Template file not found' });
+    const buffer = await fetchFile(rows[0].template_file);
+    res.set('Content-Type', 'application/octet-stream');
+    res.set('Content-Disposition', `attachment; filename="template-${req.params.id}"`);
+    return res.send(buffer);
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
 export const getTemplate = async (req, res) => {
   try {
     const template = await loadTemplateDetail(req.params.id);

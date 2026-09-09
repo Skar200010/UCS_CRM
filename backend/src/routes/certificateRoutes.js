@@ -5,6 +5,7 @@ import {
   createTemplate,
   listTemplates,
   getTemplate,
+  getTemplateFile,
   updateTemplate,
   reuploadTemplateFile,
   duplicateTemplate,
@@ -48,6 +49,7 @@ const USE = authenticateRole('accounts', 'super_admin', 'admin');
 // Template library — accounts can fully manage templates and generate certificates.
 router.get('/templates', USE, listTemplates);
 router.get('/templates/:id', USE, getTemplate);
+router.get('/templates/:id/file', USE, getTemplateFile);
 router.post('/templates', MANAGE, singleTemplate, createTemplate);
 router.put('/templates/:id', MANAGE, updateTemplate);
 router.post('/templates/:id/file', MANAGE, singleTemplate, reuploadTemplateFile);
