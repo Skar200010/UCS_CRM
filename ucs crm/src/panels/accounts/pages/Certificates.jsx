@@ -380,16 +380,20 @@ export default function Certificates() {
 
   const runPreview = useCallback(async () => {
     if (!genTpl) return
-    if (missing.length) return
     setPreviewBusy(true)
     try {
       const resp = await certificateApi.preview({ template_id: genTpl.id, field_values: previewValues, certificate_number: certNumber || undefined })
+      if (!resp.ok) {
+        let msg = 'Preview failed'
+        try { const j = await resp.json(); msg = j.message || msg } catch { /* keep default */ }
+        throw new Error(msg)
+      }
       if (genTpl.file_format === 'pptx') {
         const ct = resp.headers.get('content-type') || ''
         if (!ct.includes('image')) throw new Error('Live preview could not be rendered for this template.')
         const blob = await resp.blob()
         const url = URL.createObjectURL(blob)
-        setPreviewImg((old) => { if (old) URL.revokeObjectURL(old); return url })
+        setPreviewImg(() => url)
         setPreviewNote('')
       } else {
         const buf = await resp.arrayBuffer()
@@ -398,17 +402,18 @@ export default function Certificates() {
         setPreviewNote('')
       }
     } catch (e) {
-      setPreviewHtml(null)
-      setPreviewImg(null)
+      // Keep whatever preview is currently showing; the old blob is revoked by
+      // the cleanup effect only after the new one is committed, so no broken
+      // image in between.
       setPreviewNote(e.message)
     } finally {
       setPreviewBusy(false)
     }
-  }, [genTpl, previewValues, certNumber, missing.length])
+  }, [genTpl, previewValues, certNumber])
 
   useEffect(() => {
     if (!genTpl) return
-    const t = setTimeout(runPreview, genTpl.file_format === 'pptx' ? 1200 : 500)
+    const t = setTimeout(runPreview, genTpl.file_format === 'pptx' ? 800 : 350)
     return () => clearTimeout(t)
   }, [genTpl, previewValues, certNumber, runPreview])
 
@@ -1244,7 +1249,7 @@ export default function Certificates() {
             )}
             {genTpl.file_format === 'pptx' && previewImg ? (
               <div className="cert-paper" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg,#f3f4f6)' }}>
-                <img src={previewImg} alt={genTpl.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
+                <img src={previewImg} alt={genTpl.name} onError={() => { setPreviewImg(null) }} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
               </div>
             ) : genTpl.file_format === 'docx' ? (
               previewHtml ? (

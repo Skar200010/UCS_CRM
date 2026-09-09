@@ -440,22 +440,31 @@ export const deleteTemplate = async (req, res) => {
 
 /* ------------------------------------- certificates ------------------------------------ */
 
-async function readTemplateWithRequired(id) {
-  const template = await loadTemplateDetail(id);
-  const required = (template?.fields || []).filter((f) => f.required);
-  return { template, required };
-}
-
 export const previewCertificate = async (req, res) => {
   try {
-    const { template_id, field_values } = req.body || {};
+    const { template_id, field_values, certificate_number } = req.body || {};
     if (!template_id) return res.status(400).json({ message: 'template_id is required' });
-    const { template, required } = await readTemplateWithRequired(template_id);
+    const template = await loadTemplateDetail(template_id);
     if (!template) return res.status(404).json({ message: 'Template not found' });
 
-    const values = field_values || {};
-    const missing = buildMissing(required, values);
-    if (missing.length) return res.status(400).json({ message: `Missing required fields: ${missing.join(', ')}`, missing });
+    // Preview must never hard-block on missing required fields — render whatever
+    // has been typed so far and leave the rest blank, so the preview updates as
+    // the user fills each field. docxtemplater needs every tag present, so fill
+    // every field with its typed value, default_value, or empty string.
+    const raw = field_values || {};
+    const values = {};
+    for (const f of template.fields || []) {
+      const v = raw[f.field_key];
+      values[f.field_key] = v == null || String(v).trim() === ''
+        ? String(f.default_value ?? '')
+        : String(v);
+    }
+    for (const [k, v] of Object.entries(raw)) {
+      if (v != null) values[k] = String(v);
+    }
+    if ((template.placeholders || []).some((p) => p.key === 'certificate_number')) {
+      values.certificate_number = String(certificate_number ?? values.certificate_number ?? '');
+    }
 
     const out = await renderFromTemplate(template, values);
     // PowerPoint can't be shown inline in a browser, so render the filled first
