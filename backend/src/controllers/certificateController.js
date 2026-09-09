@@ -523,10 +523,11 @@ export const previewCertificate = async (req, res) => {
     }
 
     const out = await renderFromTemplate(template, values);
-    // PowerPoint can't be shown inline in a browser, so render the filled first
-    // slide to PNG (LibreOffice headless) for the live preview.
-    if (out.ext === 'pptx') {
-      const png = await snapshotToPng(Buffer.from(out.buffer), 'pptx');
+    // Neither PowerPoint nor Word renders inline in a browser, so render the
+    // filled first page/slide to PNG (LibreOffice headless) for a true
+    // what-you-see-is-what-you-get live preview.
+    if (out.ext === 'docx' || out.ext === 'pptx') {
+      const png = await snapshotToPng(Buffer.from(out.buffer), out.ext);
       if (png) {
         res.setHeader('Content-Type', 'image/png');
         res.setHeader('Content-Disposition', 'inline; filename="preview.png"');

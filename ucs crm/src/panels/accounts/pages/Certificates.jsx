@@ -425,18 +425,19 @@ export default function Certificates() {
         try { const j = await resp.json(); msg = j.message || msg } catch { /* keep default */ }
         throw new Error(msg)
       }
-      if (genTpl.file_format === 'pptx') {
-        const ct = resp.headers.get('content-type') || ''
-        if (!ct.includes('image')) throw new Error('Live preview could not be rendered for this template.')
+      const ct = resp.headers.get('content-type') || ''
+      if (ct.includes('image')) {
         const blob = await resp.blob()
         const url = URL.createObjectURL(blob)
         setPreviewImg(() => url)
         setPreviewNote('')
-      } else {
+      } else if (genTpl.file_format === 'docx') {
         const buf = await resp.arrayBuffer()
         const { value } = await mammoth.convertToHtml({ arrayBuffer: buf })
         setPreviewHtml(value)
         setPreviewNote('')
+      } else {
+        throw new Error('Live preview could not be rendered for this template.')
       }
     } catch (e) {
       // Keep whatever preview is currently showing; the old blob is revoked by
@@ -1307,14 +1308,14 @@ export default function Certificates() {
             {previewBusy && (
               <div className="preview-loading"><Loader2 size={13} className="spin" /> Updating preview…</div>
             )}
-            {genTpl.file_format === 'pptx' && previewImg ? (
+            {previewImg ? (
               <div className="cert-paper" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg,#f3f4f6)' }}>
                 <img src={previewImg} alt={genTpl.name} onError={() => { setPreviewImg(null) }} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
               </div>
-            ) : genTpl.file_format === 'docx' ? (
-              previewHtml ? (
-                <div className="cert-paper" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-              ) : previewNote ? (
+            ) : previewHtml ? (
+              <div className="cert-paper" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            ) : genTpl.file_format === 'pptx' ? (
+              previewNote ? (
                 <div className="cert-paper cert-fallback" style={{ color: '#991b1b' }}>
                   <div><AlertTriangle size={18} style={{ margin: '0 auto 8px', display: 'block' }} />{previewNote}</div>
                 </div>
@@ -1324,13 +1325,23 @@ export default function Certificates() {
                 </div>
               ) : (
                 <div className="cert-paper cert-fallback" style={{ color: 'var(--ink-soft)' }}>
-                  {missing.length ? 'Fill the required fields to preview.' : 'Generating preview…'}
+                  As you type the fields, the first slide renders here live.
                 </div>
               )
-            ) : genTpl.preview_image ? (
-              <div className="cert-paper" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg,#f3f4f6)' }}>
-                <img src={genTpl.preview_image} alt={genTpl.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
-              </div>
+            ) : genTpl.file_format === 'docx' ? (
+              previewNote ? (
+                <div className="cert-paper cert-fallback" style={{ color: '#991b1b' }}>
+                  <div><AlertTriangle size={18} style={{ margin: '0 auto 8px', display: 'block' }} />{previewNote}</div>
+                </div>
+              ) : genTpl.preview_image ? (
+                <div className="cert-paper" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg,#f3f4f6)' }}>
+                  <img src={genTpl.preview_image} alt={genTpl.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
+                </div>
+              ) : (
+                <div className="cert-paper cert-fallback" style={{ color: 'var(--ink-soft)' }}>
+                  As you type the fields, the certificate renders here live.
+                </div>
+              )
             ) : (
               <div className="cert-paper cert-fallback">
                 <Presentation size={26} style={{ color: '#c2410c' }} />
