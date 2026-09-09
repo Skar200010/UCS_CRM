@@ -101,6 +101,7 @@ export default function Certificates() {
   const fileInputRef = useRef(null)
   const uploadInputRef = useRef(null)
   const previewInputRef = useRef(null)
+  const previewTplIdRef = useRef(null)
   const [previewUploadBusy, setPreviewUploadBusy] = useState(false)
 
   // Generator
@@ -214,18 +215,27 @@ export default function Certificates() {
     } catch (e) { toast(e.message, 'error') }
   }
 
-  const handlePreviewPick = () => previewInputRef.current?.click()
+  const handlePreviewPick = (tplId) => {
+    previewTplIdRef.current = tplId || draft?.id || null
+    previewInputRef.current?.click()
+  }
 
-  const handlePreviewUpload = async (file) => {
-    if (!file || !draft?.id) return
+  const handlePreviewUpload = async (file, tplId = previewTplIdRef.current || draft?.id) => {
+    if (!file || !tplId) return
     if (!/\.(png|jpe?g|webp|gif)$/i.test(file.name)) { toast('Only PNG, JPG, WEBP or GIF images.', 'error'); return }
     if (file.size > 10 * 1024 * 1024) { toast('Image too large (max 10 MB).', 'error'); return }
     setPreviewUploadBusy(true)
     const formData = new FormData()
     formData.append('preview', file)
     try {
-      const res = await certificateApi.setTemplatePreview(draft.id, formData)
-      setDraft((d) => ({ ...d, preview_image: res.template.preview_image, preview_key: res.template.preview_key }))
+      const res = await certificateApi.setTemplatePreview(tplId, formData)
+      setDraft((d) => (d && d.id === tplId
+        ? { ...d, preview_image: res.template.preview_image, preview_key: res.template.preview_key }
+        : d))
+      setGenTpl((g) => (g && g.id === tplId
+        ? { ...g, preview_image: res.template.preview_image, preview_key: res.template.preview_key }
+        : g))
+      setPreviewHtml(null)
       toast('Preview image saved', 'success')
       loadTemplates()
     } catch (e) { toast(e.message, 'error') } finally { setPreviewUploadBusy(false) }
@@ -747,7 +757,7 @@ export default function Certificates() {
                       Shown on the library card and in the certificate detail screen (needed for PowerPoint preview — slides can't render in the browser).
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-sm" onClick={handlePreviewPick} disabled={previewUploadBusy}>
+                      <button className="btn btn-sm" onClick={() => handlePreviewPick()} disabled={previewUploadBusy}>
                         {previewUploadBusy ? <Loader2 size={13} className="spin" /> : <UploadCloud size={13} />} {draft.preview_image ? 'Replace image' : 'Upload image'}
                       </button>
                     </div>
@@ -994,6 +1004,19 @@ export default function Certificates() {
           </div>
 
           <div className="preview-wrap">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>Preview
+                {genTpl.preview_image && <span style={{ fontWeight: 400, color: 'var(--ink-soft)', marginLeft: 6 }}>(template image)</span>}
+              </div>
+              <button
+                className="btn btn-sm"
+                onClick={() => handlePreviewPick(genTpl.id)}
+                disabled={previewUploadBusy}
+                title="Set the image shown for this template (needed to preview PowerPoint templates)"
+              >
+                {previewUploadBusy ? <Loader2 size={13} className="spin" /> : <UploadCloud size={13} />} {genTpl.preview_image ? 'Replace image' : 'Upload image'}
+              </button>
+            </div>
             {previewBusy && (
               <div className="preview-loading"><Loader2 size={13} className="spin" /> Updating preview…</div>
             )}
@@ -1016,8 +1039,8 @@ export default function Certificates() {
             ) : (
               <div className="cert-paper cert-fallback">
                 <Presentation size={26} style={{ color: '#c2410c' }} />
-                <div><b>PPTX template</b> — slide preview is only available after you upload a template image.</div>
-                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Open the template in the wizard (fields step) and click <b>Upload image</b> to see it live here.</div>
+                <div><b>PPTX template</b> — slides can't render in the browser, so click <b>Upload image</b> above to see it live.</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Upload a photo/screenshot of the certificate design and it will be shown here.</div>
                 <button className="btn btn-sm" onClick={() => saveOrOpen(genTpl.template_file, `${genTpl.name}.${genTpl.file_format}`)}>
                   <Download size={14} /> Open base template
                 </button>
