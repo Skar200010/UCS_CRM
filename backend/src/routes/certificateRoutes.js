@@ -5,6 +5,9 @@ import {
   createTemplate,
   listTemplates,
   listNgoOptions,
+  listPurposes,
+  addPurpose,
+  deletePurpose,
   getTemplate,
   getTemplateFile,
   updateTemplate,
@@ -69,6 +72,9 @@ const USE = authenticateRole('accounts', 'super_admin', 'admin');
 // Template library — accounts can fully manage templates and generate certificates.
 router.get('/templates', USE, listTemplates);
 router.get('/templates/ngos-options', USE, listNgoOptions);
+router.get('/purposes', USE, listPurposes);
+router.post('/purposes', MANAGE, addPurpose);
+router.delete('/purposes/:id', MANAGE, deletePurpose);
 router.get('/templates/:id', USE, getTemplate);
 router.get('/templates/:id/file', USE, getTemplateFile);
 router.post('/templates', MANAGE, singleTemplate, createTemplate);

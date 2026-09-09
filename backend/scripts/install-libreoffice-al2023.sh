@@ -1,12 +1,21 @@
 #!/usr/bin/env bash
 # Installs LibreOffice (Impress) on Amazon Linux 2023 x86_64 for headless
-# PPTX->PNG snapshot rendering (certificate templates). Idempotent.
+# PPTX/DOCX->PNG snapshot rendering (certificate templates). Idempotent.
 #
 # The default AL2023 repos do not ship LibreOffice, so we pull the official
 # The Document Foundation RPM package and install it via dnf.
 set -euo pipefail
 
 LO_VERSION="${LO_VERSION:-26.2.6}"
+
+# Core + metric-compatible fonts so LibreOffice snapshots mirror Word layouts
+# instead of substituting random fallback glyphs (which shifts the design).
+sudo dnf install -y \
+  fontconfig liberation-fonts dejavu-sans-fonts dejavu-serif-fonts \
+  google-noto-sans-fonts google-noto-serif-fonts google-noto-emoji-fonts \
+  abattis-cantarell-fonts 2>/dev/null || \
+sudo dnf install -y fontconfig liberation-fonts dejavu-sans-fonts dejavu-serif-fonts 2>/dev/null || true
+sudo fc-cache -f >/dev/null 2>&1 || true
 
 if command -v soffice >/dev/null 2>&1; then
   echo "libreoffice already available: $(soffice --version | head -1)"

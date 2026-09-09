@@ -237,6 +237,62 @@ export const listNgoOptions = async (req, res) => {
   }
 };
 
+export const listPurposes = async (req, res) => {
+  try {
+    const { rows } = await db._pool.query(
+      `SELECT p.id, p.name,
+              (SELECT COUNT(*)::int FROM certificate_templates t WHERE t.purpose = p.name) AS template_count
+         FROM certificate_purposes p
+        WHERE p.is_active = true
+        ORDER BY p.sort_order ASC, p.name ASC`);
+    return res.json(rows);
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+export const addPurpose = async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim().slice(0, 120);
+    if (!name) return res.status(400).json({ message: 'Purpose name is required' });
+    const { rows: existing } = await db._pool.query(
+      `SELECT id FROM certificate_purposes WHERE lower(name) = lower($1)`, [name]);
+    if (existing.length) {
+      await db._pool.query(`UPDATE certificate_purposes SET is_active = true WHERE id = $1`, [existing[0].id]);
+    } else {
+      const { rows } = await db._pool.query(
+        `INSERT INTO certificate_purposes (name, sort_order) VALUES ($1,
+           (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM certificate_purposes)) RETURNING id`,
+        [name]);
+      existing.push(rows[0]);
+    }
+    return res.json(await listToJson());
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+export const deletePurpose = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ message: 'Invalid purpose id' });
+    await db._pool.query(`UPDATE certificate_purposes SET is_active = false WHERE id = $1`, [id]);
+    return res.json(await listToJson());
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+async function listToJson() {
+  const { rows } = await db._pool.query(
+    `SELECT p.id, p.name,
+            (SELECT COUNT(*)::int FROM certificate_templates t WHERE t.purpose = p.name) AS template_count
+       FROM certificate_purposes p
+      WHERE p.is_active = true
+      ORDER BY p.sort_order ASC, p.name ASC`);
+  return rows;
+}
+
 export const getTemplateFile = async (req, res) => {
   try {
     const { rows } = await db._pool.query(

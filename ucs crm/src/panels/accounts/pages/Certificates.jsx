@@ -6,7 +6,7 @@ import { toast } from '../../../components/Toast'
 import {
   FileText, Presentation, Plus, Edit3, Copy, Archive, ArchiveRestore, Trash2, Download,
   Wand2, Search, X, ChevronLeft, UploadCloud, RefreshCw, Loader2, CheckCircle2, AlertTriangle,
-  History, Sparkles, Info, ExternalLink, ArrowLeft, Users, MoreVertical,
+  History, Sparkles, Info, ExternalLink, ArrowLeft, Users, MoreVertical, Wrench,
 } from 'lucide-react'
 
 const MINT = '#5B6B4E'
@@ -17,7 +17,7 @@ const STATUS_META = {
 }
 const TYPE_LABEL = { docx: 'DOCX', pptx: 'PPTX' }
 const FIELD_TYPES = ['text', 'number', 'date', 'time', 'datetime', 'longtext']
-const PURPOSES = ['Appreciation certificate', 'Achievement certificate', 'Other']
+const DEFAULT_PURPOSES = [{ id: -1, name: 'Appreciation certificate' }, { id: -2, name: 'Achievement certificate' }, { id: -3, name: 'Other' }]
 const inputTypeFor = (t) => (t === 'datetime' ? 'datetime-local' : ['date', 'time', 'number'].includes(t) ? t : 'text')
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'
@@ -83,7 +83,7 @@ const PREVIEW_CSS = `box-sizing:border-box;background:#fff;border:1px solid var(
 
 const META_STYLE = { padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13.5, outline: 'none', width: '100%', background: '#fff' }
 
-function TemplateMeta({ ngos, value, onChange, ngoPlaceholder = 'Select NGO', purposePlaceholder = 'Select purpose', required = false }) {
+function TemplateMeta({ ngos, purposes, value, onChange, ngoPlaceholder = 'Select NGO', purposePlaceholder = 'Select purpose', required = false }) {
   const sel = value || {}
   const set = (patch) => onChange({ ...sel, ...patch })
   return (
@@ -99,7 +99,7 @@ function TemplateMeta({ ngos, value, onChange, ngoPlaceholder = 'Select NGO', pu
         <label>Purpose{required ? ' *' : ''}</label>
         <select value={sel.purpose || ''} onChange={(e) => set({ purpose: e.target.value })} style={META_STYLE}>
           <option value="">{purposePlaceholder}</option>
-          {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
+          {purposes.map((p) => <option key={String(p.id)} value={p.name}>{p.name}</option>)}
         </select>
       </div>
     </div>
@@ -117,6 +117,11 @@ export default function Certificates() {
   const [ngoFilter, setNgoFilter] = useState('')
   const [purposeFilter, setPurposeFilter] = useState('')
   const [ngos, setNgos] = useState([])
+  const [purposes, setPurposes] = useState(DEFAULT_PURPOSES)
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const [purposesOpen, setPurposesOpen] = useState(false)
+  const [purposeName, setPurposeName] = useState('')
+  const [purposeBusy, setPurposeBusy] = useState(false)
   const [menuOpenId, setMenuOpenId] = useState(null)
 
   // History
@@ -188,8 +193,40 @@ export default function Certificates() {
     certificateApi.getNgoOptions()
       .then((rows) => { if (!cancelled) setNgos(rows || []) })
       .catch(() => {})
+    certificateApi.listPurposes()
+      .then((rows) => { if (!cancelled) { const list = rows || []; setPurposes(list.length ? list : DEFAULT_PURPOSES) } })
+      .catch(() => {})
     return () => { cancelled = true }
   }, [])
+
+  const addPurpose = async () => {
+    const name = purposeName.trim()
+    if (!name) { toast('Enter a purpose name.', 'error'); return }
+    setPurposeBusy(true)
+    try {
+      const rows = await certificateApi.addPurpose(name)
+      setPurposes(rows.length ? rows : DEFAULT_PURPOSES)
+      setPurposeName('')
+      toast('Purpose added', 'success')
+    } catch (e) { toast(e.message, 'error') } finally { setPurposeBusy(false) }
+  }
+
+  const removePurpose = async (p) => {
+    if (!window.confirm(`Delete purpose "${p.name}"? Existing templates keep their label.`)) return
+    setPurposeBusy(true)
+    try {
+      const rows = await certificateApi.deletePurpose(p.id)
+      setPurposes(rows.length ? rows : DEFAULT_PURPOSES)
+      toast('Purpose removed', 'success')
+    } catch (e) { toast(e.message, 'error') } finally { setPurposeBusy(false) }
+  }
+
+  useEffect(() => {
+    if (!toolsOpen) return
+    const close = () => setToolsOpen(false)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [toolsOpen])
 
   const visibleTemplates = useMemo(() => templates.filter((t) =>
     (!ngoFilter || String(t.ngo_id || '') === String(ngoFilter)) &&
@@ -599,6 +636,11 @@ export default function Certificates() {
         .tpl-menu-item:hover { background:var(--bg,#f3f4f6); }
         .tpl-menu-item.danger { color:#dc2626; }
         .tpl-menu-item.danger:hover { background:#fef2f2; }
+        .cert-overlay { position:fixed; inset:0; z-index:2100; background:rgba(12,24,19,.5); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; padding:18px; }
+        .cert-modal { background:#fff; border-radius:14px; box-shadow:0 18px 50px rgba(0,0,0,.22); width:100%; overflow:hidden; animation:certIn .16s ease; }
+        .cert-modal-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line); }
+        .cert-modal-body { padding:14px 16px; }
+        @keyframes certIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
         .field-row { display:grid; grid-template-columns:minmax(140px,1.2fr) minmax(90px,.7fr) 60px 1fr 84px; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); }
         .field-row input, .field-row select { padding:7px 9px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; font-family:inherit; outline:none; width:100%; box-sizing:border-box; }
         .field-row input:focus, .field-row select:focus { border-color:var(--sage); }
@@ -675,10 +717,28 @@ export default function Certificates() {
           <div className="cert-actions">
             {view === 'library' && (
               <>
-                {canManage && templates.length > 0 && !showHistory && (
-                  <button className="btn btn-sm" onClick={refreshSnapshots} title="Render the first page of every template as its thumbnail image">
-                    <RefreshCw size={14} /> Regenerate thumbnails
-                  </button>
+                {canManage && !showHistory && (
+                  <div className="tools-wrap" style={{ position: 'relative' }}>
+                    <button
+                      className="btn btn-sm"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setToolsOpen((v) => !v) }}
+                      title="Tools"
+                    >
+                      <Wrench size={14} /> Tools
+                    </button>
+                    {toolsOpen && (
+                      <div className="tpl-menu" style={{ top: '100%', right: 0, left: 'auto' }} onClick={(e) => e.stopPropagation()}>
+                        <button className="tpl-menu-item" onClick={() => { setToolsOpen(false); setPurposesOpen(true) }}>
+                          <Sparkles size={14} /> Manage purposes
+                        </button>
+                        {templates.length > 0 && (
+                          <button className="tpl-menu-item" onClick={() => { setToolsOpen(false); refreshSnapshots() }}>
+                            <RefreshCw size={14} /> Regenerate thumbnails
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
                 <button className="btn btn-sm" onClick={toggleHistory}>
                   <History size={14} /> {showHistory ? 'Templates' : 'History'}
@@ -719,7 +779,7 @@ export default function Certificates() {
                 </select>
                 <select value={purposeFilter} onChange={(e) => setPurposeFilter(e.target.value)} style={{ ...META_STYLE, maxWidth: 260 }}>
                   <option value="">All purposes</option>
-                  {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
+                  {purposes.map((p) => <option key={String(p.id)} value={p.name}>{p.name}</option>)}
                 </select>
                 {(ngoFilter || purposeFilter) && (
                   <button className="btn btn-sm" onClick={() => { setNgoFilter(''); setPurposeFilter('') }}><X size={13} /> Clear filters</button>
@@ -863,7 +923,7 @@ export default function Certificates() {
             {(draft?.file_format == null) ? (
               /* ---------- step 1: upload ---------- */
               <>
-                <TemplateMeta ngos={ngos} value={draft} onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))} required />
+                <TemplateMeta ngos={ngos} purposes={purposes} value={draft} onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))} required />
                 <div className="field">
                   <label>Template name</label>
                   <input
@@ -928,7 +988,7 @@ export default function Certificates() {
                     : <>No placeholders detected — this file has no {'{...}'} markers. Add them in Word/PowerPoint, or use custom fields below (they are saved but not embedded in the layout).</>}
                 </div>
 
-                <TemplateMeta ngos={ngos} value={draft} onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))} />
+                <TemplateMeta ngos={ngos} purposes={purposes} value={draft} onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))} />
 
                 <div className="wiz-hint" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
                   {draft.preview_image ? (
@@ -1281,6 +1341,52 @@ export default function Certificates() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {purposesOpen && (
+        <div className="cert-overlay" onClick={() => setPurposesOpen(false)}>
+          <div className="cert-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <div className="cert-modal-head">
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>Manage purposes</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>These appear in the purpose dropdown of every template.</div>
+              </div>
+              <button className="btn btn-sm" onClick={() => setPurposesOpen(false)}><X size={14} /></button>
+            </div>
+            <div className="cert-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="fld"
+                  style={{ flex: 1, padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13.5, outline: 'none' }}
+                  placeholder="e.g. Participation certificate"
+                  value={purposeName}
+                  maxLength={120}
+                  onChange={(e) => setPurposeName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addPurpose() }}
+                />
+                <button className="btn btn-sm btn-primary" onClick={addPurpose} disabled={purposeBusy}>
+                  <Plus size={14} /> Add
+                </button>
+              </div>
+              <div style={{ maxHeight: 320, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {purposes.map((p) => (
+                  <div key={String(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.name}</div>
+                      {p.template_count > 0 && (
+                        <div style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>{p.template_count} template{p.template_count === 1 ? '' : 's'} use this</div>
+                      )}
+                    </div>
+                    <button className="btn btn-sm" onClick={() => removePurpose(p)} disabled={purposeBusy}><Trash2 size={13} /></button>
+                  </div>
+                ))}
+                {purposes.length === 0 && (
+                  <div className="cert-empty" style={{ padding: 18 }}>No purposes yet — add one above.</div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

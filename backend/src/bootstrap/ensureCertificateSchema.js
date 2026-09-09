@@ -78,4 +78,19 @@ export async function ensureCertificateSchema() {
   for (const sql of steps) {
     try { await db._pool.query(sql); } catch { /* index may already exist under a race; not fatal */ }
   }
+
+  await db._pool.query(`CREATE TABLE IF NOT EXISTS certificate_purposes (
+       id         BIGSERIAL PRIMARY KEY,
+       name       TEXT NOT NULL,
+       sort_order INT NOT NULL DEFAULT 0,
+       is_active  BOOLEAN NOT NULL DEFAULT TRUE,
+       created_at TIMESTAMPTZ DEFAULT NOW()
+     )`);
+  for (const [name, sort] of [['Appreciation certificate', 10], ['Achievement certificate', 20], ['Other', 30]]) {
+    await db._pool.query(
+      `INSERT INTO certificate_purposes (name, sort_order)
+       SELECT $1, $2
+       WHERE NOT EXISTS (SELECT 1 FROM certificate_purposes WHERE name = $1)`,
+      [name, sort]);
+  }
 }
