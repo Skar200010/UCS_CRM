@@ -4,6 +4,7 @@ import { getSuspenseReceipts, claimSuspenseReceipt, searchDonorsByMobile, search
 import { useRealtime } from '../../../hooks/useRealtime';
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import { SkeletonTable } from '../../../components/Skeleton';
+import LeadWave from '../../accounts/components/LeadWave';
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u2014';
 
@@ -27,12 +28,21 @@ const CLAIM_BADGES = {
 const NGO_LABELS = { bsct: 'Being Sevak', mann: 'Mann Care', aflf: 'Ashray' };
 const NGO_SHORT = { bsct: 'BSCT', mann: 'MANN', aflf: 'AFLF' };
 const NGO_PILL = {
-  bsct: { bg: '#f4f9ff', color: '#1e40af' },
-  mann: { bg: '#fcf6fb', color: '#be185d' },
-  aflf: { bg: '#f5fdf8', color: '#166534' },
+  bsct: { bg: '#e7f0ff', color: '#1e40af' },
+  mann: { bg: '#f6e8f2', color: '#be185d' },
+  aflf: { bg: '#e3f6e9', color: '#166534' },
 };
 
 const initials = (name) => (name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+
+// Newest-first order for the suspense pool. Falls back to 0 when there is no
+// usable date/time so those sink to the bottom of the list.
+const recencyMs = (r) => {
+  const d = (r && (r.receipt_date || r.transaction_date)) ? new Date((r.receipt_date || r.transaction_date) + (r.receipt_time || r.payment_time ? 'T' + (r.receipt_time || r.payment_time) : '')) : null;
+  if (d && !isNaN(d.getTime())) return d.getTime();
+  if (r && r.created_at) { const c = new Date(r.created_at); if (!isNaN(c.getTime())) return c.getTime(); }
+  return 0;
+};
 
 export default function FroSuspense() {
   const isMobile = useIsMobile()
@@ -90,12 +100,61 @@ export default function FroSuspense() {
     return () => { cancelled = true; };
   }, []);
 
+  useRealtime('bank_audit_entries', {
+    event: '*',
+    onInsert: () => load(),
+    onUpdate: () => load(),
+    onDelete: () => load(),
+  });
+
   useRealtime('receipts', {
     event: '*',
     onInsert: () => load(),
     onUpdate: () => load(),
     onDelete: () => load(),
   });
+
+  // Wave animation for newly-arrived suspense receipts only. The first real
+  // load is treated as the baseline (no animation); only the single newest
+  // receipt that appears afterwards gets the square wave, exactly once per id.
+  const seenIdsRef = useRef(null);
+  const [newIds, setNewIds] = useState(() => new Set());
+
+  useEffect(() => {
+    if (loading) return;
+    const ids = (receipts || []).map(r => String(r.id));
+    if (!seenIdsRef.current) {
+      seenIdsRef.current = new Set(ids);
+      return;
+    }
+    const fresh = [];
+    for (const id of ids) {
+      if (!seenIdsRef.current.has(id)) {
+        seenIdsRef.current.add(id);
+        fresh.push(id);
+      }
+    }
+    if (fresh.length === 0) return;
+    const newest = (receipts || []).filter(r => fresh.includes(String(r.id))).reduce(
+      (m, r) => (recencyMs(r) > recencyMs(m) ? r : m),
+      null
+    );
+    if (!newest) return;
+    const id = String(newest.id);
+    setNewIds(prev => {
+      const n = new Set(prev);
+      n.add(id);
+      return n;
+    });
+  }, [receipts, loading]);
+
+  const dropNew = (id) => {
+    setNewIds(prev => {
+      const n = new Set(prev);
+      n.delete(String(id));
+      return n;
+    });
+  };
 
   const openClaimModal = (r) => {
     setClaimReceipt(r);
@@ -191,10 +250,11 @@ export default function FroSuspense() {
   const ngos = [...new Set((receipts || []).map(r => r.project_id).filter(Boolean))];
 
   const list = useMemo(() => {
-    let base = ngoFilter ? (receipts || []).filter(r => r.project_id === ngoFilter) : (receipts || []);
+    let base = [...(receipts || [])];
+    if (ngoFilter) base = base.filter(r => r.project_id === ngoFilter);
     const q = query.trim().toLowerCase();
     if (q) base = base.filter(r => (r.donor_name || '').toLowerCase().includes(q) || (r.donor_mobile || '').includes(q));
-    return base;
+    return base.sort((a, b) => recencyMs(b) - recencyMs(a));
   }, [receipts, ngoFilter, query]);
 
   const totalAmount = list.reduce((s, r) => s + Number(r.amount || 0), 0);
@@ -207,6 +267,30 @@ export default function FroSuspense() {
         @keyframes froPulse {
           0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(91,107,78,.22); }
           50% { transform: scale(1.045); box-shadow: 0 4px 16px rgba(91,107,78,.4); }
+        }
+        @keyframes froWaveWipe {
+          from { clip-path: inset(0 100% 0 0); }
+          to { clip-path: inset(0 0 0 0); }
+        }
+        @keyframes froWaveSweep {
+          from { transform: translateX(108%); }
+          to { transform: translateX(-108%); }
+        }
+        .fro-wave-bg {
+          position: absolute; inset: 0; z-index: 0; border-radius: inherit; pointer-events: none;
+          clip-path: inset(0 0 0 0);
+        }
+        .fro-wave-bg.is-waving {
+          animation: froWaveWipe 1.15s ease-out .12s forwards;
+        }
+        .fro-wave {
+          position: absolute; inset: 0; z-index: 1; overflow: hidden; border-radius: inherit; pointer-events: none;
+          animation: froWaveSweep 1.05s linear .05s forwards;
+        }
+        .fro-wave-sq { position: absolute; display: block; border-radius: 0; }
+        @media (prefers-reduced-motion: reduce) {
+          .fro-wave { display: none; }
+          .fro-wave-bg.is-waving { animation: none; clip-path: inset(0 0 0 0); }
         }
       `}</style>
       {/* Toolbar: NGO pill tabs + search */}
@@ -265,58 +349,66 @@ export default function FroSuspense() {
               const amtStr = currency(r.amount);
               const amtW = isCompact ? 78 : 96;
               const amtFont = amtStr.length >= 12 ? (isCompact ? 8 : 10) : amtStr.length >= 10 ? (isCompact ? 9 : 11) : amtStr.length >= 8 ? (isCompact ? 10 : 12.5) : amtStr.length >= 6 ? (isCompact ? 11.5 : 13.5) : (isCompact ? 13 : 15);
+              const isNew = newIds.has(String(r.id));
+              const pill = NGO_PILL[r.project_id] || { bg: 'var(--card-bg)' };
               return (
                 <div key={r.id} onClick={() => claimable && openClaimModal(r)}
                   onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--sage)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,.08)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                   onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.boxShadow = 'var(--shadow)'; e.currentTarget.style.transform = 'none'; }}
                   style={{
+                    position: 'relative', overflow: 'hidden',
                     display: 'flex', alignItems: 'center', gap: isCompact ? 8 : 12, padding: isCompact ? '10px 10px' : '12px 14px',
-                    background: (NGO_PILL[r.project_id] || { bg: 'var(--card-bg)' }).bg, border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)',
+                    background: isNew ? 'var(--card-bg)' : pill.bg, border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)',
                     boxShadow: 'var(--shadow)', cursor: claimable ? 'pointer' : 'default', transition: 'transform .12s, box-shadow .12s, border-color .12s',
                   }}>
-                  <div style={{ width: isCompact ? 34 : 40, height: isCompact ? 34 : 40, borderRadius: '50%', background: '#B5603A1A', color: '#B5603A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isCompact ? 12 : 14, fontWeight: 700, flexShrink: 0 }}>
-                    {initials(r.donor_name)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.donor_name || 'Unknown donor'}</span>
-                      <span style={{
-                        padding: '2px 7px', borderRadius: 6, fontSize: 10, fontWeight: 700, flexShrink: 0,
-                        background: (NGO_PILL[r.project_id] || { bg: '#f3f4f6', color: '#6b7280' }).bg,
-                        color: (NGO_PILL[r.project_id] || { bg: '#f3f4f6', color: '#6b7280' }).color,
-                      }}>{NGO_SHORT[r.project_id] || NGO_LABELS[r.project_id] || r.project_id}</span>
-                      {badge && (
-                        <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: badge.bg, color: badge.color }}>
-                          {badge.text}
-                        </span>
+                  {isNew && (
+                    <LeadWave animate bg={pill.bg} square={pill.color || '#1e40af'} seed={String(r.id)} cls="fro" onDone={() => dropNew(String(r.id))} />
+                  )}
+                  <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: isCompact ? 8 : 12, flex: 1, minWidth: 0 }}>
+                    <div style={{ width: isCompact ? 34 : 40, height: isCompact ? 34 : 40, borderRadius: '50%', background: '#B5603A1A', color: '#B5603A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isCompact ? 12 : 14, fontWeight: 700, flexShrink: 0 }}>
+                      {initials(r.donor_name)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.donor_name || 'Unknown donor'}</span>
+                        <span style={{
+                          padding: '2px 7px', borderRadius: 6, fontSize: 10, fontWeight: 700, flexShrink: 0,
+                          background: (NGO_PILL[r.project_id] || { bg: '#f3f4f6', color: '#6b7280' }).bg,
+                          color: (NGO_PILL[r.project_id] || { bg: '#f3f4f6', color: '#6b7280' }).color,
+                        }}>{NGO_SHORT[r.project_id] || NGO_LABELS[r.project_id] || r.project_id}</span>
+                        {badge && (
+                          <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700, background: badge.bg, color: badge.color }}>
+                            {badge.text}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 4 }}>
+                        {r.receipt_date || '\u2014'}{r.receipt_time ? ` | ${fmtTime12(r.receipt_time)}` : ''}
+                      </div>
+                      {r.payment_id && (
+                        <div style={{ fontSize: 11, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ color: 'var(--ink-soft)' }}>UPI:</span>
+                          <span style={{ color: 'var(--ink)', fontWeight: 700 }}>{r.payment_id}</span>
+                        </div>
                       )}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 4 }}>
-                      {r.receipt_date || '\u2014'}{r.receipt_time ? ` | ${fmtTime12(r.receipt_time)}` : ''}
-                    </div>
-                    {r.payment_id && (
-                      <div style={{ fontSize: 11, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ color: 'var(--ink-soft)' }}>UPI:</span>
-                        <span style={{ color: 'var(--ink)', fontWeight: 700 }}>{r.payment_id}</span>
-                      </div>
-                    )}
+                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                      {claimable ? (
+                        <button
+                          onClick={e => { e.stopPropagation(); openClaimModal(r); }}
+                          style={{ width: amtW, maxWidth: '100%', fontSize: amtFont, fontWeight: 700, color: '#fff', background: 'var(--sage)', padding: isCompact ? '5px 8px' : '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', animation: 'froPulse 1.6s ease-in-out infinite', transition: 'transform .15s, box-shadow .15s' }}
+                          onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(91,107,78,.45)'; }}
+                          onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}>
+                          {amtStr}
+                        </button>
+                      ) : (
+                        <div style={{ width: amtW, textAlign: 'right', fontSize: amtFont, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{amtStr}</div>
+                      )}
+                      {r.claim_count > 1 && !claimable && (
+                        <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{r.claim_count} claims</div>
+                      )}
+                    </div>{claimable && <ChevronRight size={isCompact ? 14 : 16} style={{ color: 'var(--ink-soft)', flexShrink: 0 }} />}
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                    {claimable ? (
-                      <button
-                        onClick={e => { e.stopPropagation(); openClaimModal(r); }}
-                        style={{ width: amtW, maxWidth: '100%', fontSize: amtFont, fontWeight: 700, color: '#fff', background: 'var(--sage)', padding: isCompact ? '5px 8px' : '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', animation: 'froPulse 1.6s ease-in-out infinite', transition: 'transform .15s, box-shadow .15s' }}
-                        onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(91,107,78,.45)'; }}
-                        onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}>
-                        {amtStr}
-                      </button>
-                    ) : (
-                      <div style={{ width: amtW, textAlign: 'right', fontSize: amtFont, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{amtStr}</div>
-                    )}
-                    {r.claim_count > 1 && !claimable && (
-                      <div style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{r.claim_count} claims</div>
-                    )}
-                  </div>{claimable && <ChevronRight size={isCompact ? 14 : 16} style={{ color: 'var(--ink-soft)', flexShrink: 0 }} />}
                 </div>
               );
             })}

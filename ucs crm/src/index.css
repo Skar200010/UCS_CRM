@@ -1390,6 +1390,37 @@
 .panel-accounts .lead-audit-columns .ec-title { font-size:12px; }
 .panel-accounts .lead-audit-columns .ec-amount { font-size:15px; }
 .panel-accounts .lead-audit-columns .ec-meta { margin-top:9px; padding-top:9px; }
+/* Lead Verification → Bank Audit wave overlay. Scoped to lead cards only
+   ([data-lead-log]); connectors (MatchLines) and Bank Audit cards untouched. */
+.panel-accounts .lead-audit-columns .entry-card[data-lead-log] { overflow:hidden; }
+.panel-accounts .lead-audit-columns .entry-card[data-lead-log] .ec-main,
+.panel-accounts .lead-audit-columns .entry-card[data-lead-log] .ec-meta { position:relative; z-index:2; }
+.panel-accounts .lead-audit-columns .entry-card[data-lead-log] .ec-wave-bg {
+  position:absolute; inset:0; z-index:0; border-radius:inherit; pointer-events:none;
+  clip-path:inset(0 0 0 0);
+}
+.panel-accounts .lead-audit-columns .entry-card[data-lead-log] .ec-wave-bg.is-waving {
+  animation:ec-wave-wipe 1.15s ease-out .12s forwards;
+}
+.panel-accounts .lead-audit-columns .entry-card[data-lead-log] .ec-wave {
+  position:absolute; inset:0; z-index:1; overflow:hidden; border-radius:inherit; pointer-events:none;
+  animation:ec-wave-sweep 1.05s linear .05s forwards;
+}
+.panel-accounts .lead-audit-columns .entry-card[data-lead-log] .ec-wave-sq {
+  position:absolute; display:block; border-radius:0;
+}
+@keyframes ec-wave-wipe {
+  from { clip-path:inset(0 100% 0 0); }
+  to { clip-path:inset(0 0 0 0); }
+}
+@keyframes ec-wave-sweep {
+  from { transform:translateX(108%); }
+  to { transform:translateX(-108%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel-accounts .lead-audit-columns .entry-card[data-lead-log] .ec-wave { display:none; }
+  .panel-accounts .lead-audit-columns .entry-card[data-lead-log] .ec-wave-bg.is-waving { animation:none; clip-path:inset(0 0 0 0); }
+}
 .panel-accounts .lead-audit-workspace .match-bar { gap:10px; padding:9px 12px; background:rgba(255,255,255,.97); border:1px solid #cbdceb; border-radius:13px; box-shadow:0 10px 28px rgba(31,55,86,.16); }
 .panel-accounts .lead-audit-workspace .match-chip { min-height:38px; padding:7px 10px !important; border-radius:9px !important; background:#eef7ec !important; border-color:#c9e0c3 !important; }
 .panel-accounts .lead-audit-workspace .match-chip::before { content:'Selected lead'; display:block; font-size:9px; font-weight:800; color:#6b8064; text-transform:uppercase; letter-spacing:.06em; margin-right:2px; }

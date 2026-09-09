@@ -919,7 +919,7 @@ export const getSuspenseReceipts = async (req, res) => {
         id: e.receipt_id,
         entry_id: e.id,
         receipt_no: e.receipt_no || r.receipt_no || null,
-        donor_name: r.donor_name || e.payer_name || null,
+        donor_name: e.payer_name || r.donor_name || null,
         donor_mobile: r.donor_mobile || null,
         amount: r.amount || e.amount,
         receipt_date: r.receipt_date || e.transaction_date,
@@ -1213,7 +1213,7 @@ export const claimSuspenseReceipt = async (req, res) => {
             amount: entry.amount || 0,
             receipt_date: receiptDate,
             receipt_time: entry.payment_time || null,
-            donor_name: donorName || entry.payer_name || null,
+            donor_name: entry.payer_name || donorName || null,
             payment_id: entry.payment_id || null,
             agent_name: creditWorkerName || null,
           })
@@ -1801,6 +1801,52 @@ export const getMyDonors = async (req, res) => {
       assignments.sort((a, b) => (statusRank[a.status] ?? 999) - (statusRank[b.status] ?? 999));
     }
 
+    // ─── Status classification sets ───────────────────────────────────────────
+    // Declared before the dedup sort so duplicate (donor_id, ngo_id) rows are
+    // ranked by how terminal they are (the disposed/worked twin must win). The
+    // same instances are reused by the hide-filter stage further down. 'others'
+    // is a catch-all terminal disposition — a lead closed with it must leave the
+    // work queue for the current month, not resurface as 'pending'.
+    const RETRYABLE_NOT_CONNECTED_DETAILS = new Set([
+      'ringing', 'unreachable', 'busy', 'out_of_coverage', 'voicemail', 'call_waiting', 'switched_off',
+    ]);
+    // Permanent hide for terminal not-connected dispositions (wrong_number, invalid, etc.).
+    // Retryable ones above are excluded here — they go to tail instead.
+    const NOT_CONNECTED_DISPOSITION_DETAILS = new Set([
+      'wrong_number', 'invalid_number', 'invalid',
+      'rejected', 'temporary_network_issue', 'incoming_out',
+    ]);
+    const MONEY_DONE_STATUSES = new Set([
+      'donation_collected', 'done', 'lead_done', 'visit_donate',
+      'will_donate_online', 'promise_to_pay', 'payment_pending', 'already_donated',
+    ]);
+    const TERMINAL_DISPOSITIONS = new Set([
+      'not_interested', 'not_interested_now', 'dnd', 'wrong_person', 'not_possible', 'language_barrier',
+      'call_disconnected', 'email_sent', 'whatsapp_sent', 'transferred_senior',
+      'query_complaint', 'receipt_request', 'csr_inquiry', 'wants_80g_details', 'wants_trust_documents',
+      'office_program_visit', 'promise_pay_wa_email', 'not_interested_np',
+      'others',
+    ]);
+
+    // Dedup-ready ordering: within the same (donor_id, ngo_id), sort so the
+    // "most terminal" row comes first and wins the keep-first dedup below. A
+    // pending twin must never shadow a disposed/worked row, otherwise a lead
+    // that was legally disposed (e.g. 'others') resurfaces with stale
+    // 'pending' status. Rank: hidden_until > terminal disposition > money done
+    // > not-connected terminal > everything else.
+    const dedupRank = (x) => {
+      if (x.hidden_until) return 0;
+      if (TERMINAL_DISPOSITIONS.has(x.status)) return 1;
+      if (MONEY_DONE_STATUSES.has(x.status)) return 2;
+      if (NOT_CONNECTED_DISPOSITION_DETAILS.has(x.status)) return 3;
+      return 4;
+    };
+    assignments.sort((x, y) => {
+      const r = dedupRank(x) - dedupRank(y);
+      if (r !== 0) return r;
+      return (x.assigned_at || '').localeCompare(y.assigned_at || '');
+    });
+
     let result = [];
     const seen = new Set();
     for (const a of assignments || []) {
@@ -1854,6 +1900,7 @@ export const getMyDonors = async (req, res) => {
         notes: a.notes || null,
         last_contacted_at: a.last_contacted_at || null,
         next_follow_up: a.next_follow_up || null,
+        hidden_until: a.hidden_until || null,
         assigned_at: a.assigned_at || null,
         is_new: a.is_new !== false,
         batch_type: a.batch_type || null,
@@ -1930,26 +1977,6 @@ export const getMyDonors = async (req, res) => {
     const now = new Date();
     const nowISO = now.toISOString();
 
-    // Retryable not-connected: shown at tail of FIFO for rework, not permanently hidden.
-    const RETRYABLE_NOT_CONNECTED_DETAILS = new Set([
-      'ringing', 'unreachable', 'busy', 'out_of_coverage', 'voicemail', 'call_waiting', 'switched_off',
-    ]);
-    // Permanent hide for terminal not-connected dispositions (wrong_number, invalid, etc.).
-    // Retryable ones above are excluded here — they go to tail instead.
-    const NOT_CONNECTED_DISPOSITION_DETAILS = new Set([
-      'wrong_number', 'invalid_number', 'invalid',
-      'rejected', 'temporary_network_issue', 'incoming_out',
-    ]);
-    const MONEY_DONE_STATUSES = new Set([
-      'donation_collected', 'done', 'lead_done', 'visit_donate',
-      'will_donate_online', 'promise_to_pay', 'payment_pending', 'already_donated',
-    ]);
-    const TERMINAL_DISPOSITIONS = new Set([
-      'not_interested', 'not_interested_now', 'dnd', 'wrong_person', 'not_possible', 'language_barrier',
-      'call_disconnected', 'email_sent', 'whatsapp_sent', 'transferred_senior',
-      'query_complaint', 'receipt_request', 'csr_inquiry', 'wants_80g_details', 'wants_trust_documents',
-      'office_program_visit', 'promise_pay_wa_email', 'not_interested_np',
-    ]);
     const notConnectedForeverIds = new Set();
     const terminalForeverIds = new Set();
     if (donorIds.length > 0) {
@@ -2006,6 +2033,7 @@ export const getMyDonors = async (req, res) => {
       'not_interested', 'not_interested_now', 'dnd', 'wrong_person', 'not_possible',
       'language_barrier', 'call_disconnected',
       'wrong_number', 'invalid_number', 'invalid', 'rejected', 'temporary_network_issue', 'incoming_out',
+      'others',
     ]);
 
     let baseFiltered;
