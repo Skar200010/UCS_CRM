@@ -4457,7 +4457,8 @@ export const getTLDashboard = async (req, res) => {
     const perNgoCollectionMap = {};
     for (const l of callLogs || []) {
       if (l.accounts_status !== 'verified') continue;
-      const nid = (l.fro_assignments || [])[0]?.ngo_id;
+      const fa = l.fro_assignments;
+      const nid = Array.isArray(fa) ? fa?.[0]?.ngo_id : (fa?.ngo_id ?? fa?.[0]?.ngo_id);
       if (nid == null) continue;
       perNgoCollectionMap[String(nid)] = (perNgoCollectionMap[String(nid)] || 0) + parseFloat(l.amount_collected || 0);
     }
