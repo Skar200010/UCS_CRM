@@ -295,9 +295,13 @@ function FroSearchPicker({ value, fros = [], onChange }){
 
 // ─── Audit Stat Cards ──────────────────────────────────────
 export function AuditStatCards({sources=[],summary={},loading=false,suspenseNgo='',setSuspenseNgo=null,combo=null,locked=false,bare=false}){
-  const c=combo?(combo[suspenseNgo||'all']||{count:0,entries:0,suspense:0,amount:0}):null;
+  const c=combo?(combo.all||{count:0,entries:0,suspense:0,amount:0}):null;
   const mask=(v)=>locked?'XXXX':v;
-  const ngoTabs=[['','All'],['bsct','BSCT'],['aflf','AFLF'],['mann','MANN']];
+  const ngoTiles=[
+    {ngo:'bsct',label:'BSCT',bg:'#e7f0ff',accent:'#1e40af'},
+    {ngo:'aflf',label:'AFLF',bg:'#e3f6e9',accent:'#166534'},
+    {ngo:'mann',label:'MANN',bg:'#f6e8f2',accent:'#be185d'},
+  ];
   const outer = bare
     ? {display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16}
     : {display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:16,padding:'20px 22px',borderRadius:16,background:'linear-gradient(135deg,#ffffff 0%,#f6f8fb 100%)',border:'1px solid #e7ecf3',boxShadow:'0 6px 24px rgba(30,41,59,.06)'};
@@ -314,8 +318,8 @@ export function AuditStatCards({sources=[],summary={},loading=false,suspenseNgo=
           </div>
         </div>
         {setSuspenseNgo&&(
-          <div style={{display:'inline-flex',gap:4,padding:4,background:'#eef1f6',borderRadius:12}}>
-            {ngoTabs.map((t,i)=><span key={i} className="sk" style={{width:52,height:30,borderRadius:9}}/>)}
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {ngoTiles.map((t,i)=><span key={i} className="sk" style={{width:120,height:64,borderRadius:12}}/>)}
           </div>
         )}
       </div>
@@ -336,10 +340,28 @@ export function AuditStatCards({sources=[],summary={},loading=false,suspenseNgo=
       </div>
 
       {setSuspenseNgo&&(
-        <div style={{display:'inline-flex',gap:4,padding:4,background:'#eef1f6',borderRadius:12}}>
-          {ngoTabs.map(([v,l])=>
-            <button key={v||'all'} onClick={()=>setSuspenseNgo(v)} style={{fontSize:12.5,fontWeight:700,padding:'7px 15px',borderRadius:9,border:'none',cursor:'pointer',background:suspenseNgo===v?'#111827':'transparent',color:suspenseNgo===v?'#fff':'#475569',transition:'background .12s, color .12s'}}>{l}</button>
-          )}
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {ngoTiles.map(({ngo,label,bg,accent})=>{
+            const active=suspenseNgo===ngo;
+            const d=(combo&&combo[ngo])||{count:0,amount:0};
+            return (
+              <button key={ngo} onClick={()=>setSuspenseNgo(active?'':ngo)} title={`Filter to ${label}`}
+                style={{
+                  display:'flex',flexDirection:'column',alignItems:'flex-start',gap:3,minWidth:120,
+                  padding:'10px 14px',borderRadius:12,cursor:'pointer',fontFamily:'inherit',textAlign:'left',
+                  background:bg,color:accent,border:active?`2px solid ${accent}`:'2px solid transparent',
+                  boxShadow:active?`0 4px 14px ${accent}30`:'none',transition:'box-shadow .12s, transform .12s',
+                }}
+                onMouseOver={e=>{e.currentTarget.style.transform='translateY(-1px)'}}
+                onMouseOut={e=>{e.currentTarget.style.transform='none'}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,width:'100%'}}>
+                  <span style={{fontSize:11,fontWeight:800,letterSpacing:'.04em',textTransform:'uppercase'}}>{label}</span>
+                  <span style={{marginLeft:'auto',fontSize:10,fontWeight:700,opacity:.75,fontVariantNumeric:'tabular-nums'}}>{mask(d.count)}</span>
+                </div>
+                <div style={{fontSize:17,fontWeight:800,fontVariantNumeric:'tabular-nums',lineHeight:1.15,whiteSpace:'nowrap'}}>{mask(curr(d.amount))}</div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
