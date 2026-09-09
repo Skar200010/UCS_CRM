@@ -10,6 +10,7 @@ import {
   leaderboardHandler,
   claimsHandler,
   verifyClaimHandler,
+  celebrateHandler,
   deleteHandler,
 } from '../controllers/specialIncentiveController.js';
 
@@ -30,6 +31,7 @@ router.get('/:id', popupLevel, detailHandler);
 router.post('/:id/refresh', popupLevel, refreshHandler);
 router.post('/:id/cancel', sirLevel, cancelHandler);
 router.post('/:id/claim', claimLevel, verifyClaimHandler);
+router.post('/:id/celebrate', sirLevel, celebrateHandler);
 router.delete('/:id', sirLevel, deleteHandler);
 
 export default router;

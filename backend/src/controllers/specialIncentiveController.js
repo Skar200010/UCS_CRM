@@ -1,4 +1,5 @@
 import db from '../config/db.js';
+import groq from '../config/groq.js';
 import {
   getActiveIncentives,
   getIncentiveById,
@@ -11,6 +12,7 @@ import {
   listPendingClaims,
   listVerifiedClaims,
   claimSpecialIncentive,
+  publishWinnerCelebration,
   deleteSpecialIncentive,
 } from '../services/specialIncentiveService.js';
 
@@ -31,8 +33,36 @@ const pretty = (inc) => (inc ? {
   claimed_by: inc.claimed_by || null,
   claimed_at: inc.claimed_at || null,
   claim_remarks: inc.claim_remarks || null,
+  winner_photo_url: inc.winner_photo_url || null,
+  congrats_message: inc.congrats_message || null,
+  celebrated_at: inc.celebrated_at || null,
   created_at: inc.created_at,
 } : null);
+
+// Keep Groq calls at least ~1.5s apart (shared quota across the app).
+const throttleGroq = async () => {
+  const wait = 1500 - (Date.now() - (global.__groqLastCall || 0));
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+};
+
+export async function generateCongratsMessage({ winnerName, title, amount }) {
+  await throttleGroq();
+  global.__groqLastCall = Date.now();
+  const completion = await groq.chat.completions.create({
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You write warm, short congratulations (2-3 sentences) for FRO fundraising officers who won a collection incentive at a donation NGO. Mention the winner by name, the incentive and the prize. Cheerful, proud, inspiring. Use at most one emoji. Plain text only, no quotes, no markdown.',
+      },
+      { role: 'user', content: `Winner: ${winnerName || 'The winner'}\nIncentive: ${title || 'the special incentive'}\nPrize: ₹${Number(amount) || 0}` },
+    ],
+    model: 'llama-3.3-70b-versatile',
+    max_tokens: 160,
+    temperature: 0.85,
+  });
+  return (completion.choices?.[0]?.message?.content || '').trim();
+}
 
 export async function createHandler(req, res) {
   try {
@@ -90,7 +120,24 @@ export async function activeHandler(req, res) {
       });
     }
 
-    return res.json({ incentives: result, recent: recentClosed });
+    // Winner photo celebration: most recent won incentive whose photo was
+    // posted by Sir within the last 48h, so every panel pops it up.
+    let celeb = null;
+    try {
+      const { data: lastCeleb } = await db
+        .from('special_incentives')
+        .select('*')
+        .eq('status', 'won')
+        .not('celebrated_at', 'is', null)
+        .gte('celebrated_at', new Date(now - 48 * 60 * 60 * 1000).toISOString())
+        .order('celebrated_at', { ascending: false })
+        .limit(1);
+      celeb = lastCeleb && lastCeleb[0] ? pretty(lastCeleb[0]) : null;
+    } catch (e) {
+      console.error('[special incentive] celeb payload:', e.message);
+    }
+
+    return res.json({ incentives: result, recent: recentClosed, celeb });
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }
@@ -213,6 +260,66 @@ export async function verifyClaimHandler(req, res) {
     });
     if (!claimed) return res.status(400).json({ message: 'Unable to verify — incentive no longer pending' });
     return res.json({ incentive: pretty(claimed) });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+}
+
+// Super Admin posts the winner's photo (with optional custom message). If no
+// message is given, Groq auto-writes a congratulation. The stored row then
+// pops up as a celebration on every panel (realtime + 20s poll).
+export async function celebrateHandler(req, res) {
+  try {
+    const inc = await getIncentiveById(req.params.id);
+    if (!inc) return res.status(404).json({ message: 'Incentive not found' });
+    if (inc.status !== 'won') return res.status(400).json({ message: 'Only won incentives can be celebrated' });
+    if (inc.celebrated_at) return res.status(400).json({ message: 'Winner celebration already posted' });
+
+    const { file_base64, mime_type, message } = req.body || {};
+    let winnerPhotoUrl = inc.winner_photo_url || null;
+
+    if (file_base64) {
+      const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+      const contentType = mime_type || 'image/jpeg';
+      if (!ALLOWED.includes(contentType)) {
+        return res.status(400).json({ message: `Invalid file type. Allowed: ${ALLOWED.join(', ')}` });
+      }
+      const buffer = Buffer.from(file_base64, 'base64');
+      const ext = contentType.split('/')[1] || 'jpg';
+      const fileName = `special_incentive_winners/${req.params.id}_${Date.now()}.${ext}`;
+
+      const bucket = 'worker-documents';
+      let { error: uploadError } = await db.storage.from(bucket).upload(fileName, buffer, { contentType, upsert: true });
+      if (uploadError) {
+        if (uploadError.message?.includes('bucket')) {
+          const { error: bucketError } = await db.storage.createBucket(bucket, { public: true });
+          if (bucketError) return res.status(500).json({ message: 'Failed to create storage bucket: ' + bucketError.message });
+          const { error: retryError } = await db.storage.from(bucket).upload(fileName, buffer, { contentType, upsert: true });
+          if (retryError) return res.status(500).json({ message: 'Upload failed: ' + retryError.message });
+        } else {
+          return res.status(500).json({ message: 'Upload failed: ' + uploadError.message });
+        }
+      }
+      const { data: urlData } = db.storage.from(bucket).getPublicUrl(fileName);
+      winnerPhotoUrl = urlData?.publicUrl;
+      if (!winnerPhotoUrl) return res.status(500).json({ message: 'Failed to get file URL' });
+    }
+
+    const customMsg = typeof message === 'string' && message.trim() ? message.trim() : null;
+    let congrats = customMsg;
+    if (!congrats) {
+      try {
+        congrats = await generateCongratsMessage({ winnerName: inc.winner_name, title: inc.title, amount: inc.incentive_amount });
+      } catch (e) {
+        console.error('[special incentive] ai congrats:', e.message);
+      }
+    }
+
+    const celebrated = await publishWinnerCelebration(req.params.id, { photoUrl: winnerPhotoUrl, message: congrats });
+    if (!celebrated) {
+      return res.status(400).json({ message: 'Unable to post — winner celebration already published' });
+    }
+    return res.json({ incentive: pretty(celebrated) });
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }

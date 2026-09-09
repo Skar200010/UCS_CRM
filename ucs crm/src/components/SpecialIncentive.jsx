@@ -7,6 +7,7 @@ import { requestNotifPermission, showDesktopNotification } from '../utils/deskto
 
 const SEEN_KEY = 'si_seen_v1';
 const CELEB_KEY = 'si_celeb_v1';
+const CELEB_PHOTO_KEY = 'si_celeb_photo_v1';
 
 const fmt = (n) => {
   const v = Number(n);
@@ -43,6 +44,7 @@ const CONFETTI_CSS = `
 @keyframes si-bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 @keyframes si-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 @keyframes si-rise { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes si-drop { 0% { transform: translateY(-110vh) scale(.92); opacity: 0; } 45% { transform: translateY(2vh) scale(1.03); opacity: 1; } 62% { transform: translateY(-1.2vh) scale(1); } 78% { transform: translateY(.5vh); } 100% { transform: translateY(0); opacity: 1; } }
 .si-confetti { position: fixed; top: -6vh; border-radius: 2px; z-index: 99999; pointer-events: none; animation-name: si-confetti-fall; animation-timing-function: linear; animation-iteration-count: infinite; }
 `;
 
@@ -225,6 +227,54 @@ function Celebration({ inc, you, onClose }) {
   );
 }
 
+// Full-screen winner-photo celebration. Drops in from the top with confetti and
+// shows Sir's posted photo + the AI congratulation on every panel.
+function WinnerPhotoPopup({ inc, onClose }) {
+  const pieces = useMemo(() => Array.from({ length: 150 }).map((_, i) => ({
+    left: Math.random() * 100,
+    delay: Math.random() * 2,
+    dur: 2.4 + Math.random() * 2.4,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    w: 6 + Math.random() * 9,
+    h: 10 + Math.random() * 12,
+  })), []);
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 99993, background: 'rgba(15,23,42,.6)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <style>{CONFETTI_CSS}</style>
+      {pieces.map((p, i) => (
+        <div key={i} className="si-confetti" style={{
+          left: `${p.left}%`, width: p.w, height: p.h, background: p.color,
+          animationDelay: `${p.delay}s`, animationDuration: `${p.dur}s`,
+        }} />
+      ))}
+      <div style={{ width: 'min(410px,100%)', borderRadius: 22, padding: 10, background: 'linear-gradient(165deg,#fff8e7,#ffe3a6)', border: '3px solid #f59e0b', boxShadow: '0 32px 90px rgba(0,0,0,.45)', animation: 'si-drop .9s cubic-bezier(.22,1,.36,1) both', position: 'relative', textAlign: 'center' }}>
+        <div style={{ position: 'absolute', top: 18, right: 18, cursor: 'pointer', width: 30, height: 30, borderRadius: 50, background: '#fff', border: '1.5px solid #f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, color: '#b45309', zIndex: 3 }} onClick={onClose}>✕</div>
+        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: '#b45309', marginTop: 4 }}>🎉 Winner Announcement</div>
+        {inc.winner_photo_url ? (
+          <div style={{ borderRadius: 14, overflow: 'hidden', margin: '10px 0', border: '2px solid #f59e0b', position: 'relative', maxHeight: '38vh' }}>
+            <img src={inc.winner_photo_url} alt="Winner" style={{ width: '100%', height: '100%', maxHeight: '38vh', objectFit: 'cover', display: 'block', background: '#fde68a' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 55%, rgba(120,53,15,.55) 100%)' }} />
+            <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '8px 12px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{ color: '#fff', fontWeight: 900, fontSize: 19, textShadow: '0 1px 6px rgba(0,0,0,.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inc.winner_name || 'The Winner'}</span>
+              <span style={{ color: '#fff', fontWeight: 800, fontSize: 16, textShadow: '0 1px 6px rgba(0,0,0,.45)', whiteSpace: 'nowrap' }}>🏆 ₹{fmt(inc.incentive_amount)}</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ margin: '10px 0', padding: '20px 0' }}>
+            <div style={{ fontSize: 48 }}>🏆</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--ink)', marginTop: 4 }}>{inc.winner_name || 'The Winner'}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#d97706' }}>Won ₹{fmt(inc.incentive_amount)} 🎉</div>
+          </div>
+        )}
+        {inc.congrats_message && (
+          <div style={{ margin: '0 2px 4px', padding: '12px 14px', borderRadius: 12, background: 'rgba(255,255,255,.72)', border: '1.5px solid #fcd34d', fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink)', fontWeight: 600 }}>{inc.congrats_message}</div>
+        )}
+        <div style={{ fontSize: 11, color: '#b45309', fontWeight: 700, margin: '2px 0 6px' }}>{inc.title}</div>
+      </div>
+    </div>
+  );
+}
+
 // Persistent mini card; exported for reuse on dashboards & panels.
 export function SpecialIncentiveCard({ inc, you, nowMs }) {
   if (!inc) return null;
@@ -273,10 +323,12 @@ export function useSpecialIncentive() {
   const [data, setData] = useState({ incentives: [], recent: [] });
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [celebrate, setCelebrate] = useState(null);
+  const [photoCeleb, setPhotoCeleb] = useState(null);
   const [popupOpen, setPopupOpen] = useState(false);
   const [dismissedId, setDismissedId] = useState(null);
   const trackedRef = useRef(new Set());
   const celebrationShownRef = useRef(new Set());
+  const photoShownRef = useRef(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -327,10 +379,24 @@ export function useSpecialIncentive() {
     }
   }, [data.recent]);
 
+  // Winner-photo celebration: when Sir posts the winner's photo, drop the popup
+  // on every panel (once per id per device).
+  useEffect(() => {
+    const c = data.celeb;
+    if (c && c.celebrated_at && !photoShownRef.current.has(c.id) && !hasInSet(CELEB_PHOTO_KEY, c.id)) {
+      photoShownRef.current.add(c.id);
+      addToSet(CELEB_PHOTO_KEY, c.id);
+      setPhotoCeleb(c);
+      const t = setTimeout(() => setPhotoCeleb(null), 12000);
+      return () => clearTimeout(t);
+    }
+  }, [data.celeb]);
+
   return {
     active,
     recent: data.recent?.[0] || null,
     celebrate,
+    photoCeleb,
     popupOpen,
     nowMs,
     user,
@@ -338,12 +404,13 @@ export function useSpecialIncentive() {
     dismissCard: (id) => setDismissedId(id ? String(id) : null),
     closePopup: () => setPopupOpen(false),
     closeCelebrate: () => setCelebrate(null),
+    closePhotoCeleb: () => setPhotoCeleb(null),
     reload: load,
   };
 }
 
 export default function SpecialIncentive() {
-  const { active, celebrate, popupOpen, nowMs, user, dismissedId, dismissCard, closePopup, closeCelebrate } = useSpecialIncentive();
+  const { active, celebrate, photoCeleb, popupOpen, nowMs, user, dismissedId, dismissCard, closePopup, closeCelebrate, closePhotoCeleb } = useSpecialIncentive();
   const you = user?.id || null;
 
   // Show the sticky bottom-left card ONLY while an incentive is genuinely
@@ -354,6 +421,7 @@ export default function SpecialIncentive() {
   return (
     <>
       <style>{CONFETTI_CSS}</style>
+      {photoCeleb && <WinnerPhotoPopup inc={photoCeleb} onClose={closePhotoCeleb} />}
       {celebrate && <Celebration inc={celebrate} you={you} onClose={closeCelebrate} />}
       {popupOpen && active && <PopupModal inc={active} you={you} onClose={closePopup} nowMs={nowMs} />}
       {showCard && !celebrate && (

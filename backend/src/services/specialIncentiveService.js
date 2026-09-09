@@ -160,6 +160,49 @@ export const celebrateWinner = async (incentiveId, workerId, winnerName) => {
   }
 };
 
+const notifyWinnerCelebration = async (inc) => {
+  try {
+    const rows = await sql(RECIPIENT_SQL);
+    if (!rows || rows.length === 0) return;
+    const title = `${inc?.winner_name || 'A FRO'} WON 🏆`;
+    const body = inc?.congrats_message || `${inc?.winner_name || 'Someone'} won ${inc?.title || 'the incentive'}! 🎉`;
+    await sendNotificationLogs(
+      rows.map((r) => ({
+        worker_id: r.id,
+        type: 'special_incentive_celebration',
+        title,
+        body,
+        reference_id: String(inc?.id),
+      }))
+    );
+  } catch (e) {
+    console.error('[special incentive] celeb notify:', e.message);
+  }
+};
+
+// Publish the winner photo celebration: persists the photo URL + (AI) congrats
+// message, stamps celebrated_at, then notifies every panel. Atomic — only flips
+// when not posted yet, so double-clicks can't double-post.
+export const publishWinnerCelebration = async (incentiveId, { photoUrl, message }) => {
+  const { data, error } = await db
+    .from('special_incentives')
+    .update({
+      winner_photo_url: photoUrl || null,
+      congrats_message: message ? String(message).trim() : null,
+      celebrated_at: new Date().toISOString(),
+    })
+    .eq('id', incentiveId)
+    .eq('status', 'won')
+    .is('celebrated_at', null)
+    .select();
+  if (error) throw error;
+  const inc = (data && data[0]) || null;
+  if (!inc) return null;
+  await notifyWinnerCelebration(inc);
+  console.log(`[special incentive] ${inc.title} winner celebration posted for ${inc.winner_name || 'unknown'}`);
+  return inc;
+};
+
 // Recompute the live progress for one incentive from fro_donor_logs, then try
 // to lock the first-past-the-post winner. Idempotent & concurrency-safe.
 export const refreshSpecialIncentive = async (incentiveId) => {
