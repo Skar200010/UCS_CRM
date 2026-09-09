@@ -6,7 +6,7 @@ import { toast } from '../../../components/Toast'
 import {
   FileText, Presentation, Plus, Edit3, Copy, Archive, ArchiveRestore, Trash2, Download,
   Wand2, Search, X, ChevronLeft, UploadCloud, RefreshCw, Loader2, CheckCircle2, AlertTriangle,
-  History, Sparkles, Info, ExternalLink, ArrowLeft, Users,
+  History, Sparkles, Info, ExternalLink, ArrowLeft, Users, MoreVertical,
 } from 'lucide-react'
 
 const MINT = '#5B6B4E'
@@ -88,6 +88,7 @@ export default function Certificates() {
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
   const [statusTab, setStatusTab] = useState('')
+  const [menuOpenId, setMenuOpenId] = useState(null)
 
   // History
   const [showHistory, setShowHistory] = useState(false)
@@ -118,6 +119,12 @@ export default function Certificates() {
   const [bulkPaste, setBulkPaste] = useState('')
   const [bulkBusy, setBulkBusy] = useState(false)
   const [bulkResult, setBulkResult] = useState(null)
+  const [bulkDate, setBulkDate] = useState(() => {
+    const d = new Date()
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+    return local.toISOString().slice(0, 10)
+  })
+  const [bulkEvent, setBulkEvent] = useState('')
   const [generating, setGenerating] = useState(false)
 
   const loadTemplates = useCallback(async (status = statusTab) => {
@@ -340,6 +347,26 @@ export default function Certificates() {
     return (exact || fields[0])?.field_key || ''
   }, [genTpl])
 
+  const bulkDateKey = useMemo(() => {
+    const fields = genTpl?.fields || []
+    return fields.find((f) => /date/i.test(f.field_key) || /date/i.test(f.display_name || ''))?.field_key || ''
+  }, [genTpl])
+
+  const bulkEventKey = useMemo(() => {
+    const fields = genTpl?.fields || []
+    return fields.find((f) => /event|occasion|purpose|reason/i.test(f.field_key) || /event|occasion|purpose|reason/i.test(f.display_name || ''))?.field_key || ''
+  }, [genTpl])
+
+  useEffect(() => {
+    if (!bulkRows.length || (!bulkDateKey && !bulkEventKey)) return
+    setBulkRows((rows) => rows.map((r) => {
+      const next = { ...r }
+      if (bulkDateKey) next[bulkDateKey] = bulkDate
+      if (bulkEventKey) next[bulkEventKey] = bulkEvent
+      return next
+    }))
+  }, [bulkDate, bulkEvent, bulkDateKey, bulkEventKey, bulkRows.length])
+
   const applyBulkPaste = () => {
     const names = bulkPaste.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
     if (!names.length) { toast('Paste at least one name.', 'error'); return }
@@ -373,6 +400,8 @@ export default function Certificates() {
     try {
       const rows = bulkRows.map((r) => {
         const { __name, ...field_values } = r
+        if (bulkDateKey && !field_values[bulkDateKey]) field_values[bulkDateKey] = bulkDate
+        if (bulkEventKey && !field_values[bulkEventKey]) field_values[bulkEventKey] = bulkEvent
         return { field_values }
       })
       const res = await certificateApi.bulkGenerate({ template_id: genTpl.id, rows })
@@ -381,6 +410,23 @@ export default function Certificates() {
       if (showHistory) loadHistory(historyQ)
     } catch (e) { toast(e.message, 'error') } finally { setBulkBusy(false) }
   }
+
+  /* ------------------------------- card menu ------------------------------- */
+
+  const toggleCardMenu = (id) => setMenuOpenId((cur) => (cur === id ? null : id))
+
+  const runMenuAction = (fn) => () => { setMenuOpenId(null); fn() }
+
+  useEffect(() => {
+    if (!menuOpenId) return
+    const close = () => setMenuOpenId(null)
+    window.addEventListener('click', close)
+    window.addEventListener('keydown', close)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('keydown', close)
+    }
+  }, [menuOpenId])
 
   /* --------------------------------- actions --------------------------------- */
 
@@ -448,15 +494,21 @@ export default function Certificates() {
         .tpl-thumb-doc :is(img,svg,canvas) { max-width:100%; }
         .tpl-thumb-loading { display:flex; align-items:center; justify-content:center; height:100%; color:var(--ink-soft); }
         .tpl-thumb-fallback { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; height:100%; color:var(--ink-soft); font-size:12px; }
-        .tpl-title { font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .tpl-title-row { display:flex; align-items:center; gap:6px; }
+        .tpl-title { font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:none; border:none; padding:0; color:inherit; cursor:pointer; flex:1; min-width:0; text-align:left; font-family:inherit; }
+        .tpl-title:hover { color:var(--sage); }
         .tpl-desc { font-size:12px; color:var(--ink-soft); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:32px; }
         .tpl-meta { display:flex; gap:6px; flex-wrap:wrap; font-size:11px; color:var(--ink-soft); }
         .tpl-meta span { background:var(--bg,#f3f4f6); border-radius:6px; padding:2px 8px; }
-        .tpl-chips { display:flex; flex-wrap:wrap; gap:4px; }
-        .chip { font-size:11px; background:var(--sage-soft,#eef3ea); color:var(--sage); border-radius:6px; padding:1px 7px; }
-        .chip.custom { background:#fef3c7; color:#92400e; }
-        .tpl-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:auto; }
-        .tpl-actions .spacer { flex:1; }
+        .tpl-card-menu { position:absolute; top:18px; right:18px; z-index:3; }
+        .tpl-card { position:relative; }
+        .tpl-menu-btn { width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:none; border-radius:8px; background:rgba(255,255,255,.92); color:var(--ink); cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.15); }
+        .tpl-menu-btn:hover { background:#fff; color:var(--sage); }
+        .tpl-menu { position:absolute; top:34px; right:0; min-width:150px; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.14); padding:4px; display:flex; flex-direction:column; }
+        .tpl-menu-item { display:flex; align-items:center; gap:9px; padding:8px 10px; border:none; background:none; border-radius:7px; font-size:13px; color:var(--ink); cursor:pointer; font-family:inherit; text-align:left; }
+        .tpl-menu-item:hover { background:var(--bg,#f3f4f6); }
+        .tpl-menu-item.danger { color:#dc2626; }
+        .tpl-menu-item.danger:hover { background:#fef2f2; }
         .field-row { display:grid; grid-template-columns:minmax(140px,1.2fr) minmax(90px,.7fr) 60px 1fr 84px; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); }
         .field-row input, .field-row select { padding:7px 9px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; font-family:inherit; outline:none; width:100%; box-sizing:border-box; }
         .field-row input:focus, .field-row select:focus { border-color:var(--sage); }
@@ -467,6 +519,8 @@ export default function Certificates() {
         .bulk-paste { width:100%; min-height:96px; padding:9px 12px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; font-family:inherit; box-sizing:border-box; resize:vertical; outline:none; }
         .bulk-paste:focus { border-color:var(--sage); }
         .bulk-table { overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+        .bulk-shared-label { background:var(--sage-soft,#eef3ea); color:var(--sage); border-radius:6px; padding:1px 7px; font-size:10.5px; font-weight:500; }
+        .bulk-shared { display:inline-block; background:var(--sage-soft,#eef3ea); color:#3f6212; padding:5px 9px; border-radius:6px; font-size:12px; min-width:120px; box-sizing:border-box; }
         .bulk-table table { width:100%; border-collapse:collapse; font-size:12.5px; }
         .bulk-table th, .bulk-table td { padding:7px 9px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; white-space:nowrap; }
         .bulk-table th { background:var(--bg,#f9fafb); font-weight:600; color:var(--ink-soft); }
@@ -577,39 +631,48 @@ export default function Certificates() {
             <div className="tpl-grid">
               {templates.map((t) => {
                 const st = STATUS_META[t.status] || STATUS_META.draft
+                const open = menuOpenId === t.id
                 return (
                   <div className="tpl-card" key={t.id}>
                     <button type="button" className="tpl-thumb" onClick={() => startGenerate(t)} title={`Certify — ${t.name}`}>
                       <TemplateThumb t={t} />
                     </button>
-                    <div className="tpl-title" title={t.name}>{t.name}</div>
-                    <div className="tpl-meta">
-                      <span>{TYPE_LABEL[t.file_format] || 'FILE'}</span>
-                      <span>v{t.version || 1}</span>
-                      <span>{t.field_count || 0} fields</span>
-                      <span className={`pill ${st.cls}`} style={{ padding: '1px 8px' }}>{st.label}</span>
-                    </div>
-                    <div className="tpl-actions">
-                      <button className="btn btn-sm btn-primary" onClick={() => startGenerate(t)}>
-                        <Wand2 size={14} /> Certify
+                    <div className="tpl-card-menu">
+                      <button
+                        type="button"
+                        className="tpl-menu-btn"
+                        onClick={(e) => { e.stopPropagation(); toggleCardMenu(t.id) }}
+                        title="Options"
+                      >
+                        <MoreVertical size={15} />
                       </button>
-                      {canManage && (
-                        <>
-                          <span className="spacer" />
-                          <button className="btn btn-sm" onClick={() => editTemplate(t)} title="Configure fields">
-                            <Edit3 size={14} />
+                      {open && (
+                        <div className="tpl-menu" onClick={(e) => e.stopPropagation()}>
+                          <button className="tpl-menu-item" onClick={runMenuAction(() => startGenerate(t))}>
+                            <Wand2 size={14} /> Certify
                           </button>
-                          <button className="btn btn-sm" onClick={() => doDuplicate(t.id)} title="Duplicate">
-                            <Copy size={14} />
-                          </button>
-                          {t.status !== 'archived'
-                            ? <button className="btn btn-sm" onClick={() => doArchive(t.id)} title="Archive"><Archive size={14} /></button>
-                            : <button className="btn btn-sm" onClick={() => doRestore(t.id)} title="Restore"><ArchiveRestore size={14} /></button>}
-                          <button className="btn btn-sm btn-danger" onClick={() => doDelete(t)} title="Delete">
-                            <Trash2 size={14} />
-                          </button>
-                        </>
+                          {canManage && (
+                            <>
+                              <button className="tpl-menu-item" onClick={runMenuAction(() => editTemplate(t))}>
+                                <Edit3 size={14} /> Edit
+                              </button>
+                              <button className="tpl-menu-item" onClick={runMenuAction(() => doDuplicate(t.id))}>
+                                <Copy size={14} /> Duplicate
+                              </button>
+                              {t.status !== 'archived'
+                                ? <button className="tpl-menu-item" onClick={runMenuAction(() => doArchive(t.id))}><Archive size={14} /> Archive</button>
+                                : <button className="tpl-menu-item" onClick={runMenuAction(() => doRestore(t.id))}><ArchiveRestore size={14} /> Restore</button>}
+                              <button className="tpl-menu-item danger" onClick={runMenuAction(() => doDelete(t))}>
+                                <Trash2 size={14} /> Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
                       )}
+                    </div>
+                    <div className="tpl-title-row">
+                      <button type="button" className="tpl-title" onClick={() => startGenerate(t)} title={`Certify — ${t.name}`}>{t.name}</button>
+                      <span className={`pill ${st.cls}`} style={{ padding: '1px 8px', fontSize: 11 }}>{st.label}</span>
                     </div>
                   </div>
                 )
@@ -908,6 +971,30 @@ export default function Certificates() {
                     Paste one name per line to create a row for each, then generate all certificates in one go. Each certificate gets its own number.
                   </div>
 
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px,220px) 1fr', gap: 10, alignItems: 'start' }}>
+                    <div className="field-block">
+                      <label>Date <span className="bulk-shared-label">same for all</span></label>
+                      <input
+                        className="fld"
+                        type="date"
+                        value={bulkDate}
+                        onChange={(e) => setBulkDate(e.target.value)}
+                        title="Defaults to today's date. Past dates are allowed."
+                      />
+                      <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>Defaults to today — past dates allowed</div>
+                    </div>
+                    <div className="field-block">
+                      <label>Event / occasion <span className="bulk-shared-label">same for all</span></label>
+                      <input
+                        className="fld"
+                        type="text"
+                        placeholder="e.g. Annual Sports Day 2026"
+                        value={bulkEvent}
+                        onChange={(e) => setBulkEvent(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
                   {(!bulkRows.length) && (
                     <>
                       <div className="field-block">
@@ -929,7 +1016,7 @@ export default function Certificates() {
                   {bulkRows.length > 0 && (
                     <>
                       <div className="field-block">
-                        <label>{bulkRows.length} row{bulkRows.length === 1 ? '' : 's'} — fill the values or adjust names</label>
+                        <label>{bulkRows.length} row{bulkRows.length === 1 ? '' : 's'} — fill the values or adjust names{(bulkDateKey || bulkEventKey) && ' (Date & Event apply to all)'}</label>
                         <div className="bulk-table">
                           <table>
                             <thead>
@@ -945,16 +1032,23 @@ export default function Certificates() {
                               {bulkRows.map((r, ri) => (
                                 <tr key={ri}>
                                   <td style={{ color: 'var(--ink-soft)' }}>{ri + 1}</td>
-                                  {(genTpl.fields || []).map((f) => (
+                                  {(genTpl.fields || []).map((f) => {
+                                  const sharedCell = f.field_key === bulkDateKey || f.field_key === bulkEventKey
+                                  return (
                                     <td key={f.field_key}>
-                                      <input
-                                        type={inputTypeFor(f.field_type)}
-                                        value={r[f.field_key] ?? ''}
-                                        placeholder={humanKey(f.field_key)}
-                                        onChange={(e) => patchBulkCell(ri, f.field_key, e.target.value)}
-                                      />
+                                      {sharedCell ? (
+                                        <span className="bulk-shared" title="Same for all rows — set it in the shared fields above">{r[f.field_key] || '—'}</span>
+                                      ) : (
+                                        <input
+                                          type={inputTypeFor(f.field_type)}
+                                          value={r[f.field_key] ?? ''}
+                                          placeholder={humanKey(f.field_key)}
+                                          onChange={(e) => patchBulkCell(ri, f.field_key, e.target.value)}
+                                        />
+                                      )}
                                     </td>
-                                  ))}
+                                  )
+                                })}
                                   <td><button className="btn btn-sm" onClick={() => removeBulkRow(ri)}><Trash2 size={13} /></button></td>
                                 </tr>
                               ))}
