@@ -12,6 +12,11 @@ function SectionTitle({ children }) {
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '';
 
 const NGO_LABELS = { bsct: 'Being Sevak', mann: 'Mann Care', aflf: 'Ashray' };
+const NGO_RECEIPT = {
+  bsct: { bg: '#d4e4ff', accent: '#1e40af' },
+  mann: { bg: '#ecc9df', accent: '#be185d' },
+  aflf: { bg: '#c8ecd4', accent: '#166534' },
+};
 
 export default function LeadAudit() {
   const [audit, setAudit] = useState({ sources: [], summary: {}, combo: null, loading: true });
@@ -100,21 +105,24 @@ export default function LeadAudit() {
               </div>
             ))
           ) : receiptNums && receiptNums.length > 0 ? (
-            receiptNums.map(n => (
-              <div key={n.project_id} style={{ border: '1px solid #e7ecf3', borderRadius: 14, background: '#fff', boxShadow: '0 6px 24px rgba(30,41,59,.06)', padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#374151', flex: 1, marginRight: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{NGO_LABELS[n.project_id] || n.project_id}</span>
+            receiptNums.map(n => {
+              const c = NGO_RECEIPT[n.project_id] || { bg: '#f1f5f9', accent: '#475569' };
+              return (
+              <div key={n.project_id} style={{ border: '1px solid ' + c.accent + '44', borderRadius: 14, background: c.bg, boxShadow: '0 6px 24px rgba(30,41,59,.06)', padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: c.accent, flex: 1, marginRight: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{NGO_LABELS[n.project_id] || n.project_id}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ color: '#9ca3af', fontSize: 8.5, fontWeight: 700, letterSpacing: '.5px', textTransform: 'uppercase' }}>Current</div>
+                    <div style={{ color: c.accent, opacity: .6, fontSize: 8.5, fontWeight: 700, letterSpacing: '.5px', textTransform: 'uppercase' }}>Current</div>
                     <div style={{ color: '#111827', fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{n.last_no || '\u2014'}</div>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <div style={{ color: '#9ca3af', fontSize: 8.5, fontWeight: 700, letterSpacing: '.5px', textTransform: 'uppercase' }}>Next</div>
-                    <div style={{ color: 'var(--sage)', fontVariantNumeric: 'tabular-nums', fontSize: 12.5, fontWeight: 800 }}>{n.next_no || '\u2014'}</div>
+                    <div style={{ color: c.accent, opacity: .6, fontSize: 8.5, fontWeight: 700, letterSpacing: '.5px', textTransform: 'uppercase' }}>Next</div>
+                    <div style={{ color: c.accent, fontVariantNumeric: 'tabular-nums', fontSize: 12.5, fontWeight: 800 }}>{n.next_no || '\u2014'}</div>
                   </div>
                 </div>
               </div>
-            ))
+            );
+            })
           ) : null}
         </div>
         <div style={{ flex: 1, minWidth: 0, border: '1px solid #e7ecf3', borderRadius: 16, background: '#fff', boxShadow: '0 6px 24px rgba(30,41,59,.06)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
