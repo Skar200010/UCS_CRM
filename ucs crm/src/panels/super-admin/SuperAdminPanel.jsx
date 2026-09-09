@@ -23,20 +23,20 @@ import SpecialIncentives from './pages/SpecialIncentives'
 import { Radio, Clipboard, CurrencyCircleDollar, CalendarBlank, BuildingOffice, MagnifyingGlass, Trophy } from '@phosphor-icons/react'
 
 const NAV = [
-  { id: 'dashboard', path: '/sa/dashboard', label: 'Dashboard', icon: GridFour },
-  { id: 'data-management', path: '/sa/data-management', label: 'Data Management', icon: Database },
-  { id: 'organization', path: '/sa/organization', label: 'Organization', icon: Buildings },
-  { id: 'employees', path: '/sa/employees', label: 'Volunteers', icon: Users },
-  { id: 'leaves', path: '/sa/leaves', label: 'Leaves', icon: Airplane },
-  { id: 'tickets', path: '/sa/tickets', label: 'Tickets', icon: Ticket },
-  { id: 'ngo-admin', path: '/sa/ngo-admin', label: 'Admin', icon: BuildingOffice },
-  { id: 'accounts', path: '/sa/accounts', label: 'Accounts', icon: CurrencyCircleDollar },
-  { id: 'event-head', path: '/sa/event-head', label: 'Event Head', icon: CalendarBlank },
-  { id: 'hr', path: '/sa/hr', label: 'HR', icon: Users },
-  { id: 'recruiter', path: '/sa/recruiter', label: 'Recruiter', icon: MagnifyingGlass },
-  { id: 'fro', path: '/sa/fro', label: 'FRO', icon: Radio },
-  { id: 'assets', path: '/sa/assets', label: 'Assets Overview', icon: Clipboard },
-  { id: 'special-incentive', path: '/sa/special-incentive', label: 'Sir ka Incentive', icon: Trophy },
+  { id: 'dashboard', path: '/sa/dashboard', label: 'Dashboard', eyebrow: 'Super Admin', icon: GridFour },
+  { id: 'data-management', path: '/sa/data-management', label: 'Data Management', eyebrow: 'Data', icon: Database },
+  { id: 'organization', path: '/sa/organization', label: 'Organization', eyebrow: 'Organization', icon: Buildings },
+  { id: 'employees', path: '/sa/employees', label: 'Volunteers', eyebrow: 'People', icon: Users },
+  { id: 'leaves', path: '/sa/leaves', label: 'Leaves', eyebrow: 'HR', icon: Airplane },
+  { id: 'tickets', path: '/sa/tickets', label: 'Tickets', eyebrow: 'Support', icon: Ticket },
+  { id: 'ngo-admin', path: '/sa/ngo-admin', label: 'Admin', eyebrow: 'Admin', icon: BuildingOffice },
+  { id: 'accounts', path: '/sa/accounts', label: 'Accounts', eyebrow: 'Finance', icon: CurrencyCircleDollar },
+  { id: 'event-head', path: '/sa/event-head', label: 'Event Head', eyebrow: 'Events', icon: CalendarBlank },
+  { id: 'hr', path: '/sa/hr', label: 'HR', eyebrow: 'People', icon: Users },
+  { id: 'recruiter', path: '/sa/recruiter', label: 'Recruiter', eyebrow: 'Recruitment', icon: MagnifyingGlass },
+  { id: 'fro', path: '/sa/fro', label: 'FRO', eyebrow: 'Operations', icon: Radio },
+  { id: 'assets', path: '/sa/assets', label: 'Assets Overview', eyebrow: 'Inventory', icon: Clipboard },
+  { id: 'special-incentive', path: '/sa/special-incentive', label: 'Sir ka Incentive', eyebrow: 'Finance', icon: Trophy },
 ]
 
 const navMap = {}
@@ -222,7 +222,7 @@ function PageShell({ children }) {
               <span /><span /><span />
             </button>
             <div>
-              <div className="eyebrow">{meta?.label || 'Dashboard'}</div>
+              <div className="eyebrow">{meta?.eyebrow || 'Super Admin'}</div>
               <h2>{meta?.label || 'Dashboard'}</h2>
             </div>
           </div>
