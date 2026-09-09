@@ -5,6 +5,7 @@ import App from './App'
 import { AuthProvider } from './store'
 import './App.css'
 import './reminder.css'
+import './dashboard.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

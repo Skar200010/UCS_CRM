@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react'
 import { useRem } from './store'
 import { CATEGORIES, derivedStatus, statusPillClass, formatDate, daysLeft, categoryLabel, categoryIcon } from './helpers'
 import { Icon } from './components'
-import Dashboard from './Dashboard'
 
 const STATUS_OPTIONS = ['Overdue', 'Due Today', 'Due Tomorrow', 'Due Soon', 'Upcoming', 'Completed', 'Snoozed']
 const PAGE_SIZE = 20
@@ -65,7 +64,7 @@ export default function AllReminders({ onAdd, onEdit, onDelete, onHistory, onCom
 
   const enriched = useMemo(() => {
     return reminders.map(r => {
-      const status = derivedStatus(r)
+      const status = r.status || 'Upcoming'
       const dl = daysLeft(r.due_date)
       return { ...r, _status: status, _daysLeft: dl }
     })
@@ -128,6 +127,10 @@ export default function AllReminders({ onAdd, onEdit, onDelete, onHistory, onCom
           va = PRIORITY_ORDER[a.priority] ?? 4; vb = PRIORITY_ORDER[b.priority] ?? 4; break
         case 'status':
           va = (a._status || '').toLowerCase(); vb = (b._status || '').toLowerCase(); break
+        case 'amount_period':
+          va = (a.notes || '').toLowerCase(); vb = (b.notes || '').toLowerCase(); break
+        case 'display_frequency':
+          va = (a.display_frequency || '').toLowerCase(); vb = (b.display_frequency || '').toLowerCase(); break
         default:
           va = 0; vb = 0
       }
@@ -186,8 +189,6 @@ export default function AllReminders({ onAdd, onEdit, onDelete, onHistory, onCom
 
   return (
     <>
-      <Dashboard />
-
       <div className="card-block" style={{ marginTop: 20 }}>
         <div className="tb">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -296,11 +297,6 @@ export default function AllReminders({ onAdd, onEdit, onDelete, onHistory, onCom
                       >
                         {r.title || '—'}
                       </div>
-                      {r.notes && (
-                        <div style={{ fontSize: 11, color: 'var(--rem-ink-soft)', marginTop: 2, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.notes}>
-                          {r.notes}
-                        </div>
-                      )}
                     </td>
                     <td>{r.owner || '—'}</td>
                     <td>{r.due_date_display || formatDate(r.due_date)}</td>
@@ -323,28 +319,18 @@ export default function AllReminders({ onAdd, onEdit, onDelete, onHistory, onCom
                     </td>
                     <td>
                       <div className="cell-actions">
-                        {onComplete && status !== 'Completed' && (
-                          <button className="mini-btn" title="Complete" onClick={() => onComplete(r.id)}>
-                            <Icon name="check" size={13} />
-                          </button>
-                        )}
-                        {onSnooze && status !== 'Completed' && (
-                          <button className="mini-btn" title="Snooze" onClick={() => onSnooze(r)}>
-                            <Icon name="moon" size={13} />
-                          </button>
-                        )}
                         {onEdit && (
-                          <button className="mini-btn" title="Edit" onClick={() => onEdit(r)}>
+                          <button className="mini-btn btn-edit" title="Edit" onClick={() => onEdit(r)}>
                             <Icon name="edit" size={13} />
                           </button>
                         )}
                         {onHistory && (
-                          <button className="mini-btn" title="View History" onClick={() => onHistory(r)}>
+                          <button className="mini-btn btn-history" title="View History" onClick={() => onHistory(r.id, r)}>
                             <Icon name="history" size={13} />
                           </button>
                         )}
                         {onDelete && (
-                          <button className="mini-btn danger" title="Delete" onClick={() => onDelete(r)}>
+                          <button className="mini-btn btn-delete" title="Delete" onClick={() => onDelete(r)}>
                             <Icon name="trash" size={13} />
                           </button>
                         )}

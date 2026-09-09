@@ -22,6 +22,7 @@ export const CATEGORIES = [
   'BMC_TAX',
   'RENT_TDS',
   'INSURANCE',
+  'MEDICAL_EXPENSES',
   'EDUCATION',
   'VI_BILL',
   'WEBSITE_DOMAIN',
@@ -274,12 +275,20 @@ export const editReminder = async (req, res) => {
         writable[k] = v === undefined || v === null || v === '' ? null : (Number(v) || null);
         continue;
       }
+      if (k === 'amount') {
+        writable[k] = v === undefined || v === null || v === '' ? null : Number(v) || null;
+        continue;
+      }
       if (['due_date', 'renewal_date'].includes(k)) {
         writable[k] = v === undefined || v === null || v === '' ? null : String(v).slice(0, 10);
         continue;
       }
       if (v === undefined) continue;
       writable[k] = v === '' || v === null ? null : v;
+    }
+
+    if (writable.amount != null && writable.amount !== '' && !before.paid_at) {
+      writable.paid_at = new Date().toISOString();
     }
 
     const changedCols = {};
@@ -340,7 +349,10 @@ export const completeReminder = async (req, res) => {
     if (!before || before.is_deleted) return res.status(404).json({ message: 'Reminder not found' });
 
     const now = new Date();
+    const { amount, paid_at } = req.body || {};
     const updates = { completed_at: now.toISOString(), status: 'Completed' };
+    if (amount != null && amount !== '') updates.amount = Number(amount);
+    updates.paid_at = paid_at || now.toISOString();
 
     const settings = await getSettings();
     const autoNext = settings ? settings.auto_create_next_recurring !== false : true;

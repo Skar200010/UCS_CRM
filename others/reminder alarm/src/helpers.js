@@ -2,13 +2,14 @@ export const CATEGORIES = [
   { key: 'PROPERTY_MAINTENANCE', label: 'Property Maintenance', icon: 'home' },
   { key: 'BMC_TAX', label: 'BMC Tax', icon: 'money' },
   { key: 'RENT_TDS', label: 'Rent & TDS', icon: 'file' },
-  { key: 'INSURANCE', label: 'Insurance', icon: 'shield' },
+  { key: 'INSURANCE', label: 'Mediclaim, Health & Term- Insurance', icon: 'shield' },
+  { key: 'MEDICAL_EXPENSES', label: 'Medical Expenses', icon: 'heart' },
   { key: 'EDUCATION', label: 'Education & School Fees', icon: 'book' },
   { key: 'VI_BILL', label: 'VI Bills', icon: 'wifi' },
   { key: 'WEBSITE_DOMAIN', label: 'Website Domain Renewal', icon: 'globe' },
   { key: 'VEHICLE_INSURANCE', label: 'Vehicle Insurance', icon: 'car' },
   { key: 'ELECTRICITY', label: 'Electricity Bills', icon: 'zap' },
-  { key: 'OTHER_BILL', label: 'Other Bills', icon: 'file' },
+  { key: 'OTHER_BILL', label: 'Website Services', icon: 'file' },
 ]
 
 export const PRIORITIES = ['Low', 'Medium', 'High', 'Critical']
