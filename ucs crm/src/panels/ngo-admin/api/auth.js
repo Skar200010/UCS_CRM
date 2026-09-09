@@ -15,19 +15,9 @@ export async function masterSearch(q) {
   return apiGet(`/ngo-admin/master-search?q=${encodeURIComponent(q)}`)
 }
 
-export async function getCallAnalytics(params = {}) {
-  const qs = new URLSearchParams(params).toString()
-  return apiGet(`/ngo-admin/call-analytics${qs ? '?' + qs : ''}`)
-}
-
 export async function getFroHourlyPerformance(params = {}) {
   const qs = new URLSearchParams(params).toString()
   return apiGet(`/ngo-admin/fro-hourly-performance${qs ? '?' + qs : ''}`)
-}
-
-export async function getDataOverview(params = {}) {
-  const qs = new URLSearchParams(params).toString()
-  return apiGet(`/ngo-admin/data-overview${qs ? '?' + qs : ''}`)
 }
 
 export function generateImpersonationCode() {
@@ -36,6 +26,10 @@ export function generateImpersonationCode() {
 
 export function listImpersonationCodes() {
   return apiGet('/impersonation-codes')
+}
+
+export function listAllImpersonationCodes() {
+  return apiGet('/impersonation-codes/all')
 }
 
 export { setSession, clearSession, getToken, getUser } from '../../../api/auth'

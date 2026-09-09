@@ -61,79 +61,6 @@ const STATION_RENAME_MAP = {
   'FD-23': { BSCT: 'BFD-23', AFLF: 'AFD-23', MANN: 'MFD-23' },
 };
 
-function TransferDataModal({ station, sourceName, sourceCount, stations, onClose, onTransferred }) {
-  const [targetStation, setTargetStation] = useState('');
-  const [count, setCount] = useState(sourceCount);
-  const [loading, setLoading] = useState(false);
-  const maxCount = sourceCount;
-
-  const availableStations = stations.filter(s => s.station !== station);
-
-  const handleTransfer = async () => {
-    if (!targetStation || count < 1) return;
-    setLoading(true);
-    try {
-      await apiPost(`/ngo-admin/stations/${encodeURIComponent(station)}/transfer-data`, {
-        target_station: targetStation,
-        donor_count: count,
-      });
-      onClose();
-      setTimeout(() => { if (onTransferred) onTransferred(); }, 600);
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
-        <div className="modal-head">
-          <h3>Transfer Leads — {station}</h3>
-          <button className="btn btn-sm btn-outline" onClick={onClose}>✕</button>
-        </div>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ fontSize: 13, color: '#6b7280', background: '#f9fafb', padding: '10px 12px', borderRadius: 6 }}>
-            Source station: <strong>{station}</strong> — {sourceCount} leads (all statuses)
-          </div>
-          <label className="field">
-            Number of leads to transfer
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.max(1, count - 5))} disabled={count <= 1}>−5</button>
-              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.max(1, count - 1))} disabled={count <= 1}>−1</button>
-              <input type="number" min={1} max={maxCount}
-                value={count} onChange={e => setCount(Math.min(maxCount, Math.max(1, parseInt(e.target.value) || 1)))}
-                style={{ width: 80, textAlign: 'center' }} />
-              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.min(maxCount, count + 1))} disabled={count >= maxCount}>+1</button>
-              <button className="btn btn-outline btn-sm" onClick={() => setCount(Math.min(maxCount, count + 5))} disabled={count >= maxCount}>+5</button>
-            </div>
-          </label>
-          <label className="field">
-            Transfer to station
-            <select value={targetStation} onChange={e => setTargetStation(e.target.value)}>
-              <option value="">-- Select Station --</option>
-              {availableStations.map(s => (
-                <option key={s.station} value={s.station}>{s.station}</option>
-              ))}
-            </select>
-          </label>
-          <div style={{ fontSize: 12, color: '#6b7280', background: '#f0fdf4', padding: '8px 12px', borderRadius: 6 }}>
-            Leads transferred to target station (unassigned). Auto-return after 10 hours.
-          </div>
-          <div className="modal-actions">
-            <button className="btn btn-outline" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleTransfer}
-              disabled={loading || !targetStation || count < 1}>
-              {loading ? 'Transferring...' : `Transfer ${count} Leads`}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function OldDataUploadModal({ station, ngoId, onClose, onUploaded }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState([]);
@@ -1043,9 +970,9 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
   const selected = options.find(w => w.id === value);
 
   return (
-    <div ref={ref} style={{ position: 'relative', maxWidth: 200 }}>
+    <div ref={ref} className="searchable-select" style={{ position: 'relative', maxWidth: 180 }}>
       <div onClick={() => setOpen(!open)}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', fontSize: 13, cursor: 'pointer', background: '#fff', minHeight: 26 }}>
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', fontSize: 12.5, cursor: 'pointer', background: '#fff', minHeight: 28 }}>
         <span style={{ color: selected ? 'inherit' : '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {selected ? selected.name : (placeholder || '-- Select --')}
         </span>
@@ -1053,7 +980,7 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
       </div>
 
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--line, #e5e7eb)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 200, marginTop: 2, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--line, #e5e7eb)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.12)', zIndex: 300, marginTop: 2, overflow: 'hidden' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 8px', borderBottom: '1px solid var(--line, #e5e7eb)' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -1072,7 +999,6 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
                 onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
                 onMouseLeave={e => e.currentTarget.style.background = w.id === value ? '#f0fdf4' : 'transparent'}>
                 <span>{w.name}</span>
-                {w.login_id && <span style={{ fontSize: 10, color: 'var(--ink-soft)' }}>{w.login_id}</span>}
               </div>
             ))}
             {filtered.length === 0 && (
@@ -1088,6 +1014,90 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
   );
 }
 
+// Source badge (Auto M1/M2/M3 yellow, Manual green, Not Set neutral).
+function SourcePill({ source }) {
+  if (source === 'auto_month1') return <span className="pill pill-yellow">Auto M1</span>;
+  if (source === 'auto_month2') return <span className="pill pill-yellow">Auto M2</span>;
+  if (source === 'auto_month3') return <span className="pill pill-yellow">Auto M3</span>;
+  if (source === 'manual') return <span className="pill pill-green">Manual</span>;
+  return <span className="pill pill-gray">Not Set</span>;
+}
+
+// Per-row ⋮ kebab menu (absolute overlay; does not affect column widths).
+function StationKebab({ activeTransfer, returningId, onReturn, onUpload, onTarget, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const run = (fn) => () => { setOpen(false); if (fn) fn(); };
+
+  const itemStyle = { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', fontSize: 12.5, cursor: 'pointer', fontFamily: 'inherit', background: 'transparent', border: 'none', width: '100%', textAlign: 'left', color: 'var(--ink)', whiteSpace: 'nowrap' };
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button className="btn btn-sm btn-outline" onClick={() => setOpen(o => !o)}
+        aria-label="Station actions"
+        style={{ width: 30, height: 30, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, lineHeight: 1 }}>
+        ⋮
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 300, marginTop: 4, background: '#fff', border: '1px solid var(--line, #e5e7eb)', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.14)', overflow: 'hidden', minWidth: 190 }}>
+          {activeTransfer && onReturn && (
+            <button onClick={run(() => onReturn(activeTransfer.id))} style={{ ...itemStyle, color: '#92400e', fontWeight: 600 }}>
+              {returningId === activeTransfer.id ? 'Returning…' : '↩ Return leads'}
+            </button>
+          )}
+          <button onClick={run(onUpload)} style={itemStyle}>⇧ Upload old data</button>
+          <button onClick={run(onTarget)} style={itemStyle}>◎ Set/Edit target</button>
+          <div style={{ borderTop: '1px solid var(--line, #e5e7eb)', margin: '4px 0' }} />
+          <button onClick={run(onDelete)} style={{ ...itemStyle, color: 'var(--danger)' }}>🗑 Delete station</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Compact add-station modal (replaces the always-visible Add Station card).
+function AddStationModal({ allNgos, newStation, newStationNgo, onChangeName, onChangeNgo, adding, onCreate, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+        <div className="modal-head">
+          <h3>Add Station</h3>
+          <button className="btn btn-sm btn-outline" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <label className="field">
+            Station Name
+            <input value={newStation} onChange={e => onChangeName(e.target.value)} placeholder="e.g. BOD-1" autoFocus />
+          </label>
+          <label className="field">
+            NGO
+            <select value={newStationNgo} onChange={e => onChangeNgo(e.target.value)}>
+              <option value="">-- Select NGO --</option>
+              {allNgos.map(n => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
+            </select>
+          </label>
+          <div className="modal-actions">
+            <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button className="btn btn-primary" onClick={onCreate} disabled={adding || !newStation.trim()}>
+              {adding ? 'Adding...' : 'Create Station'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function StationManagement() {
   const [stations, setStations] = useState([]);
   const [allNgos, setAllNgos] = useState([]);
@@ -1098,25 +1108,57 @@ export default function StationManagement() {
   const [newStationNgo, setNewStationNgo] = useState('');
   const [adding, setAdding] = useState(false);
   const [editNgoStation, setEditNgoStation] = useState(null);
-  const [transferData, setTransferData] = useState(null);
   const [transfers, setTransfers] = useState([]);
   const [returningId, setReturningId] = useState(null);
   const [msg, setMsg] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const [targetAmount, setTargetAmount] = useState('');
-  const [editAchieved, setEditAchieved] = useState(null);
-  const [achievedAmount, setAchievedAmount] = useState('');
-  const [incentives, setIncentives] = useState([]);
-  const [editIncentive, setEditIncentive] = useState(null);
-  const [incentiveAmount, setIncentiveAmount] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
   const [selectedNgoId, setSelectedNgoId] = useState(null);
+  const [ngoGroup, setNgoGroup] = useState(null);      // 'bsct' | 'aflf' | 'mann' | 'other' | null
   const [uploadStation, setUploadStation] = useState(null);
   const [stationTab, setStationTab] = useState('all');
   const [bulkRenameOpen, setBulkRenameOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsRef = useRef(null);
+
+  useEffect(() => {
+    if (!toolsOpen) return;
+    const handler = (e) => { if (toolsRef.current && !toolsRef.current.contains(e.target)) setToolsOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [toolsOpen]);
+
+  // Group NGOs: known tiers (bsct/aflf/mann) + anything else aggregates as "other".
+  const groupOfName = (name) => {
+    const k = String(name || '').trim().toLowerCase();
+    return NGO_NAME_COLORS[k] ? k : 'other';
+  };
+
+  const ngoColor = (name) => NGO_NAME_COLORS[String(name || '').trim().toLowerCase()] || '#6b7280';
+
+  // NGO tabs: bsct, aflf, mann (+ "other" only when such NGOs exist).
+  const ngoTabs = [];
+  const ngoGroupList = new Map();
+  for (const n of allNgos) {
+    const g = groupOfName(n.name);
+    if (!ngoGroupList.has(g)) ngoGroupList.set(g, []);
+    ngoGroupList.get(g).push(n);
+  }
+  if (ngoGroupList.has('bsct')) ngoTabs.push({ key: 'bsct', label: 'BSCT', id: ngoGroupList.get('bsct')[0].id });
+  if (ngoGroupList.has('aflf')) ngoTabs.push({ key: 'aflf', label: 'AFLF', id: ngoGroupList.get('aflf')[0].id });
+  if (ngoGroupList.has('mann')) ngoTabs.push({ key: 'mann', label: 'MANN', id: ngoGroupList.get('mann')[0].id });
+  if (ngoGroupList.has('other')) ngoTabs.push({ key: 'other', label: 'Other', id: 'other' });
+
+  const selectNgo = (id, group) => {
+    setSelectedNgoId(id);
+    setNgoGroup(group);
+  };
 
   useEffect(() => {
     if (!msg) return;
@@ -1158,9 +1200,6 @@ export default function StationManagement() {
     apiGet('/ngo-admin/targets?month=' + m + ngoParam).then(t => {
       if (Array.isArray(t)) setTargets(t);
     }).catch((err) => { console.error('Error:', err.message); });
-    apiGet('/ngo-admin/incentives').then(r => {
-      if (Array.isArray(r)) setIncentives(r);
-    }).catch((err) => { console.error('Error:', err.message); });
     if (successMsg) setMsg(successMsg);
   };
 
@@ -1169,9 +1208,6 @@ export default function StationManagement() {
     const ngoParam = selectedNgoId !== 'all' ? '&ngo_id=' + selectedNgoId : '';
     apiGet('/ngo-admin/targets?month=' + m + ngoParam).then(t => {
       if (Array.isArray(t)) setTargets(t);
-    }).catch((err) => { console.error('Error:', err.message); });
-    apiGet('/ngo-admin/incentives').then(r => {
-      if (Array.isArray(r)) setIncentives(r);
     }).catch((err) => { console.error('Error:', err.message); });
   };
 
@@ -1183,16 +1219,15 @@ export default function StationManagement() {
         apiGet('/ngo-admin/ngos/all'),
         apiGet('/ngo-admin/fro-workers'),
         apiGet('/ngo-admin/targets?month=' + m),
-        apiGet('/ngo-admin/incentives'),
       ]);
-    }).then(([n, f, t, i]) => {
+    }).then(([n, f, t]) => {
       setAllNgos(Array.isArray(n) ? n : []);
       setFroWorkers(Array.isArray(f) ? f : []);
       if (Array.isArray(t)) setTargets(t);
-      if (Array.isArray(i)) setIncentives(i);
       const ngoList = Array.isArray(n) ? n : [];
       if (ngoList.length > 0) {
         setSelectedNgoId(ngoList[0].id);
+        setNgoGroup(groupOfName(ngoList[0].name));
       }
     }).catch(err => console.error('Initial load error:', err)).finally(() => setLoading(false));
     apiGet('/ngo-admin/transfers').then(t => {
@@ -1207,9 +1242,22 @@ export default function StationManagement() {
   const activeTransfers = transfers.filter(t => !t.returned);
   const historyTransfers = transfers.filter(t => t.returned);
 
-  const filteredStations = stations.filter(s => {
-    if (stationTab === 'fresh') return isFreshStation(s.station);
-    if (stationTab === 'old') return !isFreshStation(s.station);
+  const groupBase = stations.filter(s => {
+    if (!ngoGroup) return true;
+    return groupOfName(s.ngos?.[0]?.ngo_name) === ngoGroup;
+  });
+
+  const stationCounts = {
+    all: groupBase.length,
+    old: groupBase.filter(s => !isFreshStation(s.station)).length,
+    fresh: groupBase.filter(s => isFreshStation(s.station)).length,
+  };
+
+  const filteredStations = groupBase.filter(s => {
+    if (stationTab === 'fresh' && !isFreshStation(s.station)) return false;
+    if (stationTab === 'old' && isFreshStation(s.station)) return false;
+    const term = searchTerm.trim().toLowerCase();
+    if (term && !String(s.station).toLowerCase().includes(term)) return false;
     return true;
   });
 
@@ -1227,6 +1275,7 @@ export default function StationManagement() {
         setStations(list);
         setNewStation(computeNextName(list));
       }
+      setAddOpen(false);
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -1280,319 +1329,268 @@ export default function StationManagement() {
     }
   };
 
+  const openTarget = (s) => {
+    const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
+    if (!w) return;
+    const t = targets.find(tg => tg.id === w.id);
+    setEditTarget({ ...w, ngo_id: s.ngos?.[0]?.ngo_id || null });
+    setTargetAmount(String(t?.target || ''));
+  };
+
+  const renderDonorPills = (s) => {
+    const dc = s.donor_count;
+    if (!dc) return <span className="pill pill-blue">0</span>;
+    if (typeof dc === 'number') return <span className="pill pill-blue">{dc.toLocaleString('en-IN')}</span>;
+    const parts = Object.entries(dc).map(([ngoId, cnt]) => {
+      const ngo = allNgos.find(n => String(n.id) === String(ngoId));
+      const name = ngo?.name || ngoId;
+      return <span key={ngoId} className="pill pill-blue">{name}: {Number(cnt).toLocaleString('en-IN')}</span>;
+    });
+    return parts.length ? <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>{parts}</span> : <span className="pill pill-blue">0</span>;
+  };
+
+  const renderPerformance = (s) => {
+    const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
+    const t = w ? targets.find(tg => tg.id === w.id) : null;
+    const salary = w?.salary;
+    const targetAmt = t?.target ?? 0;
+    const source = t?.target_source;
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 205 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12.5, flexWrap: 'wrap' }}>
+          <span>Target <strong>₹{Number(targetAmt || 0).toLocaleString('en-IN')}</strong></span>
+          <SourcePill source={source} />
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--ink-soft)', display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span>Salary <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>{salary != null ? '₹' + Number(salary).toLocaleString('en-IN') : '—'}</strong></span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
+      <style>{`
+        .nga-st { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .nga-st th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--ink-soft); padding: 8px 10px; border-bottom: 1px solid var(--line, #e2e8f0); white-space: nowrap; }
+        .nga-st td { padding: 10px 10px; border-bottom: 1px solid var(--line, #e2e8f0); vertical-align: top; }
+        .nga-st tbody tr:last-child td { border-bottom: none; }
+        .nga-st tbody tr:hover { background: var(--bg, #f8fafc); }
+        .nga-ngo-sub { display: none; }
+        .nga-vselect { max-width: 100% !important; }
+        @media (max-width: 1100px) {
+          .nga-st .ng-nh { display: none; }
+          .nga-ngo-sub { display: block; }
+        }
+        @media (max-width: 640px) {
+          .nga-st { font-size: 12px; }
+          .nga-st thead { display: none; }
+          .nga-st, .nga-st tbody, .nga-st tr, .nga-st td { display: block; width: 100%; box-sizing: border-box; }
+          .nga-st tr { border: 1px solid var(--line, #e2e8f0); border-radius: 10px; margin: 0 0 12px; padding: 28px 12px 10px; position: relative; background: #fff; }
+          .nga-st tr:hover { background: #fff; }
+          .nga-st td { border: none; padding: 2px 0; }
+          .nga-st td[data-label]::before { content: attr(data-label); display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--ink-soft); margin-bottom: 2px; }
+          .nga-actions { position: absolute; top: 10px; right: 12px; }
+          .nga-actions .nga-actions-inline { display: block; }
+          .nga-actions .nga-actions-inline > * { margin-bottom: 6px; }
+          .searchable-select { max-width: 100% !important; }
+        }
+      `}</style>
+
       {msg && (
         <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#166534', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span>✓</span>
           <span>{msg}</span>
         </div>
       )}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-head">
-          <h3>Add Station</h3>
-        </div>
-        <div className="card-pad">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div className="form-row">
-              <label className="field" style={{ flex: 1 }}>
-                Station Name
-                <input value={newStation} onChange={e => setNewStation(e.target.value)} />
-              </label>
-              <button className="btn btn-primary" onClick={handleAddStation} disabled={adding || !newStation.trim()} style={{ alignSelf: 'flex-end' }}>
-                {adding ? 'Adding...' : 'Create'}
-              </button>
-            </div>
-            <label className="field" style={{ marginBottom: 0, flex: 1 }}>
-              NGO
-              <select value={newStationNgo} onChange={e => setNewStationNgo(e.target.value)}>
-                <option value="">-- Select NGO --</option>
-                {allNgos.map(n => (
-                  <option key={n.id} value={n.id}>{n.name}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
+
+      {/* NGO selector bar */}
+      <div className="card" style={{ marginBottom: 16, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.5px', color: 'var(--ink-soft)' }}>NGO</span>
+        <select value={selectedNgoId} onChange={e => {
+          const n = allNgos.find(x => String(x.id) === String(e.target.value));
+          selectNgo(e.target.value === 'other' ? 'all' : e.target.value, n ? groupOfName(n.name) : (e.target.value === 'all' ? 'other' : 'other'));
+        }} style={{ maxWidth: 260 }}>
+          {allNgos.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+        </select>
+        {selectedNgoId === 'all' && (
+          <span className="pill pill-blue">All NGOs</span>
+        )}
       </div>
 
       <div className="card">
-        <div className="card-head" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3>Stations</h3>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="card-head" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+          {/* Title / count / month */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <h3 style={{ margin: 0 }}>Stations</h3>
               <span className="count">{filteredStations.length} stations</span>
-              <button className="btn btn-sm btn-outline" onClick={async () => {
-                try {
-                  const res = await apiPost('/ngo-admin/stations/seed', { ngo_id: selectedNgoId })
-                  setMsg(res.message || 'Stations seeded')
-                  fetchData()
-                } catch (err) {
-                  setMsg('Error: ' + err.message)
-                }
-              }} style={{ fontSize: 11 }}>
-                Seed Default Stations
-              </button>
-              <button className="btn btn-sm btn-outline" onClick={async () => {
-                try {
-                  const res = await apiPost('/ngo-admin/stations/seed', { ngo_id: selectedNgoId, fresh: true })
-                  setMsg(res.message || 'FD Stations seeded')
-                  fetchData()
-                } catch (err) {
-                  setMsg('Error: ' + err.message)
-                }
-              }} style={{ fontSize: 11, color: '#1e40af', borderColor: '#93c5fd' }}>
-                Seed FD Stations
-              </button>
-              <button className="btn btn-sm btn-outline" onClick={async () => {
-                try {
-                  const res = await apiPost('/ngo-admin/stations/cleanup', { ngo_id: selectedNgoId })
-                  setMsg(res.message || 'Cleanup done')
-                  fetchData()
-                } catch (err) {
-                  setMsg('Error: ' + err.message)
-                }
-              }} style={{ fontSize: 11, color: '#dc2626', borderColor: '#fca5a5' }}>
-                Cleanup Orphaned
-              </button>
-              <button className="btn btn-sm btn-outline" onClick={() => setBulkRenameOpen(true)}
-                style={{ fontSize: 11, color: '#b45309', borderColor: '#fdba74' }}>
-                Bulk Rename
-              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div ref={toolsRef} style={{ position: 'relative' }}>
+                <button className="btn btn-sm btn-outline" onClick={() => setToolsOpen(o => !o)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                  ⚙ Tools <span style={{ fontSize: 10 }}>▾</span>
+                </button>
+                {toolsOpen && (
+                  <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 300, marginTop: 4, background: '#fff', border: '1px solid var(--line, #e5e7eb)', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.14)', overflow: 'hidden', minWidth: 200 }}>
+                    <button onClick={async () => { setToolsOpen(false); try { const res = await apiPost('/ngo-admin/stations/seed', { ngo_id: selectedNgoId }); setMsg(res.message || 'Stations seeded'); fetchData(); } catch (err) { setMsg('Error: ' + err.message); } }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', fontSize: 12.5, cursor: 'pointer', background: 'transparent', border: 'none', width: '100%', textAlign: 'left', color: 'var(--ink)', fontFamily: 'inherit' }}>
+                      Seed Default Stations
+                    </button>
+                    <button onClick={async () => { setToolsOpen(false); try { const res = await apiPost('/ngo-admin/stations/seed', { ngo_id: selectedNgoId, fresh: true }); setMsg(res.message || 'FD Stations seeded'); fetchData(); } catch (err) { setMsg('Error: ' + err.message); } }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', fontSize: 12.5, cursor: 'pointer', background: 'transparent', border: 'none', width: '100%', textAlign: 'left', color: '#1e40af', fontFamily: 'inherit' }}>
+                      Seed FD Stations
+                    </button>
+                    <button onClick={async () => { setToolsOpen(false); try { const res = await apiPost('/ngo-admin/stations/cleanup', { ngo_id: selectedNgoId }); setMsg(res.message || 'Cleanup done'); fetchData(); } catch (err) { setMsg('Error: ' + err.message); } }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', fontSize: 12.5, cursor: 'pointer', background: 'transparent', border: 'none', width: '100%', textAlign: 'left', color: 'var(--danger)', fontFamily: 'inherit' }}>
+                      Cleanup Orphaned
+                    </button>
+                    <button onClick={() => { setToolsOpen(false); setBulkRenameOpen(true); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', fontSize: 12.5, cursor: 'pointer', background: 'transparent', border: 'none', width: '100%', textAlign: 'left', color: '#b45309', fontFamily: 'inherit' }}>
+                      Bulk Rename
+                    </button>
+                  </div>
+                )}
+              </div>
               <input type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
                 style={{ fontSize: 13, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--line, #e5e7eb)', width: 150 }} />
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 4, background: 'var(--bg)', borderRadius: 8, padding: 2 }}>
-            {allNgos.map(ngo => {
-              const active = selectedNgoId === ngo.id;
-              return (
-                <button key={ngo.id} onClick={() => setSelectedNgoId(ngo.id)}
-                  style={{ padding: '5px 14px', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', background: active ? 'var(--sage)' : 'transparent', color: active ? '#fff' : 'var(--ink-soft)' }}>
-                  {ngo.name}
+
+          {/* NGO tabs */}
+          {ngoGroupList.size > 0 && (
+            <div style={{ display: 'flex', gap: 4, background: 'var(--bg)', borderRadius: 8, padding: 2, flexWrap: 'wrap' }}>
+              {ngoTabs.map(tab => (
+                <button key={tab.key}
+                  onClick={() => {
+                    const list = ngoGroupList.get(tab.key) || [];
+                    if (tab.key === 'other') selectNgo('all', 'other');
+                    else selectNgo(list[0].id, tab.key);
+                  }}
+                  style={{
+                    padding: '5px 14px', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                    background: ngoGroup === tab.key ? 'var(--sage)' : 'transparent',
+                    color: ngoGroup === tab.key ? '#fff' : 'var(--ink-soft)',
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                  }}>
+                  {tab.key !== 'other' && <span style={{ width: 7, height: 7, borderRadius: 99, background: NGO_NAME_COLORS[tab.key], display: 'inline-block' }} />}
+                  {tab.label}
                 </button>
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', gap: 4, background: 'var(--bg)', borderRadius: 8, padding: 2, marginTop: 4 }}>
+              ))}
+            </div>
+          )}
+
+          {/* Station tabs */}
+          <div style={{ display: 'flex', gap: 4, background: 'var(--bg)', borderRadius: 8, padding: 2, flexWrap: 'wrap' }}>
             {[
               { key: 'all', label: 'All Stations' },
-              { key: 'old', label: 'OLD Stations' },
-              { key: 'fresh', label: 'FRESH Stations (FD)' },
+              { key: 'old', label: 'Old Stations' },
+              { key: 'fresh', label: 'Fresh Stations (FD)' },
             ].map(tab => (
               <button key={tab.key} onClick={() => setStationTab(tab.key)}
-                style={{ padding: '4px 12px', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', background: stationTab === tab.key ? '#fff' : 'transparent', color: stationTab === tab.key ? 'var(--ink)' : 'var(--ink-soft)', boxShadow: stationTab === tab.key ? '0 1px 3px rgba(0,0,0,.1)' : 'none' }}>
+                style={{
+                  padding: '4px 12px', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
+                  background: stationTab === tab.key ? '#fff' : 'transparent',
+                  color: stationTab === tab.key ? 'var(--ink)' : 'var(--ink-soft)',
+                  boxShadow: stationTab === tab.key ? '0 1px 3px rgba(0,0,0,.1)' : 'none',
+                }}>
                 {tab.label}
-                <span style={{ marginLeft: 4, fontSize: 10, fontWeight: 400, opacity: .6 }}>
-                  ({stationTab === tab.key ? filteredStations.length : stations.filter(s => tab.key === 'all' ? true : tab.key === 'fresh' ? isFreshStation(s.station) : !isFreshStation(s.station)).length})
-                </span>
+                <span style={{ marginLeft: 4, fontSize: 10, fontWeight: 400, opacity: .6 }}>({stationCounts[tab.key]})</span>
               </button>
             ))}
           </div>
+
+          {/* Search + primary actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 200, border: '1px solid var(--line, #e5e7eb)', borderRadius: 8, padding: '6px 10px', background: '#fff' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Search stations..." style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, fontFamily: 'inherit', background: 'transparent' }} />
+            </div>
+
+            <button className="btn btn-primary btn-sm" onClick={() => setAddOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+              + Add Station
+            </button>
+          </div>
         </div>
+
         <div className="card-pad">
           {loading ? (
             <div className="loading">Loading stations...</div>
           ) : filteredStations.length === 0 ? (
-            <div className="empty-state"><p>No {stationTab === 'fresh' ? 'FRESH (FD)' : stationTab === 'old' ? 'OLD' : ''} stations found for this NGO.</p></div>
+            <div className="empty-state"><p>No {stationTab === 'fresh' ? 'FRESH (FD)' : stationTab === 'old' ? 'OLD' : ''} stations found{searchTerm ? ` matching "${searchTerm}"` : ''}.</p></div>
           ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Station</th>
-                  <th>NGOs</th>
-                  <th>FRO Worker</th>
-                  <th>Donors</th>
-                  <th>Old Data</th>
-                  <th>Salary</th>
-                  <th>Target</th>
-                  <th>Source</th>
-                  <th>Achieved</th>
-                  <th>Incentive</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStations.map((s, i) => (
-                  <tr key={s.station}>
-                    <td>
-                      <strong>{s.station}</strong>
-                      {isFreshStation(s.station) && <span style={{ marginLeft: 4, fontSize: 10, padding: '1px 5px', borderRadius: 4, background: '#dbeafe', color: '#1e40af', fontWeight: 600 }}>FRESH</span>}
-                      {(() => {
-                        const at = activeTransfers.find(t => t.station?.trim() === s.station?.trim());
-                        return at ? <span style={{ marginLeft: 6, fontSize: 13, color: '#b45309', fontWeight: 500 }}>→ {at.target_station}</span> : null;
-                      })()}
-                    </td>
-                    <td>
-                      <span onClick={() => setEditNgoStation(s.station)}
-                        style={{ cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
-                        {s.ngos.length > 0
-                          ? s.ngos[0].ngo_name
-                          : <span style={{ color: '#9ca3af' }}>No NGO</span>}
-                      </span>
-                    </td>
-                    <td>
-                      <SearchableSelect
-                        options={froWorkers}
-                        value={s.fro_worker_id || ''}
-                        onChange={(val) => handleFroChange(s.station, val)}
-                        placeholder="-- Select FRO --"
-                      />
-                    </td>
-                    <td>
-                      {(() => {
-                        const dc = s.donor_count;
-                        if (!dc) return <span className="pill pill-blue">0</span>;
-                        if (typeof dc === 'number') return <span className="pill pill-blue">{dc}</span>;
-                        // Per-NGO breakdown: { ngo_id: count }
-                        const parts = Object.entries(dc).map(([ngoId, cnt]) => {
-                          const ngo = allNgos.find(n => String(n.id) === String(ngoId));
-                          const name = ngo?.name || ngoId;
-                          return <span key={ngoId} style={{ marginRight: 6, fontWeight: 600 }}>{name}: {cnt}</span>;
-                        });
-                        return <span className="pill pill-blue" style={{ whiteSpace: 'nowrap' }}>{parts}</span>;
-                      })()}
-                    </td>
-                    <td>
-                      <button className="btn btn-sm btn-outline" onClick={() => setUploadStation(s.station)}
-                        style={{ fontSize: 10, whiteSpace: 'nowrap', color: 'var(--sage, #5B6B4E)' }}>
-                        Upload
-                      </button>
-                    </td>
-                    <td>
-                      {(() => {
-                        const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
-                        return w ? <span>₹{Number(w.salary || 0).toLocaleString('en-IN')}</span> : <span style={{ color: '#9ca3af' }}>—</span>;
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
-                        if (!w) return <span style={{ color: '#9ca3af' }}>—</span>;
-                        const t = targets.find(tg => tg.id === w.id);
-                        return <strong>₹{Number(t?.target || 0).toLocaleString('en-IN')}</strong>;
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
-                        if (!w) return <span style={{ color: '#9ca3af' }}>—</span>;
-                        const t = targets.find(tg => tg.id === w.id);
-                        if (!t) return <span style={{ color: '#9ca3af' }}>—</span>;
-                        return (
-                          <>
-                            {t?.target_source === 'auto_month1' && <span className="pill pill-yellow">Auto M1</span>}
-                            {t?.target_source === 'auto_month2' && <span className="pill pill-yellow">Auto M2</span>}
-                            {t?.target_source === 'auto_month3' && <span className="pill pill-yellow">Auto M3</span>}
-                            {t?.target_source === 'manual' && <span className="pill pill-green">Manual</span>}
-                            {t?.target_source === 'not_set' && <span className="pill pill-gray">Not Set</span>}
-                          </>
-                        );
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
-                        if (!w) return <span style={{ color: '#9ca3af' }}>—</span>;
-                        const t = targets.find(tg => tg.id === w.id);
-                        const val = t?.achieved_target;
-                        return val != null && val > 0
-                          ? <strong>₹{Number(val).toLocaleString('en-IN')}</strong>
-                          : <span style={{ color: '#9ca3af' }}>—</span>;
-                      })()}
-                    </td>
-                    <td>
-                      {(() => {
-                        const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
-                        if (!w) return <span style={{ color: '#9ca3af' }}>—</span>;
-                        const t = targets.find(tg => tg.id === w.id);
-                        const manualInc = t?.incentive;
-                        const inc = incentives.find(i => i.worker_id === w.id);
-                        const autoInc = inc?.hasTarget ? inc.totalIncentive : null;
-                        const displayVal = manualInc != null ? manualInc : autoInc;
-                        const isManual = manualInc != null;
-                        if (displayVal != null && displayVal > 0) {
-                          return (
-                            <strong style={{ color: isManual ? '#7c3aed' : '#059669' }}>
-                              ₹{Number(displayVal).toLocaleString('en-IN')}
-                              {isManual && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 4, color: '#7c3aed' }}>M</span>}
-                            </strong>
-                          );
-                        }
-                        return <span style={{ color: '#9ca3af' }}>{manualInc != null ? '0' : '—'}</span>;
-                      })()}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {(() => {
-                          const at = activeTransfers.find(t => t.station === s.station);
-                          return at ? (
-                            <button className="btn btn-sm"
-                              onClick={() => handleReturnEarly(at.id)}
-                              disabled={returningId === at.id}
-                              style={{ background: '#fef3c7', border: '1px solid #f59e0b', color: '#92400e' }}>
-                              {returningId === at.id ? 'Returning...' : 'Return'}
-                            </button>
-                          ) : null;
-                        })()}
-                        {(() => {
-                          const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
-                          if (!w) return null;
-                          const t = targets.find(tg => tg.id === w.id);
-                          if (!t || t?.months_employed >= 3) {
-                            return (
-                              <button className="btn btn-sm btn-outline" onClick={() => { setEditTarget({ ...w, ngo_id: s.ngos?.[0]?.ngo_id || null }); setTargetAmount(String(t?.target || '')); }}>
-                                {t?.target_source === 'manual' ? 'Edit' : 'Set'}
-                              </button>
-                            );
-                          }
-                          return <span style={{ fontSize: 11, color: '#6b7280', whiteSpace: 'nowrap' }}>Auto</span>;
-                        })()}
-                        {(() => {
-                          const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
-                          if (!w) return null;
-                          const t = targets.find(tg => tg.id === w.id);
-                          return (
-                            <button className="btn btn-sm btn-outline" onClick={() => { setEditAchieved({ ...w, ngo_id: s.ngos?.[0]?.ngo_id || null }); setAchievedAmount(String(t?.achieved_target || '')); }}>
-                              {t?.achieved_target != null && t.achieved_target > 0 ? 'Edit Achv' : 'Set Achv'}
-                            </button>
-                          );
-                        })()}
-                        {(() => {
-                          const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
-                          if (!w) return null;
-                          const t = targets.find(tg => tg.id === w.id);
-                          const inc = incentives.find(i => i.worker_id === w.id);
-                          const autoVal = inc?.hasTarget ? inc.totalIncentive : 0;
-                          return (
-                            <button className="btn btn-sm btn-outline" onClick={() => {
-                              setEditIncentive({ ...w, ngo_id: s.ngos?.[0]?.ngo_id || null });
-                              setIncentiveAmount(String(t?.incentive != null ? t.incentive : autoVal || ''));
-                            }} style={{ color: '#7c3aed' }}>
-                              {t?.incentive != null ? 'Edit Incent' : 'Set Incent'}
-                            </button>
-                          );
-                        })()}
-                        <button className="btn btn-sm btn-outline" onClick={() => {
-                          const fro = froWorkers.find(w => w.id === s.fro_worker_id);
-                          setTransferData({
-                            station: s.station,
-                            sourceName: fro?.name || 'Unknown',
-                            sourceCount: s.donor_count || 0,
-                          });
-                        }} style={{ color: 'var(--sage, #5B6B4E)' }}>
-                          Transfer
-                        </button>
-                        <button className="btn btn-sm btn-outline" onClick={() => handleDeleteStation(s.station)}
-                          style={{ color: 'var(--danger)' }}>
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="nga-st">
+                <thead>
+                  <tr>
+                    <th style={{ width: '13%' }}>Station</th>
+                    <th style={{ width: '8%' }}>NGO</th>
+                    <th style={{ width: '20%' }}>FRO Worker</th>
+                    <th style={{ width: '13%' }}>Donors</th>
+                    <th style={{ width: '36%' }}>Performance</th>
+                    <th style={{ width: '10%', textAlign: 'right' }}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredStations.map((s, i) => {
+                    const ngoName = s.ngos?.[0]?.ngo_name;
+                    const ngoCol = ngoColor(ngoName);
+                    const at = activeTransfers.find(t => t.station?.trim() === s.station?.trim());
+                    const w = froWorkers.find(fw => fw.id === s.fro_worker_id);
+                    return (
+                      <tr key={s.station}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <strong style={{ fontSize: 15, letterSpacing: '.2px' }}>{s.station}</strong>
+                            {isFreshStation(s.station) && (
+                              <span style={{ fontSize: 9.5, fontWeight: 700, padding: '1px 7px', borderRadius: 6, background: '#dbeafe', color: '#1e40af' }}>FRESH</span>
+                            )}
+                          </div>
+                          <span className="nga-ngo-sub" style={{ display: 'block', fontSize: 10.5, fontWeight: 700, color: ngoCol, marginTop: 2, textTransform: 'uppercase', letterSpacing: '.3px' }}>
+                            {ngoName || 'No NGO'}
+                          </span>
+                          {at && (
+                            <div style={{ marginTop: 3, fontSize: 11, color: '#b45309', fontWeight: 600 }}>
+                              → {at.target_station}
+                            </div>
+                          )}
+                        </td>
+                        <td className="ng-nh">
+                          <span onClick={() => setEditNgoStation(s.station)}
+                            style={{ cursor: 'pointer', fontWeight: 700, fontSize: 12, color: ngoCol, textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
+                            {ngoName || <span style={{ color: '#9ca3af' }}>No NGO</span>}
+                          </span>
+                        </td>
+                        <td>
+                          <SearchableSelect
+                            options={froWorkers}
+                            value={s.fro_worker_id || ''}
+                            onChange={(val) => handleFroChange(s.station, val)}
+                            placeholder={s.fro_worker_id ? (w?.name || '--') : '+ Assign FRO'}
+                          />
+                        </td>
+                        <td>{renderDonorPills(s)}</td>
+                        <td>{renderPerformance(s)}</td>
+                        <td className="nga-actions">
+                          <div className="nga-actions-inline" style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
+                            <StationKebab
+                              activeTransfer={at}
+                              returningId={returningId}
+                              onReturn={at ? handleReturnEarly : null}
+                              onUpload={() => setUploadStation(s.station)}
+                              onTarget={() => openTarget(s)}
+                              onDelete={() => handleDeleteStation(s.station)}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -1631,97 +1629,11 @@ export default function StationManagement() {
         </div>
       )}
 
-      {editAchieved && (
-        <div className="modal-overlay" onClick={() => setEditAchieved(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-head">
-              <h3>Set Achieved Target — {editAchieved.name}</h3>
-              <button className="btn btn-sm btn-outline" onClick={() => setEditAchieved(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="field">
-                <label>Achieved Amount (₹)</label>
-                <input type="number" value={achievedAmount} onChange={e => setAchievedAmount(e.target.value)} min="0" />
-              </div>
-              <div className="modal-actions">
-                <button className="btn btn-outline" onClick={() => setEditAchieved(null)}>Cancel</button>
-                <button className="btn btn-primary" onClick={async () => {
-                  try {
-                    const month = selectedMonth;
-                    await apiPost('/ngo-admin/achieved-target', {
-                      fro_worker_id: editAchieved.id,
-                      month,
-                      achieved_amount: parseFloat(achievedAmount) || 0,
-                    });
-                    setEditAchieved(null);
-                    loadTargets();
-                  } catch (err) { toast(err.message, 'error'); }
-                }}>Save</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {editIncentive && (
-        <div className="modal-overlay" onClick={() => setEditIncentive(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-head">
-              <h3>Set Incentive — {editIncentive.name}</h3>
-              <button className="btn btn-sm btn-outline" onClick={() => setEditIncentive(null)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <div className="field">
-                <label>Incentive Amount (₹)</label>
-                <input type="number" value={incentiveAmount} onChange={e => setIncentiveAmount(e.target.value)} min="0" />
-              </div>
-              {(() => {
-                const inc = incentives.find(i => i.worker_id === editIncentive.id);
-                if (inc?.hasTarget && inc.totalIncentive > 0) {
-                  return <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
-                    Auto-calculated: ₹{Number(inc.totalIncentive).toLocaleString('en-IN')}
-                    &nbsp;(AKI: ₹{Number(inc.akiPayout).toLocaleString('en-IN')} + 10%: ₹{Number(inc.monthlyIncentive).toLocaleString('en-IN')})
-                  </div>;
-                }
-                return null;
-              })()}
-              <div className="modal-actions" style={{ marginTop: 16 }}>
-                <button className="btn btn-outline" onClick={async () => {
-                  try {
-                    const month = selectedMonth;
-                    await apiPost('/ngo-admin/incentive', {
-                      fro_worker_id: editIncentive.id,
-                      month,
-                      incentive_amount: '',
-                    });
-                    setEditIncentive(null);
-                    loadTargets();
-                  } catch (err) { toast(err.message, 'error'); }
-                }}>Clear</button>
-                <button className="btn btn-outline" onClick={() => setEditIncentive(null)}>Cancel</button>
-                <button className="btn btn-primary" onClick={async () => {
-                  try {
-                    const month = selectedMonth;
-                    await apiPost('/ngo-admin/incentive', {
-                      fro_worker_id: editIncentive.id,
-                      month,
-                      incentive_amount: parseFloat(incentiveAmount) || 0,
-                    });
-                    setEditIncentive(null);
-                    loadTargets();
-                  } catch (err) { toast(err.message, 'error'); }
-                }}>Save</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {editNgoStation && (
         <div className="modal-overlay" onClick={() => setEditNgoStation(null)}>
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
             <div className="modal-head">
-              <h3>Change NGO — {editNgoStation}</h3>
+              <h3>Edit Station — {editNgoStation}</h3>
               <button className="btn btn-sm btn-outline" onClick={() => setEditNgoStation(null)}>✕</button>
             </div>
             <div className="modal-body">
@@ -1743,17 +1655,6 @@ export default function StationManagement() {
         </div>
       )}
 
-      {transferData && (
-        <TransferDataModal
-          station={transferData.station}
-          sourceName={transferData.sourceName}
-          sourceCount={transferData.sourceCount}
-          stations={stations}
-          onClose={() => setTransferData(null)}
-            onTransferred={() => fetchData('Transfer successful')}
-        />
-      )}
-
       {uploadStation && (
         <OldDataUploadModal
           station={uploadStation}
@@ -1770,6 +1671,19 @@ export default function StationManagement() {
           defaultNgoId={selectedNgoId}
           onClose={() => setBulkRenameOpen(false)}
           onRenamed={() => { setBulkRenameOpen(false); fetchData('Stations renamed successfully'); }}
+        />
+      )}
+
+      {addOpen && (
+        <AddStationModal
+          allNgos={allNgos}
+          newStation={newStation}
+          newStationNgo={newStationNgo}
+          onChangeName={setNewStation}
+          onChangeNgo={setNewStationNgo}
+          adding={adding}
+          onCreate={handleAddStation}
+          onClose={() => setAddOpen(false)}
         />
       )}
     </div>

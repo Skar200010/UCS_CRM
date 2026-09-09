@@ -20,7 +20,7 @@ export default function SearchResults() {
     masterSearch(q.trim()).then(setResults).catch(() => setResults({ donors: [], fros: [], stations: [] })).finally(() => setLoading(false))
   }, [q])
 
-  const total = results ? (results.donors?.length || 0) + (results.fros?.length || 0) + (results.stations?.length || 0) : 0
+  const total = results ? (results.donors?.length || 0) + (results.stations?.length || 0) : 0
 
   if (loading) return <SkeletonTable />
 
@@ -80,40 +80,6 @@ export default function SearchResults() {
                           </tr>
                         )
                       })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {/* FROs */}
-              {results.fros?.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-soft)', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 6, padding: '0 4px' }}>
-                    FRO Workers ({results.fros.length})
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--line)' }}>
-                        <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Name</th>
-                        <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Login ID</th>
-                        <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', color: 'var(--ink-soft)' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                        {results.fros.map(f => (
-                          <tr key={f.id} onClick={() => navigate(`/ngo-admin/fro-status?fro_id=${f.id}`)}
-                          style={{ borderBottom: '1px solid var(--line)', cursor: 'pointer', transition: 'background .1s' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-                          onMouseLeave={e => e.currentTarget.style.background = ''}>
-                          <td style={{ padding: '6px 8px', fontWeight: 600 }}>{f.name || 'Unknown'}</td>
-                          <td style={{ padding: '6px 8px' }}>{f.login_id || '—'}</td>
-                          <td style={{ padding: '6px 8px' }}>
-                            <span className={`pill ${f.is_active !== false ? 'pill-green' : 'pill-red'}`}>
-                              {f.is_active !== false ? 'Active' : 'Inactive'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
                     </tbody>
                   </table>
                 </div>
