@@ -25,6 +25,8 @@ const curr = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u
 const isReceiptSuspense = (r) => !!(r && r.kind === 'suspense' && typeof r.id === 'string' && String(r.id).indexOf('suspense-') === 0);
 const NGO_LABELS = { bsct:'Being Sevak', mann:'Mann Care', aflf:'Ashray' };
 const NGO_STYLE = { bsct:{background:'#dbeafe',color:'#1d4ed8'}, aflf:{background:'#dcfce7',color:'#166534'}, mann:{background:'#fce7f3',color:'#be185d'} };
+// Per-NGO card tints, matching the FRO Suspense section palette.
+const NGO_CARD = { bsct:{background:'#e7f0ff',accent:'#1e40af'}, aflf:{background:'#e3f6e9',accent:'#166534'}, mann:{background:'#f6e8f2',accent:'#be185d'} };
 const TODAY_IST=new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10);
 const EMPTY_FM={src_id:'',amount:'',payment_id:'',check_id:'NA',transaction_date:'',remarks:'NA',payer_name:'',donor_name:'',payment_time:'',project_id:'',donor_mobile:'',donor_email:'',donor_pan:'',donor_address_1:'',donor_address_2:'',donor_city:'',donor_pin_code:'',agent_name:'',log_id:'',donor_id:'',mode:'',modeCustom:'',_lead_amount:null};
 const MODE_OPTIONS=['Google Pay','Freecharge','razorpay','online','PUM','Cheque','Paytm','others'];
@@ -443,8 +445,11 @@ function EntrySection({loading,entries,sources,summary,error,statusTab,setStatus
           </div>
         ) : visible.length===0 ? (
           <div className="entry-card-empty">No entries yet</div>
-        ) : pageItems.map((e,idx)=>
+        ) : pageItems.map((e,idx)=>{
+        const ngoColor=(e.kind!=='suspense')&&NGO_CARD[ngoOf(e)];
+        return (
         <div key={e.id||idx} data-entry-id={e.id} className={'entry-card'+(e.kind==='suspense'?' is-suspense':'')+((e.match_status==='matched'||e.match_status==='confirmed')?(e.match_source==='manual'?' is-match-manual':e.match_source==='static_fro'?' is-match-static':' is-match-auto'):' is-match-unmatched')+(selectedEntryId===e.id?' is-selected':'')}
+          style={ngoColor?{background:ngoColor.background}:undefined}
           onClick={()=>{if(clickRef.current)clearTimeout(clickRef.current);clickRef.current=setTimeout(()=>{clickRef.current=null;onOpen(e)},300)}}
           onDoubleClick={()=>{if(clickRef.current){clearTimeout(clickRef.current);clickRef.current=null}if(!onSelectEntry||!selectionEnabled||e.match_source==='auto'||e.match_status==='confirmed')return;if(selectedEntryId===e.id)onSelectEntry(null);else onSelectEntry(e)}}>
           <div className="ec-main">
@@ -480,7 +485,8 @@ function EntrySection({loading,entries,sources,summary,error,statusTab,setStatus
             <span className="pill" style={{ marginLeft: 'auto', alignSelf: 'center', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0, background: (NGO_STYLE[ngoOf(e)]||{background:'#f3f4f6',color:'#6b7280'}).background, color: (NGO_STYLE[ngoOf(e)]||{background:'#f3f4f6',color:'#6b7280'}).color, borderRadius: 999, padding: '3px 10px' }}>{NGO_LABELS[ngoOf(e)]||'\u2014'}</span>
           </div>
         </div>
-      )}
+        );
+      })}
       </div>
     </div>
     <Pagination page={pg} setPage={setPg} totalItems={visible.length} pageSize={PAGE_SIZE} />
