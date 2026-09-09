@@ -27,7 +27,7 @@ const NGO_LABELS = { bsct:'Being Sevak', mann:'Mann Care', aflf:'Ashray' };
 const NGO_STYLE = { bsct:{background:'#dbeafe',color:'#1d4ed8'}, aflf:{background:'#dcfce7',color:'#166534'}, mann:{background:'#fce7f3',color:'#be185d'} };
 // Per-NGO card tints, matching the FRO Suspense section palette.
 // Exported (single source of truth) for the Lead Verification card wave.
-const NGO_CARD = { bsct:{background:'#e7f0ff',accent:'#1e40af'}, aflf:{background:'#e3f6e9',accent:'#166534'}, mann:{background:'#f6e8f2',accent:'#be185d'} };
+const NGO_CARD = { bsct:{background:'#d4e4ff',accent:'#1e40af'}, aflf:{background:'#c8ecd4',accent:'#166534'}, mann:{background:'#ecc9df',accent:'#be185d'} };
 export { NGO_CARD }
 const TODAY_IST=new Date(Date.now()+5.5*60*60*1000).toISOString().slice(0,10);
 const EMPTY_FM={src_id:'',amount:'',payment_id:'',check_id:'NA',transaction_date:'',remarks:'NA',payer_name:'',donor_name:'',payment_time:'',project_id:'',donor_mobile:'',donor_email:'',donor_pan:'',donor_address_1:'',donor_address_2:'',donor_city:'',donor_pin_code:'',agent_name:'',log_id:'',donor_id:'',mode:'',modeCustom:'',_lead_amount:null};

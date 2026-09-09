@@ -28,9 +28,9 @@ const CLAIM_BADGES = {
 const NGO_LABELS = { bsct: 'Being Sevak', mann: 'Mann Care', aflf: 'Ashray' };
 const NGO_SHORT = { bsct: 'BSCT', mann: 'MANN', aflf: 'AFLF' };
 const NGO_PILL = {
-  bsct: { bg: '#e7f0ff', color: '#1e40af' },
-  mann: { bg: '#f6e8f2', color: '#be185d' },
-  aflf: { bg: '#e3f6e9', color: '#166534' },
+  bsct: { bg: '#d4e4ff', color: '#1e40af' },
+  mann: { bg: '#ecc9df', color: '#be185d' },
+  aflf: { bg: '#c8ecd4', color: '#166534' },
 };
 
 const initials = (name) => (name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
