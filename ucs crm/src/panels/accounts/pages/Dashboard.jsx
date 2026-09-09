@@ -5,6 +5,11 @@ import { useRealtime } from '../../../hooks/useRealtime';
 import LeadDetail from './LeadDetail';
 import RightPanel from '../components/RightPanel';
 import Pagination from '../components/Pagination';
+import LeadWave from '../components/LeadWave';
+import { NGO_CARD } from './BankAudit';
+// Lead cards already matched during this session must not re-animate the wave
+// on filter/pagination rerenders. Keyed by lead log id.
+const leadAnimated = new Set();
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u20B90';
 const fmtDT = d => {
   if (!d) return '';
@@ -271,7 +276,12 @@ export default function Dashboard({ embedded, onStats, selectedLogId, onSelectLe
                 {searchQuery ? 'No leads match your search.' : 'No leads found.'}
               </div>
             ) : (
-              pageItems.map(l => (
+              pageItems.map(l => {
+              const ngo = l.bank_match ? NGO_CARD[l.donor_project] : null;
+              const isMatched = !!l.bank_match;
+              const shouldWave = isMatched && !!ngo && !leadAnimated.has(l.log_id);
+              if (shouldWave) leadAnimated.add(l.log_id);
+              return (
               <div key={l.log_id} data-lead-log={l.log_id} data-match-entry={l.bank_match?.entry_id || ''} data-match-st={l.bank_match?.match_status || ''} data-match-src={l.bank_match?.match_source || ''}
                 className={'entry-card' + (selectedLogId === l.log_id ? ' is-selected' : '') + (l.accounts_status !== 'pending' ? ' is-dim' : '') + (l.bank_match ? (l.bank_match.match_source === 'manual' ? ' is-match-manual' : ' is-match-auto') : ' is-match-unmatched')}
                 onClick={() => {
@@ -324,8 +334,10 @@ export default function Dashboard({ embedded, onStats, selectedLogId, onSelectLe
                     </button>
                   )}
                 </div>
+              {embedded && ngo && isMatched && <LeadWave animate={shouldWave} bg={ngo.background} square={ngo.accent} seed={String(l.log_id)} />}
               </div>
-            ))
+            );
+            })
           )}
           </div>
         </div>

@@ -922,6 +922,18 @@ export const rejectLead = async (req, res) => {
     // FRO suspense pool (which filters matched_lead_log_id IS NULL), so the
     // rejected money can never be claimed again. The entry keeps its
     // receipt_id so the receipt (number intact) returns to the pool too.
+    // Capture the claim-linked bank audit entries before reverting them: their
+    // receipt_id / payer_name drive the receipt cleanup that returns the money
+    // to the suspense pool as a bare, correctly-named suspense receipt.
+    let rejectedEntries = [];
+    try {
+      const { data: entries } = await db
+        .from('bank_audit_entries')
+        .select('id, receipt_id, payer_name')
+        .eq('matched_lead_log_id', logId);
+      rejectedEntries = entries || [];
+    } catch (err) { console.error('Failed to read bank audit entries on lead rejection:', err.message); }
+
     try {
       await db.from('bank_audit_entries').update({
         status: 'unverified',
@@ -942,6 +954,24 @@ export const rejectLead = async (req, res) => {
         updated_at: new Date().toISOString(),
       }).eq('matched_lead_log_id', logId);
     } catch (err) { console.error('Failed to revert bank audit entry on lead rejection:', err.message); }
+
+    // Restore the linked suspense receipt to its bare state so the rejected
+    // money re-enters the FRO suspense pool under the bank-statement name (the
+    // audit's payer_name) instead of the FRO's submitted donor details, and the
+    // wrong donor info can't leak into auto-match or the Accounts suspense cards.
+    try {
+      for (const entry of rejectedEntries) {
+        if (!entry.receipt_id) continue;
+        await db.from('receipts').update({
+          donor_name: entry.payer_name || null,
+          donor_id: null,
+          donor_mobile: null,
+          pan_number: null,
+          address: null,
+          email: null,
+        }).eq('id', entry.receipt_id);
+      }
+    } catch (err) { console.error('Failed to reset suspense receipt on lead rejection:', err.message); }
 
     if (log.fro_assignments?.donor_id) {
       await db.from('donor_profiles').update({ updated_at: new Date().toISOString() }).eq('id', log.fro_assignments.donor_id);

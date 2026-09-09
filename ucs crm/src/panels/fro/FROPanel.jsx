@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation, Navigate } from 'react-router-dom'
-import { LayoutDashboard, CalendarClock, Users, Gift, Ticket, MessageCircle, Coins } from 'lucide-react'
+import { LayoutDashboard, Users, Gift, Ticket, MessageCircle, Coins } from 'lucide-react'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
 import { getScheduled, getCallbacks } from './api/donors'
@@ -20,7 +20,6 @@ import ToastContainer from '../../components/Toast'
 import Dashboard from './pages/Dashboard'
 import MyLeadsSuspense from './pages/MyLeadsSuspense'
 import Donors from './pages/Donors'
-import Scheduled from './pages/Scheduled'
 import IncentiveInfo from './pages/IncentiveInfo'
 import AkiBanner from '../../components/AkiBanner'
 import SpecialIncentive from '../../components/SpecialIncentive'
@@ -32,7 +31,6 @@ import { istDateString } from './utils/time'
 
 const NAV_BASE = [
   { id: 'dashboard', path: '/fro/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { id: 'scheduled', path: '/fro/scheduled', label: 'Follow Ups', Icon: CalendarClock },
   { id: 'my-leads', path: '/fro/my-leads', label: 'My Leads', Icon: Users },
   { id: 'donors', path: '/fro/donors', label: 'Donors', Icon: Gift },
   { id: 'tickets', path: '/fro/tickets', label: 'Raise Ticket', Icon: Ticket },
@@ -875,7 +873,6 @@ export default function FROPanel() {
           <Routes>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="scheduled" element={<Scheduled />} />
             <Route path="my-leads" element={<MyLeadsSuspense />} />
             <Route path="suspense" element={<FroSuspense />} />
             <Route path="donors" element={<Donors />} />

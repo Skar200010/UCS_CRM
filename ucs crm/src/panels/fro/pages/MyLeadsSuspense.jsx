@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import MyDonors from './MyDonors';
 import FroSuspense from './Suspense';
@@ -15,6 +16,7 @@ function SectionTitle({ label, pct }) {
 export default function MyLeadsSuspense() {
   const isMobile = useIsMobile();
   const isCompact = useIsMobile(480);
+  const shellRef = useRef(null);
 
   // On phones the split is stacked, so chrome (padding/gap) must shrink to
   // leave as much height as possible for the two scrollable lists.
@@ -23,8 +25,8 @@ export default function MyLeadsSuspense() {
   const leadFlex = isMobile ? '1 1 50%' : '3 1 0';
   const suspFlex = isMobile ? '1 1 50%' : '2 1 0';
 
-  return (
-    <div className="my-leads-shell" style={{ height: '100%', position: 'relative', display: 'flex', gap, padding: pad, boxSizing: 'border-box', minHeight: 0 }}>
+return (
+    <div ref={shellRef} className="my-leads-shell" style={{ height: '100%', position: 'relative', display: 'flex', gap, padding: pad, boxSizing: 'border-box', minHeight: 0 }}>
       <div style={{
         flex: leadFlex,
         minWidth: 0, minHeight: 0,
@@ -37,7 +39,7 @@ export default function MyLeadsSuspense() {
       }}>
         <SectionTitle label="My Leads" pct="60%" />
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <MyDonors embedded />
+          <MyDonors embedded portalEl={shellRef.current} />
         </div>
       </div>
 
