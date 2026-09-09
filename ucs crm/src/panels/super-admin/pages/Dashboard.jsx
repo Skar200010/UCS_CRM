@@ -10,6 +10,7 @@ import { fmt, STATUS_META, StatBox } from '../components/froShared'
 import { FroMiniCard } from '../components/FroMiniCard'
 import { FroDetailModal, FroDeepDetailModal } from '../components/FroModals'
 import { FroNestedModal } from '../components/FroNestedModal'
+import FroPerformanceToday from '../components/FroPerformanceToday'
 
 /* ============ MINT PALETTE ============ */
 const MINT = '#8CCDA4'          // fills, charts, borders
@@ -1861,10 +1862,11 @@ export default function Dashboard() {
       {/* ============ HEADER ============ */}
       <div className="dash-header">
         <div>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#3B82F6', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 99, background: '#EAF7EE', color: '#2A6B45', fontSize: 11.5, fontWeight: 700, letterSpacing: 0.2 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>schedule</span>
             {greeting} · {dateStr}
           </span>
-          <h2 className="dash-header-title" style={{ marginTop: 2, color: '#000' }}>Dashboard Overview</h2>
+          <h2 className="dash-header-title" style={{ marginTop: 8 }}>Dashboard Overview</h2>
           <p className="dash-header-sub">Operational insights across all NGOs and departments.</p>
         </div>
         <div className="dash-header-actions">
@@ -2487,73 +2489,7 @@ export default function Dashboard() {
 
       {/* ---- FRO PERFORMANCE OVERVIEW ---- */}
       {froLiveData.length > 0 && (
-        <div className="nd-card nd-appear" style={{ animationDelay: '0.65s', marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#000' }}>monitoring</span>
-            <h3 className="nd-section-title" style={{ margin: 0, color: '#000' }}>FRO Performance — Today</h3>
-            <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
-              {froLiveData.reduce((s, f) => s + (f.performance?.today_calls || 0), 0)} total calls
-            </span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 14 }}>
-            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#E8F5E9' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Collection</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: MINT_DEEP }}>₹{froLiveData.reduce((s, f) => s + Number(f.performance?.today_collection || 0), 0).toLocaleString('en-IN')}</div>
-            </div>
-            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#E3F2FD' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Online FROs</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#1E88E5' }}>{froLiveData.filter(f => f.worker?.is_active && (f.status === 'online' || f.status === 'on_call')).length}/{froLiveData.length}</div>
-            </div>
-            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#F3E5F5' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Data Used</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#8E24AA' }}>{froLiveData.reduce((s, f) => s + Number(f.performance?.data_used || 0), 0)}</div>
-            </div>
-            <div style={{ padding: '10px 12px', borderRadius: 10, background: '#FFF8E1' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>Avg Collection</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: '#F57C00' }}>
-                ₹{froLiveData.length > 0 ? Math.round(froLiveData.reduce((s, f) => s + Number(f.performance?.today_collection || 0), 0) / froLiveData.length).toLocaleString('en-IN') : 0}
-              </div>
-            </div>
-          </div>
-          <div style={{ height: Math.max(160, Math.min(froLiveData.length * 20, 300)) }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={froLiveData.map(f => ({
-                name: (f.worker?.name || f.worker?.login_id || 'Unknown').replace(/_.*$/, ''),
-                collection: Number(f.performance?.today_collection || 0),
-              })).sort((a, b) => a.name.localeCompare(b.name))} margin={{ top: 10, right: 16, bottom: 40, left: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#64748b', angle: -45, textAnchor: 'end' }} interval={0} height={60} />
-                <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }}
-                  tickFormatter={(v) => v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v >= 1000 ? `₹${(v / 1000).toFixed(0)}K` : `₹${v}`}
-                />
-                <Tooltip formatter={(v) => [`₹${v.toLocaleString('en-IN')}`, 'Collection']} />
-                <Bar dataKey="collection" fill="#64B5F6" radius={[4, 4, 0, 0]} animationDuration={800} animationBegin={200} maxBarSize={24} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          {froLiveData.filter(f => Number(f.performance?.today_calls || 0) > 0).length > 1 && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
-              <div style={{ padding: '8px 12px', borderRadius: 10, background: '#f8fafb', border: '1px solid #eaf3ec' }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Top Collector</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>
-                  {froLiveData.reduce((best, f) => Number(f.performance?.today_collection || 0) > Number(best.performance?.today_collection || 0) ? f : best, froLiveData[0])?.worker?.name || '—'}
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: MINT_DEEP }}>
-                  ₹{froLiveData.reduce((best, f) => Number(f.performance?.today_collection || 0) > Number(best.performance?.today_collection || 0) ? f : best, froLiveData[0]).performance?.today_collection?.toLocaleString('en-IN') || 0}
-                </div>
-              </div>
-              <div style={{ padding: '8px 12px', borderRadius: 10, background: '#f8fafb', border: '1px solid #eaf3ec' }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Most Calls</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>
-                  {froLiveData.reduce((best, f) => (f.performance?.today_calls || 0) > (best.performance?.today_calls || 0) ? f : best, froLiveData[0])?.worker?.name || '—'}
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: PRIMARY }}>
-                  {froLiveData.reduce((best, f) => (f.performance?.today_calls || 0) > (best.performance?.today_calls || 0) ? f : best, froLiveData[0]).performance?.today_calls || 0} calls
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <FroPerformanceToday froLiveData={froLiveData} />
       )}
 
 
