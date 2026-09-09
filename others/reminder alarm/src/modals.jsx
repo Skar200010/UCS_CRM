@@ -63,6 +63,7 @@ export function ReminderFormModal({ open, reminder, onClose, onSaved }) {
     reminder_minutes_before: '',
     notification_enabled: false,
     notes: '',
+    amount: '',
   };
 
   const [form, setForm] = useState(emptyForm);
@@ -142,6 +143,11 @@ export function ReminderFormModal({ open, reminder, onClose, onSaved }) {
     }
     if ((payload.frequency_type === 'MONTH' || payload.frequency_type === 'YEAR') && payload.frequency_interval === undefined) {
       payload.frequency_interval = Number(form.frequency_interval) || 1;
+    }
+    if (payload.amount != null && payload.amount !== '') {
+      payload.amount = Number(payload.amount);
+    } else if (payload.amount === '') {
+      delete payload.amount;
     }
 
     if (isEdit && Object.keys(payload).length <= 1 && payload.title) {
@@ -343,6 +349,18 @@ export function ReminderFormModal({ open, reminder, onClose, onSaved }) {
               </select>
             </div>
 
+            {/* Amount */}
+            <div className="form-row">
+              <label>Amount (₹)</label>
+              <input
+                className="rem-input"
+                type="number"
+                value={form.amount}
+                onChange={handleChange('amount')}
+                placeholder="e.g. 4144"
+              />
+            </div>
+
             {/* Toggles */}
             <div className="form-row">
               <label>Alarm Enabled</label>
@@ -448,7 +466,7 @@ export function ReminderFormModal({ open, reminder, onClose, onSaved }) {
 /* ================================================================== */
 /*  2. HistoryModal                                                    */
 /* ================================================================== */
-export function HistoryModal({ reminderId, open, onClose }) {
+export function HistoryModal({ reminderId, reminder, open, onClose }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -473,53 +491,118 @@ export function HistoryModal({ reminderId, open, onClose }) {
     return String(v);
   };
 
+  const actionIcon = (action) => {
+    switch (action) {
+      case 'updated': return '✏';
+      case 'completed': return '✓';
+      case 'completed_and_advanced': return '⟳';
+      case 'snoozed': return '🌙';
+      default: return '•';
+    }
+  };
+
+  const actionColor = (action) => {
+    switch (action) {
+      case 'updated': return { bg: '#dbeafe', fg: '#2563eb' };
+      case 'completed': return { bg: '#dcfce7', fg: '#16a34a' };
+      case 'completed_and_advanced': return { bg: '#dcfce7', fg: '#16a34a' };
+      case 'snoozed': return { bg: '#fef3c7', fg: '#d97706' };
+      default: return { bg: '#f1f5f9', fg: '#64748b' };
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h3>Change History</h3>
-          <button className="rem-btn" onClick={onClose}>
-            &times;
-          </button>
+          <button className="modal-x" onClick={onClose}>&times;</button>
         </div>
-        <div className="modal-body" style={{ maxHeight: 480, overflowY: 'auto' }}>
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: 32, color: '#888' }}>Loading...</div>
-          ) : history.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 32, color: '#888' }}>No history yet</div>
-          ) : (
-            history.map((entry, idx) => (
-              <div
-                key={entry.id || idx}
-                style={{
-                  padding: '12px 0',
-                  borderBottom: idx < history.length - 1 ? '1px solid #eee' : 'none',
-                }}
-              >
-                <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>
-                  {formatDateTime(entry.changed_at || entry.timestamp)} · by{' '}
-                  {entry.changed_by || 'System'}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                  {entry.action === 'updated' && 'Updated'}
-                  {entry.action === 'completed' && 'Completed'}
-                  {entry.action === 'snoozed' && 'Snoozed'}
-                  {entry.action === 'completed_and_advanced' && 'Completed & Advanced'}
-                  {!['updated', 'completed', 'snoozed', 'completed_and_advanced'].includes(
-                    entry.action,
-                  ) && entry.action}
-                </div>
-                {entry.changed_cols &&
-                  Object.entries(entry.changed_cols).map(([key, val]) => (
-                    <div key={key} style={{ fontSize: 12, color: '#444', marginLeft: 8 }}>
-                      {fieldLabel(key)}:{' '}
-                      {Array.isArray(val)
-                        ? `${formatVal(val[0])} → ${formatVal(val[1])}`
-                        : formatVal(val)}
-                    </div>
-                  ))}
+        <div className="modal-body" style={{ maxHeight: 520, overflowY: 'auto', padding: '12px 20px' }}>
+          {reminder && (reminder.notes || reminder.amount != null) && (
+            <div style={{
+              marginBottom: 16, padding: '10px 14px', borderRadius: 8,
+              background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
+              border: '1px solid #bbf7d0',
+            }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
+                Payment Info
               </div>
-            ))
+              {reminder.amount != null && (
+                <div style={{ fontSize: 13, color: '#15803d', fontWeight: 500 }}>
+                  {reminder.paid_at
+                    ? `${(() => { const d = new Date(reminder.paid_at); return `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}` })()} | Rs. ${Number(reminder.amount).toLocaleString()}`
+                    : `Rs. ${Number(reminder.amount).toLocaleString()}`
+                  }
+                </div>
+              )}
+              {reminder.notes && (
+                <div style={{ fontSize: 13, color: '#15803d', fontWeight: 500, marginTop: reminder.amount != null ? 4 : 0 }}>
+                  {reminder.notes}
+                </div>
+              )}
+            </div>
+          )}
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: 13 }}>Loading...</div>
+          ) : history.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8', fontSize: 13 }}>No history yet</div>
+          ) : (
+            <div style={{ position: 'relative', paddingLeft: 24 }}>
+              <div style={{ position: 'absolute', left: 9, top: 8, bottom: 8, width: 2, background: '#e2e8f0', borderRadius: 1 }} />
+              {history.map((entry, idx) => {
+                const ac = actionColor(entry.action);
+                return (
+                  <div key={entry.id || idx} style={{ position: 'relative', marginBottom: idx < history.length - 1 ? 20 : 0 }}>
+                    <div style={{
+                      position: 'absolute', left: -24, top: 2, width: 20, height: 20, borderRadius: '50%',
+                      background: ac.bg, border: `2px solid ${ac.fg}`, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: 10, color: ac.fg, zIndex: 1,
+                    }}>
+                      {actionIcon(entry.action)}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                      {formatDateTime(entry.changed_at || entry.timestamp)}
+                      <span style={{ margin: '0 4px', color: '#cbd5e1' }}>·</span>
+                      <span style={{ color: '#64748b' }}>{entry.changed_by || 'System'}</span>
+                    </div>
+                    <div style={{
+                      fontSize: 12, fontWeight: 600, color: ac.fg, display: 'inline-flex',
+                      alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 4,
+                      background: ac.bg, marginBottom: 6,
+                    }}>
+                      {entry.action === 'updated' && 'Updated'}
+                      {entry.action === 'completed' && 'Completed'}
+                      {entry.action === 'snoozed' && 'Snoozed'}
+                      {entry.action === 'completed_and_advanced' && 'Completed & Advanced'}
+                      {!['updated', 'completed', 'snoozed', 'completed_and_advanced'].includes(entry.action) && entry.action}
+                    </div>
+                    {entry.changed_cols && Object.entries(entry.changed_cols).map(([key, val]) => {
+                      let oldVal, newVal;
+                      if (val && typeof val === 'object' && 'old' in val && 'new' in val) {
+                        oldVal = val.old; newVal = val.new;
+                      } else if (Array.isArray(val)) {
+                        oldVal = val[0]; newVal = val[1];
+                      } else {
+                        oldVal = null; newVal = val;
+                      }
+                      if (oldVal === newVal) return null;
+                      return (
+                        <div key={key} style={{
+                          fontSize: 12, color: '#475569', marginBottom: 3,
+                          display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+                        }}>
+                          <span style={{ fontWeight: 600, color: '#334155' }}>{fieldLabel(key)}</span>
+                          <span style={{ color: '#ef4444', textDecoration: 'line-through', fontSize: 11 }}>{formatVal(oldVal)}</span>
+                          <span style={{ color: '#94a3b8' }}>→</span>
+                          <span style={{ color: '#16a34a', fontWeight: 500 }}>{formatVal(newVal)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>

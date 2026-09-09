@@ -11,6 +11,7 @@ import {
 import { exportToCSV, exportToExcel, daysLeft } from './helpers'
 import AllReminders from './AllReminders'
 import RemSettings from './Settings'
+import DashboardPage from './Dashboard'
 import { ReminderFormModal, HistoryModal, DeleteConfirmModal, ImportModal, NotificationPanel, AlarmToast } from './modals'
 
 const PAGE_META = {
@@ -60,10 +61,19 @@ function PanelInner() {
   const [editing, setEditing] = useState(null)
   const [formKey, setFormKey] = useState(0)
   const [historyId, setHistoryId] = useState(null)
+  const [historyReminder, setHistoryReminder] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+
+  function openHistory(id, reminder) {
+    setHistoryId(id)
+    setHistoryReminder(reminder || null)
+  }
+  const [showComplete, setShowComplete] = useState(false)
+  const [completeId, setCompleteId] = useState(null)
+  const [completeAmount, setCompleteAmount] = useState('')
   const [alarmToasts, setAlarmToasts] = useState([])
   const firedRef = useRef(new Set())
 
@@ -116,14 +126,23 @@ function PanelInner() {
   }
 
   async function handleComplete(id) {
+    setCompleteId(id)
+    setCompleteAmount('')
+    setShowComplete(true)
+  }
+
+  async function doComplete() {
     try {
-      const res = await completeReminder(id)
+      const res = await completeReminder(completeId, completeAmount || undefined)
       await refresh()
       toast(res.message || 'Reminder completed', 'success')
-      dismissAlarm(`${id}-OVERDUE`)
-      dismissAlarm(`${id}-DUE_TODAY`)
-      dismissAlarm(`${id}-DUE_SOON`)
+      dismissAlarm(`${completeId}-OVERDUE`)
+      dismissAlarm(`${completeId}-DUE_TODAY`)
+      dismissAlarm(`${completeId}-DUE_SOON`)
     } catch (e) { toast(e.message || 'Failed', 'error') }
+    setShowComplete(false)
+    setCompleteId(null)
+    setCompleteAmount('')
   }
 
   async function handleSnooze(id, minutes) {
@@ -150,11 +169,17 @@ function PanelInner() {
           </div>
           <div className="rem-side-label">Navigation</div>
           <nav className="rem-nav">
-            <div className="rem-side-label">Reminders</div>
+            <div className="rem-side-label">Navigation</div>
+            <SidebarButton
+              label="Dashboard"
+              icon="dashboard"
+              active={location.pathname === '/rem/dashboard'}
+              onClick={() => { navigate('/rem/dashboard') }}
+            />
             <SidebarButton
               label="All Reminders"
               icon="list"
-              active={!onSettings && activeFilter === ''}
+              active={!onSettings && activeFilter === '' && location.pathname === '/rem'}
               onClick={() => { setActiveFilter(''); navigate('/rem') }}
             />
             <div className="rem-side-label" style={{ marginTop: 8 }}>System</div>
@@ -209,7 +234,8 @@ function PanelInner() {
 
           <div className="rem-content">
             <Routes>
-              <Route index element={<AllReminders onAdd={openAdd} onEdit={openEdit} onDelete={setDeleteId} onHistory={setHistoryId} onComplete={handleComplete} onSnooze={handleSnooze} />} />
+              <Route index element={<AllReminders onAdd={openAdd} onEdit={openEdit} onDelete={setDeleteId} onHistory={openHistory} onComplete={handleComplete} onSnooze={handleSnooze} />} />
+              <Route path="dashboard" element={<div style={{ padding: '0 0 24px' }}><DashboardPage /></div>} />
               <Route path="settings" element={<RemSettings />} />
               <Route path="*" element={<Navigate to="/rem" replace />} />
             </Routes>
@@ -218,9 +244,40 @@ function PanelInner() {
       </div>
 
       <ReminderFormModal key={formKey} open={formOpen} reminder={editing} onClose={() => { setFormOpen(false); setEditing(null) }} onSaved={handleSaved} />
-      <HistoryModal reminderId={historyId} open={!!historyId} onClose={() => setHistoryId(null)} />
+      <HistoryModal reminderId={historyId} reminder={historyReminder} open={!!historyId} onClose={() => { setHistoryId(null); setHistoryReminder(null) }} />
       <DeleteConfirmModal reminder={deleteId} deleting={deleting} onClose={() => { if (!deleting) setDeleteId(null) }} onConfirm={() => deleteId && doDelete(deleteId)} />
       <ImportModal open={importOpen} onClose={() => setImportOpen(false)} onDone={() => { setImportOpen(false); refresh() }} />
+
+      {showComplete && (
+        <div className="modal-overlay" onClick={() => { setShowComplete(false); setCompleteId(null) }}>
+          <div className="modal" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3><Icon name="check" size={16} /> Mark as Paid</h3>
+              <button className="modal-x" onClick={() => { setShowComplete(false); setCompleteId(null) }}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <label className="rem-label">Payment Amount (optional)</label>
+              <input
+                className="rem-input"
+                type="number"
+                placeholder="e.g. 5000"
+                value={completeAmount}
+                onChange={e => setCompleteAmount(e.target.value)}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
+              <div style={{ fontSize: 11, color: 'var(--rem-ink-soft)', marginTop: 6 }}>
+                Date & time will be recorded automatically.
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button className="rem-btn" onClick={() => { setShowComplete(false); setCompleteId(null) }}>Cancel</button>
+              <button className="rem-btn primary" onClick={doComplete}>
+                <Icon name="check" size={14} /> Confirm Paid
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {alarmToasts.map(t => (
         <AlarmToast

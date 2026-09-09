@@ -43,7 +43,21 @@ export function RemProvider({ children }) {
     setLoading(true)
     try {
       const data = await fetchReminders()
-      if (Array.isArray(data)) setReminders(data)
+      if (Array.isArray(data)) {
+        const seen = new Map()
+        for (const r of data) {
+          const key = [
+            String(r.title || ''),
+            String(r.category || ''),
+            String(r.owner || ''),
+            String(r.due_date_display || ''),
+            String(r.renewal_date_display || ''),
+            String(r.notes || ''),
+          ].join('||')
+          if (!seen.has(key) || r.id < seen.get(key).id) seen.set(key, r)
+        }
+        setReminders(Array.from(seen.values()))
+      }
     } catch { /* keep current */ }
     finally { setLoading(false) }
   }

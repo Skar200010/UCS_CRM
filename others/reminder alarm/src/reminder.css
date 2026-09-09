@@ -167,18 +167,18 @@
 
 .table-wrap { overflow-x: auto; }
 .rem-table {
-  width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1100px;
+  width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1100px;
 }
 .rem-table thead th {
   position: sticky; top: 0; z-index: 5;
   background: var(--rem-blue-soft); color: var(--rem-blue-dark);
-  text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .03em;
+  text-align: left; padding: 8px 10px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
   border-bottom: 1px solid var(--rem-line); white-space: nowrap; cursor: pointer;
   user-select: none;
 }
 .rem-table thead th.sortable:hover { background: #dbeafe; }
-.rem-table tbody td { padding: 10px 12px; border-bottom: 1px solid var(--rem-line); white-space: nowrap; color: var(--rem-ink); }
+.rem-table tbody td { padding: 7px 10px; border-bottom: 1px solid var(--rem-line); white-space: nowrap; color: var(--rem-ink); }
 .rem-table tbody tr:hover { background: var(--rem-blue-soft); }
 .sort-arrow { font-size: 9px; margin-left: 3px; opacity: .6; }
 
@@ -207,8 +207,8 @@
 .page-btn:disabled { opacity: .4; cursor: not-allowed; }
 
 .pill {
-  display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px;
-  font-size: 11px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px;
+  font-size: 10px; font-weight: 600;
 }
 .pill-overdue { background: var(--rem-red-soft); color: var(--rem-red); }
 .pill-due-today { background: var(--rem-amber-soft); color: var(--rem-amber); }
@@ -223,13 +223,34 @@
 .pill-high { background: var(--rem-amber-soft); color: var(--rem-amber); }
 .pill-critical { background: var(--rem-red-soft); color: var(--rem-red); }
 
-.cell-actions { display: flex; gap: 4px; flex-wrap: nowrap; }
+.cell-actions { display: flex; gap: 3px; flex-wrap: nowrap; }
 .mini-btn {
-  border: 1px solid var(--rem-line); background: var(--rem-white); border-radius: 6px;
-  padding: 4px 8px; font-size: 11px; cursor: pointer; color: var(--rem-ink-soft);
+  border: 1px solid var(--rem-line); background: var(--rem-white); border-radius: 5px;
+  width: 28px; height: 28px; padding: 0; font-size: 0; cursor: pointer; color: var(--rem-ink-soft);
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .mini-btn:hover { border-color: var(--rem-blue); color: var(--rem-blue-dark); }
 .mini-btn.danger:hover { border-color: var(--rem-red); color: var(--rem-red); }
+.mini-btn.btn-complete { background: #dcfce7; color: #16a34a; border-color: #bbf7d0; }
+.mini-btn.btn-complete:hover { background: #bbf7d0; border-color: #16a34a; }
+.mini-btn.btn-snooze { background: #fef3c7; color: #d97706; border-color: #fde68a; }
+.mini-btn.btn-snooze:hover { background: #fde68a; border-color: #d97706; }
+.mini-btn.btn-edit { background: #dbeafe; color: #2563eb; border-color: #bfdbfe; }
+.mini-btn.btn-edit:hover { background: #bfdbfe; border-color: #2563eb; }
+.mini-btn.btn-history { background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }
+.mini-btn.btn-history:hover { background: #e2e8f0; border-color: #64748b; }
+.mini-btn.btn-delete { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+.mini-btn.btn-delete:hover { background: #fecaca; border-color: #dc2626; }
+.snooze-dropdown {
+  position: absolute; top: 100%; left: 0; z-index: 10;
+  background: var(--rem-white); border: 1px solid var(--rem-line); border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.12); padding: 4px; display: flex; flex-direction: column; gap: 2px; min-width: 80px;
+}
+.snooze-dropdown button {
+  border: none; background: none; padding: 6px 10px; font-size: 12px; border-radius: 4px;
+  cursor: pointer; text-align: left; color: var(--rem-ink);
+}
+.snooze-dropdown button:hover { background: #fef3c7; color: #d97706; }
 
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(15, 23, 42, .45); z-index: 1000;
@@ -375,8 +396,8 @@
 }
 .kebab-item:hover { background: var(--rem-gray-soft); }
 
-.status-badge { display: inline-flex; align-items: center; gap: 4px; }
-.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.status-badge { display: inline-flex; align-items: center; gap: 3px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 .dot-overdue { background: var(--rem-red); }
 .dot-due-today { background: var(--rem-amber); }
 .dot-due-soon { background: #f59e0b; }

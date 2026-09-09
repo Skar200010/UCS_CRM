@@ -20,7 +20,22 @@ export const getAllReminders = async (includeDeleted = false) => {
   if (!includeDeleted) q = q.eq('is_deleted', false);
   const { data, error } = await q;
   if (error) throw error;
-  return data || [];
+  const rows = data || [];
+  // Deduplicate exact copies (rows sharing every field), keeping the lowest id.
+  // This guards against migration 109 having been run more than once.
+  const seen = new Map();
+  for (const r of rows) {
+    const key = [
+      String(r.title || ''),
+      String(r.category || ''),
+      String(r.owner || ''),
+      String(r.due_date_display || ''),
+      String(r.renewal_date_display || ''),
+      String(r.notes || ''),
+    ].join('||');
+    if (!seen.has(key) || r.id < seen.get(key).id) seen.set(key, r);
+  }
+  return Array.from(seen.values());
 };
 
 export const getReminderById = async (id) => {
