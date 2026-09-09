@@ -6,6 +6,7 @@ import SettingsDrawer from '../../components/SettingsDrawer'
 import NotificationDrawer from '../../components/NotificationDrawer'
 import ToastContainer from '../../components/Toast'
 import SpecialIncentive from '../../components/SpecialIncentive'
+import NoticePopup from '../../components/NoticePopup'
 import { api } from '../../api/auth'
 import { requestNotifPermission, showDesktopNotification } from '../../utils/desktopNotif'
 import { useRealtime } from '../../hooks/useRealtime'
@@ -213,6 +214,7 @@ function PageShell({ children }) {
     <div className="app">
       <ToastContainer />
       <SpecialIncentive />
+      <NoticePopup />
       <div className={`sa-sidebar-overlay${mobileSidebar ? ' open' : ''}`} onClick={() => setMobileSidebar(false)} />
       <Sidebar mobileOpen={mobileSidebar} />
       <div className="main">

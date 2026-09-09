@@ -9,6 +9,7 @@ import { masterSearch } from './api/auth'
 import NotificationDrawer from '../../components/NotificationDrawer'
 import SettingsDrawer from '../../components/SettingsDrawer'
 import DonorDetailModal from '../../components/DonorDetailModal'
+import NoticePopup from '../../components/NoticePopup'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Donors = lazy(() => import('./pages/Donors'))
@@ -581,6 +582,8 @@ export default function NgoAdminPanel() {
       {showDonorDetail && (
         <DonorDetailModal donorId={showDonorDetail} onClose={() => setShowDonorDetail(null)} />
       )}
+
+      <NoticePopup />
 
     </div>
   )

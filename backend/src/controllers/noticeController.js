@@ -8,7 +8,7 @@ import {
 
 export const addNotice = async (req, res) => {
   try {
-    const { title, content, target_role } = req.body;
+    const { title, content, target_role, media_url, media_type, media_name, popup, target_roles } = req.body;
     if (!title || !content) {
       return res.status(400).json({ message: 'Title and content are required' });
     }
@@ -16,6 +16,11 @@ export const addNotice = async (req, res) => {
       title,
       content,
       target_role: target_role || 'all',
+      target_roles: Array.isArray(target_roles) && target_roles.length ? target_roles : ['all'],
+      popup: typeof popup === 'boolean' ? popup : true,
+      media_url: media_url || null,
+      media_type: media_type || null,
+      media_name: media_name || null,
       ngo_id: req.user.ngo_id || req.body.ngo_id || null,
       created_by: req.user.id,
       created_by_name: req.user.name || null,
@@ -48,11 +53,16 @@ export const getNotice = async (req, res) => {
 
 export const editNotice = async (req, res) => {
   try {
-    const { title, content, is_active } = req.body;
+    const { title, content, is_active, media_url, media_type, media_name, popup, target_roles } = req.body;
     const updates = {};
-    if (title) updates.title = title;
-    if (content) updates.content = content;
+    if (title !== undefined) updates.title = title;
+    if (content !== undefined) updates.content = content;
     if (is_active !== undefined) updates.is_active = is_active;
+    if (media_url !== undefined) updates.media_url = media_url || null;
+    if (media_type !== undefined) updates.media_type = media_type || null;
+    if (media_name !== undefined) updates.media_name = media_name || null;
+    if (popup !== undefined) updates.popup = popup === true;
+    if (target_roles !== undefined) updates.target_roles = Array.isArray(target_roles) && target_roles.length ? target_roles : ['all'];
     const notice = await updateNotice(req.params.id, updates);
     return res.json({ message: 'Notice updated', notice });
   } catch (error) {

@@ -1,6 +1,6 @@
 import db from '../config/db.js';
 
-const VALID_ROLES = ['all', 'super_admin', 'admin', 'hr', 'accounts', 'recruiter', 'leads', 'telecaller', 'team_lead', 'worker', 'fro', 'ngo'];
+const VALID_ROLES = ['all', 'super_admin', 'admin', 'hr', 'accounts', 'recruiter', 'leads', 'telecaller', 'team_lead', 'worker', 'fro', 'ngo', 'event_head'];
 
 function sanitizeRole(role) {
   return VALID_ROLES.includes(role) ? role : null;
@@ -25,7 +25,7 @@ export const getAllNotices = async (ngo_id, target_role) => {
   if (ngo_id) query = query.or(`ngo_id.eq.${ngo_id},ngo_id.is.null`);
   const role = sanitizeRole(target_role);
   if (role && role !== 'all') {
-    query = query.or(`target_role.eq.${role},target_role.is.null,target_role.eq.all`);
+    query = query.or(`target_role.eq.${role},target_role.is.null,target_role.eq.all,target_roles.is.null,target_roles.cs.{${role}},target_roles.cs.{all}`);
   }
   const { data, error } = await query;
   if (error) throw error;
@@ -42,7 +42,7 @@ export const getRecentNotices = async (ngo_id, since, target_role) => {
   if (ngo_id) query = query.eq('ngo_id', ngo_id);
   const role = sanitizeRole(target_role);
   if (role && role !== 'all') {
-    query = query.or(`target_role.eq.${role},target_role.is.null,target_role.eq.all`);
+    query = query.or(`target_role.eq.${role},target_role.is.null,target_role.eq.all,target_roles.is.null,target_roles.cs.{${role}},target_roles.cs.{all}`);
   }
   const { data, error } = await query;
   if (error) throw error;
