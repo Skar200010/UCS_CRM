@@ -41,6 +41,18 @@ const NGO_PILL = {
 
 const initials = (name) => (name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
+// Stable identity for the suspense pool. The pool keys rows by r.id normally,
+// but a row's id CHANGES when someone claims it: an unclaimed entry shows as
+// `entry-{entry_id}`, then the claim links a receipt so the same bank-audit
+// entry re-appears as `{receipt_id}` (or drops out once credited). Chime + wave
+// detection must key on the entry id so claiming never looks like a brand-new
+// suspense arrival.
+const suspenseKey = (r) => {
+  const entryId = r && (r.entry_id ?? r._bank_audit_entry_id);
+  if (entryId != null) return String(entryId);
+  return r && r.id != null ? String(r.id) : '';
+};
+
 // Newest-first order for the suspense pool. Falls back to 0 when there is no
 // usable date/time so those sink to the bottom of the list.
 const recencyMs = (r) => {
@@ -175,7 +187,7 @@ export default function FroSuspense() {
 
   useEffect(() => {
     if (loading) return;
-    const ids = (receipts || []).map(r => String(r.id));
+    const ids = (receipts || []).map(suspenseKey);
     if (!seenIdsRef.current) {
       seenIdsRef.current = new Set(ids);
       return;
@@ -188,12 +200,12 @@ export default function FroSuspense() {
       }
     }
     if (fresh.length === 0) return;
-    const newest = (receipts || []).filter(r => fresh.includes(String(r.id))).reduce(
+    const newest = (receipts || []).filter(r => fresh.includes(suspenseKey(r))).reduce(
       (m, r) => (recencyMs(r) > recencyMs(m) ? r : m),
       null
     );
     if (!newest) return;
-    const id = String(newest.id);
+    const id = suspenseKey(newest);
     playMoney();
     setNewIds(prev => {
       const n = new Set(prev);
@@ -403,7 +415,7 @@ export default function FroSuspense() {
               const amtStr = currency(r.amount);
               const amtW = isCompact ? 78 : 96;
               const amtFont = amtStr.length >= 12 ? (isCompact ? 8 : 10) : amtStr.length >= 10 ? (isCompact ? 9 : 11) : amtStr.length >= 8 ? (isCompact ? 10 : 12.5) : amtStr.length >= 6 ? (isCompact ? 11.5 : 13.5) : (isCompact ? 13 : 15);
-              const isNew = newIds.has(String(r.id));
+              const isNew = newIds.has(suspenseKey(r));
               const pill = NGO_PILL[r.project_id] || { bg: 'var(--card-bg)' };
               return (
                 <div key={r.id} onClick={() => claimable && openClaimModal(r)}
@@ -416,7 +428,7 @@ export default function FroSuspense() {
                     boxShadow: 'var(--shadow)', cursor: claimable ? 'pointer' : 'default', transition: 'transform .12s, box-shadow .12s, border-color .12s',
                   }}>
                   {isNew && (
-                    <LeadWave animate bg={pill.bg} square={pill.color || '#1e40af'} seed={String(r.id)} cls="fro" onDone={() => dropNew(String(r.id))} />
+                    <LeadWave animate bg={pill.bg} square={pill.color || '#1e40af'} seed={suspenseKey(r)} cls="fro" onDone={() => dropNew(suspenseKey(r))} />
                   )}
                   <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: isCompact ? 8 : 12, flex: 1, minWidth: 0 }}>
                     <div style={{ width: isCompact ? 34 : 40, height: isCompact ? 34 : 40, borderRadius: '50%', background: '#B5603A1A', color: '#B5603A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isCompact ? 12 : 14, fontWeight: 700, flexShrink: 0 }}>
