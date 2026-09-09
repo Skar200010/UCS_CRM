@@ -295,6 +295,16 @@ export default function Certificates() {
 
   /* ------------------------------- generation ------------------------------- */
 
+  const bulkDateKey = useMemo(() => {
+    const fields = genTpl?.fields || []
+    return fields.find((f) => /date/i.test(f.field_key) || /date/i.test(f.display_name || ''))?.field_key || ''
+  }, [genTpl])
+
+  const bulkEventKey = useMemo(() => {
+    const fields = genTpl?.fields || []
+    return fields.find((f) => /event|occasion|purpose|reason/i.test(f.field_key) || /event|occasion|purpose|reason/i.test(f.display_name || ''))?.field_key || ''
+  }, [genTpl])
+
   const requiredFields = useMemo(() => (genTpl?.fields || []).filter((f) => f.required), [genTpl])
 
   // Effective field values used for the live preview: single-mode form values,
@@ -362,16 +372,6 @@ export default function Certificates() {
     const fields = genTpl?.fields || []
     const exact = fields.find((f) => ['name', 'recipient', 'recipient_name', 'full_name'].includes(f.field_key))
     return (exact || fields[0])?.field_key || ''
-  }, [genTpl])
-
-  const bulkDateKey = useMemo(() => {
-    const fields = genTpl?.fields || []
-    return fields.find((f) => /date/i.test(f.field_key) || /date/i.test(f.display_name || ''))?.field_key || ''
-  }, [genTpl])
-
-  const bulkEventKey = useMemo(() => {
-    const fields = genTpl?.fields || []
-    return fields.find((f) => /event|occasion|purpose|reason/i.test(f.field_key) || /event|occasion|purpose|reason/i.test(f.display_name || ''))?.field_key || ''
   }, [genTpl])
 
   useEffect(() => {
