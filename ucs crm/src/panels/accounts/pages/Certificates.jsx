@@ -151,7 +151,7 @@ export default function Certificates() {
     } catch (e) { toast(e.message, 'error') }
   }
 
-  const saveFields = async () => {
+  const saveFields = async (thenGenerate = false) => {
     if (!draft) return
     const fields = (draft.fields || []).map((f, i) => ({
       field_key: f.field_key,
@@ -160,6 +160,7 @@ export default function Certificates() {
       required: f.required,
       default_value: f.default_value || '',
       sort_order: i,
+      in_template: f.in_template,
     }))
     if (!fields.some((f) => f.field_key?.trim())) {
       toast('Add at least one field before saving.', 'error'); return
@@ -168,9 +169,13 @@ export default function Certificates() {
       await certificateApi.updateTemplate(draft.id, {
         name: draft.name, description: draft.description, status: draft.status, fields,
       })
-      toast('Template saved', 'success')
       loadTemplates()
-      setView('library')
+      if (thenGenerate) {
+        startGenerate({ ...draft, fields, status: draft.status })
+      } else {
+        toast('Template saved', 'success')
+        setView('library')
+      }
     } catch (e) { toast(e.message, 'error') }
   }
 
@@ -638,6 +643,9 @@ export default function Certificates() {
                     <button className="btn btn-sm" onClick={addCustomField}><Plus size={14} /> Add custom field</button>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="btn btn-sm" onClick={() => setView('library')}>Cancel</button>
+                      <button className="btn btn-sm btn-primary" onClick={() => saveFields(true)}>
+                        <Wand2 size={14} /> Generate
+                      </button>
                       <button className="btn btn-sm btn-primary" onClick={saveFields}>
                         <CheckCircle2 size={14} /> Save template
                       </button>
