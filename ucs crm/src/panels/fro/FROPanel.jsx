@@ -32,6 +32,15 @@ import teleWav from '../../assets/audio/tele.wav'
 
 const suspenseAlertAudio = new Audio(teleWav);
 suspenseAlertAudio.preload = 'auto';
+const SUSPENSE_RING_WINDOW_MS = 90 * 1000;
+function playSuspenseAlert(title) {
+  try {
+    suspenseAlertAudio.currentTime = 0;
+    const p = suspenseAlertAudio.play();
+    if (p && p.then) p.catch(() => {});
+  } catch {}
+  toast(title || 'Suspense Alert', 'info');
+}
 let suspenseAudioUnlocked = false;
 function warmupSuspenseAudio() {
   if (suspenseAudioUnlocked) return;
@@ -321,6 +330,8 @@ export default function FROPanel() {
   const [akiLoading, setAkiLoading] = useState(false);
   let _initSeenNotifs = []; try { _initSeenNotifs = JSON.parse(localStorage.getItem('fro_seen_notifs') || '[]'); } catch { /* corrupted */ }
   const seenNotifIds = useRef(new Set(_initSeenNotifs));
+  let _initRungAlerts = []; try { _initRungAlerts = JSON.parse(localStorage.getItem('fro_rung_suspense_alerts') || '[]'); } catch { /* corrupted */ }
+  const rungAlertIds = useRef(new Set(_initRungAlerts));
   const notifRef = useRef(null);
   const poppedIds = useRef(new Set());
   const snoozedUntil = useRef({});
@@ -365,12 +376,30 @@ export default function FROPanel() {
     toast('Snoozed — will pop up again in 2 min', 'info');
   };
 
+  const markRungAlert = (id) => {
+    rungAlertIds.current.add(id);
+    try { localStorage.setItem('fro_rung_suspense_alerts', JSON.stringify([...rungAlertIds.current])); } catch {}
+  };
+
+  const ringSuspenseAlert = (n) => {
+    if (!n || rungAlertIds.current.has(n.id)) return;
+    markRungAlert(n.id);
+    playSuspenseAlert(n.title);
+  };
+
   const loadNotifications = () => {
     const workerId = user?.id;
     if (!workerId) return;
+    const now = Date.now();
     api(`/notifications/${workerId}`, { _prefix: 'ucs' })
       .then(data => {
         const allNotifs = data || [];
+        allNotifs
+          .filter(n => n.type === 'suspense_alert')
+          .forEach(n => {
+            const t = n.sent_at ? new Date(n.sent_at).getTime() : 0;
+            if (now - t <= SUSPENSE_RING_WINDOW_MS) ringSuspenseAlert(n);
+          });
         const verified = allNotifs.filter(n => n.type === 'lead_verified' && !n.read_at);
         const verifiedSlice = verified.slice(0, 20);
         verifiedSlice.forEach(n => {
@@ -400,18 +429,15 @@ export default function FROPanel() {
   useEffect(() => {
     loadNotifications();
     requestNotifPermission();
+    const poll = setInterval(loadNotifications, 8000);
+    return () => clearInterval(poll);
   }, [user?.id]);
 
   useRealtime('notification_log', {
     filter: `worker_id=eq.${user?.id}`,
     onInsert: (row) => {
       if (row?.type === 'suspense_alert') {
-        try {
-          suspenseAlertAudio.currentTime = 0;
-          const p = suspenseAlertAudio.play();
-          if (p && p.then) p.catch(() => {});
-        } catch {}
-        toast(row.title || 'Suspense Alert', 'info');
+        ringSuspenseAlert(row);
       }
       loadNotifications();
     },
