@@ -10,6 +10,7 @@ import moneyMp3 from '../../../assets/audio/money.mp3';
 // Shared 0.8s money chime for new suspense arrivals. One instance so rapid
 // arrivals restart from zero instead of stacking over each other.
 const moneyAudio = new Audio(moneyMp3);
+moneyAudio.preload = 'auto';
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u2014';
 
@@ -125,18 +126,51 @@ export default function FroSuspense() {
   const seenIdsRef = useRef(null);
   const [newIds, setNewIds] = useState(() => new Set());
   const moneyTimerRef = useRef(null);
+  const moneyPendingRef = useRef(false);
+
+  const stopMoney = () => {
+    if (moneyTimerRef.current) { clearTimeout(moneyTimerRef.current); moneyTimerRef.current = null; }
+    moneyAudio.pause();
+  };
 
   const playMoney = () => {
-    moneyAudio.pause();
+    moneyPendingRef.current = false;
+    stopMoney();
     moneyAudio.currentTime = 0;
-    moneyAudio.play().catch(() => {});
-    if (moneyTimerRef.current) clearTimeout(moneyTimerRef.current);
+    const p = moneyAudio.play();
+    if (p && p.catch) {
+      p.catch(() => {
+        // Browsers block audio until the page has received a user gesture;
+        // queue it so the chime plays on the user's next click/tap/keypress.
+        moneyPendingRef.current = true;
+        console.warn('money chime autoplay blocked; will play on next interaction');
+      });
+    }
     moneyTimerRef.current = setTimeout(() => moneyAudio.pause(), 800);
   };
 
-  useEffect(() => () => {
-    if (moneyTimerRef.current) clearTimeout(moneyTimerRef.current);
-    moneyAudio.pause();
+  // First user gesture unlocks audio playback (autoplay policy) and flushes any
+  // chime that was queued while playback was blocked.
+  useEffect(() => {
+    const unlock = () => {
+      if (moneyPendingRef.current) {
+        moneyPendingRef.current = false;
+        stopMoney();
+        moneyAudio.currentTime = 0;
+        moneyAudio.play().catch(() => {});
+        moneyTimerRef.current = setTimeout(() => moneyAudio.pause(), 800);
+      }
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    window.addEventListener('touchstart', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+      if (moneyTimerRef.current) clearTimeout(moneyTimerRef.current);
+      moneyAudio.pause();
+    };
   }, []);
 
   useEffect(() => {
