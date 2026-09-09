@@ -78,6 +78,7 @@ import { ensureEventHeadSchema } from './bootstrap/ensureEventHeadSchema.js';
 import { ensureTicketSchema } from './bootstrap/ensureTicketSchema.js';
 import { ensureLoanDeductionSchema } from './bootstrap/ensureLoanDeductionSchema.js';
 import { ensureSpecialIncentiveSchema } from './bootstrap/ensureSpecialIncentiveSchema.js';
+import { ensureSalaryHoldSchema } from './bootstrap/ensureSalaryHoldSchema.js';
 import { ensureCertificateSchema } from './bootstrap/ensureCertificateSchema.js';
 import { ensureNoticeSchema } from './bootstrap/ensureNoticeSchema.js';
 
@@ -876,6 +877,7 @@ if (!process.env.VERCEL) {
     await ensureTicketSchema().catch(e => console.error('ensureTicketSchema failed:', e?.message || e));
     await ensureLoanDeductionSchema().catch(e => console.error('ensureLoanDeductionSchema failed:', e?.message || e));
     await ensureSpecialIncentiveSchema().catch(e => console.error('ensureSpecialIncentiveSchema failed:', e?.message || e));
+    await ensureSalaryHoldSchema().catch(e => console.error('ensureSalaryHoldSchema failed:', e?.message || e));
     await ensureCertificateSchema().catch(e => console.error('ensureCertificateSchema failed:', e?.message || e));
     await ensureNoticeSchema().catch(e => console.error('ensureNoticeSchema failed:', e?.message || e));
     import('./services/notificationScheduler.js');

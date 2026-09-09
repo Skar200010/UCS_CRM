@@ -361,18 +361,18 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
 
       // Column indices (0-based)
       const COL = {
-        NAME: 0, STATUS: 1, AC_HOLDER: 2, AC_REL: 3, BANK: 4, AC_NUM: 5, IFSC: 6, STATION: 7, DOJ: 8, SALARY: 9,
-        TARGET: 10, TOTAL_ACH: 11, BSCT_ACH: 12, AFLF_ACH: 13, MANN_ACH: 14,
-        BALANCE: 15, ACH_PCT: 16,
-        PRES_DAYS: 17, TRAIN_SUN_DED: 18, NET_PRES: 19,
-        MONTH_SAL: 20, INCENT_10: 21, TOTAL_AKI: 22, AKI: 23, GROSS: 24,
-        OT: 25, PENDING: 26, ADVANCE: 27, NET_PAY: 28,
-        FIRST_DAY_COL: 29
+        NAME: 0, STATUS: 1, HOLD: 2, AC_HOLDER: 3, AC_REL: 4, BANK: 5, AC_NUM: 6, IFSC: 7, STATION: 8, DOJ: 9, SALARY: 10,
+        TARGET: 11, TOTAL_ACH: 12, BSCT_ACH: 13, AFLF_ACH: 14, MANN_ACH: 15,
+        BALANCE: 16, ACH_PCT: 17,
+        PRES_DAYS: 18, TRAIN_SUN_DED: 19, NET_PRES: 20,
+        MONTH_SAL: 21, INCENT_10: 22, TOTAL_AKI: 23, AKI: 24, GROSS: 25,
+        OT: 26, PENDING: 27, ADVANCE: 28, NET_PAY: 29,
+        FIRST_DAY_COL: 30
       };
       const TOTAL_COLS = COL.FIRST_DAY_COL + daysInMonth;
 
       const headers = [
-        'Agent Name', 'Status', 'Account Holder Name', 'Account Holder Relation',
+        'Agent Name', 'Status', 'Hold / Released', 'Account Holder Name', 'Account Holder Relation',
         'Bank Name', 'Bank Account Number', 'IFSC Code', 'STATION', 'Date of Joining', 'Salary',
         'New Target', 'Total Achieved', 'BSCT Achieved', 'AFLF Achieved', 'Mann Achieved',
         'Balance', 'Achieved %',
@@ -433,6 +433,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         const row = [
           r.name,
           r.status || '',
+          (r.salary_status || 'released').toUpperCase(),
           r.account_holder_name || '',
           r.account_holder_relation || '',
           r.bank_name || '',
@@ -563,7 +564,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
 
       // Column widths
       const colWidths = [
-        { wch: 22 }, { wch: 10 }, { wch: 22 }, { wch: 18 },
+        { wch: 22 }, { wch: 10 }, { wch: 14 }, { wch: 22 }, { wch: 18 },
         { wch: 20 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 10 },
         { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
         { wch: 12 }, { wch: 12 },

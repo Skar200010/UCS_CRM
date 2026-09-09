@@ -11,6 +11,7 @@ import {
   getWorkerAttendanceByName,
   getPagarExportData,
 } from '../models/salaryModel.js';
+import db from '../config/db.js';
 import { getMonthlyAttendance, upsertAttendanceStatus } from '../models/attendanceModel.js';
 import { getWorkerById } from '../models/workerModel.js';
 import { getAllocationsByWorker } from '../models/workerNgoAllocationModel.js';
@@ -580,6 +581,90 @@ export const getMySalaryBreakdown = async (req, res) => {
       loanDeductions,
       totalLoanDeduction,
     });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Per-month salary hold (Hold/Released). Only the accounts role can write;
+// reads are allowed for HR/accounts/super-admin so the detail page can show
+// the flag. "Released" is the default = simply no row for that month.
+// ---------------------------------------------------------------------------
+const assertAccountsWrite = (req, res) => {
+  if (req.user?.role !== 'accounts' && req.user?.role !== 'super_admin') {
+    res.status(403).json({ message: 'Only accounts can set Hold/Released' });
+    return false;
+  }
+  return true;
+};
+
+const isValidSalaryMonth = (m) => /^\d{4}-\d{2}$/.test(String(m || ''));
+
+export const getSalaryHold = async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const month = req.query.month;
+    if (!workerId) return res.status(400).json({ message: 'workerId is required' });
+    if (!isValidSalaryMonth(month)) return res.status(400).json({ message: 'month is required (YYYY-MM)' });
+    const { data, error } = await db
+      .from('salary_holds')
+      .select('id, worker_id, salary_month, reason, held_by, held_at')
+      .eq('worker_id', workerId)
+      .eq('salary_month', month)
+      .limit(1);
+    if (error) throw error;
+    const hold = (data && data[0]) || null;
+    return res.json({
+      held: !!hold,
+      reason: hold?.reason || '',
+      held_at: hold?.held_at || null,
+      held_by: hold?.held_by || null,
+      worker_id: workerId,
+      salary_month: month,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const setSalaryHold = async (req, res) => {
+  if (!assertAccountsWrite(req, res)) return;
+  try {
+    const { worker_id, salary_month, reason } = req.body || {};
+    if (!worker_id) return res.status(400).json({ message: 'worker_id is required' });
+    if (!isValidSalaryMonth(salary_month)) return res.status(400).json({ message: 'salary_month is required (YYYY-MM)' });
+    const { data, error } = await db
+      .from('salary_holds')
+      .insert([{
+        worker_id,
+        salary_month: String(salary_month),
+        reason: reason ? String(reason).trim() : null,
+        held_by: req.user?.id || null,
+      }])
+      .select()
+      .single();
+    if (error) throw error;
+    return res.status(201).json({ held: true, hold: data });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const releaseSalaryHold = async (req, res) => {
+  if (!assertAccountsWrite(req, res)) return;
+  try {
+    const { workerId } = req.params;
+    const month = req.query.month;
+    if (!workerId) return res.status(400).json({ message: 'workerId is required' });
+    if (!isValidSalaryMonth(month)) return res.status(400).json({ message: 'month is required (YYYY-MM)' });
+    const { error } = await db
+      .from('salary_holds')
+      .delete()
+      .eq('worker_id', workerId)
+      .eq('salary_month', month);
+    if (error) throw error;
+    return res.json({ held: false, message: 'Salary released' });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
