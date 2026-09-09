@@ -6,7 +6,7 @@ import { toast } from '../../../components/Toast'
 import {
   FileText, Presentation, Plus, Edit3, Copy, Archive, ArchiveRestore, Trash2, Download,
   Wand2, Search, X, ChevronLeft, UploadCloud, RefreshCw, Loader2, CheckCircle2, AlertTriangle,
-  History, Sparkles, Info, ExternalLink, ArrowLeft,
+  History, Sparkles, Info, ExternalLink, ArrowLeft, Users,
 } from 'lucide-react'
 
 const MINT = '#5B6B4E'
@@ -38,7 +38,9 @@ const thumbCache = {}
 function TemplateThumb({ t }) {
   const [html, setHtml] = useState(null)
   const [state, setState] = useState('loading') // loading | done | error
+  const hasImage = !!(t.preview_image)
   useEffect(() => {
+    if (hasImage) { setState('done'); return }
     let cancelled = false
     setHtml(null)
     setState('loading')
@@ -57,7 +59,10 @@ function TemplateThumb({ t }) {
       }
     })()
     return () => { cancelled = true }
-  }, [t])
+  }, [t, hasImage])
+  if (hasImage) {
+    return <div className="tpl-thumb-img"><img src={t.preview_image} alt={t.name} /></div>
+  }
   if (state === 'loading') {
     return <div className="tpl-thumb-loading"><Loader2 size={16} className="spin" /></div>
   }
@@ -95,6 +100,8 @@ export default function Certificates() {
   const [editingId, setEditingId] = useState(null)
   const fileInputRef = useRef(null)
   const uploadInputRef = useRef(null)
+  const previewInputRef = useRef(null)
+  const [previewUploadBusy, setPreviewUploadBusy] = useState(false)
 
   // Generator
   const [genTpl, setGenTpl] = useState(null)
@@ -103,6 +110,13 @@ export default function Certificates() {
   const [previewHtml, setPreviewHtml] = useState(null)
   const [previewNote, setPreviewNote] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
+
+  // Bulk certify
+  const [bulkMode, setBulkMode] = useState(false)
+  const [bulkRows, setBulkRows] = useState([])
+  const [bulkPaste, setBulkPaste] = useState('')
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkResult, setBulkResult] = useState(null)
   const [generating, setGenerating] = useState(false)
 
   const loadTemplates = useCallback(async (status = statusTab) => {
@@ -151,6 +165,10 @@ export default function Certificates() {
     setCertNumber('')
     setPreviewHtml(null)
     setPreviewNote('')
+    setBulkMode(false)
+    setBulkRows([])
+    setBulkPaste('')
+    setBulkResult(null)
     try {
       const full = tpl.fields ? tpl : await certificateApi.getTemplate(tpl.id)
       setGenTpl(full.id ? full : tpl)
@@ -194,6 +212,23 @@ export default function Certificates() {
       toast(`File replaced — version v${res.template.version}`, 'success')
       loadTemplates()
     } catch (e) { toast(e.message, 'error') }
+  }
+
+  const handlePreviewPick = () => previewInputRef.current?.click()
+
+  const handlePreviewUpload = async (file) => {
+    if (!file || !draft?.id) return
+    if (!/\.(png|jpe?g|webp|gif)$/i.test(file.name)) { toast('Only PNG, JPG, WEBP or GIF images.', 'error'); return }
+    if (file.size > 10 * 1024 * 1024) { toast('Image too large (max 10 MB).', 'error'); return }
+    setPreviewUploadBusy(true)
+    const formData = new FormData()
+    formData.append('preview', file)
+    try {
+      const res = await certificateApi.setTemplatePreview(draft.id, formData)
+      setDraft((d) => ({ ...d, preview_image: res.template.preview_image, preview_key: res.template.preview_key }))
+      toast('Preview image saved', 'success')
+      loadTemplates()
+    } catch (e) { toast(e.message, 'error') } finally { setPreviewUploadBusy(false) }
   }
 
   const saveFields = async (thenGenerate = false) => {
@@ -287,6 +322,56 @@ export default function Certificates() {
     } catch (e) { toast(e.message, 'error') } finally { setGenerating(false) }
   }
 
+  /* ------------------------------ bulk certify ------------------------------ */
+
+  const bulkNameKey = useMemo(() => {
+    const fields = genTpl?.fields || []
+    const exact = fields.find((f) => ['name', 'recipient', 'recipient_name', 'full_name'].includes(f.field_key))
+    return (exact || fields[0])?.field_key || ''
+  }, [genTpl])
+
+  const applyBulkPaste = () => {
+    const names = bulkPaste.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+    if (!names.length) { toast('Paste at least one name.', 'error'); return }
+    if (!bulkNameKey) { toast('This template has no fillable fields.', 'error'); return }
+    setBulkRows(names.map((n) => ({ [bulkNameKey]: n, __name: n })))
+    setBulkResult(null)
+    toast(`${names.length} row${names.length === 1 ? '' : 's'} loaded`, 'success')
+  }
+
+  const patchBulkCell = (idx, key, val) => {
+    setBulkRows((rows) => rows.map((r, i) => (i === idx ? { ...r, [key]: val } : r)))
+  }
+
+  const removeBulkRow = (idx) => {
+    setBulkRows((rows) => rows.filter((_, i) => i !== idx))
+    setBulkResult(null)
+  }
+
+  const addBulkRow = () => {
+    const blank = {}
+    if (bulkNameKey) blank[bulkNameKey] = ''
+    setBulkRows((rows) => [...rows, blank])
+    setBulkResult(null)
+  }
+
+  const doBulkGenerate = async () => {
+    if (!genTpl) return
+    if (!bulkRows.length) { toast('Add at least one row.', 'error'); return }
+    setBulkBusy(true)
+    setBulkResult(null)
+    try {
+      const rows = bulkRows.map((r) => {
+        const { __name, ...field_values } = r
+        return { field_values }
+      })
+      const res = await certificateApi.bulkGenerate({ template_id: genTpl.id, rows })
+      setBulkResult(res)
+      toast(res.message, res.failed && !res.ok ? 'error' : 'success')
+      if (showHistory) loadHistory(historyQ)
+    } catch (e) { toast(e.message, 'error') } finally { setBulkBusy(false) }
+  }
+
   /* --------------------------------- actions --------------------------------- */
 
   const doDuplicate = async (id) => {
@@ -347,6 +432,8 @@ export default function Certificates() {
         .tpl-card { background:var(--card-bg); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:12px; display:flex; flex-direction:column; gap:10px; }
         .tpl-thumb { display:block; width:100%; height:210px; padding:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--bg,#f3f4f6); cursor:pointer; text-align:left; }
         .tpl-thumb:hover { border-color:var(--sage); box-shadow:0 0 0 2px var(--sage-soft,#eef3ea); }
+        .tpl-thumb-img { width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#fff; }
+        .tpl-thumb-img img { max-width:100%; max-height:100%; object-fit:contain; }
         .tpl-thumb-doc { transform:scale(.5); transform-origin:top left; width:200%; pointer-events:none; word-break:break-word; }
         .tpl-thumb-doc :is(img,svg,canvas) { max-width:100%; }
         .tpl-thumb-loading { display:flex; align-items:center; justify-content:center; height:100%; color:var(--ink-soft); }
@@ -366,6 +453,18 @@ export default function Certificates() {
         .field-row .req { text-align:center; }
         .field-row .badge { font-size:11px; padding:2px 8px; border-radius:20px; white-space:nowrap; }
         .gen-grid { display:grid; grid-template-columns:minmax(280px,380px) 1fr; gap:16px; align-items:start; }
+        .bulk-tabs { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+        .bulk-paste { width:100%; min-height:96px; padding:9px 12px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; font-family:inherit; box-sizing:border-box; resize:vertical; outline:none; }
+        .bulk-paste:focus { border-color:var(--sage); }
+        .bulk-table { overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+        .bulk-table table { width:100%; border-collapse:collapse; font-size:12.5px; }
+        .bulk-table th, .bulk-table td { padding:7px 9px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; white-space:nowrap; }
+        .bulk-table th { background:var(--bg,#f9fafb); font-weight:600; color:var(--ink-soft); }
+        .bulk-table input { padding:6px 8px; border:1px solid #e5e7eb; border-radius:6px; font-size:12.5px; font-family:inherit; outline:none; min-width:120px; box-sizing:border-box; }
+        .bulk-table input:focus { border-color:var(--sage); }
+        .bulk-result { border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-top:12px; }
+        .bulk-result .ok-row { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px dashed var(--line); font-size:13px; }
+        .bulk-result .ok-row:last-child { border-bottom:none; }
         .gen-fields { display:flex; flex-direction:column; gap:10px; }
         .field-block { display:flex; flex-direction:column; gap:4px; }
         .field-block label { font-size:12px; font-weight:500; color:var(--ink-soft); }
@@ -634,6 +733,27 @@ export default function Certificates() {
                     : <>No placeholders detected — this file has no {'{...}'} markers. Add them in Word/PowerPoint, or use custom fields below (they are saved but not embedded in the layout).</>}
                 </div>
 
+                <div className="wiz-hint" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {draft.preview_image ? (
+                    <img src={draft.preview_image} alt="template preview" style={{ width: 130, borderRadius: 8, border: '1px solid var(--line)', background: '#fff' }} />
+                  ) : (
+                    <div className="tpl-thumb-fallback" style={{ width: 130, height: 90, border: '1px dashed var(--line)', borderRadius: 8, fontSize: 11 }}>
+                      {draft.file_format === 'pptx' ? <><Presentation size={18} color="#c2410c" /><span style={{ padding: 4 }}>Add a preview image to see it live</span></> : <><FileText size={18} color="var(--sage)" /><span style={{ padding: 4 }}>Optional preview image</span></>}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontWeight: 600, fontSize: 12 }}>Template image</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
+                      Shown on the library card and in the certificate detail screen (needed for PowerPoint preview — slides can't render in the browser).
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-sm" onClick={handlePreviewPick} disabled={previewUploadBusy}>
+                        {previewUploadBusy ? <Loader2 size={13} className="spin" /> : <UploadCloud size={13} />} {draft.preview_image ? 'Replace image' : 'Upload image'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <div className="field-row" style={{ borderBottom: '2px solid var(--line)', fontWeight: 600 }}>
                     <div className="row-label">Field key</div>
@@ -700,6 +820,13 @@ export default function Certificates() {
               hidden
               onChange={(e) => { const f = e.target.files[0]; if (f) handleReupload(f); e.target.value = '' }}
             />
+            <input
+              ref={previewInputRef}
+              type="file"
+              accept=".png,.jpg,.jpeg,.webp,.gif"
+              hidden
+              onChange={(e) => { handlePreviewUpload(e.target.files[0]); e.target.value = '' }}
+            />
           </div>
         </div>
       )}
@@ -709,50 +836,160 @@ export default function Certificates() {
         <div className="gen-grid">
           <div className="card">
             <div className="card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div className="wiz-hint" style={{ fontSize: 12, margin: 0 }}>
-                Fields marked <b style={{ color: '#dc2626' }}>*</b> are required. The preview updates as you type.
+              <div className="bulk-tabs">
+                <button className={`btn btn-sm ${!bulkMode ? 'btn-primary' : ''}`} onClick={() => { setBulkMode(false); setBulkResult(null) }}>
+                  Single
+                </button>
+                <button className={`btn btn-sm ${bulkMode ? 'btn-primary' : ''}`} onClick={() => { setBulkMode(true); setBulkResult(null) }}>
+                  Bulk (many at once)
+                </button>
               </div>
 
-              <div className="field-block">
-                <label>Certificate number <span style={{ color: 'var(--ink-soft)' }}>(optional — auto-generated if empty)</span></label>
-                <input
-                  className="fld"
-                  type="text"
-                  placeholder="e.g. CERT-2026-00001"
-                  value={certNumber}
-                  onChange={(e) => setCertNumber(e.target.value)}
-                />
-              </div>
+              {!bulkMode ? (
+                <>
+                  <div className="wiz-hint" style={{ fontSize: 12, margin: 0 }}>
+                    Fields marked <b style={{ color: '#dc2626' }}>*</b> are required. The preview updates as you type.
+                  </div>
 
-              {(genTpl.fields || []).map((f) => (
-                <div className="field-block" key={f.field_key}>
-                  <label>
-                    {f.display_name || humanKey(f.field_key)} {f.required && <span style={{ color: '#dc2626' }}>*</span>}
-                    {!f.in_template && (
-                      <span className="badge cus" style={{ background: '#fef3c7', color: '#92400e', marginLeft: 8 }}>Not found in template</span>
-                    )}
-                  </label>
-                  {f.field_type === 'longtext' ? (
-                    <textarea className="fld" rows={3} value={values[f.field_key] || ''} onChange={(e) => setValues((v) => ({ ...v, [f.field_key]: e.target.value }))} />
-                  ) : (
+                  <div className="field-block">
+                    <label>Certificate number <span style={{ color: 'var(--ink-soft)' }}>(optional — auto-generated if empty)</span></label>
                     <input
-                      className={`fld ${missing.includes(f.display_name || f.field_key) ? 'err' : ''}`}
-                      type={inputTypeFor(f.field_type)}
-                      placeholder={humanKey(f.field_key)}
-                      value={values[f.field_key] ?? f.default_value ?? ''}
-                      onChange={(e) => setValues((v) => ({ ...v, [f.field_key]: e.target.value }))}
+                      className="fld"
+                      type="text"
+                      placeholder="e.g. CERT-2026-00001"
+                      value={certNumber}
+                      onChange={(e) => setCertNumber(e.target.value)}
                     />
+                  </div>
+
+                  {(genTpl.fields || []).map((f) => (
+                    <div className="field-block" key={f.field_key}>
+                      <label>
+                        {f.display_name || humanKey(f.field_key)} {f.required && <span style={{ color: '#dc2626' }}>*</span>}
+                        {!f.in_template && (
+                          <span className="badge cus" style={{ background: '#fef3c7', color: '#92400e', marginLeft: 8 }}>Not found in template</span>
+                        )}
+                      </label>
+                      {f.field_type === 'longtext' ? (
+                        <textarea className="fld" rows={3} value={values[f.field_key] || ''} onChange={(e) => setValues((v) => ({ ...v, [f.field_key]: e.target.value }))} />
+                      ) : (
+                        <input
+                          className={`fld ${missing.includes(f.display_name || f.field_key) ? 'err' : ''}`}
+                          type={inputTypeFor(f.field_type)}
+                          placeholder={humanKey(f.field_key)}
+                          value={values[f.field_key] ?? f.default_value ?? ''}
+                          onChange={(e) => setValues((v) => ({ ...v, [f.field_key]: e.target.value }))}
+                        />
+                      )}
+                    </div>
+                  ))}
+
+                  {missing.length > 0 && (
+                    <div className="missing-box"><AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 6 }} />Missing: <b>{missing.join(', ')}</b></div>
                   )}
-                </div>
-              ))}
 
-              {missing.length > 0 && (
-                <div className="missing-box"><AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 6 }} />Missing: <b>{missing.join(', ')}</b></div>
+                  <button className="btn btn-primary" onClick={doGenerate} disabled={generating}>
+                    {generating ? <><span className="progress" /> Generating…</> : <><Sparkles size={15} /> Generate certificate</>}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="wiz-hint" style={{ fontSize: 12, margin: 0 }}>
+                    Paste one name per line to create a row for each, then generate all certificates in one go. Each certificate gets its own number.
+                  </div>
+
+                  {(!bulkRows.length) && (
+                    <>
+                      <div className="field-block">
+                        <label>Names (one per line)</label>
+                        <textarea
+                          className="bulk-paste"
+                          placeholder={`Example:\nRohan Mehta\nSneha Patil\nAarav Verma`}
+                          value={bulkPaste}
+                          onChange={(e) => setBulkPaste(e.target.value)}
+                        />
+                        <button className="btn btn-sm btn-primary" style={{ alignSelf: 'flex-start' }} onClick={applyBulkPaste}>
+                          <Users size={14} /> Load names into rows
+                        </button>
+                      </div>
+                      <button className="btn btn-sm" onClick={addBulkRow}><Plus size={14} /> Add empty row</button>
+                    </>
+                  )}
+
+                  {bulkRows.length > 0 && (
+                    <>
+                      <div className="field-block">
+                        <label>{bulkRows.length} row{bulkRows.length === 1 ? '' : 's'} — fill the values or adjust names</label>
+                        <div className="bulk-table">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>#</th>
+                                {(genTpl.fields || []).map((f) => (
+                                  <th key={f.field_key}>{f.display_name || humanKey(f.field_key)}{f.required ? ' *' : ''}</th>
+                                ))}
+                                <th></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {bulkRows.map((r, ri) => (
+                                <tr key={ri}>
+                                  <td style={{ color: 'var(--ink-soft)' }}>{ri + 1}</td>
+                                  {(genTpl.fields || []).map((f) => (
+                                    <td key={f.field_key}>
+                                      <input
+                                        type={inputTypeFor(f.field_type)}
+                                        value={r[f.field_key] ?? ''}
+                                        placeholder={humanKey(f.field_key)}
+                                        onChange={(e) => patchBulkCell(ri, f.field_key, e.target.value)}
+                                      />
+                                    </td>
+                                  ))}
+                                  <td><button className="btn btn-sm" onClick={() => removeBulkRow(ri)}><Trash2 size={13} /></button></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button className="btn btn-sm" onClick={addBulkRow}><Plus size={14} /> Add row</button>
+                        </div>
+                      </div>
+
+                      {bulkResult && (
+                        <div className="bulk-result">
+                          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                            {bulkResult.ok} generated · {bulkResult.failed} failed
+                          </div>
+                          {bulkResult.results.map((r) => (
+                            r.certificate ? (
+                              <div className="ok-row" key={r.index}>
+                                <CheckCircle2 size={14} style={{ color: '#166534', flexShrink: 0 }} />
+                                <span className="hist-num">{r.certificate_number}</span>
+                                <span className="hist-recipient">{r.certificate.recipient_name || '—'}</span>
+                                <span className="hist-actions">
+                                  <button className="btn btn-sm" title="Open generated file" onClick={() => saveOrOpen(r.generated_file, `${r.certificate_number}.${genTpl.file_format}`)}>
+                                    <ExternalLink size={13} />
+                                  </button>
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="ok-row" key={r.index} style={{ color: '#991b1b' }}>
+                                <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                                <span>Row {r.index + 1} — {r.error}</span>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      )}
+
+                      <button className="btn btn-primary" onClick={doBulkGenerate} disabled={bulkBusy}>
+                        {bulkBusy ? <><span className="progress" /> Generating {bulkRows.length}…</> : <><Sparkles size={15} /> Generate all {bulkRows.length}</>}
+                      </button>
+                    </>
+                  )}
+                </>
               )}
-
-              <button className="btn btn-primary" onClick={doGenerate} disabled={generating}>
-                {generating ? <><span className="progress" /> Generating…</> : <><Sparkles size={15} /> Generate certificate</>}
-              </button>
             </div>
           </div>
 
@@ -760,7 +997,11 @@ export default function Certificates() {
             {previewBusy && (
               <div className="preview-loading"><Loader2 size={13} className="spin" /> Updating preview…</div>
             )}
-            {genTpl.file_format === 'docx' ? (
+            {genTpl.preview_image ? (
+              <div className="cert-paper" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg,#f3f4f6)' }}>
+                <img src={genTpl.preview_image} alt={genTpl.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
+              </div>
+            ) : genTpl.file_format === 'docx' ? (
               previewHtml ? (
                 <div className="cert-paper" dangerouslySetInnerHTML={{ __html: previewHtml }} />
               ) : previewNote ? (
@@ -775,8 +1016,8 @@ export default function Certificates() {
             ) : (
               <div className="cert-paper cert-fallback">
                 <Presentation size={26} style={{ color: '#c2410c' }} />
-                <div><b>PPTX template</b> — slide preview is not available in the browser.</div>
-                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Generate the certificate to download the filled PowerPoint file and check it.</div>
+                <div><b>PPTX template</b> — slide preview is only available after you upload a template image.</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Open the template in the wizard (fields step) and click <b>Upload image</b> to see it live here.</div>
                 <button className="btn btn-sm" onClick={() => saveOrOpen(genTpl.template_file, `${genTpl.name}.${genTpl.file_format}`)}>
                   <Download size={14} /> Open base template
                 </button>

@@ -12,6 +12,7 @@ export const certificateApi = {
 
   // Re-upload the immutable template file (creates a new version snapshot).
   reuploadTemplate: (id, formData) => apiPost(`/certificates/templates/${id}/file`, formData, 60000),
+  setTemplatePreview: (id, formData) => apiPost(`/certificates/templates/${id}/preview`, formData, 60000),
   duplicateTemplate: (id) => apiPost(`/certificates/templates/${id}/duplicate`, {}),
   setStatus: (id, status) => apiPatch(`/certificates/templates/${id}/status`, { status }),
   deleteTemplate: (id) => apiDelete(`/certificates/templates/${id}`),
@@ -27,6 +28,7 @@ export const certificateApi = {
     }),
 
   generate: (payload) => apiPost(`/certificates/certificates/generate`, payload, 90000),
+  bulkGenerate: (payload) => apiPost(`/certificates/certificates/bulk`, payload, 180000),
   listCertificates: (q = '') => apiGet(`/certificates/certificates${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   getCertificate: (id) => apiGet(`/certificates/certificates/${id}`),
 }

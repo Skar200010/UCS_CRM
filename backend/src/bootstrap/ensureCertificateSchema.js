@@ -13,6 +13,8 @@ export async function ensureCertificateSchema() {
        status      TEXT NOT NULL DEFAULT 'active',
        template_file TEXT NOT NULL DEFAULT '',
        template_key TEXT NOT NULL DEFAULT '',
+       preview_image TEXT DEFAULT '',
+       preview_key TEXT DEFAULT '',
        placeholders JSONB NOT NULL DEFAULT '[]'::jsonb,
        version     INT NOT NULL DEFAULT 1,
        created_by  TEXT,
@@ -51,6 +53,8 @@ export async function ensureCertificateSchema() {
      )`);
 
   const steps = [
+    `ALTER TABLE certificate_templates ADD COLUMN IF NOT EXISTS preview_image TEXT DEFAULT ''`,
+    `ALTER TABLE certificate_templates ADD COLUMN IF NOT EXISTS preview_key TEXT DEFAULT ''`,
     `CREATE INDEX IF NOT EXISTS idx_cer_tpl_status ON certificate_templates (status)`,
     `CREATE INDEX IF NOT EXISTS idx_cer_fields_template ON certificate_template_fields (template_id)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS uq_cer_fields_template_key ON certificate_template_fields (template_id, field_key)`,

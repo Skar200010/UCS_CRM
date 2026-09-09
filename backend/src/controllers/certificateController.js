@@ -35,7 +35,7 @@ async function uploadFile(key, buffer, contentType) {
 
 async function loadTemplateDetail(id) {
   const { rows: templates } = await db._pool.query(
-    `SELECT id, name, description, file_format, status, template_file, template_key, placeholders, version, created_by, created_at, updated_at
+    `SELECT id, name, description, file_format, status, template_file, template_key, preview_image, placeholders, version, created_by, created_at, updated_at
        FROM certificate_templates WHERE id = $1`, [id]);
   if (!templates.length) return null;
   const { rows: fields } = await db._pool.query(
@@ -168,7 +168,7 @@ export const listTemplates = async (req, res) => {
       where = `WHERE t.status <> 'archived'`;
     }
     const { rows } = await db._pool.query(
-      `SELECT t.id, t.name, t.description, t.file_format, t.status, t.template_file, t.placeholders, t.version, t.created_at, t.updated_at,
+      `SELECT t.id, t.name, t.description, t.file_format, t.status, t.template_file, t.preview_image, t.placeholders, t.version, t.created_at, t.updated_at,
               (SELECT COUNT(*)::int FROM certificate_template_fields f WHERE f.template_id = t.id) AS field_count,
               (SELECT COUNT(*)::int FROM certificates c WHERE c.template_id = t.id) AS certificate_count
          FROM certificate_templates t ${where}
@@ -269,6 +269,36 @@ export const reuploadTemplateFile = async (req, res) => {
   }
 };
 
+export const setTemplatePreview = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'Preview image is required' });
+    const id = req.params.id;
+    const template = await loadTemplateDetail(id);
+    if (!template) return res.status(404).json({ message: 'Template not found' });
+
+    const ext = (() => {
+      const m = /image\/(png|jpeg|jpg|webp|gif)/.exec(req.file.mimetype || '');
+      return m ? (m[1] === 'jpeg' ? 'jpg' : m[1]) : 'png';
+    })();
+    if (!/^(png|jpg|webp|gif)$/.test(ext)) return res.status(400).json({ message: 'Only PNG, JPG, WEBP or GIF preview images are supported.' });
+
+    const key = `previews/${id}-${slugify(template.name)}.${ext}`;
+    const url = await uploadFile(key, req.file.buffer, req.file.mimetype || 'image/png');
+
+    // Remove an older preview object if the key changed (e.g. extension change).
+    if (template.preview_key && template.preview_key !== key) {
+      await db.storage.from(BUCKET).remove(template.preview_key).catch(() => {});
+    }
+    await db._pool.query(
+      `UPDATE certificate_templates SET preview_image = $1, preview_key = $2, updated_at = NOW() WHERE id = $3`,
+      [url, key, id]);
+
+    return res.json({ message: 'Preview image saved', template: await loadTemplateDetail(id) });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
 export const duplicateTemplate = async (req, res) => {
   try {
     const id = req.params.id;
@@ -354,37 +384,90 @@ export const previewCertificate = async (req, res) => {
   }
 };
 
+async function generateOne(template, fieldValuesIn, certNumberIn, actorName) {
+  const values = { ...(fieldValuesIn || {}) };
+  const required = (template.fields || []).filter((f) => f.required);
+  const missing = buildMissing(required, values);
+  if (missing.length) return { error: `Missing required fields: ${missing.join(', ')}` };
+
+  const number = String(certNumberIn || '').trim() || (await nextCertificateNumber());
+  values.certificate_number = number;
+  const recipient = String(values.recipient_name || values.name || values.recipient || '').trim().slice(0, 120);
+
+  const out = await renderFromTemplate(template, values);
+  const safeNum = slugify(number) || Date.now();
+  const key = `generated/${template.id}-${slugify(template.name)}-${safeNum}.${out.ext}`;
+  const url = await uploadFile(key, out.buffer, out.mime);
+
+  const { rows } = await db._pool.query(
+    `INSERT INTO certificates
+       (template_id, template_name, template_version, template_file, certificate_number, recipient_name, field_values, generated_file, generated_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+    [template.id, template.name, template.version, template.template_file, number, recipient,
+     JSON.stringify(fieldValuesIn || {}), url, actorName]);
+  return { certificate: rows[0] };
+}
+
 export const generateCertificate = async (req, res) => {
   try {
     const { template_id, field_values, certificate_number } = req.body || {};
     if (!template_id) return res.status(400).json({ message: 'template_id is required' });
-    const { template, required } = await readTemplateWithRequired(template_id);
+    const template = await loadTemplateDetail(template_id);
     if (!template) return res.status(404).json({ message: 'Template not found' });
 
-    const values = { ...(field_values || {}) };
-    const missing = buildMissing(required, values);
-    if (missing.length) return res.status(400).json({ message: `Missing required fields: ${missing.join(', ')}`, missing });
-
-    const number = String(certificate_number || '').trim() || (await nextCertificateNumber());
-    values.certificate_number = number;
-    const recipient = String(values.recipient_name || values.name || values.recipient || '').trim().slice(0, 120);
-
-    const out = await renderFromTemplate(template, values);
-    const safeNum = slugify(number) || Date.now();
-    const key = `generated/${template.id}-${slugify(template.name)}-${safeNum}.${out.ext}`;
-    const url = await uploadFile(key, out.buffer, out.mime);
-
     const me = identity(req);
-    const { rows } = await db._pool.query(
-      `INSERT INTO certificates
-         (template_id, template_name, template_version, template_file, certificate_number, recipient_name, field_values, generated_file, generated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [template.id, template.name, template.version, template.template_file, number, recipient,
-       JSON.stringify(field_values || {}), url, me.name || me.id]);
-
-    return res.json({ message: 'Certificate generated', certificate: rows[0] });
+    const result = await generateOne(template, field_values, certificate_number, me.name || me.id);
+    if (result.error) return res.status(400).json({ message: result.error });
+    return res.json({ message: 'Certificate generated', certificate: result.certificate });
   } catch (e) {
     return res.status(400).json({ message: `Generation failed: ${e.message}` });
+  }
+};
+
+export const bulkGenerateCertificates = async (req, res) => {
+  try {
+    const { template_id, rows } = req.body || {};
+    if (!template_id) return res.status(400).json({ message: 'template_id is required' });
+    if (!Array.isArray(rows) || !rows.length) return res.status(400).json({ message: 'rows must be a non-empty array' });
+    if (rows.length > 200) return res.status(400).json({ message: 'Maximum 200 certificates per bulk run' });
+
+    const template = await loadTemplateDetail(template_id);
+    if (!template) return res.status(404).json({ message: 'Template not found' });
+
+    const me = identity(req);
+    const results = [];
+    let ok = 0;
+    let failed = 0;
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i] || {};
+      try {
+        const result = await generateOne(template, row.field_values || {}, row.certificate_number, me.name || me.id);
+        if (result.error) {
+          failed += 1;
+          results.push({ index: i, error: result.error, certificate_number: row.certificate_number || '' });
+        } else {
+          ok += 1;
+          results.push({
+            index: i,
+            certificate: result.certificate,
+            certificate_number: result.certificate.certificate_number,
+            generated_file: result.certificate.generated_file,
+          });
+        }
+      } catch (e) {
+        failed += 1;
+        results.push({ index: i, error: e.message, certificate_number: row.certificate_number || '' });
+      }
+    }
+
+    return res.json({
+      message: `Generated ${ok} of ${rows.length} certificate${rows.length === 1 ? '' : 's'}`,
+      ok,
+      failed,
+      results,
+    });
+  } catch (e) {
+    return res.status(400).json({ message: `Bulk generation failed: ${e.message}` });
   }
 };
 

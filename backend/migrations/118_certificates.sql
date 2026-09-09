@@ -1,6 +1,9 @@
 -- Certificate template management & generator (mirrors src/bootstrap/ensureCertificateSchema.js)
 -- Idempotent. Run manually on staging/dev if the bootstrap did not apply it.
 
+ALTER TABLE certificate_templates ADD COLUMN IF NOT EXISTS preview_image TEXT DEFAULT '';
+ALTER TABLE certificate_templates ADD COLUMN IF NOT EXISTS preview_key TEXT DEFAULT '';
+
 CREATE TABLE IF NOT EXISTS certificate_templates (
   id          BIGSERIAL PRIMARY KEY,
   name        TEXT NOT NULL,
@@ -9,6 +12,8 @@ CREATE TABLE IF NOT EXISTS certificate_templates (
   status      TEXT NOT NULL DEFAULT 'active',
   template_file TEXT NOT NULL DEFAULT '',
   template_key TEXT NOT NULL DEFAULT '',
+  preview_image TEXT DEFAULT '',
+  preview_key TEXT DEFAULT '',
   placeholders JSONB NOT NULL DEFAULT '[]'::jsonb,
   version     INT NOT NULL DEFAULT 1,
   created_by  TEXT,
