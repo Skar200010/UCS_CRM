@@ -28,6 +28,31 @@ import FroTickets from './pages/Tickets'
 import FroSuspense from './pages/Suspense'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { istDateString } from './utils/time'
+import teleWav from '../../assets/audio/tele.wav'
+
+const suspenseAlertAudio = new Audio(teleWav);
+suspenseAlertAudio.preload = 'auto';
+let suspenseAudioUnlocked = false;
+function warmupSuspenseAudio() {
+  if (suspenseAudioUnlocked) return;
+  suspenseAudioUnlocked = true;
+  try {
+    suspenseAlertAudio.volume = 0;
+    suspenseAlertAudio.muted = true;
+    const p = suspenseAlertAudio.play();
+    if (p && p.then) p.then(() => {
+      suspenseAlertAudio.pause();
+      suspenseAlertAudio.currentTime = 0;
+      suspenseAlertAudio.muted = false;
+      suspenseAlertAudio.volume = 1;
+    }).catch(() => {});
+  } catch {}
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointerdown', warmupSuspenseAudio, { once: false });
+  window.addEventListener('keydown', warmupSuspenseAudio, { once: false });
+  window.addEventListener('touchstart', warmupSuspenseAudio, { once: false });
+}
 
 const NAV_BASE = [
   { id: 'dashboard', path: '/fro/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
@@ -379,7 +404,17 @@ export default function FROPanel() {
 
   useRealtime('notification_log', {
     filter: `worker_id=eq.${user?.id}`,
-    onInsert: () => loadNotifications(),
+    onInsert: (row) => {
+      if (row?.type === 'suspense_alert') {
+        try {
+          suspenseAlertAudio.currentTime = 0;
+          const p = suspenseAlertAudio.play();
+          if (p && p.then) p.catch(() => {});
+        } catch {}
+        toast(row.title || 'Suspense Alert', 'info');
+      }
+      loadNotifications();
+    },
     enabled: !!user?.id,
   });
 

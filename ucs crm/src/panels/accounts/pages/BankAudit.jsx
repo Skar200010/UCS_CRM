@@ -5,6 +5,7 @@ import { Plus, ListFilter, X, Landmark } from 'lucide-react';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/auth';
 import { useRealtime } from '../../../hooks/useRealtime';
 import Toast from '../components/Toast';
+import { toast } from '../../../components/Toast';
 import SuspenseToast from '../components/SuspenseToast';
 import DonorPicker from '../components/DonorPicker';
 import { ModernDateInput } from '../components/ModernDateInput';
@@ -299,8 +300,28 @@ function FroSearchPicker({ value, fros = [], onChange }){
 
 // ─── Audit Stat Cards ──────────────────────────────────────
 export function AuditStatCards({sources=[],summary={},loading=false,suspenseNgo='',setSuspenseNgo=null,combo=null,locked=false,bare=false}){
+  const [alertBusy, setAlertBusy] = useState(false);
   const c=combo?(combo.all||{count:0,entries:0,suspense:0,amount:0}):null;
   const mask=(v)=>locked?'XXXX':v;
+
+  const handleAlertAll = async () => {
+    if (alertBusy || !apiPost) return;
+    setAlertBusy(true);
+    try {
+      const res = await apiPost('/notifications/suspense-alert', {});
+      toast('🔔 Alert sent to ' + (res?.count || 0) + ' FROs', 'success');
+    } catch (e) { toast('Failed to send alert', 'error'); }
+    setTimeout(() => setAlertBusy(false), 10000);
+  };
+  const handleAlertNgo = async (ngoKey) => {
+    if (alertBusy || !apiPost) return;
+    setAlertBusy(true);
+    try {
+      const res = await apiPost('/notifications/suspense-alert', { ngo: ngoKey });
+      toast('🔔 Alert sent to ' + (res?.count || 0) + ' ' + ngoKey.toUpperCase() + ' FROs', 'success');
+    } catch (e) { toast('Failed to send alert', 'error'); }
+    setTimeout(() => setAlertBusy(false), 10000);
+  };
   const ngoTiles=[
     {ngo:'bsct',label:'BSCT',bg:'#e7f0ff',accent:'#1e40af'},
     {ngo:'aflf',label:'AFLF',bg:'#e3f6e9',accent:'#166534'},
@@ -340,6 +361,16 @@ export function AuditStatCards({sources=[],summary={},loading=false,suspenseNgo=
           <div style={{fontSize:11.5,fontWeight:700,letterSpacing:'.05em',textTransform:'uppercase',color:'#8a93a3'}}>Suspense</div>
           <div style={{fontSize:28,fontWeight:800,letterSpacing:'-.02em',lineHeight:1.15,color:'#111827',fontVariantNumeric:'tabular-nums'}}>{mask(c&&c.count)}</div>
           <div style={{fontSize:12.5,color:'#6b7280',marginTop:2}}>{mask(c&&c.count)} leads · {mask(curr(c&&c.amount))}</div>
+          {!locked && (
+            <button onClick={handleAlertAll} disabled={alertBusy}
+              style={{
+                marginTop:6,padding:'3px 10px',borderRadius:8,border:'1px solid #d1d5db',
+                background:alertBusy?'#f3f4f6':'#fff',color:'#374151',fontSize:10.5,
+                fontWeight:600,cursor:alertBusy?'default':'pointer',opacity:alertBusy?0.6:1,
+                transition:'opacity .15s',fontFamily:'inherit',
+              }}
+            >{alertBusy ? 'Sent ✓' : '🔔 Alert FROs'}</button>
+          )}
         </div>
       </div>
 
@@ -361,6 +392,11 @@ export function AuditStatCards({sources=[],summary={},loading=false,suspenseNgo=
                 <div style={{display:'flex',alignItems:'center',gap:6,width:'100%'}}>
                   <span style={{fontSize:11,fontWeight:800,letterSpacing:'.04em',textTransform:'uppercase'}}>{label}</span>
                   <span style={{marginLeft:'auto',fontSize:10,fontWeight:700,opacity:.75,fontVariantNumeric:'tabular-nums'}}>{mask(d.count)}</span>
+                  {!locked && (
+                    <span onClick={(e) => { e.stopPropagation(); handleAlertNgo(ngo); }}
+                      style={{fontSize:11,cursor:alertBusy?'default':'pointer',opacity:alertBusy?0.5:1,lineHeight:1}}
+                      title={`Alert ${label} FROs`}>🔔</span>
+                  )}
                 </div>
                 <div style={{fontSize:17,fontWeight:800,fontVariantNumeric:'tabular-nums',lineHeight:1.15,whiteSpace:'nowrap'}}>{mask(curr(d.amount))}</div>
               </button>
