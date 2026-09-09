@@ -45,6 +45,11 @@ const throttleGroq = async () => {
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
 };
 
+// Model pinned per environment; defaults to gpt-oss-120b, one of the models the
+// deployment's Groq key can actually access (llama-3.3-70b-versatile was
+// removed from the account -> 404 model_not_found).
+const CONGRATS_MODEL = process.env.GROQ_CONGRATS_MODEL || process.env.GROQ_SPELLING_MODEL || 'openai/gpt-oss-120b';
+
 export async function generateCongratsMessage({ winnerName, title, amount }) {
   await throttleGroq();
   global.__groqLastCall = Date.now();
@@ -57,7 +62,7 @@ export async function generateCongratsMessage({ winnerName, title, amount }) {
       },
       { role: 'user', content: `Winner: ${winnerName || 'The winner'}\nIncentive: ${title || 'the special incentive'}\nPrize: ₹${Number(amount) || 0}` },
     ],
-    model: 'llama-3.3-70b-versatile',
+    model: CONGRATS_MODEL,
     max_tokens: 160,
     temperature: 0.85,
   });
