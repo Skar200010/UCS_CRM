@@ -7,9 +7,22 @@ import RightPanel from '../components/RightPanel';
 import Pagination from '../components/Pagination';
 import LeadWave from '../components/LeadWave';
 import { NGO_CARD } from './BankAudit';
-// Lead cards already matched during this session must not re-animate the wave
-// on filter/pagination rerenders. Keyed by lead log id.
-const leadAnimated = new Set();
+// Each bank-matched lead is wave-animated exactly once, forever (persisted in
+// localStorage) — refreshing or reopening the tab never replays them.
+const LEAD_WAVE_KEY = 'ucs.accounts.leadWaveSeen.v1';
+const loadWaveSeen = () => {
+  try { return new Set(JSON.parse(localStorage.getItem(LEAD_WAVE_KEY) || '[]')); }
+  catch { return new Set(); }
+};
+const saveWaveSeen = (seen) => {
+  try { localStorage.setItem(LEAD_WAVE_KEY, JSON.stringify([...seen])); }
+  catch { /* localStorage unavailable */ }
+};
+// Newest-first ordering for picking the single lead that gets to animate.
+const leadRecencyMs = (l) => {
+  const d = new Date(l.transaction_datetime || l.created_at || '');
+  return d && !isNaN(d.getTime()) ? d.getTime() : 0;
+};
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u20B90';
 const fmtDT = d => {
   if (!d) return '';
@@ -68,6 +81,30 @@ export default function Dashboard({ embedded, onStats, selectedLogId, onSelectLe
   const [quickVerifying, setQuickVerifying] = useState(false);
   const PAGE_SIZE = 30;
   const [leadPage, setLeadPage] = useState(1);
+
+  // Lead ids that must never animate: existing data captured as baseline plus
+  // newly-arrived matched leads after their wave has played. Persisted → never
+  // replays on refresh.
+  const [waveSeen, setWaveSeen] = useState(() => loadWaveSeen());
+  const waveSeenRef = useRef(waveSeen);
+  const [waveHeroId, setWaveHeroId] = useState(null);
+  const baselineCapturedRef = useRef(false);
+  const addSeen = (ids) => {
+    setWaveSeen(prev => {
+      const n = new Set(prev);
+      let changed = false;
+      for (const id of ids) {
+        const k = String(id);
+        if (!n.has(k)) { n.add(k); changed = true; }
+      }
+      if (changed) saveWaveSeen(n);
+      return n;
+    });
+  };
+  const markSeen = (logId) => {
+    addSeen([logId]);
+    setWaveHeroId(h => (h === String(logId) ? null : h));
+  };
 
   const ngoActive = globalNgo !== undefined ? globalNgo : ngoFilter;
 
@@ -140,6 +177,26 @@ export default function Dashboard({ embedded, onStats, selectedLogId, onSelectLe
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((leadPage - 1) * PAGE_SIZE, leadPage * PAGE_SIZE);
+
+  // Wave baseline + newest-only trigger, mirroring FRO Suspense:
+  //  - first real load rates as baseline so existing leads never animate
+  //  - afterwards, only the single newest newly-arrived matched lead animates
+  useEffect(() => {
+    waveSeenRef.current = waveSeen;
+    if (loading) return;
+    const candidates = (filtered || []).filter(l => l.bank_match && NGO_CARD[l.donor_project]);
+    const fresh = candidates.filter(l => !waveSeenRef.current.has(String(l.log_id)));
+    if (!baselineCapturedRef.current) {
+      baselineCapturedRef.current = true;
+      if (candidates.length) addSeen(candidates.map(l => l.log_id));
+      setWaveHeroId(null);
+      return;
+    }
+    if (fresh.length === 0) return;
+    const newest = fresh.reduce((m, l) => (leadRecencyMs(l) > leadRecencyMs(m) ? l : m), fresh[0]);
+    addSeen(fresh.map(l => l.log_id));
+    setWaveHeroId(String(newest.log_id));
+  }, [filtered, loading, waveSeen]);
 
   useEffect(() => { setLeadPage(1); }, [searchQuery, ngoActive, statusFilter, amountFilter, dateFilter]);
   useEffect(() => { if (leadPage > pageCount) setLeadPage(pageCount); }, [pageCount, leadPage]);
@@ -279,8 +336,7 @@ export default function Dashboard({ embedded, onStats, selectedLogId, onSelectLe
               pageItems.map(l => {
               const ngo = l.bank_match ? NGO_CARD[l.donor_project] : null;
               const isMatched = !!l.bank_match;
-              const shouldWave = isMatched && !!ngo && !leadAnimated.has(l.log_id);
-              if (shouldWave) leadAnimated.add(l.log_id);
+              const shouldWave = waveHeroId === String(l.log_id);
               return (
               <div key={l.log_id} data-lead-log={l.log_id} data-match-entry={l.bank_match?.entry_id || ''} data-match-st={l.bank_match?.match_status || ''} data-match-src={l.bank_match?.match_source || ''}
                 className={'entry-card' + (selectedLogId === l.log_id ? ' is-selected' : '') + (l.accounts_status !== 'pending' ? ' is-dim' : '') + (l.bank_match ? (l.bank_match.match_source === 'manual' ? ' is-match-manual' : ' is-match-auto') : ' is-match-unmatched')}
@@ -334,7 +390,7 @@ export default function Dashboard({ embedded, onStats, selectedLogId, onSelectLe
                     </button>
                   )}
                 </div>
-              {embedded && ngo && isMatched && <LeadWave animate={shouldWave} bg={ngo.background} square={ngo.accent} seed={String(l.log_id)} />}
+              {embedded && ngo && isMatched && <LeadWave animate={shouldWave} bg={ngo.background} square={ngo.accent} seed={String(l.log_id)} onDone={() => markSeen(l.log_id)} />}
               </div>
             );
             })

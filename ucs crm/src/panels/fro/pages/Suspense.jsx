@@ -5,6 +5,11 @@ import { useRealtime } from '../../../hooks/useRealtime';
 import { useIsMobile } from '../../../hooks/useIsMobile';
 import { SkeletonTable } from '../../../components/Skeleton';
 import LeadWave from '../../accounts/components/LeadWave';
+import moneyMp3 from '../../../assets/audio/money.mp3';
+
+// Shared 0.8s money chime for new suspense arrivals. One instance so rapid
+// arrivals restart from zero instead of stacking over each other.
+const moneyAudio = new Audio(moneyMp3);
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u2014';
 
@@ -119,6 +124,20 @@ export default function FroSuspense() {
   // receipt that appears afterwards gets the square wave, exactly once per id.
   const seenIdsRef = useRef(null);
   const [newIds, setNewIds] = useState(() => new Set());
+  const moneyTimerRef = useRef(null);
+
+  const playMoney = () => {
+    moneyAudio.pause();
+    moneyAudio.currentTime = 0;
+    moneyAudio.play().catch(() => {});
+    if (moneyTimerRef.current) clearTimeout(moneyTimerRef.current);
+    moneyTimerRef.current = setTimeout(() => moneyAudio.pause(), 800);
+  };
+
+  useEffect(() => () => {
+    if (moneyTimerRef.current) clearTimeout(moneyTimerRef.current);
+    moneyAudio.pause();
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -141,6 +160,7 @@ export default function FroSuspense() {
     );
     if (!newest) return;
     const id = String(newest.id);
+    playMoney();
     setNewIds(prev => {
       const n = new Set(prev);
       n.add(id);
