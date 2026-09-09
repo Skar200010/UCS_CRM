@@ -4,6 +4,7 @@ import { authenticateRole } from '../middleware/authMiddleware.js';
 import {
   createTemplate,
   listTemplates,
+  listNgoOptions,
   getTemplate,
   getTemplateFile,
   updateTemplate,
@@ -67,6 +68,7 @@ const USE = authenticateRole('accounts', 'super_admin', 'admin');
 
 // Template library — accounts can fully manage templates and generate certificates.
 router.get('/templates', USE, listTemplates);
+router.get('/templates/ngos-options', USE, listNgoOptions);
 router.get('/templates/:id', USE, getTemplate);
 router.get('/templates/:id/file', USE, getTemplateFile);
 router.post('/templates', MANAGE, singleTemplate, createTemplate);

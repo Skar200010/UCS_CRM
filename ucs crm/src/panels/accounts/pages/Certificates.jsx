@@ -17,6 +17,7 @@ const STATUS_META = {
 }
 const TYPE_LABEL = { docx: 'DOCX', pptx: 'PPTX' }
 const FIELD_TYPES = ['text', 'number', 'date', 'time', 'datetime', 'longtext']
+const PURPOSES = ['Appreciation certificate', 'Achievement certificate', 'Other']
 const inputTypeFor = (t) => (t === 'datetime' ? 'datetime-local' : ['date', 'time', 'number'].includes(t) ? t : 'text')
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'
@@ -80,6 +81,31 @@ function TemplateThumb({ t }) {
 
 const PREVIEW_CSS = `box-sizing:border-box;background:#fff;border:1px solid var(--line);border-radius:12px;padding:28px;min-height:220px;max-height:72vh;overflow:auto;box-shadow:var(--shadow);`
 
+const META_STYLE = { padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13.5, outline: 'none', width: '100%', background: '#fff' }
+
+function TemplateMeta({ ngos, value, onChange, ngoPlaceholder = 'Select NGO', purposePlaceholder = 'Select purpose', required = false }) {
+  const sel = value || {}
+  const set = (patch) => onChange({ ...sel, ...patch })
+  return (
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <div className="field" style={{ flex: 1, minWidth: 200 }}>
+        <label>NGO{required ? ' *' : ''}</label>
+        <select value={sel.ngo_id || ''} onChange={(e) => set({ ngo_id: e.target.value })} style={META_STYLE}>
+          <option value="">{ngoPlaceholder}</option>
+          {ngos.map((n) => <option key={String(n.id)} value={n.id}>{n.name}</option>)}
+        </select>
+      </div>
+      <div className="field" style={{ flex: 1, minWidth: 200 }}>
+        <label>Purpose{required ? ' *' : ''}</label>
+        <select value={sel.purpose || ''} onChange={(e) => set({ purpose: e.target.value })} style={META_STYLE}>
+          <option value="">{purposePlaceholder}</option>
+          {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+      </div>
+    </div>
+  )
+}
+
 export default function Certificates() {
   const { user } = useUcs()
   const canManage = ['accounts', 'super_admin', 'admin'].includes(user?.role)
@@ -88,6 +114,9 @@ export default function Certificates() {
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
   const [statusTab, setStatusTab] = useState('')
+  const [ngoFilter, setNgoFilter] = useState('')
+  const [purposeFilter, setPurposeFilter] = useState('')
+  const [ngos, setNgos] = useState([])
   const [menuOpenId, setMenuOpenId] = useState(null)
 
   // History
@@ -154,9 +183,22 @@ export default function Certificates() {
 
   useEffect(() => { loadTemplates() }, [loadTemplates])
 
+  useEffect(() => {
+    let cancelled = false
+    certificateApi.getNgoOptions()
+      .then((rows) => { if (!cancelled) setNgos(rows || []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  const visibleTemplates = useMemo(() => templates.filter((t) =>
+    (!ngoFilter || String(t.ngo_id || '') === String(ngoFilter)) &&
+    (!purposeFilter || (t.purpose || '') === purposeFilter)
+  ), [templates, ngoFilter, purposeFilter])
+
   const openWizard = useCallback(() => {
     setEditingId(null)
-    setDraft({ name: '', description: '', file_format: null, file_name: '', placeholders: [], fields: [] })
+    setDraft({ name: '', description: '', file_format: null, file_name: '', placeholders: [], fields: [], ngo_id: '', purpose: '' })
     setView('wizard')
   }, [])
 
@@ -203,6 +245,8 @@ export default function Certificates() {
     formData.append('template', file)
     if (draft?.name?.trim()) formData.append('name', draft.name.trim())
     formData.append('description', draft?.description || '')
+    formData.append('purpose', draft?.purpose || '')
+    if (draft?.ngo_id) formData.append('ngo_id', draft.ngo_id)
     try {
       const res = await certificateApi.createTemplate(formData)
       setDraft(res.template)
@@ -258,7 +302,7 @@ export default function Certificates() {
       field_key: f.field_key,
       display_name: f.display_name || humanKey(f.field_key),
       field_type: f.field_type || 'text',
-      required: f.required,
+      required: true,
       default_value: f.default_value || '',
       sort_order: i,
       in_template: f.in_template,
@@ -269,6 +313,7 @@ export default function Certificates() {
     try {
       await certificateApi.updateTemplate(draft.id, {
         name: draft.name, description: draft.description, status: draft.status, fields,
+        ngo_id: draft.ngo_id || null, purpose: draft.purpose || '',
       })
       loadTemplates()
       if (thenGenerate) {
@@ -283,7 +328,7 @@ export default function Certificates() {
   const addCustomField = () => {
     setDraft((d) => ({
       ...d,
-      fields: [...(d.fields || []), { field_key: '', display_name: '', field_type: 'text', required: false, default_value: '', in_template: false }],
+      fields: [...(d.fields || []), { field_key: '', display_name: '', field_type: 'text', required: true, default_value: '', in_template: false }],
     }))
   }
 
@@ -660,21 +705,41 @@ export default function Certificates() {
                 </button>
               ))}
             </div>
+            {(templates.length > 0) && (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14, marginTop: 12, alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: 'var(--ink-soft)', fontWeight: 600 }}>Filter:</span>
+                <select value={ngoFilter} onChange={(e) => setNgoFilter(e.target.value)} style={META_STYLE}>
+                  <option value="">All NGOs</option>
+                  {ngos.map((n) => <option key={String(n.id)} value={n.id}>{n.name}</option>)}
+                </select>
+                <select value={purposeFilter} onChange={(e) => setPurposeFilter(e.target.value)} style={{ ...META_STYLE, maxWidth: 260 }}>
+                  <option value="">All purposes</option>
+                  {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+                {(ngoFilter || purposeFilter) && (
+                  <button className="btn btn-sm" onClick={() => { setNgoFilter(''); setPurposeFilter('') }}><X size={13} /> Clear filters</button>
+                )}
+              </div>
+            )}
           </div>
           {loading ? (
             <div className="cert-empty"><Loader2 size={18} className="spin" /> <span style={{ marginLeft: 8 }}>Loading…</span></div>
-          ) : templates.length === 0 ? (
+          ) : visibleTemplates.length === 0 ? (
             <div className="cert-empty">
               <div><FileText size={30} style={{ color: 'var(--sage)', marginBottom: 8 }} /></div>
-              <div className="big">No templates yet</div>
-              <>Upload a .docx or .pptx certificate and start generating in minutes.</>
-              <div style={{ marginTop: 16 }}>
-                <button className="btn btn-sm btn-primary" onClick={openWizard}><Plus size={14} /> New Template</button>
-              </div>
+              <div className="big">{templates.length === 0 ? 'No templates yet' : 'No templates match these filters'}</div>
+              {templates.length === 0
+                ? <>Upload a .docx or .pptx certificate and start generating in minutes.</>
+                : <>Try clearing the NGO or purpose filter above.</>}
+              {templates.length === 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <button className="btn btn-sm btn-primary" onClick={openWizard}><Plus size={14} /> New Template</button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="tpl-grid">
-              {templates.map((t) => {
+              {visibleTemplates.map((t) => {
                 const st = STATUS_META[t.status] || STATUS_META.draft
                 const open = menuOpenId === t.id
                 return (
@@ -719,6 +784,12 @@ export default function Certificates() {
                       <button type="button" className="tpl-title" onClick={() => startGenerate(t)} title={`Certify — ${t.name}`}>{t.name}</button>
                       <span className={`pill ${st.cls}`} style={{ padding: '1px 8px', fontSize: 11 }}>{st.label}</span>
                     </div>
+                    {(t.ngo_name || t.purpose) && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, padding: '0 12px' }}>
+                        {t.ngo_name && <span className="pill pill-blue" style={{ padding: '1px 8px', fontSize: 11 }}>{t.ngo_name}</span>}
+                        {t.purpose && <span className="pill pill-yellow" style={{ padding: '1px 8px', fontSize: 11 }}>{t.purpose}</span>}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -787,6 +858,7 @@ export default function Certificates() {
             {(draft?.file_format == null) ? (
               /* ---------- step 1: upload ---------- */
               <>
+                <TemplateMeta ngos={ngos} value={draft} onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))} required />
                 <div className="field">
                   <label>Template name</label>
                   <input
@@ -851,6 +923,8 @@ export default function Certificates() {
                     : <>No placeholders detected — this file has no {'{...}'} markers. Add them in Word/PowerPoint, or use custom fields below (they are saved but not embedded in the layout).</>}
                 </div>
 
+                <TemplateMeta ngos={ngos} value={draft} onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))} />
+
                 <div className="wiz-hint" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
                   {draft.preview_image ? (
                     <img src={draft.preview_image} alt="template preview" style={{ width: 130, borderRadius: 8, border: '1px solid var(--line)', background: '#fff' }} />
@@ -890,13 +964,8 @@ export default function Certificates() {
                       <select value={f.field_type} onChange={(e) => patchField(i, { field_type: e.target.value })}>
                         {FIELD_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                       </select>
-                      <label className="req" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <input
-                          type="checkbox"
-                          checked={!!f.required}
-                          onChange={(e) => patchField(i, { required: e.target.checked })}
-                          style={{ accentColor: 'var(--sage)' }}
-                        />
+                      <label className="req" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="All fields are mandatory">
+                        <input type="checkbox" checked disabled style={{ accentColor: 'var(--sage)' }} />
                       </label>
                       <input
                         value={f.default_value || ''}

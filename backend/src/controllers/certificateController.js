@@ -62,8 +62,11 @@ export async function autosnapshotTemplate(template) {
 
 async function loadTemplateDetail(id) {
   const { rows: templates } = await db._pool.query(
-    `SELECT id, name, description, file_format, status, template_file, template_key, preview_image, placeholders, version, created_by, created_at, updated_at
-       FROM certificate_templates WHERE id = $1`, [id]);
+    `SELECT t.id, t.name, t.description, t.file_format, t.status, t.template_file, t.template_key, t.preview_image, t.placeholders, t.version, t.created_by, t.created_at, t.updated_at,
+            t.ngo_id, n.name AS ngo_name, t.purpose
+       FROM certificate_templates t
+       LEFT JOIN ngos n ON n.id = t.ngo_id
+       WHERE t.id = $1`, [id]);
   if (!templates.length) return null;
   const { rows: fields } = await db._pool.query(
     `SELECT id, field_key, display_name, field_type, required, default_value, in_template, sort_order
@@ -157,11 +160,14 @@ export const createTemplate = async (req, res) => {
     const me = identity(req);
     const name = String(req.body?.name || req.file.originalname).trim().slice(0, 120) || 'Untitled template';
     const description = String(req.body?.description || '').trim().slice(0, 500);
+    const purpose = String(req.body?.purpose || '').trim().slice(0, 120);
+    const rawNgoId = String(req.body?.ngo_id || '').trim();
+    const ngoId = rawNgoId && rawNgoId !== 'null' ? rawNgoId : null;
 
     const { rows } = await db._pool.query(
-      `INSERT INTO certificate_templates (name, description, file_format, template_file, template_key, placeholders, status, version, created_by)
-       VALUES ($1, $2, $3, '', '', $4, 'active', 1, $5) RETURNING id`,
-      [name, description, fmt, JSON.stringify(placeholders), me.name || me.id]);
+      `INSERT INTO certificate_templates (name, description, file_format, template_file, template_key, placeholders, status, version, created_by, ngo_id, purpose)
+       VALUES ($1, $2, $3, '', '', $4, 'active', 1, $5, $6, $7) RETURNING id`,
+      [name, description, fmt, JSON.stringify(placeholders), me.name || me.id, ngoId, purpose]);
     const id = rows[0].id;
 
     const key = `templates/${id}-${slugify(name)}-v1.${fmt}`;
@@ -187,20 +193,44 @@ export const createTemplate = async (req, res) => {
 export const listTemplates = async (req, res) => {
   try {
     const status = String(req.query.status || '').trim();
-    let where = '';
+    const ngoId = String(req.query.ngo_id || '').trim();
+    const purpose = String(req.query.purpose || '').trim();
+    const clauses = [];
     const params = [];
     if (status && status !== 'all') {
-      where = `WHERE t.status = $1`;
       params.push(status);
+      clauses.push(`t.status = $${params.length}`);
     } else if (!status) {
-      where = `WHERE t.status <> 'archived'`;
+      clauses.push(`t.status <> 'archived'`);
     }
+    if (ngoId && ngoId !== 'all') {
+      params.push(ngoId);
+      clauses.push(`t.ngo_id::text = $${params.length}`);
+    }
+    if (purpose && purpose !== 'all') {
+      params.push(purpose);
+      clauses.push(`t.purpose = $${params.length}`);
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
     const { rows } = await db._pool.query(
       `SELECT t.id, t.name, t.description, t.file_format, t.status, t.template_file, t.preview_image, t.placeholders, t.version, t.created_at, t.updated_at,
+              t.ngo_id, n.name AS ngo_name, t.purpose,
               (SELECT COUNT(*)::int FROM certificate_template_fields f WHERE f.template_id = t.id) AS field_count,
               (SELECT COUNT(*)::int FROM certificates c WHERE c.template_id = t.id) AS certificate_count
-         FROM certificate_templates t ${where}
+         FROM certificate_templates t
+         LEFT JOIN ngos n ON n.id = t.ngo_id
+         ${where}
         ORDER BY t.updated_at DESC, t.created_at DESC`, params);
+    return res.json(rows);
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+};
+
+export const listNgoOptions = async (req, res) => {
+  try {
+    const { rows } = await db._pool.query(
+      `SELECT id, name FROM ngos WHERE is_active = true ORDER BY name ASC`);
     return res.json(rows);
   } catch (e) {
     return res.status(500).json({ message: e.message });
@@ -237,7 +267,7 @@ export const updateTemplate = async (req, res) => {
     const template = await loadTemplateDetail(id);
     if (!template) return res.status(404).json({ message: 'Template not found' });
 
-    const { name, description, status, fields } = req.body || {};
+    const { name, description, status, fields, ngo_id, purpose } = req.body || {};
     if (name !== undefined && String(name).trim()) {
       await db._pool.query(`UPDATE certificate_templates SET name = $1, updated_at = NOW() WHERE id = $2`,
         [String(name).trim().slice(0, 120), id]);
@@ -246,12 +276,22 @@ export const updateTemplate = async (req, res) => {
       await db._pool.query(`UPDATE certificate_templates SET description = $1, updated_at = NOW() WHERE id = $2`,
         [String(description).slice(0, 500), id]);
     }
+    if (purpose !== undefined) {
+      await db._pool.query(`UPDATE certificate_templates SET purpose = $1, updated_at = NOW() WHERE id = $2`,
+        [String(purpose).trim().slice(0, 120), id]);
+    }
+    if (ngo_id !== undefined) {
+      const raw = String(ngo_id || '').trim();
+      const next = raw && raw !== 'null' ? raw : null;
+      await db._pool.query(`UPDATE certificate_templates SET ngo_id = $1, updated_at = NOW() WHERE id = $2`, [next, id]);
+    }
     if (status !== undefined) {
       if (!VALID_STATUS.has(status)) return res.status(400).json({ message: 'Invalid status' });
       await db._pool.query(`UPDATE certificate_templates SET status = $1, updated_at = NOW() WHERE id = $2`, [status, id]);
     }
     if (fields !== undefined) {
-      await replaceFields(id, fields);
+      // All fields are mandatory per product rule.
+      await replaceFields(id, (Array.isArray(fields) ? fields : []).map((f) => ({ ...f, required: true })));
       await syncFieldsWithPlaceholders(id, template.placeholders);
     } else {
       await syncFieldsWithPlaceholders(id, template.placeholders);
@@ -351,9 +391,9 @@ export const duplicateTemplate = async (req, res) => {
     const me = identity(req);
     const name = `${template.name} (copy)`;
     const { rows } = await db._pool.query(
-      `INSERT INTO certificate_templates (name, description, file_format, template_file, template_key, placeholders, status, version, created_by)
-       VALUES ($1, $2, $3, '', '', $4, 'draft', 1, $5) RETURNING id`,
-      [name.slice(0, 120), template.description || '', template.file_format, JSON.stringify(template.placeholders), me.name || me.id]);
+      `INSERT INTO certificate_templates (name, description, file_format, template_file, template_key, placeholders, status, version, created_by, ngo_id, purpose)
+       VALUES ($1, $2, $3, '', '', $4, 'draft', 1, $5, $6, $7) RETURNING id`,
+      [name.slice(0, 120), template.description || '', template.file_format, JSON.stringify(template.placeholders), me.name || me.id, template.ngo_id || null, template.purpose || '']);
     const newId = rows[0].id;
     const fmt = template.file_format;
     const key = `templates/${newId}-${slugify(name)}-v1.${fmt}`;

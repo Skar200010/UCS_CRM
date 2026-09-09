@@ -4,6 +4,7 @@ import { api, apiGet, apiPost, apiPut, apiPatch, apiDelete } from './auth'
 // mounted on the backend (paths below are relative to the /api base).
 export const certificateApi = {
   listTemplates: (status = '') => apiGet(`/certificates/templates${status ? `?status=${status}` : ''}`),
+  getNgoOptions: () => apiGet(`/certificates/templates/ngos-options`),
   getTemplate: (id) => apiGet(`/certificates/templates/${id}`),
   getTemplateFile: (id) =>
     api(`/certificates/templates/${id}/file`, { method: 'GET', _prefix: 'ucs', raw: true, timeout: 60000 }),

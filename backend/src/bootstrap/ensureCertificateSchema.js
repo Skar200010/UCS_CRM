@@ -52,9 +52,22 @@ export async function ensureCertificateSchema() {
        generated_at      TIMESTAMPTZ DEFAULT NOW()
      )`);
 
+  // ngo_id must exactly match ngos.id's type for the FK, so adopt the live
+  // column type (int4/int8/uuid) instead of hardcoding INT.
+  const { rows: typeRows } = await db._pool.query(
+    `SELECT format_type(a.atttypid, a.atttypmod) AS t
+     FROM pg_attribute a
+     WHERE a.attrelid = 'ngos'::regclass AND a.attname = 'id'`
+  );
+  const ngoIdType = (typeRows[0] && typeRows[0].t) || 'bigint';
+
   const steps = [
     `ALTER TABLE certificate_templates ADD COLUMN IF NOT EXISTS preview_image TEXT DEFAULT ''`,
     `ALTER TABLE certificate_templates ADD COLUMN IF NOT EXISTS preview_key TEXT DEFAULT ''`,
+    `ALTER TABLE certificate_templates ADD COLUMN IF NOT EXISTS ngo_id ${ngoIdType} REFERENCES ngos(id) ON DELETE SET NULL`,
+    `ALTER TABLE certificate_templates ADD COLUMN IF NOT EXISTS purpose TEXT DEFAULT ''`,
+    `CREATE INDEX IF NOT EXISTS idx_cer_tpl_ngo ON certificate_templates (ngo_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_cer_tpl_purpose ON certificate_templates (purpose)`,
     `CREATE INDEX IF NOT EXISTS idx_cer_tpl_status ON certificate_templates (status)`,
     `CREATE INDEX IF NOT EXISTS idx_cer_fields_template ON certificate_template_fields (template_id)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS uq_cer_fields_template_key ON certificate_template_fields (template_id, field_key)`,
