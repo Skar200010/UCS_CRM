@@ -188,7 +188,7 @@ function PopupModal({ inc, you, onClose, nowMs }) {
   );
 }
 
-function Celebration({ inc, you }) {
+function Celebration({ inc, you, onClose }) {
   const isWinner = you && inc.winner_worker_id === you;
   const pieces = useMemo(() => Array.from({ length: 130 }).map((_, i) => ({
     left: Math.random() * 100,
@@ -207,7 +207,8 @@ function Celebration({ inc, you }) {
           animationDelay: `${p.delay}s`, animationDuration: `${p.dur}s`,
         }} />
       ))}
-      <div style={{ width: 'min(420px,100%)', borderRadius: 20, padding: 26, textAlign: 'center', background: 'linear-gradient(160deg,#fff8e7,#ffe6b3)', border: '3px solid #f59e0b', boxShadow: '0 30px 80px rgba(0,0,0,.4)', animation: 'si-pop .5s cubic-bezier(.22,1,.36,1)' }}>
+      <div style={{ width: 'min(420px,100%)', borderRadius: 20, padding: 26, textAlign: 'center', background: 'linear-gradient(160deg,#fff8e7,#ffe6b3)', border: '3px solid #f59e0b', boxShadow: '0 30px 80px rgba(0,0,0,.4)', animation: 'si-pop .5s cubic-bezier(.22,1,.36,1)', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 12, right: 12, cursor: 'pointer', width: 30, height: 30, borderRadius: 50, background: 'var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--ink)', zIndex: 2 }} onClick={onClose}>✕</div>
         <div style={{ fontSize: 54, animation: 'si-bounce 1.2s ease-in-out infinite' }}>{isWinner ? '🏆' : '🎉'}</div>
         <div style={{ fontSize: 15, fontWeight: 800, color: '#b45309', letterSpacing: 1, textTransform: 'uppercase', marginTop: 4 }}>Winner Declared</div>
         <div style={{ fontSize: 26, fontWeight: 900, color: 'var(--ink)', margin: '8px 0 4px' }}>
@@ -353,7 +354,7 @@ export default function SpecialIncentive() {
   return (
     <>
       <style>{CONFETTI_CSS}</style>
-      {celebrate && <Celebration inc={celebrate} you={you} />}
+      {celebrate && <Celebration inc={celebrate} you={you} onClose={closeCelebrate} />}
       {popupOpen && active && <PopupModal inc={active} you={you} onClose={closePopup} nowMs={nowMs} />}
       {showCard && !celebrate && (
         <div style={{ position: 'fixed', left: 14, bottom: 14, zIndex: 99980, width: 312 }}>
