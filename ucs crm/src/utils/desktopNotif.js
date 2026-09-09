@@ -1,8 +1,9 @@
 export function requestNotifPermission() {
-  if (!('Notification' in window)) return;
+  if (!('Notification' in window)) return Promise.resolve('unsupported');
   if (Notification.permission === 'default') {
-    Notification.requestPermission();
+    return Notification.requestPermission();
   }
+  return Promise.resolve(Notification.permission);
 }
 
 export function showDesktopNotification(title, body, onClickUrl) {
