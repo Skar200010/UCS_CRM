@@ -15,9 +15,17 @@ const toLocalInput = (d) => {
 const STATUS_META = {
   active: { label: 'LIVE', bg: '#dcfce7', text: '#15803d' },
   won: { label: 'WON', bg: '#fef3c7', text: '#b45309' },
+  verified: { label: 'VERIFIED', bg: '#dbeafe', text: '#1d4ed8' },
   ended: { label: 'ENDED', bg: '#f1f5f9', text: '#475569' },
   cancelled: { label: 'CANCELLED', bg: '#fee2e2', text: '#b91c1c' },
 }
+
+const MESSAGE_TEMPLATES = [
+  { key: 'speed', label: '⚡ Speed Race', text: 'Fastest FRO to collect ₹{target} wins the prize! Start collecting now — every rupee counts. Let\'s go!' },
+  { key: 'festival', label: '🎉 Festival Push', text: 'Special festive push! First FRO to collect ₹{target} takes home the reward. Maximum effort, maximum speed!' },
+  { key: 'highest', label: '🏆 Highest Collection', text: 'Push hard for the top collection. Cross ₹{target} the fastest and win. Don\'t stop — keep going!' },
+  { key: 'payday', label: '💵 Payday Bonus', text: 'Extra bonus day! Collect ₹{target} first to grab the incentive. Your hard work pays off today!' },
+]
 
 function TabBtn({ active, onClick, children }) {
   return (
@@ -119,6 +127,15 @@ function CreateForm({ onCreated }) {
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)', display: 'block', marginBottom: 5 }}>Message (optional)</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+              {MESSAGE_TEMPLATES.map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => setMessage(t.text.replace('{target}', Number(target) || 0).replace('{reward}', Number(reward) || 0))}
+                  style={{ padding: '5px 10px', borderRadius: 999, border: '1.5px solid #f59e0b', background: '#fffdf5', color: '#b45309', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                >{t.label}</button>
+              ))}
+            </div>
             <textarea style={{ ...field, minHeight: 72, resize: 'vertical' }} value={message} onChange={e => setMessage(e.target.value)} placeholder="Whoever collects the most fastest…" />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -157,11 +174,12 @@ function CreateForm({ onCreated }) {
           inc={{
             title: title.trim() || 'Your Incentive Title',
             message,
-            target_amount: Number(target) || 0,
-            incentive_amount: Number(reward) || 0,
+            target_amount: Number(target) || 5000,
+            incentive_amount: Number(reward) || 500,
             start_at: start ? new Date(start).toISOString() : null,
             end_at: end ? new Date(end).toISOString() : null,
             status: 'active',
+            mine: { worker_id: 'a', collected_amount: Math.round((Number(target) || 5000) * 0.37) },
             leaderboard: [
               { worker_id: 'a', name: 'Rajesh Kumar', collected_amount: Math.round((Number(target) || 5000) * 0.7), hit_target_at: null },
               { worker_id: 'b', name: 'Priya Sharma', collected_amount: Math.round((Number(target) || 5000) * 0.45), hit_target_at: null },
@@ -192,6 +210,20 @@ function HistoryList({ history, loading, onRefresh }) {
     }
   }
 
+  const remove = async (id) => {
+    if (busyId) return
+    if (!window.confirm('Delete this incentive permanently? This cannot be undone.')) return
+    setBusyId(id)
+    try {
+      await api(`/incentive/special/${id}`, { method: 'DELETE', _prefix: 'ucs' })
+      onRefresh()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 13 }}>Loading history…</div>
 
   if (history.length === 0) {
@@ -212,13 +244,16 @@ function HistoryList({ history, loading, onRefresh }) {
                 <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>{fmtDate(inc.start_at)} → {fmtDate(inc.end_at)}</div>
               </div>
               <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 800, background: meta.bg, color: meta.text }}>
-                {inc.status === 'won' ? `🏆 ${meta.label} · ${inc.winner_name || '—'}` : meta.label}
+                {(inc.status === 'won' || inc.status === 'verified') ? `🏆 ${meta.label} · ${inc.winner_name || '—'}` : meta.label}
               </span>
               {(inc.status === 'active' || inc.status === 'won') && (
                 <button onClick={() => cancel(inc.id)} disabled={busyId === inc.id} style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #fecaca', background: '#fef2f2', color: '#b91c1c', fontSize: 11.5, fontWeight: 700, cursor: busyId === inc.id ? 'wait' : 'pointer' }}>
                   {busyId === inc.id ? '…' : inc.status === 'active' ? 'Cancel' : 'Archive'}
                 </button>
               )}
+              <button onClick={() => remove(inc.id)} disabled={busyId === inc.id} style={{ padding: '6px 12px', borderRadius: 8, border: '1.5px solid #fca5a5', background: '#fff', color: '#b91c1c', fontSize: 11.5, fontWeight: 700, cursor: busyId === inc.id ? 'wait' : 'pointer' }}>
+                Delete
+              </button>
             </div>
             {inc.status === 'won' && <div style={{ marginBottom: 10 }}><WinnerBanner inc={inc} /></div>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 8 }}>

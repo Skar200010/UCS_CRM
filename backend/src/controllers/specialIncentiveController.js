@@ -8,6 +8,10 @@ import {
   cancelSpecialIncentive,
   getHistory,
   refreshSpecialIncentive,
+  listPendingClaims,
+  listVerifiedClaims,
+  claimSpecialIncentive,
+  deleteSpecialIncentive,
 } from '../services/specialIncentiveService.js';
 
 const pretty = (inc) => (inc ? {
@@ -22,6 +26,11 @@ const pretty = (inc) => (inc ? {
   winner_worker_id: inc.winner_worker_id,
   winner_name: inc.winner_name,
   winner_claimed_at: inc.winner_claimed_at,
+  claim_status: inc.claim_status || 'pending',
+  claim_photo_url: inc.claim_photo_url || null,
+  claimed_by: inc.claimed_by || null,
+  claimed_at: inc.claimed_at || null,
+  claim_remarks: inc.claim_remarks || null,
   created_at: inc.created_at,
 } : null);
 
@@ -138,6 +147,82 @@ export async function detailHandler(req, res) {
 export async function leaderboardHandler(req, res) {
   try {
     return res.json({ leaderboard: await getLeaderboard(req.params.id) });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+}
+
+// Accounts view: won incentives awaiting prize verification/claim, plus the
+// already-verified (paid out) ones for history.
+export async function claimsHandler(req, res) {
+  try {
+    const pending = await listPendingClaims();
+    const verified = await listVerifiedClaims(Number(req.query.limit) || 60);
+    return res.json({
+      pending: pending.map(pretty),
+      verified: verified.map(pretty),
+    });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+}
+
+// Accounts verifies a won incentive's prize payout by uploading a photo of the
+// FRO + hard cash received. Photo is base64 (mirrors uploadPaymentScreenshot).
+export async function verifyClaimHandler(req, res) {
+  try {
+    const inc = await getIncentiveById(req.params.id);
+    if (!inc) return res.status(404).json({ message: 'Incentive not found' });
+    if (inc.status !== 'won') return res.status(400).json({ message: 'Only won incentives can be verified' });
+    if (inc.claim_status === 'verified') return res.status(400).json({ message: 'Prize already verified/claimed' });
+
+    const { file_base64, mime_type, remarks } = req.body || {};
+    let photoUrl = inc.claim_photo_url || null;
+
+    if (file_base64) {
+      const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
+      const contentType = mime_type || 'image/jpeg';
+      if (!ALLOWED.includes(contentType)) {
+        return res.status(400).json({ message: `Invalid file type. Allowed: ${ALLOWED.join(', ')}` });
+      }
+      const buffer = Buffer.from(file_base64, 'base64');
+      const ext = contentType.split('/')[1] || 'jpg';
+      const fileName = `special_incentive_claims/${req.params.id}_${Date.now()}.${ext}`;
+
+      const bucket = 'worker-documents';
+      let { data: uploadData, error: uploadError } = await db.storage.from(bucket).upload(fileName, buffer, { contentType, upsert: true });
+      if (uploadError) {
+        if (uploadError.message?.includes('bucket')) {
+          const { error: bucketError } = await db.storage.createBucket(bucket, { public: true });
+          if (bucketError) return res.status(500).json({ message: 'Failed to create storage bucket: ' + bucketError.message });
+          const { error: retryError } = await db.storage.from(bucket).upload(fileName, buffer, { contentType, upsert: true });
+          if (retryError) return res.status(500).json({ message: 'Upload failed: ' + retryError.message });
+        } else {
+          return res.status(500).json({ message: 'Upload failed: ' + uploadError.message });
+        }
+      }
+      const { data: urlData } = db.storage.from(bucket).getPublicUrl(fileName);
+      photoUrl = urlData?.publicUrl;
+      if (!photoUrl) return res.status(500).json({ message: 'Failed to get file URL' });
+    }
+
+    const claimed = await claimSpecialIncentive(req.params.id, {
+      photoUrl,
+      claimedBy: req.user?.id || null,
+      remarks: typeof remarks === 'string' && remarks.trim() ? remarks.trim() : null,
+    });
+    if (!claimed) return res.status(400).json({ message: 'Unable to verify — incentive no longer pending' });
+    return res.json({ incentive: pretty(claimed) });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+}
+
+export async function deleteHandler(req, res) {
+  try {
+    const deleted = await deleteSpecialIncentive(req.params.id);
+    if (!deleted) return res.status(404).json({ message: 'Incentive not found' });
+    return res.json({ ok: true, id: deleted.id });
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }

@@ -305,3 +305,62 @@ export const getHistory = async (limit = 60) => {
   if (error) throw error;
   return data || [];
 };
+
+// Won incentives that still need Accounts to verify/claim the prize.
+export const listPendingClaims = async () => {
+  const { data, error } = await db
+    .from('special_incentives')
+    .select('*')
+    .eq('status', 'won')
+    .eq('claim_status', 'pending')
+    .order('winner_claimed_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
+// Won incentives that have been verified (prize paid out) by Accounts.
+export const listVerifiedClaims = async (limit = 60) => {
+  const { data, error } = await db
+    .from('special_incentives')
+    .select('*')
+    .eq('status', 'won')
+    .eq('claim_status', 'verified')
+    .order('claimed_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+};
+
+export const claimSpecialIncentive = async (incentiveId, { photoUrl, claimedBy, remarks }) => {
+  const updates = {
+    claim_status: 'verified',
+    claim_photo_url: photoUrl || null,
+    claimed_by: claimedBy || null,
+    claim_remarks: remarks || null,
+    claimed_at: new Date().toISOString(),
+  };
+  const { data, error } = await db
+    .from('special_incentives')
+    .update(updates)
+    .eq('id', incentiveId)
+    .eq('status', 'won')
+    .eq('claim_status', 'pending')
+    .select();
+  if (error) throw error;
+  return (data && data[0]) || null;
+};
+
+export const deleteSpecialIncentive = async (incentiveId) => {
+  try {
+    await db.from('special_incentive_progress').delete().eq('special_incentive_id', incentiveId);
+  } catch (e) {
+    console.error('[special incentive] progress delete:', e.message);
+  }
+  const { data, error } = await db
+    .from('special_incentives')
+    .delete()
+    .eq('id', incentiveId)
+    .select('id');
+  if (error) throw error;
+  return (data && data[0]) || null;
+};

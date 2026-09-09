@@ -8,10 +8,18 @@ import { requestNotifPermission, showDesktopNotification } from '../utils/deskto
 const SEEN_KEY = 'si_seen_v1';
 const CELEB_KEY = 'si_celeb_v1';
 
-const fmt = (n) => Number(n || 0).toLocaleString('en-IN');
-const pctOf = (collected, target) => (target > 0 ? Math.min(100, (Number(collected) || 0) / Number(target) * 100) : 0);
+const fmt = (n) => {
+  const v = Number(n);
+  return (Number.isFinite(v) ? v : 0).toLocaleString('en-IN');
+};
+const pctOf = (collected, target) => {
+  const t = Number(target);
+  const c = Number(collected);
+  if (!(t > 0) || !Number.isFinite(c)) return 0;
+  return Math.min(100, Math.max(0, c / t * 100));
+};
 const fmtClock = (ms) => {
-  if (ms <= 0) return '00:00:00';
+  if (!Number.isFinite(ms) || ms <= 0) return '00:00:00';
   const s = Math.floor(ms / 1000);
   const h = String(Math.floor(s / 3600)).padStart(2, '0');
   const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
@@ -19,9 +27,12 @@ const fmtClock = (ms) => {
   return `${h}:${m}:${sec}`;
 };
 const fmtEnd = (iso) => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
   try {
-    return new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-  } catch { return ''; }
+    return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  } catch { return '—'; }
 };
 
 const CONFETTI_COLORS = ['#f59e0b', '#ef4444', '#22c55e', '#3b82f6', '#a855f7', '#f472b6', '#fb923c', '#facc15'];
@@ -262,6 +273,7 @@ export function useSpecialIncentive() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [celebrate, setCelebrate] = useState(null);
   const [popupOpen, setPopupOpen] = useState(false);
+  const [dismissedId, setDismissedId] = useState(null);
   const trackedRef = useRef(new Set());
   const celebrationShownRef = useRef(new Set());
 
@@ -321,6 +333,8 @@ export function useSpecialIncentive() {
     popupOpen,
     nowMs,
     user,
+    dismissedId,
+    dismissCard: (id) => setDismissedId(id ? String(id) : null),
     closePopup: () => setPopupOpen(false),
     closeCelebrate: () => setCelebrate(null),
     reload: load,
@@ -328,11 +342,13 @@ export function useSpecialIncentive() {
 }
 
 export default function SpecialIncentive() {
-  const { active, recent, celebrate, popupOpen, nowMs, user, closePopup, closeCelebrate } = useSpecialIncentive();
+  const { active, celebrate, popupOpen, nowMs, user, dismissedId, dismissCard, closePopup, closeCelebrate } = useSpecialIncentive();
   const you = user?.id || null;
 
-  const activeVisible = active || (recent && (recent.status === 'won' || recent.status === 'ended' || recent.status === 'cancelled'));
-  const showCard = !!activeVisible && !popupOpen;
+  // Show the sticky bottom-left card ONLY while an incentive is genuinely
+  // active (running). Once it is won/ended/cancelled, the card disappears
+  // automatically (no winner banner left pinned in the corner).
+  const showCard = !!active && !popupOpen && String(active.id) !== String(dismissedId);
 
   return (
     <>
@@ -340,8 +356,15 @@ export default function SpecialIncentive() {
       {celebrate && <Celebration inc={celebrate} you={you} />}
       {popupOpen && active && <PopupModal inc={active} you={you} onClose={closePopup} nowMs={nowMs} />}
       {showCard && !celebrate && (
-        <div style={{ position: 'fixed', left: 14, bottom: 14, zIndex: 99980 }}>
-          <SpecialIncentiveCard inc={activeVisible} you={you} nowMs={nowMs} />
+        <div style={{ position: 'fixed', left: 14, bottom: 14, zIndex: 99980, width: 312 }}>
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => dismissCard(active.id)}
+              title="Close"
+              style={{ position: 'absolute', top: 6, right: 6, zIndex: 2, cursor: 'pointer', width: 24, height: 24, borderRadius: 50, background: '#fff', border: '1.5px solid #f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, color: '#b45309', boxShadow: '0 2px 6px rgba(0,0,0,.18)' }}
+            >✕</div>
+            <SpecialIncentiveCard inc={active} you={you} nowMs={nowMs} />
+          </div>
         </div>
       )}
     </>
