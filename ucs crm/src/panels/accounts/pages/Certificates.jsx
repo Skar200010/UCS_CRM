@@ -625,9 +625,9 @@ export default function Certificates() {
           <div className="cert-actions">
             {view === 'library' && (
               <>
-                {canManage && templates.some((t) => t.file_format === 'pptx') && (
-                  <button className="btn btn-sm" onClick={refreshSnapshots} title="Regenerate the slide image preview for all PowerPoint templates">
-                    <RefreshCw size={14} /> Regenerate PPTX previews
+                {canManage && templates.length > 0 && !showHistory && (
+                  <button className="btn btn-sm" onClick={refreshSnapshots} title="Render the first page of every template as its thumbnail image">
+                    <RefreshCw size={14} /> Regenerate thumbnails
                   </button>
                 )}
                 <button className="btn btn-sm" onClick={toggleHistory}>
@@ -856,13 +856,13 @@ export default function Certificates() {
                     <img src={draft.preview_image} alt="template preview" style={{ width: 130, borderRadius: 8, border: '1px solid var(--line)', background: '#fff' }} />
                   ) : (
                     <div className="tpl-thumb-fallback" style={{ width: 130, height: 90, border: '1px dashed var(--line)', borderRadius: 8, fontSize: 11 }}>
-                      {draft.file_format === 'pptx' ? <><Presentation size={18} color="#c2410c" /><span style={{ padding: 4 }}>Add a preview image to see it live</span></> : <><FileText size={18} color="var(--sage)" /><span style={{ padding: 4 }}>Optional preview image</span></>}
+                      {draft.file_format === 'pptx' ? <><Presentation size={18} color="#c2410c" /><span style={{ padding: 4 }}>Working… an auto snapshot renders shortly</span></> : <><FileText size={18} color="var(--sage)" /><span style={{ padding: 4 }}>Auto thumbnail renders shortly</span></>}
                     </div>
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div style={{ fontWeight: 600, fontSize: 12 }}>Template image</div>
                     <div style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
-                      Shown on the library card and in the certificate detail screen (needed for PowerPoint preview — slides can't render in the browser).
+                      Auto-generated from the first page/slide on Save; you can replace it with any image here.
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="btn btn-sm" onClick={() => handlePreviewPick()} disabled={previewUploadBusy}>

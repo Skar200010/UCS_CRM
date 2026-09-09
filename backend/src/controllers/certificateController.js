@@ -6,7 +6,7 @@ import {
   renderCertificate,
   humanizeKey,
 } from '../services/certificateDocx.js';
-import { snapshotPptxToPng } from '../services/slideSnapshot.js';
+import { snapshotToPng } from '../services/slideSnapshot.js';
 
 const BUCKET = 'certificates';
 const VALID_STATUS = new Set(['active', 'draft', 'archived']);
@@ -46,13 +46,13 @@ async function savePreviewImage(id, template, buffer, ext = 'png', contentType =
   return url;
 }
 
-// Best-effort: renders the first slide of a PPTX template via LibreOffice and
-// stores it as the template's preview image. Never throws to the caller.
+// Best-effort: renders the first page/slide of a DOCX/PPTX template via
+// LibreOffice and stores it as the template's preview image. Never throws.
 export async function autosnapshotTemplate(template) {
-  if (!template || template.file_format !== 'pptx' || !template.template_file) return null;
+  if (!template || !template.template_file) return null;
   try {
     const raw = await fetchFile(template.template_file);
-    const png = await snapshotPptxToPng(raw);
+    const png = await snapshotToPng(raw, template.file_format);
     if (!png) return null;
     return savePreviewImage(template.id, template, png);
   } catch {
@@ -322,7 +322,7 @@ export const setTemplatePreview = async (req, res) => {
 export const snapshotAllTemplates = async (req, res) => {
   const { rows } = await db._pool.query(
     `SELECT id, name, file_format, template_file, template_key, preview_image, preview_key
-       FROM certificate_templates WHERE file_format = 'pptx'`);
+       FROM certificate_templates`);
   const updated = [];
   let ok = 0;
   let skipped = 0;
@@ -421,7 +421,7 @@ export const previewCertificate = async (req, res) => {
     // PowerPoint can't be shown inline in a browser, so render the filled first
     // slide to PNG (LibreOffice headless) for the live preview.
     if (out.ext === 'pptx') {
-      const png = await snapshotPptxToPng(Buffer.from(out.buffer));
+      const png = await snapshotToPng(Buffer.from(out.buffer), 'pptx');
       if (png) {
         res.setHeader('Content-Type', 'image/png');
         res.setHeader('Content-Disposition', 'inline; filename="preview.png"');

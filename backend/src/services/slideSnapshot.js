@@ -6,13 +6,14 @@ import path from 'node:path';
 
 const execFileAsync = promisify(execFile);
 
-// Renders the first slide of a .pptx to a PNG using LibreOffice headless.
-// Returns a PNG buffer, or null when soffice is unavailable or rendering fails
-// (the caller treats null as "no auto snapshot", never as an error).
-export async function snapshotPptxToPng(buffer) {
+// Renders the first page/slide of a .docx / .pptx to a PNG using LibreOffice
+// headless. Returns a PNG buffer, or null when soffice is unavailable or
+// rendering fails (the caller treats null as "no auto snapshot", never as an error).
+export async function snapshotToPng(buffer, ext = 'pptx') {
   if (!buffer || !buffer.length) return null;
+  const safeExt = ext === 'docx' ? 'docx' : 'pptx';
   const dir = mkdtempSync(path.join(tmpdir(), 'cert-slide-'));
-  const src = path.join(dir, 'input.pptx');
+  const src = path.join(dir, `input.${safeExt}`);
   try {
     writeFileSync(src, buffer);
     let stdout = '';
