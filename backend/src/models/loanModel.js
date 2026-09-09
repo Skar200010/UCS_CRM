@@ -61,17 +61,24 @@ export const updateLoan = async (id, updates) => {
 };
 
 export const deleteLoan = async (id) => {
+  const { error: dedErr } = await db.from('worker_loan_deductions').delete().eq('loan_id', id);
+  if (dedErr) throw dedErr;
   const { error } = await db.from('worker_loans').delete().eq('id', id);
   if (error) throw error;
 };
 
 export const getActiveLoansByWorker = async (workerId) => {
+  const now = new Date();
+  const curMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const curMonthEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`;
   const { data, error } = await db
     .from('worker_loans')
     .select('*')
     .eq('worker_id', workerId)
     .in('status', ['approved', 'active'])
-    .gt('remaining_amount', 0);
+    .gt('remaining_amount', 0)
+    .lte('start_month', curMonthEnd)
+    .or(`end_month.is.null,end_month.gte.${curMonthStart}`);
   if (error) throw error;
   return data || [];
 };
@@ -188,6 +195,13 @@ export const settleMonthlyLoanDeductions = async ({ year, month, workerId }) => 
         continue;
       }
       throw e;
+    }
+    // Recurring loans (e.g. monthly rent) keep their balance constant and never
+    // auto-close; they stay active until manually stopped (end_month or closed).
+    if (loan.recurring) {
+      settled++;
+      total_deducted += amount;
+      continue;
     }
     const newRemaining = Math.max(0, remaining - amount);
     await updateLoan(loan.id, {

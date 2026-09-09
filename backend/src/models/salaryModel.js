@@ -184,9 +184,11 @@ export const getPayrollData = async (month, extended = false) => {
   // Fetch active loan deductions
   const { data: activeLoans, error: loanErr } = await db
     .from('worker_loans')
-    .select('worker_id, monthly_deduction, remaining_amount, type')
+    .select('worker_id, monthly_deduction, remaining_amount, type, start_month, end_month')
     .in('status', ['approved', 'active'])
-    .gt('remaining_amount', 0);
+    .gt('remaining_amount', 0)
+    .lte('start_month', endDate)
+    .or(`end_month.is.null,end_month.gte.${startDate}`);
   const loanByWorker = {};
   if (!loanErr && activeLoans) {
     for (const l of activeLoans) {

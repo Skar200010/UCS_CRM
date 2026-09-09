@@ -1794,6 +1794,7 @@ export const getDonorsByFro = async (req, res) => {
     if (ngoIds.length === 0 && req.user.ngo_id) ngoIds.push(req.user.ngo_id);
     if (ngoIds.length === 0) return res.json([]);
 
+    const hasRange = Boolean(from || to || (period && period !== 'all'));
     let startDate, endDate;
     if (from || to) {
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
@@ -1834,8 +1835,6 @@ export const getDonorsByFro = async (req, res) => {
         .eq('fro_worker_id', fro_worker_id)
         .in('donor_id', donorIds);
 
-      if (status) query = query.eq('status', status);
-
       const { data, error } = await query;
       if (error) throw error;
 
@@ -1867,10 +1866,15 @@ export const getDonorsByFro = async (req, res) => {
         assigned_at: a.assigned_at,
       }));
 
-      return res.json(result);
+      const finalRows = status
+        ? result.filter(r => r.call_status === status || (MERGED_DISPOSITION_GROUPS[status] || []).includes(r.call_status))
+        : result;
+
+      return res.json(finalRows);
     }
 
-    let query = db
+    if (!hasRange) {
+      let query = db
       .from('fro_assignments')
       .select('*, donor_profiles(*), workers!fro_assignments_fro_worker_id_fkey(id, name, login_id)')
       .in('ngo_id', ngoIds)
@@ -1895,7 +1899,10 @@ export const getDonorsByFro = async (req, res) => {
       assigned_at: a.assigned_at,
     }));
 
-    return res.json(result);
+      return res.json(result);
+    }
+
+    return res.json([]);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -2797,9 +2804,12 @@ function classifyLogSide(l) {
 }
 
 const MERGED_DISPOSITION_GROUPS = {
-  office_program_visit: ['office_visit_scheduled', 'program_visit_scheduled'],
-  promise_pay_wa_email: ['promise_to_pay', 'whatsapp_sent', 'email_sent'],
-  not_interested_np: ['not_interested', 'call_disconnected', 'not_possible'],
+  office_program_visit: ['office_visit_scheduled', 'program_visit_scheduled', 'office_program_visit'],
+  promise_pay_wa_email: ['promise_to_pay', 'whatsapp_sent', 'email_sent', 'promise_pay_wa_email'],
+  not_interested_np: ['not_interested', 'call_disconnected', 'not_possible', 'not_interested_np'],
+  busy_call_waiting: ['busy', 'call_waiting', 'busy_call_waiting'],
+  ooc_unreachable_network: ['out_of_coverage', 'unreachable', 'temporary_network_issue', 'ooc_unreachable_network'],
+  ringing_voicemail: ['ringing', 'voicemail', 'ringing_voicemail'],
 };
 
 function mergedGroupOf(detail) {
@@ -4378,6 +4388,7 @@ export const getTLDashboard = async (req, res) => {
 
     if (ngoIds.length === 0) return res.json({ 
       kpis: { total_fros: 0, calling: 0, idle: 0, offline: 0, total_calls: 0, connected: 0, interested: 0, received_amount: 0, followups_due: 0, target_pct: 0, unclassified: 0 },
+      collections_per_ngo: [],
       funnel: [],
       hourly: [],
       top_performers: [],
@@ -4439,6 +4450,22 @@ export const getTLDashboard = async (req, res) => {
     const donations = (callLogs || []).filter(l => l.accounts_status === 'verified').length;
     const receivedAmount = (callLogs || []).filter(l => l.accounts_status === 'verified').reduce((sum, l) => sum + parseFloat(l.amount_collected || 0), 0);
     const connectionRate = totalCalls > 0 ? Math.round((connected / totalCalls) * 100) : 0;
+
+    // Per-NGO collection split (Collection card) across all accessible NGOs in the active range
+    const ngoNameById = {};
+    for (const a of access) ngoNameById[String(a.ngo_id)] = a.ngo_name;
+    const perNgoCollectionMap = {};
+    for (const l of callLogs || []) {
+      if (l.accounts_status !== 'verified') continue;
+      const nid = (l.fro_assignments || [])[0]?.ngo_id;
+      if (nid == null) continue;
+      perNgoCollectionMap[String(nid)] = (perNgoCollectionMap[String(nid)] || 0) + parseFloat(l.amount_collected || 0);
+    }
+    const collections_per_ngo = (origNgoIds && origNgoIds.length ? origNgoIds : ngoIds).map(nid => ({
+      ngo_id: nid,
+      ngo_name: ngoNameById[String(nid)] || `NGO-${nid}`,
+      amount: Math.round(perNgoCollectionMap[String(nid)] || 0),
+    }));
 
     // Connected / non-connected reason breakdowns
     const connectedBreakdownMap = {};
@@ -4603,6 +4630,10 @@ export const getTLDashboard = async (req, res) => {
           connectedStatuses_today: {},
           connectedStatuses_week: {},
           connectedStatuses_range: {},
+          notConnectedStatuses_month: {},
+          notConnectedStatuses_today: {},
+          notConnectedStatuses_week: {},
+          notConnectedStatuses_range: {},
         };
       }
       const logDate = new Date(log.created_at);
@@ -4615,6 +4646,7 @@ export const getTLDashboard = async (req, res) => {
       if (isWeek) callCounts[log.fro_worker_id].week++;
       if (isRange) callCounts[log.fro_worker_id].range++;
       if (log.accounts_status === 'verified') {
+        if (isMonth) callCounts[log.fro_worker_id].monthDonations++;
         if (isToday) callCounts[log.fro_worker_id].todayDonations++;
         if (isWeek) callCounts[log.fro_worker_id].weekDonations++;
         if (isRange) {
@@ -4646,6 +4678,8 @@ export const getTLDashboard = async (req, res) => {
             cc[`connectedStatuses_${period}`][bucket] = (cc[`connectedStatuses_${period}`][bucket] || 0) + 1;
           } else if (side === 'not_connected') {
             cc[`${period}NonConnected`]++;
+            const ncBucket = mergedGroupOf(detail) || detail;
+            cc[`notConnectedStatuses_${period}`][ncBucket] = (cc[`notConnectedStatuses_${period}`][ncBucket] || 0) + 1;
           }
         }
       }
@@ -4713,6 +4747,11 @@ export const getTLDashboard = async (req, res) => {
         connectedStatuses_week: callCounts[w.id]?.connectedStatuses_week || {},
         connectedStatuses_month: callCounts[w.id]?.connectedStatuses_month || {},
         connectedStatuses_range: callCounts[w.id]?.connectedStatuses_range || {},
+        notConnectedStatuses: callCounts[w.id]?.notConnectedStatuses_month || {},
+        notConnectedStatuses_today: callCounts[w.id]?.notConnectedStatuses_today || {},
+        notConnectedStatuses_week: callCounts[w.id]?.notConnectedStatuses_week || {},
+        notConnectedStatuses_month: callCounts[w.id]?.notConnectedStatuses_month || {},
+        notConnectedStatuses_range: callCounts[w.id]?.notConnectedStatuses_range || {},
         stations: froStationMap[w.id] || [],
         receivedDonors: leads,
         receivedAmount: coll,
@@ -4800,6 +4839,7 @@ export const getTLDashboard = async (req, res) => {
       funnel,
       hourly,
       performance,  // Add full performance array for telecaller table
+      collections_per_ngo,
       top_performers: {
         amount: topByAmount,
         donors: topByDonors,
