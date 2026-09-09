@@ -12,6 +12,7 @@ import {
   duplicateTemplate,
   setTemplateStatus,
   deleteTemplate,
+  snapshotAllTemplates,
   previewCertificate,
   generateCertificate,
   bulkGenerateCertificates,
@@ -71,6 +72,7 @@ router.get('/templates/:id/file', USE, getTemplateFile);
 router.post('/templates', MANAGE, singleTemplate, createTemplate);
 router.put('/templates/:id', MANAGE, updateTemplate);
 router.post('/templates/:id/file', MANAGE, singleTemplate, reuploadTemplateFile);
+router.post('/templates/snapshot-all', MANAGE, snapshotAllTemplates);
 router.post('/templates/:id/preview', MANAGE, singlePreview, setTemplatePreview);
 router.post('/templates/:id/duplicate', MANAGE, duplicateTemplate);
 router.patch('/templates/:id/status', MANAGE, setTemplateStatus);

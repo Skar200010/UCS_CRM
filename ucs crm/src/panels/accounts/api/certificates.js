@@ -13,6 +13,7 @@ export const certificateApi = {
   // Re-upload the immutable template file (creates a new version snapshot).
   reuploadTemplate: (id, formData) => apiPost(`/certificates/templates/${id}/file`, formData, 60000),
   setTemplatePreview: (id, formData) => apiPost(`/certificates/templates/${id}/preview`, formData, 60000),
+  snapshotAllTemplates: () => apiPost(`/certificates/templates/snapshot-all`, {}),
   duplicateTemplate: (id) => apiPost(`/certificates/templates/${id}/duplicate`, {}),
   setStatus: (id, status) => apiPatch(`/certificates/templates/${id}/status`, { status }),
   deleteTemplate: (id) => apiDelete(`/certificates/templates/${id}`),

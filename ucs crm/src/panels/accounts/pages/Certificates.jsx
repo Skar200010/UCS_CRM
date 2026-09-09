@@ -125,6 +125,7 @@ export default function Certificates() {
     return local.toISOString().slice(0, 10)
   })
   const [bulkEvent, setBulkEvent] = useState('')
+  const [previewRowIdx, setPreviewRowIdx] = useState(0)
   const [generating, setGenerating] = useState(false)
 
   const loadTemplates = useCallback(async (status = statusTab) => {
@@ -295,20 +296,36 @@ export default function Certificates() {
   /* ------------------------------- generation ------------------------------- */
 
   const requiredFields = useMemo(() => (genTpl?.fields || []).filter((f) => f.required), [genTpl])
+
+  // Effective field values used for the live preview: single-mode form values,
+  // or the active bulk row merged with the shared Date/Event.
+  const previewValues = useMemo(() => {
+    if (bulkMode && bulkRows.length) {
+      const idx = Math.min(previewRowIdx, bulkRows.length - 1)
+      const active = { ...(bulkRows[idx] || {}) }
+      delete active.__name
+      if (bulkDateKey) active[bulkDateKey] = bulkDate
+      if (bulkEventKey) active[bulkEventKey] = bulkEvent
+      return active
+    }
+    return values
+  }, [bulkMode, bulkRows, previewRowIdx, bulkDate, bulkEvent, bulkDateKey, bulkEventKey, values])
+
   const missing = useMemo(() => {
     const m = []
     for (const f of requiredFields) {
-      if (values[f.field_key] == null || String(values[f.field_key]).trim() === '') m.push(f.display_name || f.field_key)
+      const v = previewValues[f.field_key] ?? f.default_value
+      if (v == null || String(v).trim() === '') m.push(f.display_name || f.field_key)
     }
     return m
-  }, [requiredFields, values])
+  }, [requiredFields, previewValues])
 
   const runPreview = useCallback(async () => {
     if (!genTpl || genTpl.file_format !== 'docx') return
     if (missing.length) return
     setPreviewBusy(true)
     try {
-      const resp = await certificateApi.preview({ template_id: genTpl.id, field_values: values, certificate_number: certNumber || undefined })
+      const resp = await certificateApi.preview({ template_id: genTpl.id, field_values: previewValues, certificate_number: certNumber || undefined })
       const buf = await resp.arrayBuffer()
       const { value } = await mammoth.convertToHtml({ arrayBuffer: buf })
       setPreviewHtml(value)
@@ -319,13 +336,13 @@ export default function Certificates() {
     } finally {
       setPreviewBusy(false)
     }
-  }, [genTpl, values, certNumber, missing.length])
+  }, [genTpl, previewValues, certNumber, missing.length])
 
   useEffect(() => {
     if (!genTpl || genTpl.file_format !== 'docx') return
     const t = setTimeout(runPreview, 500)
     return () => clearTimeout(t)
-  }, [genTpl, values, certNumber, runPreview])
+  }, [genTpl, previewValues, certNumber, runPreview])
 
   const doGenerate = async () => {
     if (!genTpl) return
@@ -471,6 +488,14 @@ export default function Certificates() {
     })
   }
 
+  const refreshSnapshots = async () => {
+    try {
+      const res = await certificateApi.snapshotAllTemplates()
+      toast(res.message || 'Snapshots refreshed', 'success')
+      loadTemplates()
+    } catch (e) { toast(e.message, 'error') }
+  }
+
   /* ---------------------------------- render ---------------------------------- */
 
   return (
@@ -585,6 +610,11 @@ export default function Certificates() {
           <div className="cert-actions">
             {view === 'library' && (
               <>
+                {canManage && templates.some((t) => t.file_format === 'pptx') && (
+                  <button className="btn btn-sm" onClick={refreshSnapshots} title="Regenerate the slide image preview for all PowerPoint templates">
+                    <RefreshCw size={14} /> Regenerate PPTX previews
+                  </button>
+                )}
                 <button className="btn btn-sm" onClick={toggleHistory}>
                   <History size={14} /> {showHistory ? 'Templates' : 'History'}
                 </button>
@@ -910,10 +940,10 @@ export default function Certificates() {
           <div className="card">
             <div className="card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="bulk-tabs">
-                <button className={`btn btn-sm ${!bulkMode ? 'btn-primary' : ''}`} onClick={() => { setBulkMode(false); setBulkResult(null) }}>
+                <button className={`btn btn-sm ${!bulkMode ? 'btn-primary' : ''}`} onClick={() => { setBulkMode(false); setBulkResult(null); setPreviewHtml(null) }}>
                   Single
                 </button>
-                <button className={`btn btn-sm ${bulkMode ? 'btn-primary' : ''}`} onClick={() => { setBulkMode(true); setBulkResult(null) }}>
+                <button className={`btn btn-sm ${bulkMode ? 'btn-primary' : ''}`} onClick={() => { setBulkMode(true); setBulkResult(null); setPreviewHtml(null) }}>
                   Bulk (many at once)
                 </button>
               </div>
@@ -1098,9 +1128,23 @@ export default function Certificates() {
           </div>
 
           <div className="preview-wrap">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>Preview
-                {genTpl.preview_image && <span style={{ fontWeight: 400, color: 'var(--ink-soft)', marginLeft: 6 }}>(template image)</span>}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                Preview
+                {bulkMode && bulkRows.length > 1 && (
+                  <label style={{ fontWeight: 400, display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--ink-soft)' }}>
+                    row
+                    <select
+                      value={Math.min(previewRowIdx, bulkRows.length - 1)}
+                      onChange={(e) => { setPreviewRowIdx(Number(e.target.value)); setPreviewHtml(null) }}
+                      style={{ padding: '3px 6px', borderRadius: 6, border: '1px solid var(--line)', fontSize: 12, outline: 'none' }}
+                    >
+                      {bulkRows.map((_, i) => <option key={i} value={i}>{i + 1}</option>)}
+                    </select>
+                    of {bulkRows.length}
+                  </label>
+                )}
+                {genTpl.file_format === 'pptx' && genTpl.preview_image && <span style={{ fontWeight: 400, color: 'var(--ink-soft)' }}>(template image)</span>}
               </div>
               <button
                 className="btn btn-sm"
@@ -1114,22 +1158,26 @@ export default function Certificates() {
             {previewBusy && (
               <div className="preview-loading"><Loader2 size={13} className="spin" /> Updating preview…</div>
             )}
-            {genTpl.preview_image ? (
-              <div className="cert-paper" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg,#f3f4f6)' }}>
-                <img src={genTpl.preview_image} alt={genTpl.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
-              </div>
-            ) : genTpl.file_format === 'docx' ? (
+            {genTpl.file_format === 'docx' ? (
               previewHtml ? (
                 <div className="cert-paper" dangerouslySetInnerHTML={{ __html: previewHtml }} />
               ) : previewNote ? (
                 <div className="cert-paper cert-fallback" style={{ color: '#991b1b' }}>
                   <div><AlertTriangle size={18} style={{ margin: '0 auto 8px', display: 'block' }} />{previewNote}</div>
                 </div>
+              ) : genTpl.preview_image ? (
+                <div className="cert-paper" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg,#f3f4f6)' }}>
+                  <img src={genTpl.preview_image} alt={genTpl.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
+                </div>
               ) : (
                 <div className="cert-paper cert-fallback" style={{ color: 'var(--ink-soft)' }}>
                   {missing.length ? 'Fill the required fields to preview.' : 'Generating preview…'}
                 </div>
               )
+            ) : genTpl.preview_image ? (
+              <div className="cert-paper" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg,#f3f4f6)' }}>
+                <img src={genTpl.preview_image} alt={genTpl.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
+              </div>
             ) : (
               <div className="cert-paper cert-fallback">
                 <Presentation size={26} style={{ color: '#c2410c' }} />

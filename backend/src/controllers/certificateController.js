@@ -6,6 +6,7 @@ import {
   renderCertificate,
   humanizeKey,
 } from '../services/certificateDocx.js';
+import { snapshotPptxToPng } from '../services/slideSnapshot.js';
 
 const BUCKET = 'certificates';
 const VALID_STATUS = new Set(['active', 'draft', 'archived']);
@@ -31,6 +32,32 @@ async function uploadFile(key, buffer, contentType) {
   if (error) throw error;
   const { data } = db.storage.from(BUCKET).getPublicUrl(key);
   return data.publicUrl;
+}
+
+async function savePreviewImage(id, template, buffer, ext = 'png', contentType = 'image/png') {
+  const key = `previews/${id}-${slugify(template.name)}.${ext}`;
+  const url = await uploadFile(key, buffer, contentType);
+  if (template.preview_key && template.preview_key !== key) {
+    await db.storage.from(BUCKET).remove(template.preview_key).catch(() => {});
+  }
+  await db._pool.query(
+    `UPDATE certificate_templates SET preview_image = $1, preview_key = $2, updated_at = NOW() WHERE id = $3`,
+    [url, key, id]);
+  return url;
+}
+
+// Best-effort: renders the first slide of a PPTX template via LibreOffice and
+// stores it as the template's preview image. Never throws to the caller.
+export async function autosnapshotTemplate(template) {
+  if (!template || template.file_format !== 'pptx' || !template.template_file) return null;
+  try {
+    const raw = await fetchFile(template.template_file);
+    const png = await snapshotPptxToPng(raw);
+    if (!png) return null;
+    return savePreviewImage(template.id, template, png);
+  } catch {
+    return null;
+  }
 }
 
 async function loadTemplateDetail(id) {
@@ -150,7 +177,8 @@ export const createTemplate = async (req, res) => {
 
     await replaceFields(id, placeholders.map((p, i) => ({ field_key: p.key, display_name: p.display, field_type: 'text', required: true, sort_order: i })));
     const template = await loadTemplateDetail(id);
-    return res.json({ message: 'Template created', template, detected: placeholders });
+    await autosnapshotTemplate(template);
+    return res.json({ message: 'Template created', template: await loadTemplateDetail(id), detected: placeholders });
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }
@@ -262,6 +290,7 @@ export const reuploadTemplateFile = async (req, res) => {
         WHERE id = $5`,
       [url, key, JSON.stringify(placeholders), version, id]);
     await syncFieldsWithPlaceholders(id, placeholders);
+    await autosnapshotTemplate(await loadTemplateDetail(id));
 
     return res.json({ message: 'Template file replaced', template: await loadTemplateDetail(id), detected: placeholders });
   } catch (e) {
@@ -282,21 +311,34 @@ export const setTemplatePreview = async (req, res) => {
     })();
     if (!/^(png|jpg|webp|gif)$/.test(ext)) return res.status(400).json({ message: 'Only PNG, JPG, WEBP or GIF preview images are supported.' });
 
-    const key = `previews/${id}-${slugify(template.name)}.${ext}`;
-    const url = await uploadFile(key, req.file.buffer, req.file.mimetype || 'image/png');
-
-    // Remove an older preview object if the key changed (e.g. extension change).
-    if (template.preview_key && template.preview_key !== key) {
-      await db.storage.from(BUCKET).remove(template.preview_key).catch(() => {});
-    }
-    await db._pool.query(
-      `UPDATE certificate_templates SET preview_image = $1, preview_key = $2, updated_at = NOW() WHERE id = $3`,
-      [url, key, id]);
+    await savePreviewImage(id, template, req.file.buffer, ext, req.file.mimetype || 'image/png');
 
     return res.json({ message: 'Preview image saved', template: await loadTemplateDetail(id) });
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }
+};
+
+export const snapshotAllTemplates = async (req, res) => {
+  const { rows } = await db._pool.query(
+    `SELECT id, name, file_format, template_file, template_key, preview_image, preview_key
+       FROM certificate_templates WHERE file_format = 'pptx'`);
+  const updated = [];
+  let ok = 0;
+  let skipped = 0;
+  for (const r of rows) {
+    try {
+      const url = await autosnapshotTemplate(r);
+      if (url) { updated.push({ id: r.id, name: r.name }); ok += 1; }
+      else skipped += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+  return res.json({
+    message: `Snapshot complete: ${ok} updated, ${skipped} skipped`,
+    updated, ok, skipped,
+  });
 };
 
 export const duplicateTemplate = async (req, res) => {
