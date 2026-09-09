@@ -33,6 +33,7 @@ import Loans from '../hr/components/Loans'
 import { fetchWorkerById } from '../hr/store'
 import AttendancePage from './pages/Attendance'
 import SimSection from './components/SimSection'
+import Certificates from './pages/Certificates'
 
 const NAV = [
   { id: 'leads', path: '/accounts/leads', label: 'Lead and Audit',
@@ -57,6 +58,8 @@ const NAV = [
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5H3v14h12"/><path d="M21 12l-6-6v4H9v4h6v4l6-6z"/></svg> },
   { id: 'loans', path: '/accounts/loans', label: 'Loan & Advance',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
+  { id: 'certificates', path: '/accounts/certificates', label: 'Certificates',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 9-5-3-5 3 1.5-9"/></svg> },
   { id: 'reports', path: '/accounts/reports', label: 'Reports',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
   { id: 'new-data', path: '/accounts/new-data', label: 'New Data',
@@ -391,6 +394,7 @@ export default function AccountsPanel() {
             <Route path="attendance" element={<AttendancePage />} />
             <Route path="tickets" element={<AccountsTickets />} />
             <Route path="loans" element={<Loans />} />
+            <Route path="certificates" element={<Certificates />} />
             <Route path="template-settings" element={<TemplateSettings />} />
             <Route path="asset-register" element={<AssetRegister />} />
             <Route path="reports" element={<Reports />} />

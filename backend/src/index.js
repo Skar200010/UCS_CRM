@@ -71,12 +71,14 @@ import simCardRoutes from './routes/simCardRoutes.js';
 import simInventoryRoutes from './routes/simInventoryRoutes.js';
 import reminderRoutes from './routes/reminderRoutes.js';
 import assetsRoutes from './routes/assetsRoutes.js';
+import certificateRoutes from './routes/certificateRoutes.js';
 import { whatsappLogin } from './controllers/froWhatsAppAuthController.js';
 import { authenticate } from './middleware/authMiddleware.js';
 import { ensureEventHeadSchema } from './bootstrap/ensureEventHeadSchema.js';
 import { ensureTicketSchema } from './bootstrap/ensureTicketSchema.js';
 import { ensureLoanDeductionSchema } from './bootstrap/ensureLoanDeductionSchema.js';
 import { ensureSpecialIncentiveSchema } from './bootstrap/ensureSpecialIncentiveSchema.js';
+import { ensureCertificateSchema } from './bootstrap/ensureCertificateSchema.js';
 
 dotenv.config();
 
@@ -227,6 +229,7 @@ app.use('/api/sim-cards', simCardRoutes);
 app.use('/api/sim-inventory', simInventoryRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/assets', assetsRoutes);
+app.use('/api/certificates', certificateRoutes);
 
 app.get('/api/deploy-test', (req, res) => {
   res.json({ status: 'ok', deployed: true, timestamp: new Date().toISOString(), commit: 'shon2-deploy-test' });
@@ -789,6 +792,7 @@ if (!process.env.VERCEL) {
     await ensureTicketSchema().catch(e => console.error('ensureTicketSchema failed:', e?.message || e));
     await ensureLoanDeductionSchema().catch(e => console.error('ensureLoanDeductionSchema failed:', e?.message || e));
     await ensureSpecialIncentiveSchema().catch(e => console.error('ensureSpecialIncentiveSchema failed:', e?.message || e));
+    await ensureCertificateSchema().catch(e => console.error('ensureCertificateSchema failed:', e?.message || e));
     import('./services/notificationScheduler.js');
     import('./services/dbHealthWatchdog.js');
   });
