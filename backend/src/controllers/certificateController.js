@@ -418,6 +418,16 @@ export const previewCertificate = async (req, res) => {
     if (missing.length) return res.status(400).json({ message: `Missing required fields: ${missing.join(', ')}`, missing });
 
     const out = await renderFromTemplate(template, values);
+    // PowerPoint can't be shown inline in a browser, so render the filled first
+    // slide to PNG (LibreOffice headless) for the live preview.
+    if (out.ext === 'pptx') {
+      const png = await snapshotPptxToPng(Buffer.from(out.buffer));
+      if (png) {
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Content-Disposition', 'inline; filename="preview.png"');
+        return res.send(Buffer.from(png));
+      }
+    }
     res.setHeader('Content-Type', out.mime);
     res.setHeader('Content-Disposition', `attachment; filename="preview.${out.ext}"`);
     return res.send(Buffer.from(out.buffer));

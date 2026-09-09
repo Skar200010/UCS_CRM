@@ -110,6 +110,7 @@ export default function Certificates() {
   const [values, setValues] = useState({})
   const [certNumber, setCertNumber] = useState('')
   const [previewHtml, setPreviewHtml] = useState(null)
+  const [previewImg, setPreviewImg] = useState(null)
   const [previewNote, setPreviewNote] = useState('')
   const [previewBusy, setPreviewBusy] = useState(false)
 
@@ -173,6 +174,7 @@ export default function Certificates() {
     setValues({})
     setCertNumber('')
     setPreviewHtml(null)
+    setPreviewImg(null)
     setPreviewNote('')
     setBulkMode(false)
     setBulkRows([])
@@ -244,6 +246,7 @@ export default function Certificates() {
         ? { ...g, preview_image: res.template.preview_image, preview_key: res.template.preview_key }
         : g))
       setPreviewHtml(null)
+      setPreviewImg(null)
       toast('Preview image saved', 'success')
       loadTemplates()
     } catch (e) { toast(e.message, 'error') } finally { setPreviewUploadBusy(false) }
@@ -331,17 +334,27 @@ export default function Certificates() {
   }, [requiredFields, previewValues])
 
   const runPreview = useCallback(async () => {
-    if (!genTpl || genTpl.file_format !== 'docx') return
+    if (!genTpl) return
     if (missing.length) return
     setPreviewBusy(true)
     try {
       const resp = await certificateApi.preview({ template_id: genTpl.id, field_values: previewValues, certificate_number: certNumber || undefined })
-      const buf = await resp.arrayBuffer()
-      const { value } = await mammoth.convertToHtml({ arrayBuffer: buf })
-      setPreviewHtml(value)
-      setPreviewNote('')
+      if (genTpl.file_format === 'pptx') {
+        const ct = resp.headers.get('content-type') || ''
+        if (!ct.includes('image')) throw new Error('Live preview could not be rendered for this template.')
+        const blob = await resp.blob()
+        const url = URL.createObjectURL(blob)
+        setPreviewImg((old) => { if (old) URL.revokeObjectURL(old); return url })
+        setPreviewNote('')
+      } else {
+        const buf = await resp.arrayBuffer()
+        const { value } = await mammoth.convertToHtml({ arrayBuffer: buf })
+        setPreviewHtml(value)
+        setPreviewNote('')
+      }
     } catch (e) {
       setPreviewHtml(null)
+      setPreviewImg(null)
       setPreviewNote(e.message)
     } finally {
       setPreviewBusy(false)
@@ -349,10 +362,12 @@ export default function Certificates() {
   }, [genTpl, previewValues, certNumber, missing.length])
 
   useEffect(() => {
-    if (!genTpl || genTpl.file_format !== 'docx') return
-    const t = setTimeout(runPreview, 500)
+    if (!genTpl) return
+    const t = setTimeout(runPreview, genTpl.file_format === 'pptx' ? 1200 : 500)
     return () => clearTimeout(t)
   }, [genTpl, previewValues, certNumber, runPreview])
+
+  useEffect(() => () => { if (previewImg) URL.revokeObjectURL(previewImg) }, [previewImg])
 
   const doGenerate = async () => {
     if (!genTpl) return
@@ -940,10 +955,10 @@ export default function Certificates() {
           <div className="card">
             <div className="card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="bulk-tabs">
-                <button className={`btn btn-sm ${!bulkMode ? 'btn-primary' : ''}`} onClick={() => { setBulkMode(false); setBulkResult(null); setPreviewHtml(null) }}>
+                <button className={`btn btn-sm ${!bulkMode ? 'btn-primary' : ''}`} onClick={() => { setBulkMode(false); setBulkResult(null); setPreviewHtml(null); setPreviewImg(null) }}>
                   Single
                 </button>
-                <button className={`btn btn-sm ${bulkMode ? 'btn-primary' : ''}`} onClick={() => { setBulkMode(true); setBulkResult(null); setPreviewHtml(null) }}>
+                <button className={`btn btn-sm ${bulkMode ? 'btn-primary' : ''}`} onClick={() => { setBulkMode(true); setBulkResult(null); setPreviewHtml(null); setPreviewImg(null) }}>
                   Bulk (many at once)
                 </button>
               </div>
@@ -1136,7 +1151,7 @@ export default function Certificates() {
                     row
                     <select
                       value={Math.min(previewRowIdx, bulkRows.length - 1)}
-                      onChange={(e) => { setPreviewRowIdx(Number(e.target.value)); setPreviewHtml(null) }}
+                      onChange={(e) => { setPreviewRowIdx(Number(e.target.value)); setPreviewHtml(null); setPreviewImg(null) }}
                       style={{ padding: '3px 6px', borderRadius: 6, border: '1px solid var(--line)', fontSize: 12, outline: 'none' }}
                     >
                       {bulkRows.map((_, i) => <option key={i} value={i}>{i + 1}</option>)}
@@ -1158,7 +1173,11 @@ export default function Certificates() {
             {previewBusy && (
               <div className="preview-loading"><Loader2 size={13} className="spin" /> Updating preview…</div>
             )}
-            {genTpl.file_format === 'docx' ? (
+            {genTpl.file_format === 'pptx' && previewImg ? (
+              <div className="cert-paper" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg,#f3f4f6)' }}>
+                <img src={previewImg} alt={genTpl.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
+              </div>
+            ) : genTpl.file_format === 'docx' ? (
               previewHtml ? (
                 <div className="cert-paper" dangerouslySetInnerHTML={{ __html: previewHtml }} />
               ) : previewNote ? (
@@ -1181,8 +1200,8 @@ export default function Certificates() {
             ) : (
               <div className="cert-paper cert-fallback">
                 <Presentation size={26} style={{ color: '#c2410c' }} />
-                <div><b>PPTX template</b> — slides can't render in the browser, so click <b>Upload image</b> above to see it live.</div>
-                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Upload a photo/screenshot of the certificate design and it will be shown here.</div>
+                <div><b>PPTX template</b> — as you type the required fields, the first slide renders here live.</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-soft)' }}>It can take a moment on first load. You can also upload a screenshot as the resting preview image.</div>
                 <button className="btn btn-sm" onClick={() => saveOrOpen(genTpl.template_file, `${genTpl.name}.${genTpl.file_format}`)}>
                   <Download size={14} /> Open base template
                 </button>
