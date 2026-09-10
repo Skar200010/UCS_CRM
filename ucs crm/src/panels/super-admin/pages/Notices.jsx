@@ -10,7 +10,7 @@ const PANEL_OPTIONS = [
   { role: 'recruiter', label: 'Recruiter' },
   { role: 'event_head', label: 'Event Head' },
   { role: 'fro', label: 'FRO' },
-  { role: 'ngo', label: 'Ngo Admin' },
+  { role: 'admin', label: 'Ngo Admin' },
 ]
 
 const EMPTY = { title: '', content: '', media_url: '', media_type: '', media_name: '', target_roles: ['all'], popup: true }
