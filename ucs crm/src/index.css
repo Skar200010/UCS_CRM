@@ -1379,6 +1379,7 @@
 .panel-accounts .lead-audit-section-title { display:flex; align-items:center; gap:9px; margin:0 0 9px; color:var(--ink-soft); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; }
 .panel-accounts .lead-audit-section-title::before { content:''; width:4px; height:16px; border-radius:4px; background:var(--sage); }
 .panel-accounts .lead-audit-section-title span { flex:0 0 auto; }
+.panel-accounts .sk { background:linear-gradient(90deg,var(--line) 25%,var(--sand) 50%,var(--line) 75%); background-size:200% 100%; animation:sk-shimmer 1.4s infinite; border-radius:6px; }
 .panel-accounts .lead-audit-section-title::after { content:''; height:1px; flex:1; background:linear-gradient(90deg,var(--line),transparent); }
 .panel-accounts .lead-audit-columns { grid-template-columns: 0.8fr 1fr; gap:64px; }
 .panel-accounts .lead-audit-columns > div { min-width:0; }
