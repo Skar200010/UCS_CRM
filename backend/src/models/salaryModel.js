@@ -788,7 +788,7 @@ export const getPagarExportData = async (month) => {
       achieved_mann: ngo.MANN || 0,
       gross_present_days: grossPresentDays,
       absent_days: attResult.absentDatesAfterJoin.length,
-      half_days: attResult.halfDayCount,
+      half_days: attResult.halfDayCount * 0.5,
       late_deduction_days: lateDeductionDays,
       sunday_deduction_days: sundayDeductionDays,
       training_deduction_days: trainingDeductionDays,
