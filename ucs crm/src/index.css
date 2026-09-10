@@ -2382,7 +2382,7 @@
 @media (max-width:560px){ .panel-event-head .eh-metrics { grid-template-columns:repeat(2,1fr); } .panel-event-head .content-body { padding:16px; } }
 @media (max-width:400px){ .panel-event-head .eh-metrics { grid-template-columns:1fr; } }
 
-/* -- Accounts: SIM Management sidebar group (collapsible dropdown) -- */
+/* -- Accounts: collapsible sidebar groups -- */
 .panel-accounts .snav-group { display:flex; flex-direction:column; }
 .panel-accounts .snav-group-header { width:100%; }
 .panel-accounts .snav-chevron { margin-left:auto; font-size:10px; transition:transform .2s; opacity:.6; flex-shrink:0; }
@@ -2390,3 +2390,7 @@
 .panel-accounts .snav-group-items { display:flex; flex-direction:column; gap:2px; overflow:hidden; }
 .panel-accounts .snav-group-items.collapsed { display:none; }
 .panel-accounts .snav-item.snav-sub { padding-left:34px; font-size:12.5px; }
+.panel-accounts .snav-group-header { margin-top:4px; padding:8px 12px 6px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); opacity:.85; }
+.panel-accounts .snav-group-header .ico { opacity:.75; }
+.panel-accounts .snav-group-header:hover { background:transparent; color:var(--ink); }
+.panel-accounts .snav-group-header.active { background:transparent; color:var(--sage); font-weight:700; }
