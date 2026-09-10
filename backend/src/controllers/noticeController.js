@@ -8,6 +8,9 @@ import {
   markNoticeSeen,
 } from '../models/noticeModel.js';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const asUuidOrNull = (v) => (v && UUID_RE.test(String(v))) ? String(v) : null;
+
 export const addNotice = async (req, res) => {
   try {
     const { title, content, target_role, media_url, media_type, media_name, popup, target_roles } = req.body;
@@ -24,7 +27,7 @@ export const addNotice = async (req, res) => {
       media_type: media_type || null,
       media_name: media_name || null,
       ngo_id: req.user.ngo_id || req.body.ngo_id || null,
-      created_by: req.user.id,
+      created_by: asUuidOrNull(req.user.id),
       created_by_name: req.user.name || null,
     });
     return res.status(201).json({ message: 'Notice created', notice });

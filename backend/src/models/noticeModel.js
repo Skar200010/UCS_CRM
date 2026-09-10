@@ -6,6 +6,19 @@ function sanitizeRole(role) {
   return VALID_ROLES.includes(role) ? role : null;
 }
 
+const LEGACY_ALL_ROLES = new Set(['all', 'null']);
+
+// target_roles takes precedence over the legacy single target_role column.
+// Specific list → role must be in it; contains 'all' or missing target_roles →
+// everyone (legacy fallback).
+function noticeMatchesRole(n, role) {
+  const raw = Array.isArray(n.target_roles) && n.target_roles.length
+    ? n.target_roles
+    : (n.target_role && !LEGACY_ALL_ROLES.has(String(n.target_role).toLowerCase()) ? [n.target_role] : ['all']);
+  if (raw.includes('all')) return true;
+  return role != null && raw.includes(role);
+}
+
 export const createNotice = async (data) => {
   const { data: result, error } = await db
     .from('notices')
@@ -23,12 +36,10 @@ export const getAllNotices = async (ngo_id, target_role) => {
     .eq('is_active', true)
     .order('created_at', { ascending: false });
   if (ngo_id) query = query.or(`ngo_id.eq.${ngo_id},ngo_id.is.null`);
-  const role = sanitizeRole(target_role);
-  if (role && role !== 'all') {
-    query = query.or(`target_role.eq.${role},target_role.is.null,target_role.eq.all,target_roles.is.null,target_roles.cs.{${role}},target_roles.cs.{all}`);
-  }
   const { data, error } = await query;
   if (error) throw error;
+  const role = sanitizeRole(target_role);
+  if (role && role !== 'all') return (data || []).filter(n => noticeMatchesRole(n, role));
   return data;
 };
 
@@ -40,12 +51,10 @@ export const getRecentNotices = async (ngo_id, since, target_role) => {
     .gte('created_at', since)
     .order('created_at', { ascending: false });
   if (ngo_id) query = query.eq('ngo_id', ngo_id);
-  const role = sanitizeRole(target_role);
-  if (role && role !== 'all') {
-    query = query.or(`target_role.eq.${role},target_role.is.null,target_role.eq.all,target_roles.is.null,target_roles.cs.{${role}},target_roles.cs.{all}`);
-  }
   const { data, error } = await query;
   if (error) throw error;
+  const role = sanitizeRole(target_role);
+  if (role && role !== 'all') return (data || []).filter(n => noticeMatchesRole(n, role));
   return data;
 };
 

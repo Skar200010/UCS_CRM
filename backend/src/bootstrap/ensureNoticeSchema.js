@@ -11,11 +11,12 @@ ALTER TABLE notices ADD COLUMN IF NOT EXISTS popup BOOLEAN NOT NULL DEFAULT true
 ALTER TABLE notices ADD COLUMN IF NOT EXISTS target_roles JSONB DEFAULT '["all"]';
 CREATE TABLE IF NOT EXISTS notice_seen (
   id BIGSERIAL PRIMARY KEY,
-  notice_id BIGINT NOT NULL,
+  notice_id TEXT NOT NULL,
   user_id BIGINT NOT NULL,
   seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (notice_id, user_id)
 );
+ALTER TABLE notice_seen ALTER COLUMN notice_id TYPE TEXT USING notice_id::text;
 `;
 
 export async function ensureNoticeSchema() {
