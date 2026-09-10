@@ -11,13 +11,13 @@ import { authenticateRole, authenticate } from '../middleware/authMiddleware.js'
 
 const router = Router();
 
-const adminOrHr = authenticateRole('super_admin', 'admin', 'hr');
+const adminOrHr = authenticateRole('super_admin', 'admin', 'hr', 'master');
 
 router.post('/', adminOrHr, addNotice);
 router.get('/', authenticate, listNotices);
 router.post('/:id/seen', authenticate, markSeen);
 router.get('/:id', adminOrHr, getNotice);
 router.put('/:id', adminOrHr, editNotice);
-router.delete('/:id', authenticateRole('super_admin', 'admin', 'hr'), removeNotice);
+router.delete('/:id', authenticateRole('super_admin', 'admin', 'hr', 'master'), removeNotice);
 
 export default router;

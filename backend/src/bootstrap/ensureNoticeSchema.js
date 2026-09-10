@@ -12,11 +12,13 @@ ALTER TABLE notices ADD COLUMN IF NOT EXISTS target_roles JSONB DEFAULT '["all"]
 CREATE TABLE IF NOT EXISTS notice_seen (
   id BIGSERIAL PRIMARY KEY,
   notice_id TEXT NOT NULL,
-  user_id BIGINT NOT NULL,
+  user_id TEXT NOT NULL,
   seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (notice_id, user_id)
 );
+-- User ids are UUIDs (strings); these casts keep old/odd layouts safe.
 ALTER TABLE notice_seen ALTER COLUMN notice_id TYPE TEXT USING notice_id::text;
+ALTER TABLE notice_seen ALTER COLUMN user_id TYPE TEXT USING user_id::text;
 `;
 
 export async function ensureNoticeSchema() {
