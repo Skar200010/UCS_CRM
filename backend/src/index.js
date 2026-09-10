@@ -81,6 +81,7 @@ import { ensureSpecialIncentiveSchema } from './bootstrap/ensureSpecialIncentive
 import { ensureSalaryHoldSchema } from './bootstrap/ensureSalaryHoldSchema.js';
 import { ensureCertificateSchema } from './bootstrap/ensureCertificateSchema.js';
 import { ensureNoticeSchema } from './bootstrap/ensureNoticeSchema.js';
+import { ensureNotificationLogTypes } from './bootstrap/ensureNotificationLogTypes.js';
 
 dotenv.config();
 
@@ -880,6 +881,7 @@ if (!process.env.VERCEL) {
     await ensureSalaryHoldSchema().catch(e => console.error('ensureSalaryHoldSchema failed:', e?.message || e));
     await ensureCertificateSchema().catch(e => console.error('ensureCertificateSchema failed:', e?.message || e));
     await ensureNoticeSchema().catch(e => console.error('ensureNoticeSchema failed:', e?.message || e));
+    await ensureNotificationLogTypes().catch(e => console.error('ensureNotificationLogTypes failed:', e?.message || e));
     import('./services/notificationScheduler.js');
     import('./services/dbHealthWatchdog.js');
   });

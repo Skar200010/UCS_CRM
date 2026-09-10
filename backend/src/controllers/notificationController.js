@@ -144,7 +144,11 @@ export const sendSuspenseAlert = async (req, res) => {
     let inserted = 0;
     for (const wid of workerIds) {
       try {
-        await db.from('notification_log').insert({ ...base, worker_id: wid });
+        const res = await db.from('notification_log').insert({ ...base, worker_id: wid });
+        if (res.error) {
+          console.error('Failed to send suspense alert to worker', wid, ':', res.error.message);
+          continue;
+        }
         inserted += 1;
       } catch (e) { console.error('Failed to send suspense alert to worker', wid, ':', e.message); }
     }
