@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/auth';
 import { useRealtime } from '../hooks/useRealtime';
+import { getViewPanel } from '../utils/viewPanel';
 
 const MAX_VISIBLE = 3;
 
@@ -63,11 +64,11 @@ export default function NoticesBar() {
   const [items, setItems] = useState([]);
   const dismissedKeyRef = useRef(barSeenKey());
   const dismissedRef = useRef(readDismissed(dismissedKeyRef.current));
-  const role = getRole();
+  const target = getViewPanel() || getRole();
 
   const refresh = useCallback(async () => {
     try {
-      const r = await api(`/notices${role ? `?target_role=${role}` : ''}`, { _prefix: 'ucs' });
+      const r = await api(`/notices${target ? `?target_role=${target}` : ''}`, { _prefix: 'ucs' });
       const arr = Array.isArray(r) ? r : (r?.data || []);
       const visible = arr
         .filter(n => n.is_active !== false)
@@ -76,7 +77,7 @@ export default function NoticesBar() {
         .slice(0, MAX_VISIBLE);
       setItems(visible);
     } catch { /* 401/offline — ignore */ }
-  }, [role]);
+  }, [target]);
 
   useEffect(() => {
     refresh();

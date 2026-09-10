@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/auth';
 import { useRealtime } from '../hooks/useRealtime';
+import { getViewPanel } from '../utils/viewPanel';
 
 const SEEN_KEY_BASE = 'nc_seen_v1';
 const AUTO_CLOSE_MS = 5000;
@@ -67,6 +68,8 @@ export function useNoticesPopup() {
   const seenRef = useRef(readSet(seenKey));
   const currentRef = useRef(null);
   const role = getRole();
+  const viewPanel = getViewPanel();
+  const target = viewPanel || role;
 
   const markSeen = useCallback(async (id) => {
     if (id == null) return;
@@ -75,12 +78,12 @@ export function useNoticesPopup() {
 
   const load = useCallback(async () => {
     try {
-      const r = await api(`/notices${role ? `?target_role=${role}` : ''}`, { _prefix: 'ucs' });
+      const r = await api(`/notices${target ? `?target_role=${target}` : ''}`, { _prefix: 'ucs' });
       const arr = Array.isArray(r) ? r : (r?.data || []);
       const isSuper = role === 'super_admin';
       const popups = arr
         .filter(n => n.is_active !== false && n.popup !== false && !n.seen && !seenRef.current.has(String(n.id)))
-        .filter(n => !isSuper || targetedAtSuperAdmin(n))
+        .filter(n => !(isSuper && !viewPanel) || targetedAtSuperAdmin(n))
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setList(popups);
       const next = popups.find(n => !seenRef.current.has(String(n.id)));
@@ -92,7 +95,7 @@ export function useNoticesPopup() {
         markSeen(next.id);
       }
     } catch { /* 401/offline */ }
-  }, [role, markSeen, seenKey]);
+  }, [role, target, viewPanel, markSeen, seenKey]);
 
   useEffect(() => {
     load();

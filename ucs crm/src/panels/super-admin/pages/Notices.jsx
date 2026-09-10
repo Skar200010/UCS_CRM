@@ -4,13 +4,12 @@ import { uploadImage } from '../../../components/NoticePopup'
 
 const PANEL_OPTIONS = [
   { role: 'all', label: 'All' },
-  { role: 'admin', label: 'Admin' },
+  { role: 'admin', label: 'Admin / Ngo Admin' },
   { role: 'accounts', label: 'Accounts' },
   { role: 'hr', label: 'HR' },
   { role: 'recruiter', label: 'Recruiter' },
   { role: 'event_head', label: 'Event Head' },
   { role: 'fro', label: 'FRO' },
-  { role: 'admin', label: 'Ngo Admin' },
 ]
 
 const EMPTY = { title: '', content: '', media_url: '', media_type: '', media_name: '', target_roles: ['all'], popup: true }
