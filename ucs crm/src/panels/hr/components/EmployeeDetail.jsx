@@ -2328,6 +2328,41 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
         </div>
       )}
 
+      {holdModal && (
+        <div style={{
+          position:'fixed', inset:0, background:'rgba(15,23,42,.45)', zIndex:200,
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }} onClick={() => setHoldModal(false)}>
+          <div style={{
+            background:'#fff', borderRadius:14, width:'min(92vw,440px)',
+            padding:'20px 22px', boxShadow:'0 20px 60px rgba(0,0,0,.25)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight:700, fontSize:16, marginBottom:4 }}>Hold Salary</div>
+            <div style={{ fontSize:12, color:'var(--ink-soft)', marginBottom:14 }}>
+              {data?.name || 'Worker'} · {effectiveMonthKey}
+            </div>
+            <div style={{ fontSize:12, fontWeight:600, color:'var(--ink)', marginBottom:6 }}>
+              Reason (optional)
+            </div>
+            <textarea
+              rows={3} value={holdReason}
+              onChange={e => setHoldReason(e.target.value)}
+              placeholder="e.g. Bank details mismatch, verify & pay next month"
+              style={{
+                width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:8,
+                border:'1px solid var(--line)', fontSize:13, resize:'vertical', fontFamily:'inherit',
+              }} />
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
+              <button className="btn btn-sm" onClick={() => { setHoldModal(false); setHoldReason(''); }}>Cancel</button>
+              <button className="btn btn-sm" style={{ background:'var(--danger)', color:'#fff', border:'none' }}
+                onClick={handlerHoldSalary} disabled={holdBusy}>
+                {holdBusy ? 'Saving…' : 'Confirm Hold'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }
@@ -2603,40 +2638,6 @@ function SkeletonDetail({ onBack }) {
           </div>
         </div>
       </div>
-      {holdModal && (
-        <div style={{
-          position:'fixed', inset:0, background:'rgba(15,23,42,.45)', zIndex:200,
-          display:'flex', alignItems:'center', justifyContent:'center',
-        }} onClick={() => setHoldModal(false)}>
-          <div style={{
-            background:'#fff', borderRadius:14, width:'min(92vw,440px)',
-            padding:'20px 22px', boxShadow:'0 20px 60px rgba(0,0,0,.25)',
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontWeight:700, fontSize:16, marginBottom:4 }}>Hold Salary</div>
-            <div style={{ fontSize:12, color:'var(--ink-soft)', marginBottom:14 }}>
-              {data?.name || 'Worker'} · {effectiveMonthKey}
-            </div>
-            <div style={{ fontSize:12, fontWeight:600, color:'var(--ink)', marginBottom:6 }}>
-              Reason (optional)
-            </div>
-            <textarea
-              rows={3} value={holdReason}
-              onChange={e => setHoldReason(e.target.value)}
-              placeholder="e.g. Bank details mismatch, verify & pay next month"
-              style={{
-                width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:8,
-                border:'1px solid var(--line)', fontSize:13, resize:'vertical', fontFamily:'inherit',
-              }} />
-            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
-              <button className="btn btn-sm" onClick={() => { setHoldModal(false); setHoldReason(''); }}>Cancel</button>
-              <button className="btn btn-sm" style={{ background:'var(--danger)', color:'#fff', border:'none' }}
-                onClick={handlerHoldSalary} disabled={holdBusy}>
-                {holdBusy ? 'Saving…' : 'Confirm Hold'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
