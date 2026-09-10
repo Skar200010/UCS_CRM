@@ -3,7 +3,7 @@ import { getSenderPanel, getSenderName } from '../utils/panel.js';
 
 export const listTickets = async (req, res) => {
   try {
-    const { status, department, category } = req.query;
+    const { status, department, category, priority, search, date_from, date_to } = req.query;
     let query = db
       .from('support_tickets')
       .select('*, workers!support_tickets_raised_by_fkey(name, login_id)')
@@ -12,10 +12,27 @@ export const listTickets = async (req, res) => {
     if (status) query = query.eq('status', status);
     if (department) query = query.eq('department', department);
     if (category) query = query.eq('category', category);
+    if (priority) query = query.eq('priority', priority);
+    if (date_from) query = query.gte('created_at', date_from);
+    if (date_to) query = query.lte('created_at', date_to);
+    if (search) {
+      query = query.or(`subject.ilike.%${search}%,description.ilike.%${search}%,reference_id.ilike.%${search}%`);
+    }
 
     const { data, error } = await query;
     if (error) throw error;
-    return res.json(data || []);
+    const tickets = data || [];
+
+    let comments = [];
+    if (tickets.length) {
+      const rc = await db
+        .from('ticket_replies')
+        .select('ticket_id, count')
+        .in('ticket_id', tickets.map(t => t.id));
+      comments = rc.data || [];
+    }
+    const commentMap = Object.fromEntries(comments.map(c => [c.ticket_id, c.count]));
+    return res.json(tickets.map(t => ({ ...t, comment_count: commentMap[t.id] || 0 })));
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -54,8 +71,10 @@ export const getTicket = async (req, res) => {
       .order('created_at', { ascending: true });
     if (replyError) throw replyError;
 
-    // Feedback/conversation is visible only to the person who raised the ticket.
-    const visibleReplies = req.user.id === ticket.raised_by ? (replies || []) : [];
+    // Feedback/conversation is visible to the person who raised the ticket and
+    // to the accounts team who resolves it.
+    const isResolverTeam = req.user.role === 'accounts' || req.user.role === 'super_admin';
+    const visibleReplies = (isResolverTeam || req.user.id === ticket.raised_by) ? (replies || []) : [];
 
     return res.json({ ...ticket, replies: visibleReplies });
   } catch (error) {
@@ -161,6 +180,22 @@ export const addReply = async (req, res) => {
       .eq('id', id);
 
     return res.status(201).json(data);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteTicket = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.from('ticket_replies').delete().eq('ticket_id', id);
+    const { data, error } = await db.from('support_tickets').delete().eq('id', id).select('id').single();
+    if (error) {
+      if (String(error.code) === 'PGRST116') return res.status(404).json({ message: 'Ticket not found' });
+      throw error;
+    }
+    if (!data) return res.status(404).json({ message: 'Ticket not found' });
+    return res.json({ deleted: true, id: data.id });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

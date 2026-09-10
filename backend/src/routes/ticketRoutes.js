@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate, authenticateRole } from '../middleware/authMiddleware.js';
 import {
-  listTickets, listMyTickets, getTicket, createTicket, updateTicket, addReply, getWorkers
+  listTickets, listMyTickets, getTicket, createTicket, updateTicket, addReply, deleteTicket, getWorkers
 } from '../controllers/ticketController.js';
 
 const router = Router();
@@ -15,6 +15,7 @@ router.post('/', createTicket);
 router.get('/', authenticateRole('accounts', 'super_admin', 'event_head'), listTickets);
 router.get('/:id', getTicket);
 router.put('/:id', authenticateRole('accounts', 'super_admin'), updateTicket);
+router.delete('/:id', authenticateRole('accounts', 'super_admin'), deleteTicket);
 router.post('/:id/reply', addReply);
 
 export default router;
