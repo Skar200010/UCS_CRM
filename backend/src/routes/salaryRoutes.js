@@ -40,6 +40,7 @@ router.get('/attendance', authenticateSalary, getWorkerAttendance);
 router.patch('/attendance', authenticateSalary, updateWorkerAttendance);
 router.get('/worker/:workerId', adminHrAccounts, getWorkerSalaries);
 router.post('/', adminHrAccounts, addSalary);
+router.put('/hold', adminHrAccounts, setSalaryHold);
 router.put('/:id', adminHrAccounts, editSalary);
 router.put('/:id/pay', adminOrHrOrHo, paySalary);
 router.delete('/:id', adminHrAccounts, removeSalary);
