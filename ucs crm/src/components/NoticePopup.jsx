@@ -2,25 +2,36 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/auth';
 import { useRealtime } from '../hooks/useRealtime';
 
-const SEEN_KEY = 'nc_seen_v1';
+const SEEN_KEY_BASE = 'nc_seen_v1';
 const AUTO_CLOSE_MS = 5000;
+
+const seenKeyFor = () => {
+  try {
+    const u = localStorage.getItem('ucs_user');
+    if (u) {
+      const parsed = JSON.parse(u);
+      if (parsed && parsed.id != null) return `nc_seen_v1_${parsed.id}`;
+    }
+  } catch { /* ignore */ }
+  return SEEN_KEY_BASE;
+};
+
+const readSet = (key) => {
+  try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch { return new Set(); }
+};
+const addToSet = (key, id) => {
+  try {
+    const s = readSet(key);
+    if (s.has(String(id))) return;
+    s.add(String(id));
+    localStorage.setItem(key, JSON.stringify([...s]));
+  } catch { /* ignore */ }
+};
 
 const NC_CSS = `
 @keyframes nc-pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
 @keyframes nc-countdown { from { width: 100%; } to { width: 0%; } }
 `;
-
-const readSet = () => {
-  try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')); } catch { return new Set(); }
-};
-const addToSet = (id) => {
-  try {
-    const s = readSet();
-    if (s.has(String(id))) return;
-    s.add(String(id));
-    localStorage.setItem(SEEN_KEY, JSON.stringify([...s]));
-  } catch { /* ignore */ }
-};
 
 function getRole() {
   try {
@@ -45,7 +56,8 @@ export const uploadImage = async (file) => {
 export function useNoticesPopup() {
   const [list, setList] = useState([]);
   const [current, setCurrent] = useState(null);
-  const seenRef = useRef(readSet());
+  const seenKey = seenKeyFor();
+  const seenRef = useRef(readSet(seenKey));
   const currentRef = useRef(null);
   const role = getRole();
 
@@ -64,14 +76,14 @@ export function useNoticesPopup() {
       setList(popups);
       const next = popups.find(n => !seenRef.current.has(String(n.id)));
       if (next) {
-        addToSet(next.id);
+        addToSet(seenKey, next.id);
         seenRef.current.add(String(next.id));
         currentRef.current = next.id;
         setCurrent(next);
         markSeen(next.id);
       }
     } catch { /* 401/offline */ }
-  }, [role, markSeen]);
+  }, [role, markSeen, seenKey]);
 
   useEffect(() => {
     load();
