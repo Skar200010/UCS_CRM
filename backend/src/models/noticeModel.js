@@ -33,15 +33,19 @@ function deptPanel(dept) {
 
 // target_roles takes precedence over the legacy single target_role column.
 // Specific list → role (or the user's department panel) must be in it; contains
-// 'all' or missing target_roles → everyone (legacy fallback).
-function noticeMatchesRole(n, role, dept) {
+// 'all' or missing target_roles → everyone (legacy fallback). The `panel` arg is
+// the panel the client is actually viewing (e.g. ?target_role=fro) so real panel
+// users receive their panel's notices even when their stored role/dept is generic.
+function noticeMatchesRole(n, role, dept, panel) {
   const raw = Array.isArray(n.target_roles) && n.target_roles.length
     ? n.target_roles
     : (n.target_role && !LEGACY_ALL_ROLES.has(String(n.target_role).toLowerCase()) ? [n.target_role] : ['all']);
   if (raw.includes('all')) return true;
   if (role != null && raw.includes(role)) return true;
-  const panel = deptPanel(dept);
-  return panel != null && raw.includes(panel);
+  const pid = deptPanel(dept);
+  if (pid != null && raw.includes(pid)) return true;
+  if (panel && panel !== 'all' && panel !== 'super_admin' && raw.includes(panel)) return true;
+  return false;
 }
 
 export const createNotice = async (data) => {
@@ -65,7 +69,7 @@ export const getAllNotices = async (ngo_id, target_role, user) => {
   if (error) throw error;
   if (user?.role === 'super_admin') return data;
   const role = sanitizeRole(user?.role || target_role);
-  if (role && role !== 'all') return (data || []).filter(n => noticeMatchesRole(n, role, user?.department));
+  if (role && role !== 'all') return (data || []).filter(n => noticeMatchesRole(n, role, user?.department, target_role));
   return data;
 };
 
@@ -81,7 +85,7 @@ export const getRecentNotices = async (ngo_id, since, target_role, user) => {
   if (error) throw error;
   if (user?.role === 'super_admin') return data;
   const role = sanitizeRole(user?.role || target_role);
-  if (role && role !== 'all') return (data || []).filter(n => noticeMatchesRole(n, role, user?.department));
+  if (role && role !== 'all') return (data || []).filter(n => noticeMatchesRole(n, role, user?.department, target_role));
   return data;
 };
 

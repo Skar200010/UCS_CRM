@@ -56,6 +56,13 @@ const fmtDate = (iso) => {
   } catch { return ''; }
 };
 
+const isImageUrl = (url, type) => {
+  const t = String(type || '').toLowerCase();
+  const u = String(url || '').toLowerCase();
+  if (t.startsWith('image/')) return true;
+  return /\.(png|jpe?g|gif|webp|bmp|svg|avif)(\?|$)/.test(u);
+};
+
 const BAR_CSS = `
 @keyframes nc-slide-down { from { transform: translate(-50%, -18px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 `;
@@ -64,7 +71,9 @@ export default function NoticesBar() {
   const [items, setItems] = useState([]);
   const dismissedKeyRef = useRef(barSeenKey());
   const dismissedRef = useRef(readDismissed(dismissedKeyRef.current));
-  const target = getViewPanel() || getRole();
+  const role = getRole();
+  const target = getViewPanel() || role;
+  const inSAPanel = role === 'super_admin' && typeof window !== 'undefined' && String(window.location.pathname).startsWith('/sa');
 
   const refresh = useCallback(async () => {
     try {
@@ -93,6 +102,7 @@ export default function NoticesBar() {
     setItems(prev => prev.filter(n => String(n.id) !== String(id)));
   }, []);
 
+  if (inSAPanel) return null;
   if (!items.length) return null;
 
   return (
@@ -132,14 +142,24 @@ export default function NoticesBar() {
               display: 'flex', alignItems: 'flex-start', gap: 10,
               padding: '11px 16px', borderBottom: '1px solid #f1f5f9',
             }}>
-              <span style={{
-                width: 30, height: 30, borderRadius: 9, flexShrink: 0,
-                background: 'linear-gradient(135deg,#2563eb,#60a5fa)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 2px 6px rgba(37,99,235,.3)',
-              }}>
-                <span style={{ fontSize: 15 }}>🔔</span>
-              </span>
+              {isImageUrl(n.media_url, n.media_type) ? (
+                <img
+                  src={n.media_url}
+                  alt={n.media_name || n.title || 'notice'}
+                  style={{ width: 64, height: 56, objectFit: 'cover', borderRadius: 8, flexShrink: 0, cursor: 'pointer', border: '1px solid #e2e8f0' }}
+                  onClick={() => window.open(n.media_url, '_blank', 'noopener')}
+                  title="Open image"
+                />
+              ) : (
+                <span style={{
+                  width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+                  background: 'linear-gradient(135deg,#2563eb,#60a5fa)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(37,99,235,.3)',
+                }}>
+                  <span style={{ fontSize: 15 }}>🔔</span>
+                </span>
+              )}
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a', lineHeight: 1.35 }}>{n.title}</div>

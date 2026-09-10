@@ -15,6 +15,7 @@ import WhatsAppPanel from './panels/whatsapp/WhatsAppPanel'
 import DevPanel from './panels/dev-panel/DevPanel'
 import SimCardPanel from './panels/sim-card/SimCardPanel'
 import BeneficiariesPanel from './panels/beneficiaries/BeneficiariesPanel'
+import NoticesBar from './components/NoticesBar'
 
 const ROLE_PATHS = {
   super_admin: '/sa',

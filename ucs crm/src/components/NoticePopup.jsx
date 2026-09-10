@@ -67,6 +67,8 @@ export function useNoticesPopup() {
   const seenKey = seenKeyFor();
   const seenRef = useRef(readSet(seenKey));
   const currentRef = useRef(null);
+  const inflightRef = useRef(false);
+  const lastDismissRef = useRef(0);
   const role = getRole();
   const viewPanel = getViewPanel();
   const target = viewPanel || role;
@@ -80,6 +82,14 @@ export function useNoticesPopup() {
     if (inflightRef.current) return;
     inflightRef.current = true;
     try {
+      if (role === 'super_admin' && typeof window !== 'undefined' && String(window.location.pathname).startsWith('/sa')) {
+        setList([]);
+        if (currentRef.current) {
+          currentRef.current = null;
+          setCurrent(null);
+        }
+        return;
+      }
       const r = await api(`/notices${target ? `?target_role=${target}` : ''}`, { _prefix: 'ucs' });
       const arr = Array.isArray(r) ? r : (r?.data || []);
       const isSuper = role === 'super_admin';
@@ -98,7 +108,9 @@ export function useNoticesPopup() {
         setCurrent(next);
         markSeen(next.id);
       }
-    } catch { /* 401/offline */ }
+    } catch { /* 401/offline */ } finally {
+      inflightRef.current = false;
+    }
   }, [role, target, viewPanel, markSeen, seenKey]);
 
   useEffect(() => {
