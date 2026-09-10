@@ -4,6 +4,8 @@ import {
   getNoticeById,
   updateNotice,
   deleteNotice,
+  getSeenNoticeIds,
+  markNoticeSeen,
 } from '../models/noticeModel.js';
 
 export const addNotice = async (req, res) => {
@@ -35,7 +37,18 @@ export const listNotices = async (req, res) => {
   try {
     const ngoId = req.user.role === 'super_admin' ? req.query.ngo_id : req.user.ngo_id;
     const notices = await getAllNotices(ngoId, req.query.target_role);
-    return res.json(notices);
+    const seen = await getSeenNoticeIds(req.user.id);
+    const out = (notices || []).map(n => ({ ...n, seen: seen.has(String(n.id)) }));
+    return res.json(out);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const markSeen = async (req, res) => {
+  try {
+    await markNoticeSeen(req.user.id, req.params.id);
+    return res.json({ seen: true });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

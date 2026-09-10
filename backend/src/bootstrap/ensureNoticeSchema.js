@@ -9,12 +9,19 @@ ALTER TABLE notices ADD COLUMN IF NOT EXISTS media_type TEXT;
 ALTER TABLE notices ADD COLUMN IF NOT EXISTS media_name TEXT;
 ALTER TABLE notices ADD COLUMN IF NOT EXISTS popup BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE notices ADD COLUMN IF NOT EXISTS target_roles JSONB DEFAULT '["all"]';
+CREATE TABLE IF NOT EXISTS notice_seen (
+  id BIGSERIAL PRIMARY KEY,
+  notice_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (notice_id, user_id)
+);
 `;
 
 export async function ensureNoticeSchema() {
   try {
     await db._pool.query(ENSURE_COLUMNS_SQL);
-    console.log('notices media/popup/target_roles columns ready');
+    console.log('notices media/popup/target_roles columns ready; notice_seen table ready');
   } catch (e) {
     console.warn('[notice schema] skip:', e?.message || String(e));
   }
