@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { apiGet, apiPost, apiDelete, apiPatch } from '../api/auth'
-import { MoreHorizontal } from 'lucide-react'
+
 import { useRealtime } from '../../../hooks/useRealtime'
 import { formatIndianCurrency, formatReceiptDate, generateReceiptPDF, downloadSinglePDF, downloadAllPDFs } from '../services/pdfGenerator'
 import ReceiptTemplateManncar from '../components/ReceiptTemplateManncar'
@@ -497,7 +497,6 @@ export default function Receipts() {
 
   const [sendingId, setSendingId] = useState(null)
   const [editingId, setEditingId] = useState(null)
-  const [openRowMenu, setOpenRowMenu] = useState(null)
   const [previewRow, setPreviewRow] = useState(null)
   const [previewedIds, setPreviewedIds] = useState(() => new Set())
   const previewBodyRef = useRef(null)
@@ -969,7 +968,6 @@ export default function Receipts() {
                 <th>Amount</th>
                 <th>Date</th>
                 <th>NGO</th>
-                <th>Status</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -984,17 +982,15 @@ export default function Receipts() {
                     <td><div className="sk" style={{ width:60, height:12, borderRadius:3 }} /></td>
                     <td><div className="sk" style={{ width:70, height:12, borderRadius:3 }} /></td>
                     <td><div className="sk" style={{ width:55, height:12, borderRadius:3 }} /></td>
-                    <td><div className="sk" style={{ width:80, height:12, borderRadius:3 }} /></td>
-                    <td><div className="sk" style={{ width:70, height:24, borderRadius:4 }} /></td>
+                    <td><div className="sk" style={{ width:140, height:24, borderRadius:4 }} /></td>
                   </tr>
                 ))
               ) : filteredDonors.length === 0 ? (
-                <tr><td colSpan={9} style={{ textAlign:'center', padding:30, color:'var(--ink-soft)' }}>{ngoFilter === 'all' ? 'No pending receipts.' : `No pending receipts for ${NGO_MAP[ngoFilter]?.label || ngoFilter}.`}</td></tr>
+                <tr><td colSpan={8} style={{ textAlign:'center', padding:30, color:'var(--ink-soft)' }}>{ngoFilter === 'all' ? 'No pending receipts.' : `No pending receipts for ${NGO_MAP[ngoFilter]?.label || ngoFilter}.`}</td></tr>
               ) : filteredDonors.slice((receiptPage - 1) * PAGE_SIZE, receiptPage * PAGE_SIZE).map((d, i) => {
                 const realIdx = (receiptPage - 1) * PAGE_SIZE + i;
                 const rowId = d.receipt_id;
                 const mobile = (d['Mobile No.'] || '').trim();
-                const hasMobile = /^\d{10,13}$/.test(mobile);
                 return (
                 <tr key={rowId || realIdx} style={{ background: selectedId != null && selectedId === rowId ? '#f0fdf4' : undefined, cursor:'pointer' }}
                   onClick={() => setSelectedId(rowId)}>
@@ -1021,32 +1017,22 @@ export default function Receipts() {
                       return <span className="rx-ngo-tag" style={st}>{NGO_MAP[ng]?.label || ng}</span>
                     })()}
                   </td>
-                  <td>
-                    {hasMobile
-                      ? <span className="rx-row-ready"><span className="rx-row-dot" style={{ background:'#059669' }}/>Ready to Send</span>
-                      : <span className="rx-row-ready" style={{ background:'#fef3c7', color:'#92400e' }}><span className="rx-row-dot" style={{ background:'#d97706' }}/>Needs Mobile</span>
-                    }
-                  </td>
                   <td className="rx-actions-cell">
-                    <div className="rx-row-menu">
-                      <button type="button" className="rx-row-menu-trigger" aria-label="Receipt actions"
-                        onClick={e => { e.stopPropagation(); setOpenRowMenu(openRowMenu === rowId ? null : rowId) }}>
-                        <MoreHorizontal size={17} strokeWidth={2.2} />
-                      </button>
-                      {openRowMenu === rowId && (
-                        <div className="rx-row-menu-popover" onClick={e => e.stopPropagation()}>
-                          {previewedIds.has(rowId) && (
-                            <button type="button" onClick={() => { setOpenRowMenu(null); handleSendSingle(d, rowId) }} disabled={sendingId === rowId}>
-                              {sendingId === rowId ? 'Sending…' : 'Send receipt'}
-                            </button>
-                          )}
-                          <button type="button" onClick={() => { setOpenRowMenu(null); handleEditReceipt(d) }}>Edit receipt</button>
-                          <button type="button" className="warn" onClick={() => { setOpenRowMenu(null); setGoBackRow(d) }}>Go back</button>
-                          <button type="button" onClick={() => { setOpenRowMenu(null); if (d.receipt_id) setPreviewedIds(prev => new Set(prev).add(d.receipt_id)); setPreviewRow(d) }}>Preview</button>
+                        <div className="rx-row-acts">
+                          <button type="button" className="rx-row-actbtn" onClick={e => { e.stopPropagation(); if (d.receipt_id) setPreviewedIds(prev => new Set(prev).add(d.receipt_id)); setPreviewRow(d) }}>
+                            Preview
+                          </button>
+                          <button type="button" className="rx-row-actbtn" onClick={e => { e.stopPropagation(); if (d.receipt_id) setPreviewedIds(prev => new Set(prev).add(d.receipt_id)); handleSendSingle(d, rowId) }} disabled={sendingId === rowId}>
+                            {sendingId === rowId ? 'Sending…' : 'Send'}
+                          </button>
+                          <button type="button" className="rx-row-actbtn" onClick={e => { e.stopPropagation(); handleEditReceipt(d) }}>
+                            Edit
+                          </button>
+                          <button type="button" className="rx-row-actbtn rx-row-actbtn-warn" onClick={e => { e.stopPropagation(); setGoBackRow(d) }}>
+                            Undo
+                          </button>
                         </div>
-                      )}
-                    </div>
-                  </td>
+                      </td>
                 </tr>
               )})}
               {!loading && filteredDonors.length > 0 && (
@@ -1058,7 +1044,6 @@ export default function Receipts() {
                   <td style={{ padding:'9px 12px', color:'#059669' }}>
                     {formatIndianCurrency(filteredDonors.reduce((s, d) => s + Number(d['Amount'] || 0), 0))}
                   </td>
-                  <td></td>
                   <td></td>
                   <td></td>
                   <td style={{ padding:'9px 12px' }}>{filteredDonors.length} rows</td>
