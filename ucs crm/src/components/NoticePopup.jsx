@@ -28,6 +28,13 @@ const addToSet = (key, id) => {
   } catch { /* ignore */ }
 };
 
+const targetedAtSuperAdmin = (n) => {
+  const raw = Array.isArray(n.target_roles) && n.target_roles.length
+    ? n.target_roles
+    : (n.target_role && !['all', 'null'].includes(String(n.target_role).toLowerCase()) ? [n.target_role] : ['all']);
+  return raw.includes('all') || raw.includes('super_admin');
+};
+
 const NC_CSS = `
 @keyframes nc-pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
 @keyframes nc-countdown { from { width: 100%; } to { width: 0%; } }
@@ -70,8 +77,10 @@ export function useNoticesPopup() {
     try {
       const r = await api(`/notices${role ? `?target_role=${role}` : ''}`, { _prefix: 'ucs' });
       const arr = Array.isArray(r) ? r : (r?.data || []);
+      const isSuper = role === 'super_admin';
       const popups = arr
         .filter(n => n.is_active !== false && n.popup !== false && !n.seen && !seenRef.current.has(String(n.id)))
+        .filter(n => !isSuper || targetedAtSuperAdmin(n))
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setList(popups);
       const next = popups.find(n => !seenRef.current.has(String(n.id)));
