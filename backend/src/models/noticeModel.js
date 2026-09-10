@@ -80,3 +80,20 @@ export const deleteNotice = async (id) => {
   if (!data || data.length === 0) return { message: 'Notice not found' };
   return { message: 'Notice deleted' };
 };
+
+export const getSeenNoticeIds = async (userId) => {
+  if (userId == null) return new Set();
+  const { rows } = await db._pool.query(
+    'SELECT notice_id FROM notice_seen WHERE user_id = $1',
+    [userId]
+  );
+  return new Set(rows.map(r => String(r.notice_id)));
+};
+
+export const markNoticeSeen = async (userId, noticeId) => {
+  if (userId == null || noticeId == null) return;
+  await db._pool.query(
+    'INSERT INTO notice_seen (notice_id, user_id) VALUES ($1, $2) ON CONFLICT (notice_id, user_id) DO NOTHING',
+    [noticeId, userId]
+  );
+};

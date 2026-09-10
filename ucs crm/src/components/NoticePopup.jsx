@@ -3,9 +3,11 @@ import { api } from '../api/auth';
 import { useRealtime } from '../hooks/useRealtime';
 
 const SEEN_KEY = 'nc_seen_v1';
+const AUTO_CLOSE_MS = 5000;
 
 const NC_CSS = `
 @keyframes nc-pop { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes nc-countdown { from { width: 100%; } to { width: 0%; } }
 `;
 
 const readSet = () => {
@@ -44,24 +46,32 @@ export function useNoticesPopup() {
   const [list, setList] = useState([]);
   const [current, setCurrent] = useState(null);
   const seenRef = useRef(readSet());
+  const currentRef = useRef(null);
   const role = getRole();
+
+  const markSeen = useCallback(async (id) => {
+    if (id == null) return;
+    try { await api(`/notices/${id}/seen`, { method: 'POST', body: JSON.stringify({}), _prefix: 'ucs' }); } catch { /* best-effort */ }
+  }, []);
 
   const load = useCallback(async () => {
     try {
       const r = await api(`/notices${role ? `?target_role=${role}` : ''}`, { _prefix: 'ucs' });
       const arr = Array.isArray(r) ? r : (r?.data || []);
       const popups = arr
-        .filter(n => n.is_active !== false && n.popup !== false)
+        .filter(n => n.is_active !== false && n.popup !== false && !n.seen && !seenRef.current.has(String(n.id)))
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setList(popups);
       const next = popups.find(n => !seenRef.current.has(String(n.id)));
       if (next) {
         addToSet(next.id);
         seenRef.current.add(String(next.id));
+        currentRef.current = next.id;
         setCurrent(next);
+        markSeen(next.id);
       }
     } catch { /* 401/offline */ }
-  }, [role]);
+  }, [role, markSeen]);
 
   useEffect(() => {
     load();
@@ -71,7 +81,17 @@ export function useNoticesPopup() {
 
   useRealtime('notices', { event: '*', onInsert: load, onUpdate: load, onDelete: load });
 
-  const close = useCallback(() => setCurrent(null), []);
+  const close = useCallback(() => {
+    if (currentRef.current) markSeen(currentRef.current);
+    currentRef.current = null;
+    setCurrent(null);
+  }, [markSeen]);
+
+  useEffect(() => {
+    if (!current) return;
+    const t = setTimeout(close, AUTO_CLOSE_MS);
+    return () => clearTimeout(t);
+  }, [current, close]);
 
   return { current, close, list };
 }
@@ -126,6 +146,12 @@ export default function NoticePopup() {
                 <span style={{ fontSize: 12 }}>✍️</span>{current.created_by_name}
               </span>
             )}
+          </div>
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, color: 'var(--ink-soft, #94a3b8)', fontWeight: 600 }}>
+            <span style={{ flex: 1, height: 4, borderRadius: 99, background: '#eef2f7', overflow: 'hidden', display: 'block' }}>
+              <span style={{ display: 'block', height: '100%', background: '#2563eb', animation: 'nc-countdown 5s linear forwards' }} />
+            </span>
+            Auto-dismisses in 5s
           </div>
           <button
             onClick={close}
