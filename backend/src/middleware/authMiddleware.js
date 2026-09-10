@@ -3,6 +3,50 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Role aliases that appear in the users table (case / wording variants). Normalizes
+// so guards like authenticateRole('super_admin', 'admin', 'hr') also match 'HR',
+// 'HR-Recruiter', 'FRO', 'Event Head', etc. stored in the database.
+const ROLE_ALIASES = {
+  'hr': 'hr',
+  'hr-recruiter': 'recruiter',
+  'fro': 'fro',
+  'accounts': 'accounts',
+  'accountant': 'accounts',
+  'admin': 'admin',
+  'ngo admin': 'admin',
+  'ngo_admin': 'admin',
+  'super_admin': 'super_admin',
+  'superadmin': 'super_admin',
+  'master': 'master',
+  'recruiter': 'recruiter',
+  'telecaller': 'telecaller',
+  'leads': 'leads',
+  'team_lead': 'team_lead',
+  'worker': 'worker',
+  'event_head': 'event_head',
+  'event manager': 'event_manager',
+  'event_manager': 'event_manager',
+  'event head': 'event_head',
+  'ngo': 'ngo',
+  'whatsapp_crm': 'whatsapp_crm',
+  'digital': 'digital',
+  'developer': 'developers',
+  'developers': 'developers',
+  'agent': 'agent',
+  'viewer': 'viewer',
+};
+
+export const normalizeRole = (role) => {
+  if (role == null) return role;
+  const s = String(role).trim().toLowerCase();
+  return ROLE_ALIASES[s] || s;
+};
+
+const applyNormalizedRole = (decoded) => {
+  if (decoded && decoded.role) decoded.role = normalizeRole(decoded.role);
+  return decoded;
+};
+
 export const authenticateRole = (...allowedRoles) => {
   return (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -10,7 +54,7 @@ export const authenticateRole = (...allowedRoles) => {
       return res.status(401).json({ message: 'No token provided' });
     }
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = applyNormalizedRole(jwt.verify(token, process.env.JWT_SECRET));
       if (!allowedRoles.includes(decoded.role)) {
         return res.status(403).json({ message: `Access denied. Required role: ${allowedRoles.join(', ')}` });
       }
@@ -26,7 +70,7 @@ export const authenticate = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) { return res.status(401).json({ message: 'No token provided' }); }
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = applyNormalizedRole(jwt.verify(token, process.env.JWT_SECRET));
     next();
   } catch { return res.status(401).json({ message: 'Invalid token' }); }
 };
@@ -39,7 +83,7 @@ export const authenticateSalary = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) { return res.status(401).json({ message: 'No token provided' }); }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = applyNormalizedRole(jwt.verify(token, process.env.JWT_SECRET));
     if (decoded.role !== 'accounts' && decoded.role !== 'super_admin') {
       return res.status(403).json({ message: 'Access denied. Accounts department or super admin only.' });
     }

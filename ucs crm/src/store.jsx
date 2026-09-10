@@ -1,6 +1,39 @@
 import { createContext, useContext, useState, useCallback } from 'react'
 import { login as apiLogin, setSession, clearSession, getToken, getUser, releaseWorkAs } from './api/auth'
 
+const ROLE_ALIASES = {
+  'hr': 'hr',
+  'hr-recruiter': 'recruiter',
+  'fro': 'fro',
+  'accounts': 'accounts',
+  'accountant': 'accounts',
+  'admin': 'admin',
+  'ngo admin': 'admin',
+  'ngo_admin': 'admin',
+  'super_admin': 'super_admin',
+  'superadmin': 'super_admin',
+  'master': 'master',
+  'recruiter': 'recruiter',
+  'telecaller': 'telecaller',
+  'worker': 'worker',
+  'event_head': 'event_head',
+  'event manager': 'event_manager',
+  'event_manager': 'event_manager',
+  'event head': 'event_head',
+  'whatsapp_crm': 'whatsapp_crm',
+  'digital': 'digital',
+  'developer': 'developers',
+  'developers': 'developers',
+  'agent': 'agent',
+  'viewer': 'viewer',
+}
+
+const normalizeRole = (role) => {
+  if (!role) return role
+  const s = String(role).trim().toLowerCase()
+  return ROLE_ALIASES[s] || s
+}
+
 const ALLOWED_ROLES = {
   super_admin: 'super_admin',
   admin: 'admin',
@@ -27,12 +60,12 @@ export function UcsProvider({ children }) {
 
   const login = useCallback(async (identifier, password) => {
     const data = await apiLogin(identifier, password)
-    const role = data.role || data.user?.role
+    const role = normalizeRole(data.role || data.user?.role)
     if (!role || !ALLOWED_ROLES[role]) {
       throw new Error('Access denied. Invalid role.')
     }
     const userData = data.user || { ...data }
-    userData.role = data.role
+    userData.role = role
     setSession('ucs', data.token, userData)
     setToken(data.token)
     setUser(userData)

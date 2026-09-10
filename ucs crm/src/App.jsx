@@ -14,6 +14,7 @@ import DocumentationPanel from './panels/documentation/DocumentationPanel'
 import WhatsAppPanel from './panels/whatsapp/WhatsAppPanel'
 import DevPanel from './panels/dev-panel/DevPanel'
 import SimCardPanel from './panels/sim-card/SimCardPanel'
+import NoticesBar from './components/NoticesBar'
 
 const ROLE_PATHS = {
   super_admin: '/sa',
@@ -62,7 +63,7 @@ function PanelWrapper({ roleKey }) {
   const mapping = ROLE_PANELS[roleKey]
   if (!mapping) return <AccessDenied />
   const Panel = mapping.panel
-  return <div className={mapping.cls}><Panel /></div>
+  return <div className={mapping.cls}><Panel /><NoticesBar /></div>
 }
 
 function AccessDenied() {
