@@ -1470,13 +1470,13 @@
 .panel-accounts .content-body:has(.tw-workspace) { margin-right:0 !important; width:100% !important; transition:none !important; }
 .panel-accounts .content-body:has(.tw-workspace) { overflow:hidden; }
 .panel-accounts .tw-workspace { height:100%; width:100%; max-width:1720px; display:flex; align-items:stretch; min-width:0; overflow:hidden; }
-.panel-accounts .tw-main { flex:1 1 auto; min-width:0; max-width:100%; display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; padding:20px 22px 40px; box-sizing:border-box; }
+.panel-accounts .tw-main { flex:1 1 auto; min-width:0; max-width:100%; display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; padding:18px 20px 32px; box-sizing:border-box; }
 
 .panel-accounts .tw-breadcrumb { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px; }
 .panel-accounts .tw-bc-sep { color:var(--line); }
 
 .panel-accounts .tw-header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
-.panel-accounts .tw-title { font-size:22px; font-weight:800; letter-spacing:-.02em; margin:0; color:var(--ink); }
+.panel-accounts .tw-title { font-size:20px; font-weight:800; letter-spacing:-.02em; margin:0; color:var(--ink); }
 .panel-accounts .tw-subtitle { font-size:12px; color:var(--ink-soft); margin:3px 0 0; }
 .panel-accounts .tw-header-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .panel-accounts .tw-live { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:20px; padding:5px 11px; }
@@ -1485,7 +1485,7 @@
 .panel-accounts .tw-live-working .tw-live-dot { background:#2563eb; animation:fb-spin .8s linear infinite; }
 
 .panel-accounts .tw-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:16px; }
-.panel-accounts .tw-stat { display:flex; align-items:center; gap:12px; background:var(--card-bg); border-radius:var(--radius); border:1px solid var(--line); padding:14px 16px; cursor:pointer; transition:box-shadow .15s, border-color .15s; min-width:0; }
+.panel-accounts .tw-stat { display:flex; align-items:center; gap:10px; background:var(--card-bg); border-radius:var(--radius); border:1px solid var(--line); padding:11px 13px; cursor:pointer; transition:box-shadow .15s, border-color .15s; min-width:0; }
 .panel-accounts .tw-stat:hover { box-shadow:var(--n); border-color:#d5dae2; }
 .panel-accounts .tw-stat-info { min-width:0; }
 .panel-accounts .tw-stat-num { font-size:22px; font-weight:800; line-height:1.1; letter-spacing:-.02em; }
@@ -1531,14 +1531,14 @@
 .panel-accounts .tw-tab-count { font-size:10px; font-weight:700; background:var(--bg); border:1px solid var(--line); color:var(--ink-soft); border-radius:9px; padding:1px 7px; line-height:1.5; }
 .panel-accounts .tw-tab.active .tw-tab-count { background:var(--sage-soft); border-color:var(--sage); color:var(--sage); }
 
-.panel-accounts .tw-list { min-height:120px; }
+.panel-accounts .tw-list { min-height:120px; flex:0 0 auto; }
 .panel-accounts .tw-listhead { display:flex; align-items:center; gap:10px; padding:0 6px 8px; }
 .panel-accounts .tw-listhead-label { flex:1; font-size:10px; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.08em; min-width:0; }
 .panel-accounts .tw-listhead-hide { width:88px; font-size:10px; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.08em; }
 .panel-accounts .tw-listhead-actions { width:38px; }
 
 .panel-accounts .tw-rows { display:flex; flex-direction:column; gap:8px; }
-.panel-accounts .tw-row { display:flex; align-items:center; gap:12px; background:var(--card-bg); border:1px solid var(--line); border-radius:11px; padding:12px 14px; cursor:pointer; transition:box-shadow .15s, transform .15s, border-color .15s, background .15s; }
+.panel-accounts .tw-row { display:flex; align-items:center; gap:10px; background:var(--card-bg); border:1px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; transition:box-shadow .15s, transform .15s, border-color .15s, background .15s; }
 .panel-accounts .tw-row:hover { box-shadow:0 5px 14px rgba(0,0,0,.07); border-color:#d5dae2; }
 .panel-accounts .tw-row.is-selected { background:rgba(91,107,78,.08); border-color:var(--sage); }
 .panel-accounts .tw-row.is-open { border-color:var(--sage); box-shadow:0 0 0 1px var(--sage); }
@@ -1599,7 +1599,7 @@
 .panel-accounts .tw-empty-title { font-size:15px; font-weight:700; color:var(--ink); margin:0 0 4px; }
 .panel-accounts .tw-empty-sub { font-size:12px; margin:0 0 14px; max-width:340px; line-height:1.5; }
 
-.panel-accounts .tw-pagination { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; flex-wrap:wrap; }
+.panel-accounts .tw-pagination { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; flex:0 0 auto; flex-wrap:wrap; }
 .panel-accounts .tw-pageinfo { font-size:11px; color:var(--ink-soft); }
 .panel-accounts .tw-pageinfo strong { color:var(--ink); }
 .panel-accounts .tw-pagebtns { display:flex; gap:5px; flex-wrap:wrap; }
