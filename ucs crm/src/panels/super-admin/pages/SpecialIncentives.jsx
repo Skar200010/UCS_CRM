@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { api } from '../../../api/auth'
 import { useRealtime } from '../../../hooks/useRealtime'
 import { SpecialIncentiveCard, WinnerBanner } from '../../../components/SpecialIncentive'
+import LeadIncentive from '../../../components/LeadIncentive'
 
 const money = (v) => `₹${Number(v || 0).toLocaleString('en-IN')}`
 const fmtDate = (d) => d ? new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
@@ -68,9 +69,10 @@ export default function SpecialIncentives() {
         <TabBtn active={tab === 'create'} onClick={() => setTab('create')}>Create New</TabBtn>
         <TabBtn active={tab === 'history'} onClick={() => setTab('history')}>History ({history.length})</TabBtn>
         <TabBtn active={tab === 'photo'} onClick={() => setTab('photo')}>Photo</TabBtn>
+        <TabBtn active={tab === 'lead'} onClick={() => setTab('lead')}>📊 Lead Incentive</TabBtn>
       </div>
 
-      {tab === 'create' ? <CreateForm onCreated={loadHistory} /> : tab === 'photo' ? <PhotoTab history={history} onRefresh={loadHistory} /> : <HistoryList history={history} loading={loading} onRefresh={loadHistory} />}
+      {tab === 'create' ? <CreateForm onCreated={loadHistory} /> : tab === 'photo' ? <PhotoTab history={history} onRefresh={loadHistory} /> : tab === 'lead' ? <LeadIncentive /> : <HistoryList history={history} loading={loading} onRefresh={loadHistory} />}
     </div>
   )
 }

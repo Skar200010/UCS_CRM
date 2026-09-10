@@ -37,6 +37,7 @@ import { fetchWorkerById } from '../hr/store'
 import AttendancePage from './pages/Attendance'
 import SimSection from './components/SimSection'
 import Certificates from './pages/Certificates'
+import BeneficiariesPanel from '../beneficiaries/BeneficiariesPanel'
 
 const NAV_TOP = [
   { id: 'leads', path: '/accounts/leads', label: 'Lead and Audit',
@@ -91,6 +92,9 @@ const NAV_BOTTOM = [
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
   { id: 'tickets', path: '/accounts/tickets', label: 'Tickets',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5H3v14h12"/><path d="M21 12l-6-6v4H9v4h6v4l6-6z"/></svg> },
+  { id: 'beneficiaries', path: '/accounts/beneficiaries', label: 'Beneficiaries',
+    icon: <Users size={18} />,
+    match: (p) => p.startsWith('/accounts/beneficiaries') },
 ]
 
 const NAV_DATA_GROUP = {
@@ -403,6 +407,7 @@ export default function AccountsPanel() {
 
   const meta = ALL_NAV.find(n => navIsActive(n, location.pathname))
   const simMeta = SIM_NAV.some(n => n.match(location.pathname))
+  const bnfMeta = location.pathname.startsWith('/accounts/beneficiaries')
   const userName = user?.name || 'User'
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
   const drawerSections = [
@@ -419,7 +424,7 @@ export default function AccountsPanel() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <div>
-              <div className="eyebrow">{simMeta ? 'SIM Management' : 'Accounts'}</div>
+              <div className="eyebrow">{bnfMeta ? 'Beneficiaries' : simMeta ? 'SIM Management' : 'Accounts'}</div>
               <h2>{meta?.label || 'Accounts'}</h2>
             </div>
           </div>
@@ -486,6 +491,7 @@ export default function AccountsPanel() {
             <Route path="new-data" element={<NewData />} />
             <Route path="old-data" element={<OldData />} />
             <Route path="sim/*" element={<SimSection />} />
+            <Route path="beneficiaries/*" element={<BeneficiariesPanel base="/accounts/beneficiaries" />} />
             <Route path="*" element={<Navigate to="leads" replace />} />
           </Routes>
         </div>

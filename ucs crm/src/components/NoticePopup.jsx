@@ -77,6 +77,8 @@ export function useNoticesPopup() {
   }, []);
 
   const load = useCallback(async () => {
+    if (inflightRef.current) return;
+    inflightRef.current = true;
     try {
       const r = await api(`/notices${target ? `?target_role=${target}` : ''}`, { _prefix: 'ucs' });
       const arr = Array.isArray(r) ? r : (r?.data || []);
@@ -86,6 +88,8 @@ export function useNoticesPopup() {
         .filter(n => !(isSuper && !viewPanel) || targetedAtSuperAdmin(n))
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setList(popups);
+      const now = Date.now();
+      if (now - lastDismissRef.current < 10000) return;
       const next = popups.find(n => !seenRef.current.has(String(n.id)));
       if (next) {
         addToSet(seenKey, next.id);
@@ -108,6 +112,7 @@ export function useNoticesPopup() {
   const close = useCallback(() => {
     if (currentRef.current) markSeen(currentRef.current);
     currentRef.current = null;
+    lastDismissRef.current = Date.now();
     setCurrent(null);
   }, [markSeen]);
 

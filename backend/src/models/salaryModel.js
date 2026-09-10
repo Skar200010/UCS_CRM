@@ -731,7 +731,9 @@ export const getPagarExportData = async (month) => {
     const perDay = salary / daysInMonth;
     const netPresentDays = attResult.totalDueDays;
     const grossPresentDays = attResult.paidDays;
-    const trainingSundayDed = attResult.joiningDeduction + attResult.lateDeductionDays;
+    const lateDeductionDays = attResult.lateDeductionDays;
+    const sundayDeductionDays = attResult.sundayDeductionDays;
+    const trainingDeductionDays = attResult.joiningDeduction;
 
     const monthlyIncentive = (target > 0 && achieved >= target)
       ? Math.round((achieved - target) * 0.1)
@@ -785,7 +787,11 @@ export const getPagarExportData = async (month) => {
       achieved_aflf: ngo.AFLF || 0,
       achieved_mann: ngo.MANN || 0,
       gross_present_days: grossPresentDays,
-      training_sunday_ded: trainingSundayDed,
+      absent_days: attResult.absentDatesAfterJoin.length,
+      half_days: attResult.halfDayCount * 0.5,
+      late_deduction_days: lateDeductionDays,
+      sunday_deduction_days: sundayDeductionDays,
+      training_deduction_days: trainingDeductionDays,
       net_present_days: netPresentDays,
       month_salary: monthSalary,
       monthly_incentive: monthlyIncentive,
@@ -821,7 +827,11 @@ export const getPagarExportData = async (month) => {
     achieved_aflf: cat.AFLF || 0,
     achieved_mann: cat.MANN || 0,
     gross_present_days: 0,
-    training_sunday_ded: 0,
+    late_deduction_days: 0,
+    sunday_deduction_days: 0,
+    training_deduction_days: 0,
+    absent_days: 0,
+    half_days: 0,
     net_present_days: 0,
     month_salary: 0,
     monthly_incentive: 0,

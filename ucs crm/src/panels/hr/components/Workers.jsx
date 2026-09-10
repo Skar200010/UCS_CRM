@@ -265,7 +265,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
       const headers = [
         'Team Name', 'Branch Name', 'Agent Name', 'Date of Joining',
         'Salary', 'Target', 'Achieved', 'Balance', 'Achieved %',
-        'May Present Days', 'Training and Sunday Deduction',
+        'May Present Days', 'Late Deduction', 'Sunday Deduction', 'Training Deduction',
         'Sunday Need To Add', 'Net May Present Days', 'May Salary',
         'Monthly 10% Incentive', 'Aaj Ka Incentive (Daily 50% for PC)',
         'Weekly Incentive / TL', 'Gross Payable Salary',
@@ -288,9 +288,11 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
             null,                     // H: Balance (formula)
             null,                     // I: Achieved % (formula)
             r.present_days || 0,     // J: May Present Days
-            0,                        // K: Training and Sunday Deduction
-            0,                        // L: Sunday Need To Add
-            null,                     // M: Net May Present Days (formula)
+            0,                        // K: Late Deduction
+            0,                        // L: Sunday Deduction
+            0,                        // M: Training Deduction
+            0,                        // N: Sunday Need To Add
+            null,                     // O: Net May Present Days (formula)
             r.total_due || 0,        // N: May Salary
             r.monthly_incentive || 0,  // O: Monthly 10% Incentive
             r.aki_payout || 0,         // P: Aaj Ka Incentive
@@ -312,10 +314,10 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         const row = i + 1;
         wsData[i][7] = { f: `F${row}-G${row}` };                         // H: Balance (Target - Achieved)
         wsData[i][8] = { f: `IF(F${row}>0,G${row}/F${row}*100,0)` };     // I: Achieved %
-        wsData[i][12] = { f: `J${row}-K${row}+L${row}` };                // M: Net May Present Days
-        wsData[i][14] = { f: `IF(F${row}>0,IF(G${row}>=F${row},(G${row}-F${row})*0.1,0),0)` }; // O: Monthly 10% Incentive
-        wsData[i][17] = { f: `N${row}+O${row}+P${row}+Q${row}` };        // R: Gross Payable Salary
-        wsData[i][21] = { f: `R${row}+S${row}+T${row}-U${row}` };        // V: Net Payable Salary
+        wsData[i][14] = { f: `J${row}-K${row}-L${row}-M${row}+N${row}` }; // O: Net May Present Days
+        wsData[i][16] = { f: `IF(F${row}>0,IF(G${row}>=F${row},(G${row}-F${row})*0.1,0),0)` }; // Q: Monthly 10% Incentive
+        wsData[i][19] = { f: `P${row}+Q${row}+R${row}+S${row}` };        // T: Gross Payable Salary
+        wsData[i][23] = { f: `T${row}+U${row}+V${row}-W${row}` };        // X: Net Payable Salary
       }
 
       const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -364,10 +366,10 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         NAME: 0, STATUS: 1, HOLD: 2, AC_HOLDER: 3, AC_REL: 4, BANK: 5, AC_NUM: 6, IFSC: 7, STATION: 8, DOJ: 9, SALARY: 10,
         TARGET: 11, TOTAL_ACH: 12, BSCT_ACH: 13, AFLF_ACH: 14, MANN_ACH: 15,
         BALANCE: 16, ACH_PCT: 17,
-        PRES_DAYS: 18, TRAIN_SUN_DED: 19, NET_PRES: 20,
-        MONTH_SAL: 21, INCENT_10: 22, TOTAL_AKI: 23, AKI: 24, GROSS: 25,
-        OT: 26, PENDING: 27, ADVANCE: 28, NET_PAY: 29,
-        FIRST_DAY_COL: 30
+        PRES_DAYS: 18, ABSENT_DAYS: 19, HALF_DAYS: 20, LATE_DED: 21, SUN_DED: 22, TRAIN_DED: 23, NET_PRES: 24,
+        MONTH_SAL: 25, INCENT_10: 26, TOTAL_AKI: 27, AKI: 28, GROSS: 29,
+        OT: 30, PENDING: 31, ADVANCE: 32, NET_PAY: 33,
+        FIRST_DAY_COL: 34
       };
       const TOTAL_COLS = COL.FIRST_DAY_COL + daysInMonth;
 
@@ -376,7 +378,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         'Bank Name', 'Bank Account Number', 'IFSC Code', 'STATION', 'Date of Joining', 'Salary',
         'New Target', 'Total Achieved', 'BSCT Achieved', 'AFLF Achieved', 'Mann Achieved',
         'Balance', 'Achieved %',
-        `${monthName} Present Days`, 'Training and Sunday Deduction', `Net ${monthName} Present Days`,
+        `${monthName} Present Days`, 'Absent Days', 'Half Days', 'Late Deduction', 'Sunday Deduction', 'Training Deduction', `Net ${monthName} Present Days`,
         `${monthName} Salary`, 'Monthly 10% Incentive', 'Total AKI', 'Aaj Ka Incentive (Daily 50% for PC)',
         'Gross Payable Salary',
         'OT/Appreciation/Extra Incentive', 'Any Pending Salary Paid for Previous Month',
@@ -396,7 +398,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
       // (independent of Excel formula quirks like SUMIF wildcards or recalc).
       const makeSums = () => ({
         salary: 0, target: 0, achieved: 0, bsct: 0, aflf: 0, mann: 0,
-        gross_present_days: 0, training_sunday_ded: 0, month_salary: 0,
+        gross_present_days: 0, absent_days: 0, half_days: 0, late_deduction_days: 0, sunday_deduction_days: 0, training_deduction_days: 0, month_salary: 0,
         monthly_incentive: 0, total_aki: 0, aki_payout: 0, advance_deduction: 0,
         net_payable: 0, daily: {}
       });
@@ -408,7 +410,11 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         sum.aflf += r.achieved_aflf || 0;
         sum.mann += r.achieved_mann || 0;
         sum.gross_present_days += r.gross_present_days || 0;
-        sum.training_sunday_ded += r.training_sunday_ded || 0;
+        sum.absent_days += r.absent_days || 0;
+        sum.half_days += r.half_days || 0;
+        sum.late_deduction_days += r.late_deduction_days || 0;
+        sum.sunday_deduction_days += r.sunday_deduction_days || 0;
+        sum.training_deduction_days += r.training_deduction_days || 0;
         sum.month_salary += r.month_salary || 0;
         sum.monthly_incentive += r.monthly_incentive || 0;
         sum.total_aki += r.total_aki || 0;
@@ -450,7 +456,11 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
           null, // Balance formula
           null, // Achieved % formula
           r.gross_present_days || 0,
-          r.training_sunday_ded || 0,
+          r.absent_days || 0,
+          r.half_days || 0,
+          r.late_deduction_days || 0,
+          r.sunday_deduction_days || 0,
+          r.training_deduction_days || 0,
           null, // Net Present Days formula
           null, // Month Salary formula
           r.monthly_incentive || 0,
@@ -484,7 +494,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
       // final regardless of Excel formula recalculation.
       const buildTotalRow = (label, sum) => {
         const balance = sum.target > 0 ? sum.target - sum.achieved : null;
-        const netPres = sum.gross_present_days - sum.training_sunday_ded;
+        const netPres = sum.gross_present_days - sum.late_deduction_days - sum.sunday_deduction_days - sum.training_deduction_days;
         const gross = sum.month_salary + sum.monthly_incentive + sum.aki_payout;
         const row = [label];
         for (let c = 1; c < TOTAL_COLS; c++) {
@@ -497,7 +507,11 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
           else if (c === COL.BALANCE) row.push(balance);
           else if (c === COL.ACH_PCT) row.push(null);
           else if (c === COL.PRES_DAYS) row.push(sum.gross_present_days);
-          else if (c === COL.TRAIN_SUN_DED) row.push(sum.training_sunday_ded);
+          else if (c === COL.ABSENT_DAYS) row.push(sum.absent_days);
+          else if (c === COL.HALF_DAYS) row.push(sum.half_days);
+          else if (c === COL.LATE_DED) row.push(sum.late_deduction_days);
+          else if (c === COL.SUN_DED) row.push(sum.sunday_deduction_days);
+          else if (c === COL.TRAIN_DED) row.push(sum.training_deduction_days);
           else if (c === COL.NET_PRES) row.push(netPres);
           else if (c === COL.MONTH_SAL) row.push(sum.month_salary);
           else if (c === COL.INCENT_10) row.push(sum.monthly_incentive);
@@ -540,8 +554,8 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         }
         // Achieved % = Total Achieved / Target * 100
         wsData[i][COL.ACH_PCT] = { f: `IF(${colLetter(COL.TARGET)}${row}>0,${colLetter(COL.TOTAL_ACH)}${row}/${colLetter(COL.TARGET)}${row}*100,0)` };
-        // Net Present Days = Present Days - Training Sunday Ded
-        wsData[i][COL.NET_PRES] = { f: `${colLetter(COL.PRES_DAYS)}${row}-${colLetter(COL.TRAIN_SUN_DED)}${row}` };
+        // Net Present Days = Present Days - Late Ded - Sun Ded - Training Ded
+        wsData[i][COL.NET_PRES] = { f: `${colLetter(COL.PRES_DAYS)}${row}-${colLetter(COL.LATE_DED)}${row}-${colLetter(COL.SUN_DED)}${row}-${colLetter(COL.TRAIN_DED)}${row}` };
         // Month Salary = Salary / DaysInMonth * Net Present Days
         wsData[i][COL.MONTH_SAL] = { f: `${colLetter(COL.SALARY)}${row}/${daysInMonth}*${colLetter(COL.NET_PRES)}${row}` };
         // Gross = Month Salary + 10% Incentive + AKI
@@ -568,7 +582,9 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         { wch: 20 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 10 },
         { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
         { wch: 12 }, { wch: 12 },
-        { wch: 18 }, { wch: 22 }, { wch: 22 },
+        { wch: 12 },
+        { wch: 18 }, { wch: 14 }, { wch: 14 },
+        { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 22 },
         { wch: 16 }, { wch: 24 }, { wch: 12 }, { wch: 24 },
         { wch: 22 },
         { wch: 22 }, { wch: 26 },

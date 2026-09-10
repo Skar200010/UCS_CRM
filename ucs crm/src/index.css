@@ -45,6 +45,10 @@
 }
 .field input:focus, .field select:focus, .field textarea:focus { border-color:#5B6B4E; }
 .login-error { color:#d9534f; font-size:12px; text-align:center; padding:8px; background:#fef2f2; border-radius:8px; }
+.login-demo { margin-top:18px; padding-top:16px; border-top:1px dashed #e5e7eb; text-align:center; }
+.login-demo p { font-size:11px; color:#9ca3af; margin:8px 0 0; }
+.btn-demo { width:100%; background:#5B6B4E1A; border:1px solid #5B6B4E; color:#5B6B4E; }
+.btn-demo:hover { background:#5B6B4E; color:#fff; }
 
 .btn {
   display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:9px 15px; border-radius:8px;
@@ -1116,6 +1120,8 @@
 .panel-accounts, .panel-ngo-admin, .panel-fro { --sage:#5B6B4E; --sage-light:#7A8F6A; --ink:#1a1a2e; --ink-soft:#6b7280; --line:#e5e7eb; --danger:#d9534f; --warning:#e67e22; --success:#16a34a; --bg:#f5f6fa; --card-bg:#ffffff; --radius:12px; --radius-sm:8px; --shadow:0 1px 3px rgba(0,0,0,0.06); --shadow-md:0 4px 12px rgba(0,0,0,0.08); background:var(--bg); color:var(--ink); }
 .panel-fro { --md-primary:#5B6B4E; --md-outline:#6b7280; --md-outline-variant:#e5e7eb; --md-surface-low:#f5f6fa; --md-surface-high:#e5e7eb; --md-on-bg:#1a1a2e; --md-error:#dc2626; --md-error-container:#fef2f2; }
 .panel-event-head, .panel-accounts, .panel-ngo-admin, .panel-fro { --sage:#5B6B4E; --sage-light:#7A8F6A; --ink:#1a1a2e; --ink-soft:#6b7280; --line:#e5e7eb; --danger:#d9534f; --warning:#e67e22; --success:#16a34a; --bg:#f5f6fa; --card-bg:#ffffff; --radius:12px; --radius-sm:8px; --shadow:0 1px 3px rgba(0,0,0,0.06); --shadow-md:0 4px 12px rgba(0,0,0,0.08); background:var(--bg); color:var(--ink); }
+.panel-beneficiaries { --sage:#5B6B4E; --sage-light:#E8EDE1; --sage-soft:#E8EDE1; --ink:#1a1a2e; --ink-soft:#6b7280; --line:#e5e7eb; --danger:#d9534f; --warning:#e67e22; --success:#16a34a; --bg:#f5f6fa; --card-bg:#ffffff; --radius:12px; --radius-sm:8px; --shadow:0 1px 3px rgba(0,0,0,0.06); --shadow-md:0 4px 12px rgba(0,0,0,0.08); background:var(--bg); color:var(--ink); min-height:100vh; padding:24px; box-sizing:border-box; }
+.panel-beneficiaries a { color:inherit; }
 
 /* ── Event Head · UFS Event Manager design tokens (maps theme vars → indigo/purple Material palette) ── */
 .panel-event-head {
@@ -2692,6 +2698,12 @@
 .panel-accounts .rx-row-menu-popover button:hover { background:var(--bg); }
 .panel-accounts .rx-row-menu-popover button.warn { color:#b45309; }
 .panel-accounts .rx-row-menu-popover button:disabled { opacity:.55; cursor:wait; }
+.panel-accounts .rx-row-acts { display:inline-flex; gap:5px; align-items:center; white-space:nowrap; }
+.panel-accounts .rx-row-actbtn { padding:3px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card-bg); color:#374151; font:inherit; font-size:10.5px; font-weight:600; cursor:pointer; transition:all .12s; white-space:nowrap; }
+.panel-accounts .rx-row-actbtn:hover { background:var(--bg); border-color:var(--sage-soft, #d6ddcd); color:var(--ink); }
+.panel-accounts .rx-row-actbtn:disabled { opacity:.55; cursor:wait; }
+.panel-accounts .rx-row-actbtn-warn { color:#b45309; }
+.panel-accounts .rx-row-actbtn-warn:hover { background:#fffbeb; border-color:#fcd34d; color:#92400e; }
 .panel-accounts .rx-row-ready, .panel-accounts .rx-row-sent { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:20px; font-size:10.5px; font-weight:700; white-space:nowrap; }
 .panel-accounts .rx-row-ready { background:#fef3c7; color:#92400e; }
 .panel-accounts .rx-row-sent { background:#d1fae5; color:#065f46; }
