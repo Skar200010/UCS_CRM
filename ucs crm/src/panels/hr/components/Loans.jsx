@@ -178,7 +178,12 @@ export default function Loans() {
   const saveEdit = async () => {
     setEditBusy(true);
     try {
-      await updateLoanApi(editing, editForm);
+      const payload = { ...editForm };
+      if (payload.start_month) payload.start_month = payload.start_month + '-01';
+      else if (payload.start_month === '') payload.start_month = null;
+      if (payload.end_month) payload.end_month = payload.end_month + '-01';
+      else if (payload.end_month === '') payload.end_month = null;
+      await updateLoanApi(editing, payload);
       setEditing(null);
       setEditForm({});
       refresh();

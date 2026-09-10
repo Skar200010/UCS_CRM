@@ -318,11 +318,15 @@ export const updateLoanRecord = async (req, res) => {
     if (req.body.remaining_amount !== undefined) {
       updates.remaining_amount = Math.max(0, parseFloat(req.body.remaining_amount));
     }
+    const normalizeMonth = (v) => {
+      if (v && /^\d{4}-\d{2}$/.test(String(v))) return `${v}-01`;
+      return v || null;
+    };
     if (req.body.start_month !== undefined) {
-      updates.start_month = req.body.start_month || null;
+      updates.start_month = normalizeMonth(req.body.start_month);
     }
     if (req.body.end_month !== undefined && req.body.stop_recurring !== true) {
-      updates.end_month = req.body.end_month || null;
+      updates.end_month = normalizeMonth(req.body.end_month);
     }
 
     // Validation: recurring loans may deduct the full amount monthly (rent),
