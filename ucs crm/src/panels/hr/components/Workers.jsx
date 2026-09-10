@@ -366,10 +366,10 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         NAME: 0, STATUS: 1, HOLD: 2, AC_HOLDER: 3, AC_REL: 4, BANK: 5, AC_NUM: 6, IFSC: 7, STATION: 8, DOJ: 9, SALARY: 10,
         TARGET: 11, TOTAL_ACH: 12, BSCT_ACH: 13, AFLF_ACH: 14, MANN_ACH: 15,
         BALANCE: 16, ACH_PCT: 17,
-        PRES_DAYS: 18, LATE_DED: 19, SUN_DED: 20, TRAIN_DED: 21, NET_PRES: 22,
-        MONTH_SAL: 23, INCENT_10: 24, TOTAL_AKI: 25, AKI: 26, GROSS: 27,
-        OT: 28, PENDING: 29, ADVANCE: 30, NET_PAY: 31,
-        FIRST_DAY_COL: 32
+        PRES_DAYS: 18, ABSENT_DAYS: 19, HALF_DAYS: 20, LATE_DED: 21, SUN_DED: 22, TRAIN_DED: 23, NET_PRES: 24,
+        MONTH_SAL: 25, INCENT_10: 26, TOTAL_AKI: 27, AKI: 28, GROSS: 29,
+        OT: 30, PENDING: 31, ADVANCE: 32, NET_PAY: 33,
+        FIRST_DAY_COL: 34
       };
       const TOTAL_COLS = COL.FIRST_DAY_COL + daysInMonth;
 
@@ -378,7 +378,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         'Bank Name', 'Bank Account Number', 'IFSC Code', 'STATION', 'Date of Joining', 'Salary',
         'New Target', 'Total Achieved', 'BSCT Achieved', 'AFLF Achieved', 'Mann Achieved',
         'Balance', 'Achieved %',
-        `${monthName} Present Days`, 'Late Deduction', 'Sunday Deduction', 'Training Deduction', `Net ${monthName} Present Days`,
+        `${monthName} Present Days`, 'Absent Days', 'Half Days', 'Late Deduction', 'Sunday Deduction', 'Training Deduction', `Net ${monthName} Present Days`,
         `${monthName} Salary`, 'Monthly 10% Incentive', 'Total AKI', 'Aaj Ka Incentive (Daily 50% for PC)',
         'Gross Payable Salary',
         'OT/Appreciation/Extra Incentive', 'Any Pending Salary Paid for Previous Month',
@@ -398,7 +398,7 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
       // (independent of Excel formula quirks like SUMIF wildcards or recalc).
       const makeSums = () => ({
         salary: 0, target: 0, achieved: 0, bsct: 0, aflf: 0, mann: 0,
-        gross_present_days: 0, late_deduction_days: 0, sunday_deduction_days: 0, training_deduction_days: 0, month_salary: 0,
+        gross_present_days: 0, absent_days: 0, half_days: 0, late_deduction_days: 0, sunday_deduction_days: 0, training_deduction_days: 0, month_salary: 0,
         monthly_incentive: 0, total_aki: 0, aki_payout: 0, advance_deduction: 0,
         net_payable: 0, daily: {}
       });
@@ -410,6 +410,8 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         sum.aflf += r.achieved_aflf || 0;
         sum.mann += r.achieved_mann || 0;
         sum.gross_present_days += r.gross_present_days || 0;
+        sum.absent_days += r.absent_days || 0;
+        sum.half_days += r.half_days || 0;
         sum.late_deduction_days += r.late_deduction_days || 0;
         sum.sunday_deduction_days += r.sunday_deduction_days || 0;
         sum.training_deduction_days += r.training_deduction_days || 0;
@@ -454,6 +456,8 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
           null, // Balance formula
           null, // Achieved % formula
           r.gross_present_days || 0,
+          r.absent_days || 0,
+          r.half_days || 0,
           r.late_deduction_days || 0,
           r.sunday_deduction_days || 0,
           r.training_deduction_days || 0,
@@ -503,6 +507,8 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
           else if (c === COL.BALANCE) row.push(balance);
           else if (c === COL.ACH_PCT) row.push(null);
           else if (c === COL.PRES_DAYS) row.push(sum.gross_present_days);
+          else if (c === COL.ABSENT_DAYS) row.push(sum.absent_days);
+          else if (c === COL.HALF_DAYS) row.push(sum.half_days);
           else if (c === COL.LATE_DED) row.push(sum.late_deduction_days);
           else if (c === COL.SUN_DED) row.push(sum.sunday_deduction_days);
           else if (c === COL.TRAIN_DED) row.push(sum.training_deduction_days);
@@ -576,7 +582,9 @@ export default function Workers({ onSelect, onOffboard, showAddForm = true, show
         { wch: 20 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 10 },
         { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
         { wch: 12 }, { wch: 12 },
-        { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 22 },
+        { wch: 12 },
+        { wch: 18 }, { wch: 14 }, { wch: 14 },
+        { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 22 },
         { wch: 16 }, { wch: 24 }, { wch: 12 }, { wch: 24 },
         { wch: 22 },
         { wch: 22 }, { wch: 26 },
