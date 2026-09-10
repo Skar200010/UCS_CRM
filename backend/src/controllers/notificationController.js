@@ -96,6 +96,68 @@ export const getNotificationLeadInfo = async (req, res) => {
   }
 };
 
+// Broadcast a "suspense alert" to FROs. Accounts clicks a bell on the Suspense
+// card; every targeted FRO with the web app open hears tele.wav (the FRO frontend
+// plays audio on any notification_log insert of type 'suspense_alert'). No FCM
+// push — web-app audio is the intended channel. When an { ngo } key
+// (bsct/mann/aflf) is given, only FROs covering that NGO are alerted; otherwise
+// every FRO-role user is alerted. Returns the number of FROs notified.
+export const sendSuspenseAlert = async (req, res) => {
+  try {
+    const { ngo } = req.body || {};
+    const key = (ngo || '').toString().trim().toLowerCase();
+
+    const { rows: froRows, error: froErr } = await db._pool.query(
+      `SELECT id FROM workers
+        WHERE lower(btrim(coalesce(department, ''))) = 'fro'
+          AND COALESCE(is_active, true) = true`
+    );
+    if (froErr) throw froErr;
+
+    let workerIds = (froRows || []).map(r => r.id);
+    if (key) {
+      const ngoRows = await db
+        .from('fro_station_assignments')
+        .select('fro_worker_id, ngo_id, ngos!inner(name)');
+      const matchProject = (n) => {
+        const low = (n || '').toLowerCase().trim();
+        if (low === 'bsct' || low === 'beingsevak' || low === 'being sevak' || low === 'sevak') return 'bsct';
+        if (low === 'mann' || low === 'manncar' || low === 'mann care') return 'mann';
+        if (low === 'aflf' || low === 'ashray') return 'aflf';
+        return null;
+      };
+      const covered = new Set();
+      for (const r of (ngoRows || [])) {
+        if (matchProject(r.ngos?.name) === key) covered.add(String(r.fro_worker_id));
+      }
+      workerIds = workerIds.filter((id) => covered.has(String(id)));
+    }
+
+    if (workerIds.length === 0) return res.json({ count: 0, message: 'No FROs to alert' });
+
+    const base = {
+      type: 'suspense_alert',
+      title: (ngo ? `${ngo.toUpperCase()} ` : '') + 'Suspense Alert',
+      body: 'Please check the new suspense entries.',
+      sent_at: new Date().toISOString(),
+    };
+    let inserted = 0;
+    for (const wid of workerIds) {
+      try {
+        const res = await db.from('notification_log').insert({ ...base, worker_id: wid });
+        if (res.error) {
+          console.error('Failed to send suspense alert to worker', wid, ':', res.error.message);
+          continue;
+        }
+        inserted += 1;
+      } catch (e) { console.error('Failed to send suspense alert to worker', wid, ':', e.message); }
+    }
+    return res.json({ count: inserted, message: `Alert sent to ${inserted} FROs` });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const sendTestNotification = async (req, res) => {
   try {
     const { worker_id } = req.body;

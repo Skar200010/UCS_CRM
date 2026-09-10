@@ -10,6 +10,7 @@ import { useRealtime } from '../../hooks/useRealtime'
 import { RecProvider, useRec, initials, avatarColor, avatarTint } from './store'
 import { Grid, Users, Bell, FileTxt } from './icons'
 import Dashboard from './components/Dashboard'
+import NoticePopup from '../../components/NoticePopup'
 import Leads from './components/Leads'
 import Candidates from './components/Candidates'
 
@@ -109,6 +110,7 @@ function AppShell() {
 
   return (
     <div className="app">
+      <NoticePopup />
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
       <div className="main">
         <div className="mobile-top">

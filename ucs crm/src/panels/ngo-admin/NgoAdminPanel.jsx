@@ -9,33 +9,26 @@ import { masterSearch } from './api/auth'
 import NotificationDrawer from '../../components/NotificationDrawer'
 import SettingsDrawer from '../../components/SettingsDrawer'
 import DonorDetailModal from '../../components/DonorDetailModal'
+import NoticePopup from '../../components/NoticePopup'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Donors = lazy(() => import('./pages/Donors'))
 const DonorDetail = lazy(() => import('./pages/DonorDetail'))
 const StationManagement = lazy(() => import('./pages/StationManagement'))
-const Alerts = lazy(() => import('./pages/Alerts'))
 const RejectedLeads = lazy(() => import('./pages/RejectedLeads'))
 const NgoAttendance = lazy(() => import('./pages/Attendance'))
-const FroLiveStatus = lazy(() => import('./pages/FroLiveStatus'))
 const SuspensePage = lazy(() => import('./pages/Suspense'))
 const DonorCRM = lazy(() => import('./pages/DonorCRM'))
 const SearchResults = lazy(() => import('./pages/SearchResults'))
-const CallAnalytics = lazy(() => import('./pages/CallAnalytics'))
-const DataOverview = lazy(() => import('./pages/DataOverview'))
 const Codes = lazy(() => import('./pages/Codes'))
 const TechnicalTickets = lazy(() => import('../../components/TechnicalTickets'))
 
 const NAV = [
   { id: 'dashboard', path: '/ngo-admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'station-mgmt', path: '/ngo-admin/station-mgmt', label: 'Stations & FROs', icon: 'station' },
-  // { id: 'fro-status', path: '/ngo-admin/fro-status', label: 'FRO Status', icon: 'froStatus' },
-  // { id: 'call-analytics', path: '/ngo-admin/call-analytics', label: 'Call Analytics', icon: 'callAnalytics' },
   { id: 'donor-crm', path: '/ngo-admin/donor-crm', label: 'Donor CRM', icon: 'donorCrm' },
   { id: 'suspense', path: '/ngo-admin/suspense', label: 'Suspense', icon: 'suspense' },
-  // { id: 'alerts', path: '/ngo-admin/alerts', label: 'Alerts', icon: 'alerts' },
   { id: 'donors', path: '/ngo-admin/donors', label: 'Donors', icon: 'donors' },
-  // { id: 'data-overview', path: '/ngo-admin/data-overview', label: 'Data Overview', icon: 'dataOverview' },
   { id: 'attendance', path: '/ngo-admin/attendance', label: 'Attendance', icon: 'attendance' },
   { id: 'rejected', path: '/ngo-admin/rejected-leads', label: 'Rejected Leads', icon: 'rejected' },
   { id: 'codes', path: '/ngo-admin/codes', label: 'Acting FRO Codes', icon: 'codes' },
@@ -402,18 +395,14 @@ export default function NgoAdminPanel() {
           <Routes>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="alerts" element={<Alerts />} />
             <Route path="donor-crm" element={<DonorCRM />} />
             <Route path="donors" element={<DonorsPage />} />
             <Route path="donors/:id" element={<DonorDetailPage />} />
             <Route path="station-mgmt" element={<StationManagement />} />
             <Route path="attendance" element={<NgoAttendance />} />
             <Route path="rejected-leads" element={<RejectedLeads />} />
-            <Route path="fro-status" element={<FroLiveStatus />} />
             <Route path="suspense" element={<SuspensePage />} />
             <Route path="search" element={<SearchResults />} />
-            <Route path="call-analytics" element={<CallAnalytics />} />
-            <Route path="data-overview" element={<DataOverview />} />
             <Route path="codes" element={<Codes />} />
             <Route path="my-tickets" element={<TechnicalTickets panel="ngo_admin" />} />
             <Route path="*" element={<Navigate to="dashboard" replace />} />
@@ -531,7 +520,6 @@ export default function NgoAdminPanel() {
                   )}
                   <div style={{ marginTop: 14, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     <button className="btn btn-sm" onClick={close} style={{ background: 'transparent', border: '1px solid var(--line)' }}>Close</button>
-                    <button className="btn btn-primary btn-sm" onClick={() => { close(); navigate(`/ngo-admin/fro-status?fro_id=${r.id}`); }}>View FRO Status ?</button>
                   </div>
                 </div>
               </div>
@@ -594,6 +582,8 @@ export default function NgoAdminPanel() {
       {showDonorDetail && (
         <DonorDetailModal donorId={showDonorDetail} onClose={() => setShowDonorDetail(null)} />
       )}
+
+      <NoticePopup />
 
     </div>
   )

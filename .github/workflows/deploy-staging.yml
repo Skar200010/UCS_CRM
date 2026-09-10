@@ -39,6 +39,9 @@ jobs:
             node -e "require('@aws-sdk/client-s3'); require('pg')" || { echo "ERROR: node_modules broken"; exit 1; }
             cd ..
 
+            # LibreOffice headless is required for PPTX template preview snapshots.
+            bash backend/scripts/install-libreoffice-al2023.sh
+
             pm2 restart backend-staging --update-env
 
       - name: Wait for backend to start

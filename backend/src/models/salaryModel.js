@@ -184,9 +184,11 @@ export const getPayrollData = async (month, extended = false) => {
   // Fetch active loan deductions
   const { data: activeLoans, error: loanErr } = await db
     .from('worker_loans')
-    .select('worker_id, monthly_deduction, remaining_amount, type')
+    .select('worker_id, monthly_deduction, remaining_amount, type, start_month, end_month')
     .in('status', ['approved', 'active'])
-    .gt('remaining_amount', 0);
+    .gt('remaining_amount', 0)
+    .lte('start_month', endDate)
+    .or(`end_month.is.null,end_month.gte.${startDate}`);
   const loanByWorker = {};
   if (!loanErr && activeLoans) {
     for (const l of activeLoans) {
@@ -697,6 +699,15 @@ export const getPagarExportData = async (month) => {
     if (ded > 0) loanByWorker[l.worker_id] = ded;
   }
 
+  // 7b. Per-month salary holds (Hold/Released). Absence of a row = Released.
+  const { data: holds, error: holdErr } = await db
+    .from('salary_holds')
+    .select('worker_id, reason')
+    .eq('salary_month', monthStr);
+  if (holdErr) throw holdErr;
+  const holdByWorker = {};
+  for (const h of holds || []) holdByWorker[h.worker_id] = h.reason || '';
+
   // 8. Compute per worker
   const rows = [];
   for (const w of workers) {
@@ -758,6 +769,8 @@ export const getPagarExportData = async (month) => {
       name: w.name,
       status: (w.employment_status || '').toUpperCase(),
       department: w.department || '',
+      salary_status: holdByWorker[w.id] !== undefined ? 'held' : 'released',
+      hold_reason: holdByWorker[w.id] || '',
       account_holder_name: w.account_holder_name || '',
       account_holder_relation: w.father_husband_name || '', // blank or father name
       bank_name: w.bank_name || '',

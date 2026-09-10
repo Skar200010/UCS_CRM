@@ -71,12 +71,17 @@ import simCardRoutes from './routes/simCardRoutes.js';
 import simInventoryRoutes from './routes/simInventoryRoutes.js';
 import reminderRoutes from './routes/reminderRoutes.js';
 import assetsRoutes from './routes/assetsRoutes.js';
+import certificateRoutes from './routes/certificateRoutes.js';
 import { whatsappLogin } from './controllers/froWhatsAppAuthController.js';
 import { authenticate } from './middleware/authMiddleware.js';
 import { ensureEventHeadSchema } from './bootstrap/ensureEventHeadSchema.js';
 import { ensureTicketSchema } from './bootstrap/ensureTicketSchema.js';
 import { ensureLoanDeductionSchema } from './bootstrap/ensureLoanDeductionSchema.js';
 import { ensureSpecialIncentiveSchema } from './bootstrap/ensureSpecialIncentiveSchema.js';
+import { ensureSalaryHoldSchema } from './bootstrap/ensureSalaryHoldSchema.js';
+import { ensureCertificateSchema } from './bootstrap/ensureCertificateSchema.js';
+import { ensureNoticeSchema } from './bootstrap/ensureNoticeSchema.js';
+import { ensureNotificationLogTypes } from './bootstrap/ensureNotificationLogTypes.js';
 
 dotenv.config();
 
@@ -227,6 +232,7 @@ app.use('/api/sim-cards', simCardRoutes);
 app.use('/api/sim-inventory', simInventoryRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/assets', assetsRoutes);
+app.use('/api/certificates', certificateRoutes);
 
 app.get('/api/deploy-test', (req, res) => {
   res.json({ status: 'ok', deployed: true, timestamp: new Date().toISOString(), commit: 'shon2-deploy-test' });
@@ -542,13 +548,96 @@ async function tableExists(name) {
 }
 
 // Run arbitrary SQL (dev tool). Returns a result set if the query produces one.
+// [[explore]]-Splits a multi-statement SQL script on top-level semicolons,
+// respecting dollar-quoted strings ($$...$$, $tag$...$tag$), single-quoted
+// strings with '' escapes, and double-dash line comments. Empty statements
+// are dropped. Used by the db-viewer query runner so migration scripts with
+// many CREATE TABLE / INDEX statements can run as one paste.
+function splitSqlStatements(sql) {
+  const statements = [];
+  let current = '';
+  let i = 0;
+  const n = sql.length;
+
+  const flush = () => {
+    const s = current.trim();
+    if (s) statements.push(s);
+    current = '';
+  };
+
+  while (i < n) {
+    const c = sql[i];
+    const next = sql[i + 1];
+
+    if (c === '-' && next === '-') {
+      while (i < n && sql[i] !== '\n') { current += sql[i]; i += 1; }
+      continue;
+    }
+
+    if (c === "'") {
+      current += c; i += 1;
+      while (i < n) {
+        current += sql[i];
+        if (sql[i] === "'") {
+          if (sql[i + 1] === "'") { current += sql[i + 1]; i += 2; continue; }
+          i += 1; break;
+        }
+        i += 1;
+      }
+      continue;
+    }
+
+    if (c === '$') {
+      let j = i;
+      const tagMatch = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/.exec(sql.slice(i));
+      if (tagMatch) {
+        const delim = tagMatch[0];
+        current += delim;
+        i += delim.length;
+        const closeIdx = sql.indexOf(delim, i);
+        if (closeIdx === -1) { current += sql.slice(i); i = n; }
+        else { current += sql.slice(i, closeIdx + delim.length); i = closeIdx + delim.length; }
+        continue;
+      }
+    }
+
+    if (c === ';') { flush(); i += 1; continue; }
+
+    current += c; i += 1;
+  }
+  flush();
+  return statements;
+}
+
 app.post('/api/db/query', async (req, res) => {
   try {
     const sql = String(req.body && req.body.sql || '').trim();
     if (!sql) return res.status(400).json({ message: 'No SQL provided' });
-    const r = await db._pool.query(sql);
-    const columns = (r.fields || []).map((f) => ({ name: f.name, dataTypeID: f.dataTypeID }));
-    res.json({ command: r.command, rowCount: r.rowCount, columns, rows: r.rows || [] });
+    const statements = splitSqlStatements(sql);
+    if (statements.length === 0) return res.status(400).json({ message: 'No SQL statements provided' });
+
+    const client = await db._pool.connect();
+    let command = null;
+    let rowCount = null;
+    let fields = [];
+    let rows = [];
+    try {
+      await client.query('BEGIN');
+      for (const stmt of statements) {
+        const r = await client.query(stmt);
+        command = r.command || command;
+        rowCount = r.rowCount ?? rowCount;
+        fields = (r.fields || []).map((f) => ({ name: f.name, dataTypeID: f.dataTypeID }));
+        rows = r.rows || [];
+      }
+      await client.query('COMMIT');
+      res.json({ command, rowCount, columns: fields, rows });
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (_) { /* connection may be dead */ }
+      res.status(400).json({ message: err.message, hint: err.hint || '', code: err.code || '' });
+    } finally {
+      client.release();
+    }
   } catch (err) {
     res.status(400).json({ message: err.message, hint: err.hint || '', code: err.code || '' });
   }
@@ -789,6 +878,10 @@ if (!process.env.VERCEL) {
     await ensureTicketSchema().catch(e => console.error('ensureTicketSchema failed:', e?.message || e));
     await ensureLoanDeductionSchema().catch(e => console.error('ensureLoanDeductionSchema failed:', e?.message || e));
     await ensureSpecialIncentiveSchema().catch(e => console.error('ensureSpecialIncentiveSchema failed:', e?.message || e));
+    await ensureSalaryHoldSchema().catch(e => console.error('ensureSalaryHoldSchema failed:', e?.message || e));
+    await ensureCertificateSchema().catch(e => console.error('ensureCertificateSchema failed:', e?.message || e));
+    await ensureNoticeSchema().catch(e => console.error('ensureNoticeSchema failed:', e?.message || e));
+    await ensureNotificationLogTypes().catch(e => console.error('ensureNotificationLogTypes failed:', e?.message || e));
     import('./services/notificationScheduler.js');
     import('./services/dbHealthWatchdog.js');
   });

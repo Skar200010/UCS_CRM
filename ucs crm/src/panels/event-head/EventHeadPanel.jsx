@@ -29,6 +29,7 @@ import EventDetail from './pages/EventDetail'
 import MediaManagement from './pages/MediaManagement'
 import TechnicalTickets from '../../components/TechnicalTickets'
 import AllTicketsDashboard from './pages/AllTicketsDashboard'
+import NoticePopup from '../../components/NoticePopup'
 
 const NAV = [
   { id:'dashboard',      path:'/event-head/dashboard',        label:'Dashboard',             icon:Grid, section:'Overview' },
@@ -195,6 +196,7 @@ export default function EventHeadPanel() {
 
   return (
     <div className="app">
+      <NoticePopup />
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="main">
         <header className="topbar">

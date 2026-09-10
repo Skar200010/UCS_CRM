@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getMyDonors, getQueueCurrent, getMyStations, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot, getDonorDonations, searchDonorsByMobile, updateDonorType, getMyDisposedLeads } from '../api/donors';
+import { createPortal } from 'react-dom';
+import { getMyDonors, getQueueCurrent, getMyStations, getDonorDetail, addDonorLog, markDonorSeen, uploadPaymentScreenshot, getDonorDonations, searchDonorsByMobile, updateDonorType, getMyDisposedLeads, getScheduled, getCallbacks, getPromises } from '../api/donors';
 import { api, isImpersonating, getUser } from '../../../api/auth';
 import { SkeletonMyLeads } from '../../../components/Skeleton';
 import { toast } from '../../../components/Toast';
@@ -46,6 +47,7 @@ const HIDDEN_STATUSES = new Set([
   'not_interested', 'not_interested_now', 'dnd', 'wrong_person', 'not_possible', 'language_barrier',
   'call_disconnected', 'email_sent', 'whatsapp_sent', 'transferred_senior',
   'query_complaint', 'receipt_request', 'csr_inquiry', 'wants_80g_details', 'wants_trust_documents',
+  'others',
 ]);
 // Status-group buckets for the MY LEADS list filter. Grouped so the FRO can scan
 // "what still needs a call" vs "already scheduled / done / rejected".
@@ -187,7 +189,7 @@ function useTomorrowStr() {
 
 const initials = (name) => (name || '').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
-export default function MyDonors({ embedded = false }) {
+export default function MyDonors({ embedded = false, portalEl = null }) {
   const isMobile = useIsMobile()
   const isCompact = useIsMobile(480)
   const [donors, setDonors] = useState([]);
@@ -263,12 +265,14 @@ export default function MyDonors({ embedded = false }) {
   const [activeDonor, setActiveDonor] = useState(null);
   const [listStatusFilter, setListStatusFilter] = useState('all');
   const [listHideDonated, setListHideDonated] = useState(true);
-  const [listView, setListView] = useState('leads'); // 'leads' | 'history'
+  const [listView, setListView] = useState('leads'); // 'leads' | 'followups' | 'history'
   useEffect(() => {
     if (listView === 'leads' && listStatusFilter !== 'all' && listStatusFilter !== 'pending') setListStatusFilter('all');
   }, [listView, listStatusFilter]);
   const [historyLeads, setHistoryLeads] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [followUps, setFollowUps] = useState([]);
+  const [followUpsLoading, setFollowUpsLoading] = useState(false);
   // Preserves the list's vertical scroll position while the FRO opens a lead
   // and returns (or disposes it), so the list doesn't snap back to the top.
   const listScrollRef = useRef(null);
@@ -545,6 +549,50 @@ export default function MyDonors({ embedded = false }) {
       .finally(() => { if (!cancelled) setHistoryLoading(false); });
     return () => { cancelled = true; };
   }, [listView, activeDonor, selectedStation, selectedNgo]);
+
+  // Follow-ups: scheduled contacts + callback assignments + money promises,
+  // merged/deduplicated the same way the standalone Follow Ups page did.
+  useEffect(() => {
+    if (listView !== 'followups' || activeDonor) return;
+    let cancelled = false;
+    setFollowUpsLoading(true);
+    Promise.all([getScheduled(), getCallbacks(), getPromises()])
+      .then(([scheduled, callbacks, promises]) => {
+        if (cancelled) return;
+        const todayStr = istDateString();
+        const items = [];
+        const seen = new Set();
+        const k = (d) => `${d.id}`;
+        (scheduled || []).forEach(d => {
+          if (d.scheduled_at && istDateString(d.scheduled_at) !== todayStr && !seen.has(k(d))) {
+            seen.add(k(d));
+            items.push({ id: d.id, ngo_id: d.ngo_id, donor_name: d.donor_name, donor_mobile: d.donor_mobile, scheduled_at: d.scheduled_at, type: 'scheduled' });
+          }
+        });
+        (callbacks || []).forEach(d => {
+          if (!seen.has(k(d))) {
+            seen.add(k(d));
+            items.push({ id: d.id, ngo_id: d.ngo_id, donor_name: d.donor_name, donor_mobile: d.donor_mobile, scheduled_at: d.scheduled_at || null, type: 'callback' });
+          }
+        });
+        (scheduled || []).forEach(d => {
+          if (d.scheduled_at && istDateString(d.scheduled_at) === todayStr && !seen.has(k(d))) {
+            seen.add(k(d));
+            items.push({ id: d.id, ngo_id: d.ngo_id, donor_name: d.donor_name, donor_mobile: d.donor_mobile, scheduled_at: d.scheduled_at, type: 'callback' });
+          }
+        });
+        (promises || []).forEach(d => {
+          if (!seen.has(k(d))) {
+            seen.add(k(d));
+            items.push({ id: d.id, ngo_id: d.ngo_id, donor_name: d.donor_name, donor_mobile: d.donor_mobile, scheduled_at: d.due_date || d.scheduled_at || null, due_date: d.due_date || null, type: 'promise' });
+          }
+        });
+        setFollowUps(items);
+      })
+      .catch((err) => { if (!cancelled) { console.error('Follow-ups error:', err.message); setFollowUps([]); } })
+      .finally(() => { if (!cancelled) setFollowUpsLoading(false); });
+    return () => { cancelled = true; };
+  }, [listView, activeDonor]);
 
   const donorsRef = useRef(donors);
   const indexRef = useRef(index);
@@ -1215,49 +1263,10 @@ export default function MyDonors({ embedded = false }) {
   // mounted while the queue loads. Skeleton rows render in the list area below
   // instead of blanking out the entire panel (which made the filters "flicker
   // in" after load and looked like they were still loading).
-
-  if (donors.length === 0) {
-    return (
-      <div className="bento-grid">
-        <div className="bento-col-12">
-          {message && (
-            <div className={`detail-message ${message.type}`} style={{ marginBottom: 8 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{message.type === 'error' ? 'error' : 'check_circle'}</span>
-              {message.text}
-            </div>
-          )}
-          <div className="bento-card fro-empty-state">
-            <div className="fro-empty-icon">
-              <span className="material-symbols-outlined" style={{ fontSize: 36, color: 'var(--sage)', opacity: .5 }}>{dataTab === 'new' ? 'fiber_new' : 'history'}</span>
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>No {dataTab === 'new' ? 'new' : 'old'} data allotted</div>
-            <div style={{ fontSize: 11, color: 'var(--ink-soft)', maxWidth: 280, textAlign: 'center', lineHeight: 1.5 }}>
-              {stations.length === 0
-                ? 'You are not assigned to any station yet. Ask your Admin to assign you to a station.'
-                : (dataTab === 'new'
-                  ? 'New data will appear here once distributed to your station.'
-                  : 'Old data will appear here once uploaded to your station.')}
-            </div>
-            {(autoFallbackToOldRef.current || autoFallbackAttemptedRef.current) && donors.length === 0 ? (
-              <div style={{ fontSize: 11, color: 'var(--ink-soft)', maxWidth: 280, textAlign: 'center', lineHeight: 1.5, marginTop: 4 }}>
-                No new or old data is currently available at your station. Contact your admin if you expect data here.
-              </div>
-            ) : dataTab === 'new' ? (
-              <button onClick={() => switchTab('old')} className="fro-empty-switch">
-                <span className="material-symbols-outlined" style={{ fontSize: 13 }}>history</span>
-                Try Old Data tab
-              </button>
-            ) : (
-              <button onClick={() => switchTab('new')} className="fro-empty-switch">
-                <span className="material-symbols-outlined" style={{ fontSize: 13 }}>fiber_new</span>
-                Try New Data tab
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  //
+  // Same rule for an empty queue: we never unmount the filter bar / Leads |
+  // Follow Ups | History tabs — the "no data allotted" card lives in the list
+  // area so the FRO can still switch tabs and work History or Follow Ups.
 
   const timelineIcon = (log) => {
     if (log.action === 'disposition') return log.disposition_category === 'connected' ? 'check_circle' : 'cancel';
@@ -1299,8 +1308,9 @@ export default function MyDonors({ embedded = false }) {
     });
 
     const isHistory = listView === 'history';
+    const isFollowUps = listView === 'followups';
     // In History tab, filter locally; in Leads tab searching swaps queue for disposed search results
-    const searching = !isHistory && searchQuery.trim().length >= 2;
+    const searching = listView === 'leads' && searchQuery.trim().length >= 2;
     const historyFiltered = isHistory ? historyLeads.filter(d => {
       const q = searchQuery.trim().toLowerCase();
       if (!q) return true;
@@ -1309,11 +1319,17 @@ export default function MyDonors({ embedded = false }) {
         || (d.disposition_detail || '').toLowerCase().includes(q)
         || (d.station || '').toLowerCase().includes(q);
     }) : [];
+    const followUpFiltered = isFollowUps ? followUps.filter(d => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return (d.donor_name || '').toLowerCase().includes(q)
+        || (d.donor_mobile || '').includes(q);
+    }) : [];
     const listItems = isHistory ? historyFiltered.map(r => ({
       ...r,
       id: r.donor_id,
       is_disposed: true,
-    })) : (searching ? disposedResults.map(r => ({
+    })) : isFollowUps ? followUpFiltered : (searching ? disposedResults.map(r => ({
       ...r,
       id: r.donor_id,
       ngo_id: r.ngo_id,
@@ -1326,9 +1342,9 @@ export default function MyDonors({ embedded = false }) {
     })) : visible);
 
     const openLead = (d) => {
-      if (isHistory) {
+      if (isHistory || isFollowUps) {
         if (listScrollRef.current) savedListScrollRef.current = listScrollRef.current.scrollTop;
-        setActiveDonor(d);
+        setActiveDonor({ ...d, _fromList: listView });
         setSelected(null); setNotes(''); setLeadAmount('');
         return;
       }
@@ -1357,6 +1373,11 @@ export default function MyDonors({ embedded = false }) {
                 style={{ padding: '6px 12px', borderRadius: 10, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', background: listView === 'leads' ? 'var(--sage)' : 'transparent', color: listView === 'leads' ? '#fff' : 'var(--ink-soft)', boxShadow: listView === 'leads' ? '0 1px 4px rgba(0,0,0,.18)' : 'none', transition: 'all .15s' }}>
                 Leads
                 {total ? <span style={{ minWidth: 16, padding: '0 4px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: listView === 'leads' ? 'rgba(255,255,255,.22)' : 'var(--line)', color: listView === 'leads' ? '#fff' : 'var(--ink-soft)' }}>{total}</span> : null}
+              </button>
+              <button onClick={() => setListView('followups')}
+                style={{ padding: '6px 12px', borderRadius: 10, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', background: listView === 'followups' ? 'var(--sage)' : 'transparent', color: listView === 'followups' ? '#fff' : 'var(--ink-soft)', boxShadow: listView === 'followups' ? '0 1px 4px rgba(0,0,0,.18)' : 'none', transition: 'all .15s' }}>
+                Follow Ups
+                {followUps.length ? <span style={{ minWidth: 16, padding: '0 4px', borderRadius: 999, fontSize: 9, fontWeight: 700, background: listView === 'followups' ? 'rgba(255,255,255,.22)' : 'var(--line)', color: listView === 'followups' ? '#fff' : 'var(--ink-soft)' }}>{followUps.length}</span> : null}
               </button>
               <button onClick={() => setListView('history')}
                 style={{ padding: '6px 12px', borderRadius: 10, border: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', background: listView === 'history' ? 'var(--sage)' : 'transparent', color: listView === 'history' ? '#fff' : 'var(--ink-soft)', boxShadow: listView === 'history' ? '0 1px 4px rgba(0,0,0,.18)' : 'none', transition: 'all .15s' }}>
@@ -1430,6 +1451,10 @@ export default function MyDonors({ embedded = false }) {
             <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
               Loading history…
             </div>
+          ) : isFollowUps && followUpsLoading ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
+              Loading follow-ups…
+            </div>
           ) : searching && disposedSearchLoading ? (
             <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
               Searching leads…
@@ -1439,9 +1464,45 @@ export default function MyDonors({ embedded = false }) {
               No leads match "{searchQuery.trim()}". Clear the search to return to your queue.
             </div>
           ) : listItems.length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
-              {isHistory ? 'No disposed leads yet. Work a lead and it will appear here.' : 'No leads match the current filters.'}
-            </div>
+            listView === 'leads' && donors.length === 0 ? (
+              <div className="fro-empty-state" style={{ padding: '34px 20px', marginTop: 4 }}>
+                <div className="fro-empty-icon">
+                  <span className="material-symbols-outlined" style={{ fontSize: 36, color: 'var(--sage)', opacity: .5 }}>{dataTab === 'new' ? 'fiber_new' : 'history'}</span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>No {dataTab === 'new' ? 'new' : 'old'} data allotted</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-soft)', maxWidth: 280, textAlign: 'center', lineHeight: 1.5 }}>
+                  {stations.length === 0
+                    ? 'You are not assigned to any station yet. Ask your Admin to assign you to a station.'
+                    : (dataTab === 'new'
+                      ? 'New data will appear here once distributed to your station.'
+                      : 'Old data will appear here once uploaded to your station.')}
+                </div>
+                {(autoFallbackToOldRef.current || autoFallbackAttemptedRef.current) && (
+                  <div style={{ fontSize: 11, color: 'var(--ink-soft)', maxWidth: 280, textAlign: 'center', lineHeight: 1.5, marginTop: 4 }}>
+                    No new or old data is currently available at your station. Contact your admin if you expect data here.
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  {dataTab === 'new' ? (
+                    <button onClick={() => switchTab('old')} className="fro-empty-switch">
+                      <span className="material-symbols-outlined" style={{ fontSize: 13 }}>history</span> Try Old Data tab
+                    </button>
+                  ) : (
+                    <button onClick={() => switchTab('new')} className="fro-empty-switch">
+                      <span className="material-symbols-outlined" style={{ fontSize: 13 }}>fiber_new</span> Try New Data tab
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
+                {isHistory
+                  ? 'No disposed leads yet. Work a lead and it will appear here.'
+                  : isFollowUps
+                    ? 'No calls scheduled, no callbacks assigned, no promises to pay yet.'
+                    : 'No leads match the current filters.'}
+              </div>
+            )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {listItems.map((d) => {
@@ -1481,7 +1542,14 @@ export default function MyDonors({ embedded = false }) {
                         <div style={{ fontSize: 11, color: 'var(--ink-soft)', marginTop: 2 }}>{d.station || '—'}</div>
                       </div>
                       <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-                        {d.is_disposed ? (
+                        {d.type ? (
+                          <>
+                            <span style={{ padding: `1px 7px`, borderRadius: 999, fontSize: 9, fontWeight: 700, whiteSpace: 'nowrap', background: d.type === 'promise' ? '#ede9fe' : d.type === 'callback' ? '#dbeafe' : '#dcfce7', color: d.type === 'promise' ? '#7e22ce' : d.type === 'callback' ? '#1d4ed8' : '#166534' }}>
+                              {d.type === 'promise' ? 'PROMISE' : d.type === 'callback' ? 'CALLBACK' : 'FOLLOW UP'}
+                            </span>
+                            {d.scheduled_at && <span style={{ fontSize: 9, color: 'var(--ink-soft)' }}>{new Date(d.scheduled_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
+                          </>
+                        ) : d.is_disposed ? (
                           <>
                             {statusPill(d.disposition_detail || 'disposed')}
                             {d.disposed_at && <span style={{ fontSize: 9, color: 'var(--ink-soft)' }}>{new Date(d.disposed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
@@ -1501,17 +1569,19 @@ export default function MyDonors({ embedded = false }) {
             ? 'Loading leads…'
             : isHistory
               ? `${listItems.length} disposed lead(s)${searchQuery.trim() ? ' found' : ''}`
-              : searching
-                ? `${listItems.length} lead(s) found`
-                : `Showing ${listItems.length} of ${total || donors.length} leads`}
+              : isFollowUps
+                ? `${listItems.length} follow-up(s)${searchQuery.trim() ? ' found' : ''}`
+                : searching
+                  ? `${listItems.length} lead(s) found`
+                  : `Showing ${listItems.length} of ${total || donors.length} leads`}
         </div>
       </div>
     );
   }
 
-  return (
+  const detailTree = (
     <div style={embedded
-      ? { position: 'absolute', inset: 0, zIndex: 1300, background: 'var(--bg)', display: 'flex', flexDirection: 'column', padding: '4px 10px 10px' }
+      ? { position: 'absolute', inset: 0, zIndex: 1400, background: 'var(--bg)', display: 'flex', flexDirection: 'column', padding: '4px 10px 10px' }
       : { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
     <div className="detail-card" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div className="detail-split">
@@ -2132,4 +2202,6 @@ export default function MyDonors({ embedded = false }) {
     )}
     </div>
   );
+  if (embedded && portalEl) return createPortal(detailTree, portalEl);
+  return detailTree;
 }

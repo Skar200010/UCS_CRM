@@ -17,6 +17,9 @@ import {
   createSalaryAccessCode,
   verifySalaryAccessCode,
   changeSalaryAccessCode,
+  getSalaryHold,
+  setSalaryHold,
+  releaseSalaryHold,
 } from '../controllers/salaryController.js';
 import { authenticateRole, authenticate, authenticateSalary } from '../middleware/authMiddleware.js';
 
@@ -43,5 +46,8 @@ router.delete('/:id', adminHrAccounts, removeSalary);
 router.get('/my-breakdown', authenticate, getMySalaryBreakdown);
 router.get('/worker/:workerId/allocations', adminHrAccounts, getWorkerSalaryWithAllocations);
 router.get('/pagar-export', adminHrAccounts, getPagarExport);
+router.get('/hold/:workerId', adminHrAccounts, getSalaryHold);
+router.put('/hold', adminHrAccounts, setSalaryHold);
+router.delete('/hold/:workerId', adminHrAccounts, releaseSalaryHold);
 
 export default router;

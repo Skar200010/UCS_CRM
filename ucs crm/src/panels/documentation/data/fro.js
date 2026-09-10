@@ -322,9 +322,9 @@ Architecture:
       ],
     },
     {
-      name: 'Scheduled / Callbacks',
-      path: '/fro/scheduled',
-      description: 'View all scheduled contacts and pending callbacks.',
+      name: 'Follow Ups (My Leads tab)',
+      path: '/fro/my-leads',
+      description: 'Scheduled contacts, callbacks and promises consolidated into the Follow Ups tab of My Leads.',
       features: [
         {
           name: 'List Scheduled Contacts',

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Routes, Route, NavLink, useNavigate, useLocation, Navigate } from 'react-router-dom'
-import { LayoutDashboard, CalendarClock, Users, Gift, Ticket, MessageCircle, Coins } from 'lucide-react'
+import { LayoutDashboard, Users, Gift, Ticket, MessageCircle, Coins } from 'lucide-react'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
 import { getScheduled, getCallbacks } from './api/donors'
@@ -20,19 +20,52 @@ import ToastContainer from '../../components/Toast'
 import Dashboard from './pages/Dashboard'
 import MyLeadsSuspense from './pages/MyLeadsSuspense'
 import Donors from './pages/Donors'
-import Scheduled from './pages/Scheduled'
 import IncentiveInfo from './pages/IncentiveInfo'
 import AkiBanner from '../../components/AkiBanner'
 import SpecialIncentive from '../../components/SpecialIncentive'
+import NoticePopup from '../../components/NoticePopup'
 import History from './pages/History'
 import FroTickets from './pages/Tickets'
 import FroSuspense from './pages/Suspense'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { istDateString } from './utils/time'
+import teleWav from '../../assets/audio/tele.wav'
+
+const suspenseAlertAudio = new Audio(teleWav);
+suspenseAlertAudio.preload = 'auto';
+const SUSPENSE_RING_WINDOW_MS = 90 * 1000;
+function playSuspenseAlert(title) {
+  try {
+    suspenseAlertAudio.currentTime = 0;
+    const p = suspenseAlertAudio.play();
+    if (p && p.then) p.catch(() => {});
+  } catch {}
+  toast(title || 'Suspense Alert', 'info');
+}
+let suspenseAudioUnlocked = false;
+function warmupSuspenseAudio() {
+  if (suspenseAudioUnlocked) return;
+  suspenseAudioUnlocked = true;
+  try {
+    suspenseAlertAudio.volume = 0;
+    suspenseAlertAudio.muted = true;
+    const p = suspenseAlertAudio.play();
+    if (p && p.then) p.then(() => {
+      suspenseAlertAudio.pause();
+      suspenseAlertAudio.currentTime = 0;
+      suspenseAlertAudio.muted = false;
+      suspenseAlertAudio.volume = 1;
+    }).catch(() => {});
+  } catch {}
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointerdown', warmupSuspenseAudio, { once: false });
+  window.addEventListener('keydown', warmupSuspenseAudio, { once: false });
+  window.addEventListener('touchstart', warmupSuspenseAudio, { once: false });
+}
 
 const NAV_BASE = [
   { id: 'dashboard', path: '/fro/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { id: 'scheduled', path: '/fro/scheduled', label: 'Follow Ups', Icon: CalendarClock },
   { id: 'my-leads', path: '/fro/my-leads', label: 'My Leads', Icon: Users },
   { id: 'donors', path: '/fro/donors', label: 'Donors', Icon: Gift },
   { id: 'tickets', path: '/fro/tickets', label: 'Raise Ticket', Icon: Ticket },
@@ -298,6 +331,8 @@ export default function FROPanel() {
   const [akiLoading, setAkiLoading] = useState(false);
   let _initSeenNotifs = []; try { _initSeenNotifs = JSON.parse(localStorage.getItem('fro_seen_notifs') || '[]'); } catch { /* corrupted */ }
   const seenNotifIds = useRef(new Set(_initSeenNotifs));
+  let _initRungAlerts = []; try { _initRungAlerts = JSON.parse(localStorage.getItem('fro_rung_suspense_alerts') || '[]'); } catch { /* corrupted */ }
+  const rungAlertIds = useRef(new Set(_initRungAlerts));
   const notifRef = useRef(null);
   const poppedIds = useRef(new Set());
   const snoozedUntil = useRef({});
@@ -342,12 +377,30 @@ export default function FROPanel() {
     toast('Snoozed — will pop up again in 2 min', 'info');
   };
 
+  const markRungAlert = (id) => {
+    rungAlertIds.current.add(id);
+    try { localStorage.setItem('fro_rung_suspense_alerts', JSON.stringify([...rungAlertIds.current])); } catch {}
+  };
+
+  const ringSuspenseAlert = (n) => {
+    if (!n || rungAlertIds.current.has(n.id)) return;
+    markRungAlert(n.id);
+    playSuspenseAlert(n.title);
+  };
+
   const loadNotifications = () => {
     const workerId = user?.id;
     if (!workerId) return;
+    const now = Date.now();
     api(`/notifications/${workerId}`, { _prefix: 'ucs' })
       .then(data => {
         const allNotifs = data || [];
+        allNotifs
+          .filter(n => n.type === 'suspense_alert')
+          .forEach(n => {
+            const t = n.sent_at ? new Date(n.sent_at).getTime() : 0;
+            if (now - t <= SUSPENSE_RING_WINDOW_MS) ringSuspenseAlert(n);
+          });
         const verified = allNotifs.filter(n => n.type === 'lead_verified' && !n.read_at);
         const verifiedSlice = verified.slice(0, 20);
         verifiedSlice.forEach(n => {
@@ -377,11 +430,18 @@ export default function FROPanel() {
   useEffect(() => {
     loadNotifications();
     requestNotifPermission();
+    const poll = setInterval(loadNotifications, 8000);
+    return () => clearInterval(poll);
   }, [user?.id]);
 
   useRealtime('notification_log', {
     filter: `worker_id=eq.${user?.id}`,
-    onInsert: () => loadNotifications(),
+    onInsert: (row) => {
+      if (row?.type === 'suspense_alert') {
+        ringSuspenseAlert(row);
+      }
+      loadNotifications();
+    },
     enabled: !!user?.id,
   });
 
@@ -875,7 +935,6 @@ export default function FROPanel() {
           <Routes>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="scheduled" element={<Scheduled />} />
             <Route path="my-leads" element={<MyLeadsSuspense />} />
             <Route path="suspense" element={<FroSuspense />} />
             <Route path="donors" element={<Donors />} />
@@ -907,6 +966,7 @@ export default function FROPanel() {
         onItemClick={handleDrawerItemClick}
       />
       <SpecialIncentive />
+      <NoticePopup />
       <ToastContainer />
     </div>
     </CallProvider>

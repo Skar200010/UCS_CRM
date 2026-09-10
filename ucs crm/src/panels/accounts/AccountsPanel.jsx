@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Routes, Route, NavLink, useLocation, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Users, Heart, Wallet, Database, Smartphone, ChevronRight } from 'lucide-react'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
 import SettingsDrawer from '../../components/SettingsDrawer'
@@ -9,10 +10,12 @@ import { requestNotifPermission, showDesktopNotification } from '../../utils/des
 import { useRealtime } from '../../hooks/useRealtime'
 import ToastContainer, { toast } from '../../components/Toast'
 import SpecialIncentive from '../../components/SpecialIncentive'
+import NoticePopup from '../../components/NoticePopup'
 import LeadAudit from './pages/LeadAudit'
 import Reports from './pages/Reports'
 import TeamsPage from './pages/Teams'
 import IncentiveSetup from './pages/IncentiveSetup'
+import IncentiveVerification from './pages/IncentiveVerification'
 import NewData from './pages/NewData'
 import OldData from './pages/OldData'
 import Donors from './pages/Donors'
@@ -33,39 +36,75 @@ import Loans from '../hr/components/Loans'
 import { fetchWorkerById } from '../hr/store'
 import AttendancePage from './pages/Attendance'
 import SimSection from './components/SimSection'
+import Certificates from './pages/Certificates'
 
-const NAV = [
+const NAV_TOP = [
   { id: 'leads', path: '/accounts/leads', label: 'Lead and Audit',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 12l2 2 4-4"/><path d="M12 2a10 10 0 1 0 10 10"/></svg> },
   { id: 'receipt-generator', path: '/accounts/receipt-generator', label: 'Receipts',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> },
-  { id: 'attendance', path: '/accounts/attendance', label: 'Attendance',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14l2 2 4-4"/></svg> },
-  { id: 'volunteers', path: '/accounts/volunteers', label: 'Salary',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-  { id: 'teams', path: '/accounts/teams', label: 'Teams',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-  { id: 'incentive', path: '/accounts/incentive', label: 'Incentive',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg> },
-  { id: 'donors', path: '/accounts/donors', label: 'Donors',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-  { id: 'address', path: '/accounts/address', label: 'Address',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> },
-  { id: 'asset-register', path: '/accounts/asset-register', label: 'Asset Register',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
-  { id: 'tickets', path: '/accounts/tickets', label: 'Tickets',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5H3v14h12"/><path d="M21 12l-6-6v4H9v4h6v4l6-6z"/></svg> },
-  { id: 'loans', path: '/accounts/loans', label: 'Loan & Advance',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
-  { id: 'reports', path: '/accounts/reports', label: 'Reports',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
-  { id: 'new-data', path: '/accounts/new-data', label: 'New Data',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> },
-  { id: 'old-data', path: '/accounts/old-data', label: 'Old Data',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> },
 ]
 
-const SIM_GROUP_ICON = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+const NAV_GROUPS = [
+  {
+    title: 'Workforce',
+    icon: <Users size={18} />,
+    items: [
+      { id: 'attendance', path: '/accounts/attendance', label: 'Attendance',
+        icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14l2 2 4-4"/></svg> },
+      { id: 'volunteers', path: '/accounts/volunteers', label: 'Salary',
+        icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+      { id: 'teams', path: '/accounts/teams', label: 'Teams',
+        icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+      { id: 'incentive', path: '/accounts/incentive', label: 'Incentive',
+        icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg> },
+      { id: 'incentive-verify', path: '/accounts/incentive-verify', label: 'Incentive Verify',
+        icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> },
+    ],
+  },
+  {
+    title: 'Donor Management',
+    icon: <Heart size={18} />,
+    items: [
+      { id: 'donors', path: '/accounts/donors', label: 'Donors',
+        icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+      { id: 'address', path: '/accounts/address', label: 'Address',
+        icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> },
+      { id: 'certificates', path: '/accounts/certificates', label: 'Certificates',
+        icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 9-5-3-5 3 1.5-9"/></svg> },
+    ],
+  },
+  {
+    title: 'Asset & Finance',
+    icon: <Wallet size={18} />,
+    items: [
+      { id: 'asset-register', path: '/accounts/asset-register', label: 'Asset Register',
+        icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
+      { id: 'loans', path: '/accounts/loans', label: 'Loan & Advance',
+        icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
+    ],
+  },
+]
+
+const NAV_BOTTOM = [
+  { id: 'reports', path: '/accounts/reports', label: 'Reports',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
+  { id: 'tickets', path: '/accounts/tickets', label: 'Tickets',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5H3v14h12"/><path d="M21 12l-6-6v4H9v4h6v4l6-6z"/></svg> },
+]
+
+const NAV_DATA_GROUP = {
+  title: 'Data',
+  icon: <Database size={18} />,
+  items: [
+    { id: 'new-data', path: '/accounts/new-data', label: 'New Data',
+      icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> },
+    { id: 'old-data', path: '/accounts/old-data', label: 'Old Data',
+      icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> },
+  ],
+}
+
+const SIM_GROUP_ICON = <Smartphone size={18} />
 
 const SIM_NAV = [
   { id: 'sim-dashboard', path: '/accounts/sim/dashboard', label: 'Dashboard',
@@ -78,6 +117,25 @@ const SIM_NAV = [
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
     match: (p) => p === '/accounts/sim/owner' },
 ]
+
+// Flat list used for page-title meta lookup. Every nav item across top/groups/
+// bottom/sim lives here so the header can resolve the active page label.
+const ALL_NAV = [
+  ...NAV_TOP,
+  ...NAV_GROUPS.flatMap(g => g.items),
+  ...NAV_BOTTOM,
+  ...NAV_DATA_GROUP.items,
+  ...SIM_NAV,
+]
+
+const navIsActive = (n, pathname) => {
+  if (n.id === 'volunteers' && pathname.startsWith('/accounts/volunteers')) return true
+  if (n.id === 'attendance' && pathname === '/accounts/attendance') return true
+  if (n.match) return n.match(pathname)
+  return pathname === n.path
+}
+
+const GROUP_STORAGE_PREFIX = 'accounts_group_open_'
 
 const settingsViews = [
   { key: 'razorpay', label: 'Razorpay Accounts', width: 420,
@@ -100,28 +158,66 @@ const settingsViews = [
     content: <ChangeSalaryAccessCode /> },
 ]
 
-function Sidebar({ open, onClose }) {
-  const location = useLocation()
-  const [simOpen, setSimOpen] = useState(() => {
+function NavGroup({ title, icon, storageKey, active, children }) {
+  const [open, setOpen] = useState(() => {
     try {
-      const v = localStorage.getItem('accounts_sim_open')
+      const v = localStorage.getItem(GROUP_STORAGE_PREFIX + storageKey)
       if (v !== null) return v === '1'
     } catch { /* storage unavailable */ }
-    return location.pathname.startsWith('/accounts/sim')
+    return active
   })
 
   useEffect(() => {
-    if (location.pathname.startsWith('/accounts/sim')) setSimOpen(true)
-  }, [location.pathname])
+    if (active) setOpen(true)
+  }, [active])
 
-  const toggleSim = () => {
-    setSimOpen((prev) => {
-      try { localStorage.setItem('accounts_sim_open', prev ? '0' : '1') } catch { /* storage unavailable */ }
+  const toggle = () => {
+    setOpen((prev) => {
+      try { localStorage.setItem(GROUP_STORAGE_PREFIX + storageKey, prev ? '0' : '1') } catch { /* storage unavailable */ }
       return !prev
     })
   }
 
-  const simActive = location.pathname.startsWith('/accounts/sim')
+  return (
+    <div className="snav-group">
+      <button type="button" onClick={toggle} aria-expanded={open}
+        className={`snav-item snav-group-header${active ? ' active' : ''}`}>
+        {icon && <span className="ico">{icon}</span>}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>{title}</span>
+        </span>
+        <span className={`snav-chevron${open ? ' open' : ''}`}><ChevronRight size={14} /></span>
+      </button>
+      <div className={`snav-group-items${open ? '' : ' collapsed'}`}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function Sidebar({ open, onClose }) {
+  const location = useLocation()
+
+  const renderGroup = (group, storageKey) => (
+    <NavGroup
+      key={group.title}
+      title={group.title}
+      icon={group.icon}
+      storageKey={storageKey}
+      active={group.items.some(n => navIsActive(n, location.pathname))}
+    >
+      {group.items.map(n => (
+        <NavLink key={n.id} to={n.path} onClick={onClose}
+          data-nav-id={n.id}
+          className={`snav-item snav-sub${navIsActive(n, location.pathname) ? ' active' : ''}`}>
+          <span className="ico">{n.icon}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>{n.label}</span>
+          </span>
+        </NavLink>
+      ))}
+    </NavGroup>
+  )
 
   return (
     <>
@@ -135,41 +231,31 @@ function Sidebar({ open, onClose }) {
           </div>
         </div>
         <nav className="sidebar-nav" aria-label="Accounts navigation">
-          {NAV.map(n => {
-            const active = location.pathname === n.path || (n.id === 'volunteers' && location.pathname.startsWith('/accounts/volunteers')) || (n.id === 'attendance' && location.pathname === '/accounts/attendance')
-            return (
-              <NavLink key={n.id} to={n.path} onClick={onClose}
-                data-nav-id={n.id}
-                className={`snav-item ${active ? 'active' : ''}`}>
-                <span className="ico">{n.icon}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>{n.label}</span>
-                </span>
-              </NavLink>
-            )
-          })}
-          <div className="snav-group">
-            <button type="button" onClick={toggleSim} aria-expanded={simOpen}
-              className={`snav-item snav-group-header${simActive ? ' active' : ''}`}>
-              <span className="ico">{SIM_GROUP_ICON}</span>
+          {NAV_TOP.map(n => (
+            <NavLink key={n.id} to={n.path} onClick={onClose}
+              data-nav-id={n.id}
+              className={`snav-item ${navIsActive(n, location.pathname) ? 'active' : ''}`}>
+              <span className="ico">{n.icon}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>SIM Management</span>
+                <span>{n.label}</span>
               </span>
-              <span className={`snav-chevron${simOpen ? ' open' : ''}`}>▸</span>
-            </button>
-            <div className={`snav-group-items${simOpen ? '' : ' collapsed'}`}>
-              {SIM_NAV.map(n => (
-                <NavLink key={n.id} to={n.path} onClick={onClose}
-                  data-nav-id={n.id}
-                  className={`snav-item snav-sub${n.match(location.pathname) ? ' active' : ''}`}>
-                  <span className="ico">{n.icon}</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>{n.label}</span>
-                  </span>
-                </NavLink>
-              ))}
-            </div>
-          </div>
+            </NavLink>
+          ))}
+          {renderGroup({ ...NAV_GROUPS[0], title: 'WORKFORCE' }, 'workforce')}
+          {renderGroup({ ...NAV_GROUPS[1], title: 'DONOR MANAGEMENT' }, 'donor_management')}
+          {renderGroup({ ...NAV_GROUPS[2], title: 'ASSET & FINANCE' }, 'asset_finance')}
+          {renderGroup({ ...NAV_DATA_GROUP, title: 'DATA' }, 'data')}
+          {renderGroup({ title: 'SIM MANAGEMENT', icon: SIM_GROUP_ICON, items: SIM_NAV }, 'sim')}
+          {NAV_BOTTOM.map(n => (
+            <NavLink key={n.id} to={n.path} onClick={onClose}
+              data-nav-id={n.id}
+              className={`snav-item ${navIsActive(n, location.pathname) ? 'active' : ''}`}>
+              <span className="ico">{n.icon}</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{n.label}</span>
+              </span>
+            </NavLink>
+          ))}
         </nav>
       </aside>
     </>
@@ -315,8 +401,7 @@ export default function AccountsPanel() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showMenu])
 
-  const meta = NAV.find(n => location.pathname === n.path || (n.id === 'volunteers' && location.pathname.startsWith('/accounts/volunteers')) || (n.id === 'attendance' && location.pathname === '/accounts/attendance'))
-    || SIM_NAV.find(n => n.match(location.pathname))
+  const meta = ALL_NAV.find(n => navIsActive(n, location.pathname))
   const simMeta = SIM_NAV.some(n => n.match(location.pathname))
   const userName = user?.name || 'User'
   const initials = userName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
@@ -376,7 +461,7 @@ export default function AccountsPanel() {
             views={settingsViews}
           />
         </header>
-        <div className="content-body" style={{ marginRight: drawerOpen ? rightDrawerWidth : 0, transition: 'margin-right .25s ease' }}>
+        <div className={`content-body${location.pathname.endsWith('/tickets') ? ' content-body-tickets' : ''}`} style={{ marginRight: drawerOpen ? rightDrawerWidth : 0, transition: 'margin-right .25s ease' }}>
           <Routes>
             <Route index element={<Navigate to="leads" replace />} />
             <Route path="leads" element={<LeadAudit />} />
@@ -391,11 +476,13 @@ export default function AccountsPanel() {
             <Route path="attendance" element={<AttendancePage />} />
             <Route path="tickets" element={<AccountsTickets />} />
             <Route path="loans" element={<Loans />} />
+            <Route path="certificates" element={<Certificates />} />
             <Route path="template-settings" element={<TemplateSettings />} />
             <Route path="asset-register" element={<AssetRegister />} />
             <Route path="reports" element={<Reports />} />
             <Route path="teams" element={<TeamsPage />} />
             <Route path="incentive" element={<IncentiveSetup />} />
+            <Route path="incentive-verify" element={<IncentiveVerification />} />
             <Route path="new-data" element={<NewData />} />
             <Route path="old-data" element={<OldData />} />
             <Route path="sim/*" element={<SimSection />} />
@@ -404,6 +491,7 @@ export default function AccountsPanel() {
         </div>
       </div>
       <SpecialIncentive />
+      <NoticePopup />
       <ToastContainer />
     </div>
   )

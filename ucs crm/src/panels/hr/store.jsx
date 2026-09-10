@@ -28,6 +28,7 @@ export function useHR() {
     fetchWorkerSalaryAlloc, saveWorkerSalaryAlloc, generateWorkerSalaryAlloc, generateAllSalaryAllocations,
     fetchPayments, createPayment, updatePaymentStatus,
     fetchNgoSalaryReport, fetchEmployeeReport, fetchNgoReport, fetchNgoSalaryReportFallback,
+    fetchSalaryHold, setSalaryHold, releaseSalaryHold,
   }
 }
 
@@ -165,6 +166,9 @@ export const fetchNgoSalaryReportFallback = async (filters = {}) => {
 };
 export const fetchEmployeeReport = (workerId) => apiGet('/ngo-allocations/report/employee/' + workerId);
 export const fetchNgoReport = (ngoId, month) => apiGet('/ngo-allocations/report/ngo/' + ngoId + (month ? '?month=' + month : ''));
+export const fetchSalaryHold = (workerId, month) => apiGet('/salary/hold/' + workerId + '?month=' + month);
+export const setSalaryHold = (workerId, month, reason) => apiPut('/salary/hold', { worker_id: workerId, salary_month: month, reason });
+export const releaseSalaryHold = (workerId, month) => apiDelete('/salary/hold/' + workerId + '?month=' + month);
 export const fetchLoans = () => apiGet('/loans');
 export const createLoanApi = (data) => apiPost('/loans/create', data);
 export const fetchPendingLoans = () => apiGet('/loans/pending');

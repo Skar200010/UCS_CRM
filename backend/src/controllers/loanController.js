@@ -63,8 +63,9 @@ export const apply = async (req, res) => {
 
 export const createLoan = async (req, res) => {
   try {
-    let { worker_id, type, amount, total_amount, monthly_deduction, reason, start_month, end_month } = req.body;
+    let { worker_id, type, amount, total_amount, monthly_deduction, reason, start_month, end_month, recurring } = req.body;
 
+    const isRecurring = recurring === true || recurring === 'true' || recurring === 1;
     const total = parseFloat(total_amount !== undefined ? total_amount : amount);
     if (!worker_id) {
       return res.status(400).json({ message: 'worker_id is required' });
@@ -83,19 +84,24 @@ export const createLoan = async (req, res) => {
     if (isNaN(monthly) || monthly <= 0) {
       return res.status(400).json({ message: 'monthly_deduction is required and must be > 0' });
     }
-    if (monthly > total) {
+    if (!isRecurring && monthly > total) {
       return res.status(400).json({ message: 'monthly_deduction cannot exceed total_amount' });
     }
+
+    // Recurring: keeps remaining_amount constant and never auto-closes. Non-recurring:
+    // remaining_amount = total and decrements to zero (then closes).
+    const remaining = isRecurring ? total : total;
 
     const record = {
       worker_id,
       type,
       total_amount: total,
-      remaining_amount: total,
+      remaining_amount: remaining,
       monthly_deduction: monthly,
       reason: String(reason).trim(),
       start_month: start_month || null,
       end_month: end_month || null,
+      recurring: isRecurring,
       status: 'active',
       applied_at: new Date().toISOString(),
       decided_at: new Date().toISOString(),
@@ -279,6 +285,19 @@ export const updateLoanRecord = async (req, res) => {
     }
 
     const updates = {};
+    if (req.body.recurring !== undefined) {
+      updates.recurring = req.body.recurring === true || req.body.recurring === 'true' || req.body.recurring === 1;
+    }
+    if (req.body.stop_recurring === true || req.body.stop_recurring === 'true' || req.body.stop_recurring === 1) {
+      // Stop a recurring (monthly rent) loan: mark end of the last completed
+      // month and set status to closed so it drops out of ALL active picks
+      // (settlement, salary sheet, payslip) for future months.
+      const now = new Date();
+      const prev = new Date(now.getFullYear(), now.getMonth(), 0);
+      updates.end_month = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-01`;
+      updates.status = 'closed';
+      updates.recurring = existing.recurring === true || updates.recurring === true;
+    }
     if (req.body.total_amount !== undefined) {
       const total = parseFloat(req.body.total_amount);
       if (isNaN(total) || total <= 0) return res.status(400).json({ message: 'Invalid total_amount' });
@@ -302,20 +321,22 @@ export const updateLoanRecord = async (req, res) => {
     if (req.body.start_month !== undefined) {
       updates.start_month = req.body.start_month || null;
     }
-    if (req.body.end_month !== undefined) {
+    if (req.body.end_month !== undefined && req.body.stop_recurring !== true) {
       updates.end_month = req.body.end_month || null;
     }
 
+    // Validation: recurring loans may deduct the full amount monthly (rent),
+    // so the "monthly cannot exceed total" rule only applies to non-recurring.
     if (updates.monthly_deduction !== undefined && updates.total_amount !== undefined) {
-      if (updates.monthly_deduction > updates.total_amount) {
+      if (!(existing.recurring === true || updates.recurring === true) && updates.monthly_deduction > updates.total_amount) {
         return res.status(400).json({ message: 'monthly_deduction cannot exceed total_amount' });
       }
     } else if (updates.monthly_deduction !== undefined) {
-      if (updates.monthly_deduction > parseFloat(existing.total_amount)) {
+      if (!(existing.recurring === true || updates.recurring === true) && updates.monthly_deduction > parseFloat(existing.total_amount)) {
         return res.status(400).json({ message: 'monthly_deduction cannot exceed total_amount' });
       }
     } else if (updates.total_amount !== undefined) {
-      if (parseFloat(existing.monthly_deduction) > updates.total_amount) {
+      if (!(existing.recurring === true || updates.recurring === true) && parseFloat(existing.monthly_deduction) > updates.total_amount) {
         return res.status(400).json({ message: 'monthly_deduction exceeds new total_amount' });
       }
     }

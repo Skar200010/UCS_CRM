@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import { useHR, avatarColor, avatarTint, initials, DEPTS } from '../store';
+import { UcsContext } from '../../../store';
 import { deptLabel } from '../../../lib/labels';
 import { useTeams } from '../../../components/useTeams';
 import { useSalaryPrivacy } from '../../../context/SalaryPrivacyContext';
@@ -35,7 +36,9 @@ function Badge({ status }) {
 export default function EmployeeDetail({ worker, onBack, onOffboard }) {
   const { teams: teamOptions } = useTeams();
   const { isSalaryUnlocked, promptUnlock, lockSalary, formatSalary, maskSalary } = useSalaryPrivacy();
-  const { fetchWorkerById, fetchAttendance, fetchLeaves, fetchWorkerLetters, updateWorker, fetchWorkerSalaries, addWorkerSalary, updateWorkerSalary, fetchWorkerTargetForMonth, updateWorkerTarget, setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchWorkerAllocations, fetchWorkerSalaryAllocations, setWorkerAllocations, DEPTS, fetchNGOs, fetchHolidays, fetchWorkerLoans, fetchWorkerPeopleAllocations, saveWorkerPeopleAllocations, fetchWorkerSalaryAlloc, saveWorkerSalaryAlloc, generateWorkerSalaryAlloc } = useHR();
+  const { fetchWorkerById, fetchAttendance, fetchLeaves, fetchWorkerLetters, updateWorker, fetchWorkerSalaries, addWorkerSalary, updateWorkerSalary, fetchWorkerTargetForMonth, updateWorkerTarget, setAchievement, fetchWorkerAchievements, fetchIncentiveSummary, fetchWorkerAllocations, fetchWorkerSalaryAllocations, setWorkerAllocations, DEPTS, fetchNGOs, fetchHolidays, fetchWorkerLoans, fetchWorkerPeopleAllocations, saveWorkerPeopleAllocations, fetchWorkerSalaryAlloc, saveWorkerSalaryAlloc, generateWorkerSalaryAlloc, fetchSalaryHold, setSalaryHold, releaseSalaryHold } = useHR();
+  const { user: currentUser } = useContext(UcsContext);
+  const isAccounts = currentUser?.role === 'accounts' || currentUser?.role === 'super_admin';
   const [attendance, setAttendance] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [ngos, setNgos] = useState([]);
@@ -60,6 +63,10 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
   const [extraVal, setExtraVal] = useState('');
   const [extraSaving, setExtraSaving] = useState(false);
   const [viewingMonthKey, setViewingMonthKey] = useState(null);
+  const [salaryHold, setSalaryHoldData] = useState(null);
+  const [holdBusy, setHoldBusy] = useState(false);
+  const [holdModal, setHoldModal] = useState(false);
+  const [holdReason, setHoldReason] = useState('');
   const [currentTarget, setCurrentTarget] = useState(null);
   const [targetEditing, setTargetEditing] = useState(false);
   const [targetEditVal, setTargetEditVal] = useState('');
@@ -182,8 +189,39 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
           .then(s => setIncSummary(s?.hasIncentive ? s : null))
           .catch((err) => { console.error('API error:', err.message); });
       }
+      fetchSalaryHold(worker.id, monthKey)
+        .then(h => setSalaryHoldData({ held: !!h?.held, reason: h?.reason || '', held_at: h?.held_at || null }))
+        .catch((err) => { console.error('API error:', err.message); setSalaryHoldData({ held:false, reason:'', held_at:null }); });
     }
   }, [viewingMonthKey, worker.id, data?.department]);
+
+  const handlerHoldSalary = async () => {
+    setHoldBusy(true);
+    try {
+      await setSalaryHold(worker.id, effectiveMonthKey, holdReason.trim());
+      const h = await fetchSalaryHold(worker.id, effectiveMonthKey);
+      setSalaryHoldData({ held: !!h?.held, reason: h?.reason || '', held_at: h?.held_at || null });
+      setHoldModal(false);
+      setHoldReason('');
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setHoldBusy(false);
+    }
+  };
+
+  const handlerReleaseSalary = async () => {
+    if (!window.confirm(`Release salary for ${effectiveMonthKey}? The worker will move back to Released.`)) return;
+    setHoldBusy(true);
+    try {
+      await releaseSalaryHold(worker.id, effectiveMonthKey);
+      setSalaryHoldData({ held: false, reason: '', held_at: null });
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setHoldBusy(false);
+    }
+  };
 
   const startEdit = () => {
     setForm({
@@ -963,6 +1001,40 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                     ]} />
                 </div>
                 <div className="card-pad">
+                  {/* Hold / Released status for the viewing month */}
+                  {activeSalary && (
+                    <div style={{
+                      display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
+                      padding:'8px 12px', marginBottom:12, borderRadius:8,
+                      background: salaryHold?.held ? '#fff8e1' : '#f0fdf4',
+                      border: `1px solid ${salaryHold?.held ? '#f5d78e' : '#bbf7d0'}`,
+                    }}>
+                      <span style={{
+                        width:9, height:9, borderRadius:'50%', flexShrink:0,
+                        background: salaryHold?.held ? '#eab308' : '#22c55e',
+                      }} />
+                      <span style={{ fontWeight:600, fontSize:13, color:'var(--ink)' }}>
+                        {salaryHold?.held ? 'HELD' : 'Released'}
+                      </span>
+                      {salaryHold?.held && (
+                        <span style={{ fontSize:12, color:'var(--ink-soft)' }}>
+                          {effectiveMonthKey}{salaryHold.reason ? ` — ${salaryHold.reason}` : ''}
+                        </span>
+                      )}
+                      {isAccounts && !salaryHold?.held && (
+                        <button className="btn btn-sm" style={{ marginLeft:'auto', color:'var(--danger)', borderColor:'#f5d78e' }}
+                          onClick={() => setHoldModal(true)} disabled={holdBusy}>
+                          Hold Salary
+                        </button>
+                      )}
+                      {isAccounts && salaryHold?.held && (
+                        <button className="btn btn-sm" style={{ marginLeft:'auto' }}
+                          onClick={handlerReleaseSalary} disabled={holdBusy}>
+                          Release
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {!activeSalary ? (
                     <div className="empty" style={{ padding:0 }}>No salary record for this month.</div>
                   ) : noAttendanceData ? (
@@ -2251,6 +2323,41 @@ export default function EmployeeDetail({ worker, onBack, onOffboard }) {
                 </button>
                 <button className="btn btn-sm" onClick={() => setEditingSalary(false)}>Cancel</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {holdModal && (
+        <div style={{
+          position:'fixed', inset:0, background:'rgba(15,23,42,.45)', zIndex:200,
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }} onClick={() => setHoldModal(false)}>
+          <div style={{
+            background:'#fff', borderRadius:14, width:'min(92vw,440px)',
+            padding:'20px 22px', boxShadow:'0 20px 60px rgba(0,0,0,.25)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight:700, fontSize:16, marginBottom:4 }}>Hold Salary</div>
+            <div style={{ fontSize:12, color:'var(--ink-soft)', marginBottom:14 }}>
+              {data?.name || 'Worker'} · {effectiveMonthKey}
+            </div>
+            <div style={{ fontSize:12, fontWeight:600, color:'var(--ink)', marginBottom:6 }}>
+              Reason (optional)
+            </div>
+            <textarea
+              rows={3} value={holdReason}
+              onChange={e => setHoldReason(e.target.value)}
+              placeholder="e.g. Bank details mismatch, verify & pay next month"
+              style={{
+                width:'100%', boxSizing:'border-box', padding:'8px 10px', borderRadius:8,
+                border:'1px solid var(--line)', fontSize:13, resize:'vertical', fontFamily:'inherit',
+              }} />
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end', marginTop:16 }}>
+              <button className="btn btn-sm" onClick={() => { setHoldModal(false); setHoldReason(''); }}>Cancel</button>
+              <button className="btn btn-sm" style={{ background:'var(--danger)', color:'#fff', border:'none' }}
+                onClick={handlerHoldSalary} disabled={holdBusy}>
+                {holdBusy ? 'Saving…' : 'Confirm Hold'}
+              </button>
             </div>
           </div>
         </div>

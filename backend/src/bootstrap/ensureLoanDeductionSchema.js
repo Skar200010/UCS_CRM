@@ -24,8 +24,27 @@ export async function ensureLoanDeductionSchema() {
   try {
     await db._pool.query(`ALTER TABLE worker_loans ADD COLUMN IF NOT EXISTS start_month DATE`);
     await db._pool.query(`ALTER TABLE worker_loans ADD COLUMN IF NOT EXISTS end_month DATE`);
+    await db._pool.query(`ALTER TABLE worker_loans ADD COLUMN IF NOT EXISTS recurring BOOLEAN DEFAULT FALSE`);
     console.log('worker_loans period columns ready');
   } catch (e) {
     console.warn('[loan period columns] skip:', e?.message || String(e));
+  }
+  // Ensure worker_loan_deductions.loan_id FK cascades on loan delete. Older DBs
+  // created the table without ON DELETE CASCADE, so deleting a loan with
+  // deduction rows raises a FK violation. Drop + re-add the FK idempotently so
+  // re-running the bootstrap is a safe no-op.
+  try {
+    await db._pool.query(`
+      ALTER TABLE worker_loan_deductions
+        DROP CONSTRAINT IF EXISTS worker_loan_deductions_loan_id_fkey
+    `);
+    await db._pool.query(`
+      ALTER TABLE worker_loan_deductions
+        ADD CONSTRAINT worker_loan_deductions_loan_id_fkey
+        FOREIGN KEY (loan_id) REFERENCES worker_loans(id) ON DELETE CASCADE
+    `);
+    console.log('worker_loan_deductions FK cascade ensured');
+  } catch (e) {
+    console.warn('[loan deduction FK cascade] skip:', e?.message || String(e));
   }
 }

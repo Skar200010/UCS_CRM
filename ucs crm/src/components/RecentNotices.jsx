@@ -198,6 +198,13 @@ export default function RecentNotices({ limit = 5, title = 'Recent Notices', con
                         {n.content.length > 120 ? n.content.slice(0, 120) + '\u2026' : n.content}
                       </div>
                     )}
+                    {n.media_url && (() => {
+                      const t = String(n.media_type || '').toLowerCase()
+                      const u = String(n.media_url || '').toLowerCase()
+                      const isImg = t.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg|avif)(\?|$)/.test(u)
+                      if (!isImg) return null
+                      return <img src={n.media_url} alt="" style={{ marginTop: 6, width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 8, border: '1px solid #eef2f7' }} />
+                    })()}
                     <div style={{ fontSize: 10.5, color: '#94a3b8', fontWeight: 600, marginTop: 5, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span className="material-symbols-outlined" style={{ fontSize: 12 }}>schedule</span>
                       {n.created_at ? new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''}

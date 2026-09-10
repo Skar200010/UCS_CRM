@@ -29,6 +29,7 @@ import ChangeSalaryAccessCode from './components/ChangeSalaryAccessCode'
 import { fetchTicketCount } from './store'
 import ToastContainer from '../../components/Toast'
 import SpecialIncentive from '../../components/SpecialIncentive'
+import NoticePopup from '../../components/NoticePopup'
 
 const NAV = [
   { id:'overview',   path:'/hr/overview',   label:'Overview',    icon:Grid,    eyebrow:'Dashboard',   sub:'Your team at a glance' },
@@ -151,6 +152,7 @@ function HRPageShell({ children }) {
     <div className="app">
       <ToastContainer />
       <SpecialIncentive />
+      <NoticePopup />
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
       <div className="main">
         <div className="mobile-top">

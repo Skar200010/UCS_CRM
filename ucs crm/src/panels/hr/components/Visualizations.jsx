@@ -5,6 +5,7 @@ import { fetchWorkers, fetchAttendance, fetchLeaves, fetchHolidays, fetchNgoSumm
 import { useSalaryPrivacy } from '../../../context/SalaryPrivacyContext';
 import api from '../api/auth';
 import RecentNotices from '../../../components/RecentNotices';
+import { uploadImage } from '../../../components/NoticePopup';
 import RecruiterOverview from './RecruiterOverview';
 import { API_BASE } from '../../../lib/apiBase';
 import { deptLabel } from '../../../lib/labels';
@@ -117,11 +118,13 @@ export default function Visualizations() {
   const [holidays, setHolidays] = useState([]);
   const [salSum, setSalSum] = useState([]);
   const [ngoSummary, setNgoSummary] = useState([]);
-  const [noticeForm, setNoticeForm] = useState({ title: '', content: '', target_role: 'all' })
+  const [noticeForm, setNoticeForm] = useState({ title: '', content: '', target_roles: ['all'], popup: true, media_url: '', media_type: '', media_name: '' })
   const [noticeSaving, setNoticeSaving] = useState(false)
+  const [noticeUploading, setNoticeUploading] = useState(false)
   const [noticeErr, setNoticeErr] = useState('')
   const [noticeRefresh, setNoticeRefresh] = useState(0)
   const [noticeSuccess, setNoticeSuccess] = useState(false)
+  const noticeFileRef = useRef(null)
   const [loading, setLoading] = useState(true)
 
   const publishNotice = useCallback(async () => {
@@ -129,12 +132,46 @@ export default function Visualizations() {
     if (!noticeForm.content.trim()) { setNoticeErr('Please enter content for the notice'); return }
     setNoticeSaving(true); setNoticeErr('')
     try {
-      await api('/notices', { method: 'POST', body: JSON.stringify(noticeForm), _prefix: 'ucs' })
-      setNoticeForm({ title: '', content: '', target_role: 'all' })
+      await api('/notices', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...noticeForm,
+          media_url: noticeForm.media_url || null,
+          media_type: noticeForm.media_type || null,
+          media_name: noticeForm.media_name || null,
+        }),
+        _prefix: 'ucs',
+      })
+      setNoticeForm({ title: '', content: '', target_roles: ['all'], popup: true, media_url: '', media_type: '', media_name: '' })
       setNoticeRefresh(k => k + 1)
       setNoticeSuccess(true)
     } catch (e) { setNoticeErr(e.message) } finally { setNoticeSaving(false) }
   }, [noticeForm])
+
+  const noticeToggleRole = (role) => {
+    setNoticeForm(prev => {
+      if (role === 'all') return { ...prev, target_roles: ['all'] }
+      let next = prev.target_roles.includes(role)
+        ? prev.target_roles.filter(r => r !== role)
+        : [...prev.target_roles.filter(r => r !== 'all'), role]
+      if (next.length === 0) next = ['all']
+      return { ...prev, target_roles: next }
+    })
+  }
+
+  const handleNoticeFile = async (e) => {
+    const file = e.target.files && e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    if (!String(file.type || '').startsWith('image/')) { setNoticeErr('Only image files are allowed'); return }
+    if (file.size > 50 * 1024 * 1024) { setNoticeErr('Image must be under 50 MB'); return }
+    setNoticeUploading(true); setNoticeErr('')
+    try {
+      const r = await uploadImage(file)
+      if (!r || !r.url) throw new Error('Upload failed')
+      setNoticeForm(prev => ({ ...prev, media_url: r.url, media_type: r.type || file.type, media_name: r.name || file.name }))
+    } catch (e2) { setNoticeErr(e2.message || 'Upload failed') } finally { setNoticeUploading(false) }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -595,19 +632,49 @@ export default function Visualizations() {
                 <input value={noticeForm.title} onChange={e => setNoticeForm({...noticeForm, title: e.target.value})} placeholder="Notice title" />
               </label>
               <label className="field" style={{ flex: 3, minWidth: 250 }}>
-                Content
-                <input value={noticeForm.content} onChange={e => setNoticeForm({...noticeForm, content: e.target.value})} placeholder="Write your notice..." />
+                Description
+                <textarea rows={2} value={noticeForm.content} onChange={e => setNoticeForm({...noticeForm, content: e.target.value})} placeholder="Write your notice..." style={{ resize: 'vertical' }} />
               </label>
-              <label className="field" style={{ flex: 1, minWidth: 140 }}>
-                Show to
-                <select value={noticeForm.target_role} onChange={e => setNoticeForm({...noticeForm, target_role: e.target.value})}>
-                  <option value="all">All Panels</option>
-                  <option value="admin">Admin</option>
-                  <option value="accounts">Accounts</option>
-                  <option value="fro">FRO</option>
-                  <option value="event_head">Event Head</option>
-                </select>
-              </label>
+              <div className="field" style={{ flex: 1, minWidth: 200 }}>
+                Image
+                <input ref={noticeFileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleNoticeFile} />
+                {noticeForm.media_url ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 6, border: '1px solid var(--line)', borderRadius: 8, background: '#f8fafc' }}>
+                    <img src={noticeForm.media_url} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }} />
+                    <button className="btn btn-sm btn-danger" type="button" onClick={() => setNoticeForm({ ...noticeForm, media_url: '', media_type: '', media_name: '' })} style={{ margin: 0 }}>✕</button>
+                  </div>
+                ) : (
+                  <button className="btn" type="button" onClick={() => noticeFileRef.current && noticeFileRef.current.click()} disabled={noticeUploading} style={{ width: '100%', borderStyle: 'dashed', fontFamily: 'inherit' }}>
+                    {noticeUploading ? '📤 Uploading…' : '📷 Upload'}
+                  </button>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)' }}>Send to:</span>
+              {[['all', 'All'], ['admin', 'Admin'], ['accounts', 'Accounts'], ['hr', 'HR'], ['recruiter', 'Recruiter'], ['event_head', 'Event Head'], ['fro', 'FRO'], ['ngo', 'Ngo Admin']].map(([role, label]) => {
+                const active = noticeForm.target_roles.includes(role)
+                return (
+                  <button key={role} type="button" onClick={() => noticeToggleRole(role)}
+                    style={{
+                      padding: '4px 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                      border: active ? '1.5px solid #16a34a' : '1.5px solid var(--line)',
+                      background: active ? '#f0fdf4' : '#fff', color: active ? '#15803d' : 'var(--ink-soft)',
+                    }}>
+                    {active ? '✓ ' : ''}{label}
+                  </button>
+                )
+              })}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-soft)' }}>Popup</span>
+                <button type="button" onClick={() => setNoticeForm({ ...noticeForm, popup: !noticeForm.popup })}
+                  style={{
+                    width: 40, height: 20, borderRadius: 999, border: 'none', cursor: 'pointer', position: 'relative',
+                    background: noticeForm.popup ? '#16a34a' : '#cbd5e1', transition: 'background .2s',
+                  }}>
+                  <span style={{ position: 'absolute', top: 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left .2s', left: noticeForm.popup ? 22 : 2 }} />
+                </button>
+              </span>
               <button className="btn btn-primary" onClick={publishNotice} disabled={noticeSaving} style={{ alignSelf: 'flex-end', marginTop: 2, fontFamily: 'inherit' }}>
                 {noticeSaving ? 'Publishing...' : 'Publish'}
               </button>

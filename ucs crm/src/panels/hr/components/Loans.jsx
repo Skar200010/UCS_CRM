@@ -62,7 +62,7 @@ export default function Loans() {
   const [createForm, setCreateForm] = useState({
     worker_id: '', type: 'loan', total_amount: '',
     monthly_deduction: '', reason: '', start_month: '',
-    end_month: '',
+    end_month: '', recurring: false,
   });
   const [createBusy, setCreateBusy] = useState(false);
   const [workerSearch, setWorkerSearch] = useState('');
@@ -80,7 +80,7 @@ export default function Loans() {
       worker_id: '', type: 'loan', total_amount: '',
       monthly_deduction: '', reason: '',
       start_month: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'),
-      end_month: '',
+      end_month: '', recurring: false,
     });
     setWorkerSearch('');
     setShowCreate(true);
@@ -91,7 +91,7 @@ export default function Loans() {
     if (!worker) { alert('Please select a worker'); return; }
     if (!createForm.total_amount || parseFloat(createForm.total_amount) <= 0) { alert('Please enter a valid amount'); return; }
     if (!createForm.monthly_deduction || parseFloat(createForm.monthly_deduction) <= 0) { alert('Please enter a monthly deduction amount'); return; }
-    if (parseFloat(createForm.monthly_deduction) > parseFloat(createForm.total_amount)) { alert('Monthly deduction cannot exceed the total amount'); return; }
+    if (!createForm.recurring && parseFloat(createForm.monthly_deduction) > parseFloat(createForm.total_amount)) { alert('Monthly deduction cannot exceed the total amount'); return; }
     if (!createForm.reason || !createForm.reason.trim()) { alert('Please enter a reason'); return; }
     setCreateBusy(true);
     try {
@@ -101,17 +101,29 @@ export default function Loans() {
         total_amount: parseFloat(createForm.total_amount),
         monthly_deduction: parseFloat(createForm.monthly_deduction),
         reason: createForm.reason.trim(),
+        recurring: createForm.recurring,
         start_month: createForm.start_month ? createForm.start_month + '-01' : null,
         end_month: createForm.end_month ? createForm.end_month + '-01' : null,
       });
       setShowCreate(false);
-      setCreateForm({ worker_id: '', type: 'loan', total_amount: '', monthly_deduction: '', reason: '', start_month: '', end_month: '' });
+      setCreateForm({ worker_id: '', type: 'loan', total_amount: '', monthly_deduction: '', reason: '', start_month: '', end_month: '', recurring: false });
       setWorkerSearch('');
       refresh();
     } catch (e) {
       alert(e.message);
     } finally {
       setCreateBusy(false);
+    }
+  };
+
+  const stopRecurring = async (loan) => {
+    const label = loan.workers?.name || 'Unknown';
+    if (!window.confirm(`Stop the recurring deduction (${fmtAmount(loan.monthly_deduction)}/mo) for ${label}? Future months will no longer be deducted.`)) return;
+    try {
+      await updateLoanApi(loan.id, { stop_recurring: true });
+      refresh();
+    } catch (e) {
+      alert(e.message);
     }
   };
 
@@ -179,7 +191,9 @@ export default function Loans() {
 
   const handleDelete = async (loan) => {
     const label = loan.workers?.name || 'Unknown';
-    if (!window.confirm(`Delete ${loan.type} for ${label} (${fmtAmount(loan.total_amount)})? This cannot be undone.`)) return;
+    const hasDeductions = parseFloat(loan.total_deducted || 0) > 0;
+    const msg = `Delete ${loan.type} for ${label} (${fmtAmount(loan.total_amount)})?${hasDeductions ? ' Its recorded salary deductions will also be removed.' : ''} This cannot be undone.`;
+    if (!window.confirm(msg)) return;
     try {
       const force = ['active', 'closed'].includes(loan.status);
       await deleteLoanApi(loan.id, force);
@@ -232,76 +246,92 @@ export default function Loans() {
           </span>
         </div>
         {showCreate && (
-          <div className="card-pad" style={{ borderTop:'1px solid var(--line)', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:12 }}>
-            <div>
-              <span style={labelStyle}>Worker</span>
-              <input type="text"
-                placeholder="Search worker…"
-                value={workerSearch}
-                onChange={e => setWorkerSearch(e.target.value)}
-                style={inputStyle} />
-              <select
-                value={createForm.worker_id}
-                onChange={e => setCreateForm({ ...createForm, worker_id: e.target.value })}
-                style={{ ...inputStyle, marginTop: 4 }}>
-                <option value="">Select worker</option>
-                {filteredWorkers
-                  .filter(w => w.employment_status === 'active' || w.is_active === true)
-                  .map(w => <option key={w.id} value={w.id}>{w.name}{w.employee_id ? ` (${w.employee_id})` : ''}</option>)}
-              </select>
+          <div style={{ borderTop:'1px solid var(--line)', padding:'16px', background:'var(--sage-soft, #f4f7f1)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+              <div style={{ fontWeight:600, fontSize:13 }}>Record a loan / advance</div>
+              <span style={{ fontSize:11, color:'var(--ink-soft)' }}>Active immediately, deducted from salary monthly</span>
             </div>
-            <div>
-              <span style={labelStyle}>Type</span>
-              <div style={{ display:'flex', gap:6, marginTop:4 }}>
-                <button type="button" className={`btn btn-sm ${createForm.type === 'loan' ? '' : ''}`}
-                  onClick={() => setCreateForm({ ...createForm, type: 'loan' })}
-                  style={createForm.type === 'loan' ? { background:'var(--sage)', color:'#fff', border:'none' } : {}}>
-                  Loan
-                </button>
-                <button type="button" className="btn btn-sm"
-                  onClick={() => setCreateForm({ ...createForm, type: 'advance' })}
-                  style={createForm.type === 'advance' ? { background:'var(--sage)', color:'#fff', border:'none' } : {}}>
-                  Advance
-                </button>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:12 }}>
+              <div>
+                <span style={labelStyle}>Worker</span>
+                <input type="text"
+                  placeholder="Search worker…"
+                  value={workerSearch}
+                  onChange={e => setWorkerSearch(e.target.value)}
+                  style={inputStyle} />
+                <select
+                  value={createForm.worker_id}
+                  onChange={e => setCreateForm({ ...createForm, worker_id: e.target.value })}
+                  style={{ ...inputStyle, marginTop: 4, minHeight: 30 }}>
+                  <option value="">Select worker</option>
+                  {filteredWorkers
+                    .filter(w => w.employment_status === 'active' || w.is_active === true)
+                    .map(w => <option key={w.id} value={w.id}>{w.name}{w.employee_id ? ` (${w.employee_id})` : ''}</option>)}
+                </select>
+              </div>
+              <div>
+                <span style={labelStyle}>Type</span>
+                <div style={{ display:'flex', gap:6, marginTop:4 }}>
+                  <button type="button" className="btn btn-sm"
+                    onClick={() => setCreateForm({ ...createForm, type: 'loan' })}
+                    style={createForm.type === 'loan' ? { background:'var(--sage)', color:'#fff', border:'none' } : {}}>
+                    Loan
+                  </button>
+                  <button type="button" className="btn btn-sm"
+                    onClick={() => setCreateForm({ ...createForm, type: 'advance' })}
+                    style={createForm.type === 'advance' ? { background:'var(--sage)', color:'#fff', border:'none' } : {}}>
+                    Advance
+                  </button>
+                </div>
+              </div>
+              <div>
+                <span style={labelStyle}>Amount (₹)</span>
+                <input type="number" min="1" step="1"
+                  value={createForm.total_amount}
+                  onChange={e => setCreateForm({ ...createForm, total_amount: e.target.value })}
+                  style={inputStyle} />
+              </div>
+              <div>
+                <span style={labelStyle}>{createForm.recurring ? 'Monthly Rent (₹)' : 'Monthly Deduction (₹)'}</span>
+                <input type="number" min="1" step="1"
+                  value={createForm.monthly_deduction}
+                  onChange={e => setCreateForm({ ...createForm, monthly_deduction: e.target.value })}
+                  style={inputStyle} />
+              </div>
+              <div style={{ display:'flex', alignItems:'flex-end', gap:8 }}>
+                <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--ink)' }}>
+                  <input type="checkbox"
+                    checked={createForm.recurring}
+                    onChange={e => setCreateForm({ ...createForm, recurring: e.target.checked })} />
+                  Recurring monthly rent
+                </label>
+              </div>
+              <div>
+                <span style={labelStyle}>Start Month</span>
+                <input type="month"
+                  value={createForm.start_month}
+                  onChange={e => setCreateForm({ ...createForm, start_month: e.target.value })}
+                  style={inputStyle} />
+              </div>
+              <div>
+                <span style={labelStyle}>End Month (optional)</span>
+                <input type="month"
+                  value={createForm.end_month}
+                  onChange={e => setCreateForm({ ...createForm, end_month: e.target.value })}
+                  style={inputStyle} />
               </div>
             </div>
-            <div>
-              <span style={labelStyle}>Amount (₹)</span>
-              <input type="number" min="1" step="1"
-                value={createForm.total_amount}
-                onChange={e => setCreateForm({ ...createForm, total_amount: e.target.value })}
-                style={inputStyle} />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:12, marginTop:12 }}>
+              <div>
+                <span style={labelStyle}>Reason</span>
+                <input type="text"
+                  value={createForm.reason}
+                  onChange={e => setCreateForm({ ...createForm, reason: e.target.value })}
+                  placeholder="e.g. PG rent, one-time advance"
+                  style={inputStyle} />
+              </div>
             </div>
-            <div>
-              <span style={labelStyle}>Monthly Deduction (₹)</span>
-              <input type="number" min="1" step="1"
-                value={createForm.monthly_deduction}
-                onChange={e => setCreateForm({ ...createForm, monthly_deduction: e.target.value })}
-                style={inputStyle} />
-            </div>
-            <div>
-              <span style={labelStyle}>Reason</span>
-              <input type="text"
-                value={createForm.reason}
-                onChange={e => setCreateForm({ ...createForm, reason: e.target.value })}
-                placeholder="e.g. PG rent, one-time advance"
-                style={inputStyle} />
-            </div>
-            <div>
-              <span style={labelStyle}>Start Month</span>
-              <input type="month"
-                value={createForm.start_month}
-                onChange={e => setCreateForm({ ...createForm, start_month: e.target.value })}
-                style={inputStyle} />
-            </div>
-            <div>
-              <span style={labelStyle}>End Month (optional)</span>
-              <input type="month"
-                value={createForm.end_month}
-                onChange={e => setCreateForm({ ...createForm, end_month: e.target.value })}
-                style={inputStyle} />
-            </div>
-            <div style={{ display:'flex', alignItems:'flex-end', gap:6 }}>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:14 }}>
               <button className="btn btn-sm" disabled={createBusy}
                 onClick={() => { setShowCreate(false); setWorkerSearch(''); }}>
                 Cancel
@@ -309,7 +339,7 @@ export default function Loans() {
               <button className="btn btn-sm" disabled={createBusy}
                 style={{ background:'var(--sage)', color:'#fff', border:'none' }}
                 onClick={submitCreate}>
-                {createBusy ? 'Creating…' : 'Create'}
+                {createBusy ? 'Creating…' : 'Create loan / advance'}
               </button>
             </div>
           </div>
@@ -489,13 +519,23 @@ export default function Loans() {
                     {parseFloat(l.remaining_amount || 0) > 0 ? fmtAmount(l.remaining_amount) : '—'}
                   </td>
                   <td style={{ fontSize:12, color:'var(--ink-soft)' }}>
-                    {l.start_month ? fmtMonth(l.start_month) : '—'} → {l.end_month ? fmtMonth(l.end_month) : '∞'}
+                    {l.start_month ? fmtMonth(l.start_month) : '—'} → {l.end_month ? fmtMonth(l.end_month) : (l.recurring ? 'Recurring' : '∞')}
                   </td>
-                  <td><StatusBadge status={l.status} /></td>
+                  <td>
+                    <span style={{ display:'inline-flex', gap:5, alignItems:'center', flexWrap:'wrap' }}>
+                      <StatusBadge status={l.status} />
+                      {l.recurring && l.status === 'active' && (
+                        <span className="pill pill-gold">Recurring</span>
+                      )}
+                    </span>
+                  </td>
                   <td style={{ color:'var(--ink-soft)' }}>{l.decided_at ? fmtDate(l.decided_at) : '—'}</td>
                   <td style={{ textAlign:'right' }}>
                     {['pending', 'active'].includes(l.status) && (
-                      <span style={{ display:'inline-flex', gap:4 }}>
+                      <span style={{ display:'inline-flex', gap:4, justifyContent:'flex-end', flexWrap:'wrap' }}>
+                        {l.recurring && l.status === 'active' && (
+                          <button className="btn btn-sm" style={{ color:'var(--danger)' }} onClick={() => stopRecurring(l)}>Stop</button>
+                        )}
                         <button className="btn btn-sm" onClick={() => startEdit(l)}>Edit</button>
                         <button className="btn btn-sm" style={{ color:'var(--danger)' }} onClick={() => handleDelete(l)}>Delete</button>
                       </span>

@@ -34,6 +34,12 @@ CREATE INDEX IF NOT EXISTS idx_special_incentives_status ON special_incentives(s
 CREATE INDEX IF NOT EXISTS idx_special_incentive_progress_inc ON special_incentive_progress(special_incentive_id);
 
 ALTER TABLE special_incentives ADD COLUMN IF NOT EXISTS winner_name TEXT;
+
+-- Winner photo celebration ("Photo" tab): Super Admin posts the winner's photo
+-- with an (optional AI-generated) congratulation, which pops up on every panel.
+ALTER TABLE special_incentives ADD COLUMN IF NOT EXISTS winner_photo_url TEXT;
+ALTER TABLE special_incentives ADD COLUMN IF NOT EXISTS congrats_message TEXT;
+ALTER TABLE special_incentives ADD COLUMN IF NOT EXISTS celebrated_at TIMESTAMPTZ;
 `;
 
 export async function ensureSpecialIncentiveSchema() {
