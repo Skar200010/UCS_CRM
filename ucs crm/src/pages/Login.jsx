@@ -3,7 +3,7 @@ import { useUcs } from '../store'
 
 
 export default function Login({ onLogin }) {
-  const { login } = useUcs()
+  const { login, loginAsDemo } = useUcs()
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
   const [err, setErr] = useState('')
@@ -22,6 +22,11 @@ export default function Login({ onLogin }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  const handleDemo = () => {
+    loginAsDemo('ngo')
+    onLogin?.('ngo')
   }
 
   return (
@@ -44,6 +49,12 @@ export default function Login({ onLogin }) {
             {busy ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+        <div className="login-demo">
+          <button type="button" className="btn btn-demo" onClick={handleDemo}>
+            Demo Login — Beneficiaries
+          </button>
+          <p>One-click demo, no backend needed</p>
+        </div>
       </div>
     </div>
   )
