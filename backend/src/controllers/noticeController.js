@@ -39,7 +39,7 @@ export const addNotice = async (req, res) => {
 export const listNotices = async (req, res) => {
   try {
     const ngoId = req.user.role === 'super_admin' ? req.query.ngo_id : req.user.ngo_id;
-    const notices = await getAllNotices(ngoId, req.query.target_role);
+    const notices = await getAllNotices(ngoId, req.query.target_role, req.user);
     const seen = await getSeenNoticeIds(req.user.id);
     const out = (notices || []).map(n => ({ ...n, seen: seen.has(String(n.id)) }));
     return res.json(out);

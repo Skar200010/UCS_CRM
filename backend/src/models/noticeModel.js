@@ -8,15 +8,40 @@ function sanitizeRole(role) {
 
 const LEGACY_ALL_ROLES = new Set(['all', 'null']);
 
+// Department strings that a logged-in worker may hold (authController maps them
+// to a panel role). A worker whose department falls through to the generic
+// 'worker' role still belongs to one of these panels, so a notice targeted to
+// that panel must reach them too.
+const DEPT_PANELS = [
+  [/^fro/, 'fro'],
+  [/^hr/, 'hr'],
+  [/recruit/, 'recruiter'],
+  [/^accounts?/, 'accounts'],
+  [/^admin$/, 'accounts'],
+  [/^ngo[-_ ]?admin/, 'admin'],
+  [/event/, 'event_head'],
+  [/digital|develop/, 'digital'],
+];
+
+function deptPanel(dept) {
+  const d = String(dept || '').trim().toLowerCase();
+  for (const [re, panel] of DEPT_PANELS) {
+    if (re.test(d)) return panel;
+  }
+  return null;
+}
+
 // target_roles takes precedence over the legacy single target_role column.
-// Specific list → role must be in it; contains 'all' or missing target_roles →
-// everyone (legacy fallback).
-function noticeMatchesRole(n, role) {
+// Specific list → role (or the user's department panel) must be in it; contains
+// 'all' or missing target_roles → everyone (legacy fallback).
+function noticeMatchesRole(n, role, dept) {
   const raw = Array.isArray(n.target_roles) && n.target_roles.length
     ? n.target_roles
     : (n.target_role && !LEGACY_ALL_ROLES.has(String(n.target_role).toLowerCase()) ? [n.target_role] : ['all']);
   if (raw.includes('all')) return true;
-  return role != null && raw.includes(role);
+  if (role != null && raw.includes(role)) return true;
+  const panel = deptPanel(dept);
+  return panel != null && raw.includes(panel);
 }
 
 export const createNotice = async (data) => {
@@ -29,7 +54,7 @@ export const createNotice = async (data) => {
   return result;
 };
 
-export const getAllNotices = async (ngo_id, target_role) => {
+export const getAllNotices = async (ngo_id, target_role, user) => {
   let query = db
     .from('notices')
     .select('*')
@@ -38,12 +63,13 @@ export const getAllNotices = async (ngo_id, target_role) => {
   if (ngo_id) query = query.or(`ngo_id.eq.${ngo_id},ngo_id.is.null`);
   const { data, error } = await query;
   if (error) throw error;
-  const role = sanitizeRole(target_role);
-  if (role && role !== 'all') return (data || []).filter(n => noticeMatchesRole(n, role));
+  if (user?.role === 'super_admin') return data;
+  const role = sanitizeRole(user?.role || target_role);
+  if (role && role !== 'all') return (data || []).filter(n => noticeMatchesRole(n, role, user?.department));
   return data;
 };
 
-export const getRecentNotices = async (ngo_id, since, target_role) => {
+export const getRecentNotices = async (ngo_id, since, target_role, user) => {
   let query = db
     .from('notices')
     .select('*')
@@ -53,8 +79,9 @@ export const getRecentNotices = async (ngo_id, since, target_role) => {
   if (ngo_id) query = query.eq('ngo_id', ngo_id);
   const { data, error } = await query;
   if (error) throw error;
-  const role = sanitizeRole(target_role);
-  if (role && role !== 'all') return (data || []).filter(n => noticeMatchesRole(n, role));
+  if (user?.role === 'super_admin') return data;
+  const role = sanitizeRole(user?.role || target_role);
+  if (role && role !== 'all') return (data || []).filter(n => noticeMatchesRole(n, role, user?.department));
   return data;
 };
 
