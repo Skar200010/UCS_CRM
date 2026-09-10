@@ -1263,49 +1263,10 @@ export default function MyDonors({ embedded = false, portalEl = null }) {
   // mounted while the queue loads. Skeleton rows render in the list area below
   // instead of blanking out the entire panel (which made the filters "flicker
   // in" after load and looked like they were still loading).
-
-  if (donors.length === 0) {
-    return (
-      <div className="bento-grid">
-        <div className="bento-col-12">
-          {message && (
-            <div className={`detail-message ${message.type}`} style={{ marginBottom: 8 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{message.type === 'error' ? 'error' : 'check_circle'}</span>
-              {message.text}
-            </div>
-          )}
-          <div className="bento-card fro-empty-state">
-            <div className="fro-empty-icon">
-              <span className="material-symbols-outlined" style={{ fontSize: 36, color: 'var(--sage)', opacity: .5 }}>{dataTab === 'new' ? 'fiber_new' : 'history'}</span>
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>No {dataTab === 'new' ? 'new' : 'old'} data allotted</div>
-            <div style={{ fontSize: 11, color: 'var(--ink-soft)', maxWidth: 280, textAlign: 'center', lineHeight: 1.5 }}>
-              {stations.length === 0
-                ? 'You are not assigned to any station yet. Ask your Admin to assign you to a station.'
-                : (dataTab === 'new'
-                  ? 'New data will appear here once distributed to your station.'
-                  : 'Old data will appear here once uploaded to your station.')}
-            </div>
-            {(autoFallbackToOldRef.current || autoFallbackAttemptedRef.current) && donors.length === 0 ? (
-              <div style={{ fontSize: 11, color: 'var(--ink-soft)', maxWidth: 280, textAlign: 'center', lineHeight: 1.5, marginTop: 4 }}>
-                No new or old data is currently available at your station. Contact your admin if you expect data here.
-              </div>
-            ) : dataTab === 'new' ? (
-              <button onClick={() => switchTab('old')} className="fro-empty-switch">
-                <span className="material-symbols-outlined" style={{ fontSize: 13 }}>history</span>
-                Try Old Data tab
-              </button>
-            ) : (
-              <button onClick={() => switchTab('new')} className="fro-empty-switch">
-                <span className="material-symbols-outlined" style={{ fontSize: 13 }}>fiber_new</span>
-                Try New Data tab
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  //
+  // Same rule for an empty queue: we never unmount the filter bar / Leads |
+  // Follow Ups | History tabs — the "no data allotted" card lives in the list
+  // area so the FRO can still switch tabs and work History or Follow Ups.
 
   const timelineIcon = (log) => {
     if (log.action === 'disposition') return log.disposition_category === 'connected' ? 'check_circle' : 'cancel';
@@ -1503,13 +1464,45 @@ export default function MyDonors({ embedded = false, portalEl = null }) {
               No leads match "{searchQuery.trim()}". Clear the search to return to your queue.
             </div>
           ) : listItems.length === 0 ? (
-            <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
-              {isHistory
-                ? 'No disposed leads yet. Work a lead and it will appear here.'
-                : isFollowUps
-                  ? 'No calls scheduled, no callbacks assigned, no promises to pay yet.'
-                  : 'No leads match the current filters.'}
-            </div>
+            listView === 'leads' && donors.length === 0 ? (
+              <div className="fro-empty-state" style={{ padding: '34px 20px', marginTop: 4 }}>
+                <div className="fro-empty-icon">
+                  <span className="material-symbols-outlined" style={{ fontSize: 36, color: 'var(--sage)', opacity: .5 }}>{dataTab === 'new' ? 'fiber_new' : 'history'}</span>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>No {dataTab === 'new' ? 'new' : 'old'} data allotted</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-soft)', maxWidth: 280, textAlign: 'center', lineHeight: 1.5 }}>
+                  {stations.length === 0
+                    ? 'You are not assigned to any station yet. Ask your Admin to assign you to a station.'
+                    : (dataTab === 'new'
+                      ? 'New data will appear here once distributed to your station.'
+                      : 'Old data will appear here once uploaded to your station.')}
+                </div>
+                {(autoFallbackToOldRef.current || autoFallbackAttemptedRef.current) && (
+                  <div style={{ fontSize: 11, color: 'var(--ink-soft)', maxWidth: 280, textAlign: 'center', lineHeight: 1.5, marginTop: 4 }}>
+                    No new or old data is currently available at your station. Contact your admin if you expect data here.
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  {dataTab === 'new' ? (
+                    <button onClick={() => switchTab('old')} className="fro-empty-switch">
+                      <span className="material-symbols-outlined" style={{ fontSize: 13 }}>history</span> Try Old Data tab
+                    </button>
+                  ) : (
+                    <button onClick={() => switchTab('new')} className="fro-empty-switch">
+                      <span className="material-symbols-outlined" style={{ fontSize: 13 }}>fiber_new</span> Try New Data tab
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-soft)', fontSize: 12 }}>
+                {isHistory
+                  ? 'No disposed leads yet. Work a lead and it will appear here.'
+                  : isFollowUps
+                    ? 'No calls scheduled, no callbacks assigned, no promises to pay yet.'
+                    : 'No leads match the current filters.'}
+              </div>
+            )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {listItems.map((d) => {
