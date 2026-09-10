@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Routes, Route, NavLink, useLocation, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Users, Heart, Wallet, Database, Smartphone, ChevronRight } from 'lucide-react'
 import { useUcs } from '../../store'
 import { themes, applyTheme } from '../hr/theme'
 import SettingsDrawer from '../../components/SettingsDrawer'
@@ -47,6 +48,7 @@ const NAV_TOP = [
 const NAV_GROUPS = [
   {
     title: 'Workforce',
+    icon: <Users size={18} />,
     items: [
       { id: 'attendance', path: '/accounts/attendance', label: 'Attendance',
         icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14l2 2 4-4"/></svg> },
@@ -62,6 +64,7 @@ const NAV_GROUPS = [
   },
   {
     title: 'Donor Management',
+    icon: <Heart size={18} />,
     items: [
       { id: 'donors', path: '/accounts/donors', label: 'Donors',
         icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
@@ -73,6 +76,7 @@ const NAV_GROUPS = [
   },
   {
     title: 'Asset & Finance',
+    icon: <Wallet size={18} />,
     items: [
       { id: 'asset-register', path: '/accounts/asset-register', label: 'Asset Register',
         icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
@@ -83,14 +87,15 @@ const NAV_GROUPS = [
 ]
 
 const NAV_BOTTOM = [
-  { id: 'tickets', path: '/accounts/tickets', label: 'Tickets',
-    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5H3v14h12"/><path d="M21 12l-6-6v4H9v4h6v4l6-6z"/></svg> },
   { id: 'reports', path: '/accounts/reports', label: 'Reports',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
+  { id: 'tickets', path: '/accounts/tickets', label: 'Tickets',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5H3v14h12"/><path d="M21 12l-6-6v4H9v4h6v4l6-6z"/></svg> },
 ]
 
 const NAV_DATA_GROUP = {
   title: 'Data',
+  icon: <Database size={18} />,
   items: [
     { id: 'new-data', path: '/accounts/new-data', label: 'New Data',
       icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> },
@@ -99,7 +104,7 @@ const NAV_DATA_GROUP = {
   ],
 }
 
-const SIM_GROUP_ICON = <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+const SIM_GROUP_ICON = <Smartphone size={18} />
 
 const SIM_NAV = [
   { id: 'sim-dashboard', path: '/accounts/sim/dashboard', label: 'Dashboard',
@@ -181,7 +186,7 @@ function NavGroup({ title, icon, storageKey, active, children }) {
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span>{title}</span>
         </span>
-        <span className={`snav-chevron${open ? ' open' : ''}`}>▸</span>
+        <span className={`snav-chevron${open ? ' open' : ''}`}><ChevronRight size={14} /></span>
       </button>
       <div className={`snav-group-items${open ? '' : ' collapsed'}`}>
         {children}
@@ -239,6 +244,8 @@ function Sidebar({ open, onClose }) {
           {renderGroup({ ...NAV_GROUPS[0], title: 'WORKFORCE' }, 'workforce')}
           {renderGroup({ ...NAV_GROUPS[1], title: 'DONOR MANAGEMENT' }, 'donor_management')}
           {renderGroup({ ...NAV_GROUPS[2], title: 'ASSET & FINANCE' }, 'asset_finance')}
+          {renderGroup({ ...NAV_DATA_GROUP, title: 'DATA' }, 'data')}
+          {renderGroup({ title: 'SIM MANAGEMENT', icon: SIM_GROUP_ICON, items: SIM_NAV }, 'sim')}
           {NAV_BOTTOM.map(n => (
             <NavLink key={n.id} to={n.path} onClick={onClose}
               data-nav-id={n.id}
@@ -249,8 +256,6 @@ function Sidebar({ open, onClose }) {
               </span>
             </NavLink>
           ))}
-          {renderGroup({ ...NAV_DATA_GROUP, title: 'DATA' }, 'data')}
-          {renderGroup({ title: 'SIM MANAGEMENT', icon: SIM_GROUP_ICON, items: SIM_NAV }, 'sim')}
         </nav>
       </aside>
     </>
