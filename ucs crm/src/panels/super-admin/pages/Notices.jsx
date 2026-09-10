@@ -94,7 +94,7 @@ export default function Notices() {
     <div className="sa-page">
       <div className="sa-page-header">
         <h3>Notices</h3>
-        <button className="btn btn-primary" onClick={openNew}>+ New Notice</button>
+        <button className="btn btn-primary" onClick={openNew}>+ Send Notice</button>
       </div>
       {err && <div className="sa-err-card">{err}</div>}
 
@@ -157,7 +157,7 @@ export default function Notices() {
 
             <div className="sa-modal-actions">
               <button className="btn" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={save}>Save</button>
+              <button className="btn btn-primary" onClick={save}>Send Notice</button>
             </div>
           </div>
         </div>
