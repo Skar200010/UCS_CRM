@@ -189,6 +189,8 @@ export function computePaidDays({ year, month, daysInMonth, records, createdAt, 
   }
   sundayReasons.sort((a, b) => (a.date < b.date ? -1 : 1));
 
+  const sundayDeductionDays = [...deducted].filter(d => new Date(d + 'T00:00:00Z').getUTCDay() === 0).length;
+
   return {
     joinedThisMonth,
     joinDay,
@@ -199,6 +201,7 @@ export function computePaidDays({ year, month, daysInMonth, records, createdAt, 
     totalLateMinutes,
     lateDeductionDays,
     joiningDeduction,
+    sundayDeductionDays,
     deducted,
     deductedCount: deducted.size,
     absentDatesAfterJoin: records2.filter(r => r.status === 'absent').map(r => r.date),

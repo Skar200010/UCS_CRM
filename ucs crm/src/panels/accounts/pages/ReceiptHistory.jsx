@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import * as JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import { Download, FileSpreadsheet, Pencil, Trash2 } from 'lucide-react';
+import { Download, FileSpreadsheet, Pencil, Trash2, Search, X } from 'lucide-react';
 import { apiGet, apiPost, apiDelete, apiPatch } from '../api/auth';
 import { getReceipt } from '../api/receipts';
 import { PROJECTS } from '../data/projects';
@@ -754,95 +754,89 @@ export default function ReceiptHistory() {
 
   return (
     <div>
-      <div className="card" style={{ marginTop: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', gap: 8 }}>
+      <div className="rx-card">
+        <div className="rx-card-head">
           <div>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>Receipt History</h3>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--ink-soft)' }}>{total} total receipts</p>
+            <h3>Receipt History</h3>
+            <div className="rx-card-sub">{total} total receipts</div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button
               onClick={handleDownloadExcel}
               disabled={excelDownloading}
-              style={{
-                padding: '7px 14px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff',
-                cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6,
-                opacity: excelDownloading ? 0.6 : 1,
-              }}>
+              className="btn btn-sm"
+              style={{ background: '#16a34a', color: '#fff', border: 'none', opacity: excelDownloading ? 0.6 : 1 }}>
               <FileSpreadsheet size={14} strokeWidth={2.5} />
               {excelDownloading ? 'Exporting...' : 'Download Excel'}
             </button>
             <button
               onClick={handleDownloadReceipts}
               disabled={todayDownloading}
-              style={{
-                padding: '7px 14px', borderRadius: 8, border: 'none', background: '#5B6B4E', color: '#fff',
-                cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6,
-                opacity: todayDownloading ? 0.6 : 1,
-              }}>
+              className="btn btn-sm"
+              style={{ background: '#5B6B4E', color: '#fff', border: 'none', opacity: todayDownloading ? 0.6 : 1 }}>
               <Download size={14} strokeWidth={2.5} />
               {todayDownloading ? 'Zipping...' : 'Download Receipts'}
             </button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6, padding: '10px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className="btn btn-sm" onClick={() => {
-            const next = !suspenseMode;
-            if (next) { setPgMode(false); setLibraryMode(false); setFromDate(f => f || '2026-08-01'); }
-            setSuspenseMode(next); setPage(1);
-          }}
-            style={{ background: suspenseMode ? '#dc2626' : '#f3f4f6', color: suspenseMode ? '#fff' : '#374151', border: 'none', fontWeight: 600, borderRadius: 6 }}>
-            Suspense
-          </button>
-          <button className="btn btn-sm" onClick={() => {
-            const next = !pgMode;
-            if (next) { setSuspenseMode(false); setLibraryMode(false); }
-            setPgMode(next); setPage(1);
-          }}
-            style={{ background: pgMode ? '#2563eb' : '#f3f4f6', color: pgMode ? '#fff' : '#374151', border: 'none', fontWeight: 600, borderRadius: 6 }}>
-            PG
-          </button>
-          <button className="btn btn-sm" onClick={() => {
-            const next = !libraryMode;
-            if (next) { setSuspenseMode(false); setPgMode(false); }
-            setLibraryMode(next); setPage(1);
-          }}
-            style={{ background: libraryMode ? '#0f766e' : '#f3f4f6', color: libraryMode ? '#fff' : '#374151', border: 'none', fontWeight: 600, borderRadius: 6 }}>
-            Library
-          </button>
-          <span style={{ width: 1, height: 18, background: '#d1d5db', margin: '0 2px' }} />
-          <input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1) }}
-            style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db' }} />
-          <span style={{ fontSize: 12, color: '#6b7280' }}>to</span>
-          <input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setPage(1) }}
-            style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db' }} />
-          <span style={{ width: 1, height: 18, background: '#d1d5db', margin: '0 2px' }} />
-          <select value={receiptNgo} onChange={e => { setReceiptNgo(e.target.value); setPage(1) }}
-            style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff' }}>
-            <option value="">All NGOs</option>
-            <option value="bsct">Being Sevak</option>
-            <option value="mann">Mann Care</option>
-            <option value="aflf">Ashray</option>
-            <option value="library">Library</option>
-            <option value="pg">PG</option>
-          </select>
-          <input type="number" min="0" placeholder="Min &#8377;" value={minAmount} onChange={e => setMinAmount(e.target.value)}
-            style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', width: 80 }} />
-          <span style={{ fontSize: 12, color: '#6b7280' }}>&ndash;</span>
-          <input type="number" min="0" placeholder="Max &#8377;" value={maxAmount} onChange={e => setMaxAmount(e.target.value)}
-            style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', width: 80 }} />
-          <span style={{ width: 1, height: 18, background: '#d1d5db', margin: '0 2px' }} />
-          <input
-            className="search-input"
-            placeholder="Search name, mobile, PAN, email, UTR, receipt no..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            style={{ flex: 1, minWidth: 200, maxWidth: 300 }}
-          />
-          <span style={{ fontSize: 12, color: 'var(--ink-soft)', marginLeft: 'auto' }}>{total} receipts</span>
+        <div className="rx-tabs" style={{ paddingLeft:16, paddingRight:16, borderBottom:'none', gap:0 }}>
+          {[{ k:'suspense', l:'Suspense', c:'#dc2626' }, { k:'pg', l:'PG', c:'#2563eb' }, { k:'library', l:'Library', c:'#0f766e' }].map(tab => {
+            const active = tab.k === 'suspense' ? suspenseMode : tab.k === 'pg' ? pgMode : libraryMode;
+            return (
+              <button key={tab.k} className="rx-tab" onClick={() => {
+                if (tab.k === 'suspense') { const next = !suspenseMode; if (next) { setPgMode(false); setLibraryMode(false); setFromDate(f => f || '2026-08-01'); } setSuspenseMode(next); setPage(1); }
+                else if (tab.k === 'pg') { const next = !pgMode; if (next) { setSuspenseMode(false); setLibraryMode(false); } setPgMode(next); setPage(1); }
+                else { const next = !libraryMode; if (next) { setSuspenseMode(false); setPgMode(false); } setLibraryMode(next); setPage(1); }
+              }}
+                style={{ background: active ? tab.c : 'var(--bg)', color: active ? '#fff' : 'var(--ink-soft)', fontWeight:600, borderRadius:7, padding:'5px 10px', border:'none', fontSize:12 }}>
+                {tab.l}
+              </button>
+            )
+          })}
         </div>
-        <div className="table-wrap">
-          <table className="donors-table" style={{ width: '100%', fontSize: 13 }}>
+        <div className="rx-filters">
+          <div className="rx-fselect">
+            <span className="rx-fkey">From</span>
+            <input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1) }} />
+          </div>
+          <div className="rx-fselect">
+            <span className="rx-fkey">To</span>
+            <input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setPage(1) }} />
+          </div>
+          <div className="rx-fselect">
+            <span className="rx-fkey">NGO</span>
+            <select value={receiptNgo} onChange={e => { setReceiptNgo(e.target.value); setPage(1) }}>
+              <option value="">All NGOs</option>
+              <option value="bsct">Being Sevak</option>
+              <option value="mann">Mann Care</option>
+              <option value="aflf">Ashray</option>
+              <option value="library">Library</option>
+              <option value="pg">PG</option>
+            </select>
+          </div>
+          <div className="rx-fselect">
+            <span className="rx-fkey">Amount</span>
+            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+              <input type="number" min="0" placeholder="Min" value={minAmount} onChange={e => setMinAmount(e.target.value)} style={{ width:70 }} />
+              <span style={{ color:'var(--ink-soft)' }}>&ndash;</span>
+              <input type="number" min="0" placeholder="Max" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} style={{ width:70 }} />
+            </div>
+          </div>
+          <div className="rx-fselect rx-filter-grow">
+            <span className="rx-fkey">Search</span>
+            <div className="tw-search">
+              <Search size={13} />
+              <input placeholder="Name, mobile, PAN, email, UTR, receipt no..."
+                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            </div>
+          </div>
+          <button className="rx-iconbtn" onClick={() => { setSearchQuery(''); setFromDate(''); setToDate(''); setReceiptNgo(''); setMinAmount(''); setMaxAmount(''); setSuspenseMode(false); setPgMode(false); setLibraryMode(false); setPage(1); }}
+            title="Reset filters">
+            <X size={14} />
+          </button>
+        </div>
+        <div className="rx-table-wrap" style={{ margin:0, borderLeft:'none', borderRight:'none', borderBottom:'none', borderRadius:0 }}>
+          <table className="rx-table">
             <thead>
               <tr>
                 <th>Donor Name</th>
@@ -928,7 +922,7 @@ export default function ReceiptHistory() {
                 })
               )}
               {!loading && receipts.length > 0 && (
-                <tr style={{ borderTop: '2px solid var(--sage)', background: '#F6F8F7', fontWeight: 700 }}>
+                <tr className="rx-total-row">
                   <td style={{ padding: '9px 12px' }}>Total</td>
                   <td></td>
                   <td></td>
@@ -943,20 +937,16 @@ export default function ReceiptHistory() {
               )}
             </tbody>
           </table>
-          {!loading && totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid var(--line)' }}>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                style={{ padding: '4px 10px', border: '1px solid var(--line)', borderRadius: 5, background: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', opacity: page === 1 ? 0.4 : 1 }}>
-                &larr; Prev
-              </button>
-              <span style={{ fontSize: 11, color: 'var(--ink-soft)' }}>Page {page} of {totalPages} ({total} receipts)</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                style={{ padding: '4px 10px', border: '1px solid var(--line)', borderRadius: 5, background: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer', opacity: page === totalPages ? 0.4 : 1 }}>
-                Next &rarr;
-              </button>
-            </div>
-          )}
         </div>
+        {!loading && totalPages > 1 && (
+          <div className="rx-foot">
+            <span className="rx-pageinfo">Page {page} of {totalPages} ({total} receipts)</span>
+            <div style={{ display:'flex', gap:4 }}>
+              <button className="btn btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>&larr; Prev</button>
+              <button className="btn btn-sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next &rarr;</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {historyForDownload && historyForDownload.slice(dlWindow, dlWindow + DL_BATCH).map((r, i) => {
@@ -1024,55 +1014,49 @@ export default function ReceiptHistory() {
 
       {donorDetail && (
         <>
-          <div className="modal-overlay" onClick={() => setDonorDetail(null)} />
-          <div className="modal" style={{ maxWidth: 500, width: '90%', maxHeight: '80vh', overflow: 'auto', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.15)' }}>
-            <div style={{ position: 'sticky', top: 0, zIndex: 10, background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '16px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg, #5B6B4E, #7A8F6A)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, fontWeight: 700, flexShrink: 0, boxShadow: '0 2px 6px rgba(91,107,78,0.25)' }}>
+          <div className="rx-drawer-mask" style={{ zIndex:3100 }} onClick={() => setDonorDetail(null)} />
+          <div className="rx-drawer" style={{ zIndex:3101 }}>
+            <div className="rx-drawer-head">
+              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <div style={{ width:40, height:40, borderRadius:'50%', background:'var(--sage)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:15, fontWeight:700, flexShrink:0 }}>
                   {(donorDetail.name || '?')[0].toUpperCase()}
                 </div>
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: '#111827' }}>{donorDetail.name}</div>
-                  <div style={{ fontSize: 12, color: '#6b7280', marginTop: 1 }}>{donorDetail.mobile || ''} &middot; <strong>{donorDetail.receipts.length}</strong> receipt{donorDetail.receipts.length !== 1 ? 's' : ''}</div>
+                  <div className="rx-drawer-title">{donorDetail.name}</div>
+                  <div className="rx-drawer-sub">{donorDetail.mobile || ''} &middot; <strong>{donorDetail.receipts.length}</strong> receipt{donorDetail.receipts.length !== 1 ? 's' : ''}</div>
                 </div>
               </div>
-              <button onClick={() => setDonorDetail(null)} title="Close"
-                style={{ border: 'none', background: '#f3f4f6', color: '#6b7280', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background .12s' }}
-                onMouseOver={e => e.currentTarget.style.background = '#e5e7eb'}
-                onMouseOut={e => e.currentTarget.style.background = '#f3f4f6'}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
+              <button className="rx-iconbtn" onClick={() => setDonorDetail(null)}><X size={16}/></button>
             </div>
-            <div style={{ padding: '6px 0', background: '#fafafa' }}>
-              {donorDetail.receipts.map((r, i) => (
-                <div key={r.id} onClick={() => { setSavedDetail(donorDetail); setDonorDetail(null); setTimeout(() => handlePreview(r), 50) }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 18px', cursor: 'pointer', borderBottom: i < donorDetail.receipts.length - 1 ? '1px solid #f0f0f0' : 'none', transition: 'background .1s' }}
-                  onMouseOver={e => e.currentTarget.style.background = '#f3f4f6'}
-                  onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#d1d5db', flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'monospace', color: '#374151' }}>{r.receipt_no}</span>
-                      <span style={{ fontSize: 11, color: '#9ca3af' }}>{r.receipt_date ? formatReceiptDate(r.receipt_date) : ''}{r.receipt_time ? ` · ${fmtTime12(r.receipt_time)}` : ''}</span>
+            <div className="rx-drawer-body" style={{ padding:0 }}>
+              <div className="rx-drawer-list">
+                {donorDetail.receipts.map((r, i) => (
+                  <div key={r.id} className="rx-drawer-list-item" onClick={() => { setSavedDetail(donorDetail); setDonorDetail(null); setTimeout(() => handlePreview(r), 50) }}>
+                    <div style={{ width:6, height:6, borderRadius:'50%', background:'var(--line)', flexShrink:0 }} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <span className="rx-mono" style={{ fontSize:12, fontWeight:600, color:'var(--ink)' }}>{r.receipt_no}</span>
+                        <span style={{ fontSize:11, color:'var(--ink-soft)' }}>{r.receipt_date ? formatReceiptDate(r.receipt_date) : ''}{r.receipt_time ? ` · ${fmtTime12(r.receipt_time)}` : ''}</span>
+                      </div>
+                      <div style={{ fontSize:11, color:'var(--ink-soft)', marginTop:1 }}>
+                        {r.mode || ''}{r.project_id ? ` · ${PROJECT_LABELS[r.project_id] || r.project_id}` : ''}
+                      </div>
+                      {r.bank_payer_name && (
+                        <div style={{ fontSize:10, color:'#a3a3a3', marginTop:1 }}>Payer: {r.bank_payer_name}</div>
+                      )}
+                      <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>
+                        Agent: {r.agent_name || r.fro_donor_logs?.workers?.name || 'Not assigned'}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>
-                      {r.mode || ''}{r.project_id ? ` · ${PROJECT_LABELS[r.project_id] || r.project_id}` : ''}
-                    </div>
-                    {r.bank_payer_name && (
-                      <div style={{ fontSize: 10, color: '#a3a3a3', marginTop: 1 }}>Payer: {r.bank_payer_name}</div>
-                    )}
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                      Agent: {r.agent_name || r.fro_donor_logs?.workers?.name || 'Not assigned'}
-                    </div>
+                    <div className="rx-amount">{currency(r.amount)}</div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-soft)" strokeWidth="2" style={{ flexShrink:0, opacity:.5 }}><polyline points="9 18 15 12 9 6"/></svg>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>{currency(r.amount)}</div>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" style={{ flexShrink: 0, opacity: .6 }}><polyline points="9 18 15 12 9 6"/></svg>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-            <div style={{ padding: '12px 18px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', borderRadius: '0 0 14px 14px' }}>
-              <span style={{ fontSize: 12, color: '#6b7280' }}>Total receipts</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#059669' }}>{currency(donorDetail.receipts.reduce((s, r) => s + Number(r.amount || 0), 0))} <span style={{ fontSize: 11, fontWeight: 400, color: '#9ca3af' }}>({donorDetail.receipts.length})</span></span>
+            <div className="rx-drawer-foot">
+              <span style={{ fontSize:12, color:'var(--ink-soft)' }}>Total receipts</span>
+              <span className="rx-amount" style={{ fontSize:15 }}>{currency(donorDetail.receipts.reduce((s, r) => s + Number(r.amount || 0), 0))} <span style={{ fontSize:11, fontWeight:400, color:'var(--ink-soft)' }}>({donorDetail.receipts.length})</span></span>
             </div>
           </div>
         </>

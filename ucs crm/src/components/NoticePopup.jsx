@@ -67,6 +67,8 @@ export function useNoticesPopup() {
   const seenRef = useRef(readSet(seenKey));
   const currentRef = useRef(null);
   const role = getRole();
+  const lastDismissRef = useRef(0);
+  const inflightRef = useRef(false);
 
   const markSeen = useCallback(async (id) => {
     if (id == null) return;
@@ -74,6 +76,8 @@ export function useNoticesPopup() {
   }, []);
 
   const load = useCallback(async () => {
+    if (inflightRef.current) return;
+    inflightRef.current = true;
     try {
       const r = await api(`/notices${role ? `?target_role=${role}` : ''}`, { _prefix: 'ucs' });
       const arr = Array.isArray(r) ? r : (r?.data || []);
@@ -83,6 +87,8 @@ export function useNoticesPopup() {
         .filter(n => !isSuper || targetedAtSuperAdmin(n))
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setList(popups);
+      const now = Date.now();
+      if (now - lastDismissRef.current < 10000) return;
       const next = popups.find(n => !seenRef.current.has(String(n.id)));
       if (next) {
         addToSet(seenKey, next.id);
@@ -92,6 +98,7 @@ export function useNoticesPopup() {
         markSeen(next.id);
       }
     } catch { /* 401/offline */ }
+    finally { inflightRef.current = false; }
   }, [role, markSeen, seenKey]);
 
   useEffect(() => {
@@ -105,6 +112,7 @@ export function useNoticesPopup() {
   const close = useCallback(() => {
     if (currentRef.current) markSeen(currentRef.current);
     currentRef.current = null;
+    lastDismissRef.current = Date.now();
     setCurrent(null);
   }, [markSeen]);
 

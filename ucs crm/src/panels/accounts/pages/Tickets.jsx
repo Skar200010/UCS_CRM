@@ -130,6 +130,7 @@ export default function AccountsTickets() {
   const [drawerSaving, setDrawerSaving] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [menuId, setMenuId] = useState(null);
   const menuRef = useRef(null);
@@ -281,6 +282,7 @@ export default function AccountsTickets() {
   const openDrawer = async (ticket) => {
     setMenuId(null);
     setDrawer(ticket);
+    setStatusMenuOpen(false);
     setDrawerLoading(true);
     setStatusDraft(ticket.status);
     setPriorityDraft(ticket.priority || 'medium');
@@ -708,66 +710,36 @@ export default function AccountsTickets() {
                 <div className="tw-drawer-no">{drawer._source === 'developer' ? '#DEV' : ticketNo(drawer)}</div>
                 <button className="tw-iconbtn" onClick={() => setDrawer(null)} title="Close (Esc)"><X size={16} /></button>
               </div>
-              {drawerLoading ? (
-                <div className="tw-skeleton" style={{ flexDirection: 'column' }}>
-                  <div className="sk" style={{ height: 16, width: '80%' }} />
-                  <div className="sk" style={{ height: 12, width: '50%' }} />
+              <div className="tw-drawer-requester">
+                <Avatar name={drawer.workers?.name || drawer.raised_by_name} size={32} />
+                <div className="tw-drawer-requester-copy">
+                  <strong>{drawer.workers?.name || drawer.raised_by_name || 'Unknown'}</strong>
+                  <span>{fmtDateTime(drawer.created_at)}</span>
                 </div>
-              ) : (
-                <h3 className="tw-drawer-subject">{drawer.subject}</h3>
-              )}
+              </div>
               <div className="tw-drawer-pills">
                 <StatusPill status={drawer.status} />
-                <PriorityPill priority={drawer.priority} />
                 <span className="tw-pill tw-pill-gray">{categoryLabel(drawer.category)}</span>
               </div>
             </div>
 
             <div className="tw-drawer-body">
-              <div className="tw-meta">
-                <div className="tw-meta-item">
-                  <span className="tw-meta-label">Raised by</span>
-                  <div className="tw-meta-value">
-                    <Avatar name={drawer.workers?.name || drawer.raised_by_name} size={24} />
-                    <span>{drawer.workers?.name || drawer.raised_by_name || 'Unknown'}</span>
+              <div className="tw-drawer-subject-block">
+                {drawerLoading ? (
+                  <div className="tw-skeleton" style={{ flexDirection: 'column' }}>
+                    <div className="sk" style={{ height: 18, width: '80%' }} />
                   </div>
-                </div>
-                <div className="tw-meta-item">
-                  <span className="tw-meta-label">Department</span>
-                  <span className="tw-meta-value"><Building2 size={13} /> {deptLabel(drawer.department)}</span>
-                </div>
-                <div className="tw-meta-item">
-                  <span className="tw-meta-label">Date raised</span>
-                  <span className="tw-meta-value"><Calendar size={13} /> {fmtDateTime(drawer.created_at)}</span>
-                </div>
-                {drawer.reference_id && (
-                  <div className="tw-meta-item">
-                    <span className="tw-meta-label">Reference ID</span>
-                    <span className="tw-meta-value tw-mono">{drawer.reference_id}</span>
-                  </div>
-                )}
-                {drawer.ngo && (
-                  <div className="tw-meta-item">
-                    <span className="tw-meta-label">NGO</span>
-                    <span className="tw-meta-value">{drawer.ngo}</span>
-                  </div>
+                ) : (
+                  <h3 className="tw-drawer-subject">{drawer.subject}</h3>
                 )}
               </div>
-
-              <div className="tw-drawer-actions">
-                <div className="tw-drawer-field">
-                  <span className="tw-fkey">Status</span>
-                  <select value={statusDraft} onChange={e => setStatusDraft(e.target.value)}>
-                    {Object.entries(STATUS_META).map(([value, m]) => <option key={value} value={value}>{m.label}</option>)}
-                  </select>
+              {(drawer.department || drawer.ngo || drawer.reference_id) && (
+                <div className="tw-drawer-context">
+                  {drawer.department && <span><Building2 size={12} /> {deptLabel(drawer.department)}</span>}
+                  {drawer.ngo && <span>{drawer.ngo}</span>}
+                  {drawer.reference_id && <span className="tw-mono">{drawer.reference_id}</span>}
                 </div>
-                <div className="tw-drawer-field">
-                  <span className="tw-fkey">Priority</span>
-                  <select value={priorityDraft} onChange={e => setPriorityDraft(e.target.value)}>
-                    {PRIORITIES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                  </select>
-                </div>
-              </div>
+              )}
 
               {(statusDraft === 'resolved' || drawer.status === 'resolved') && (
                 <div className="tw-resolution">
@@ -840,9 +812,27 @@ export default function AccountsTickets() {
                 {statusDraft !== drawer.status || priorityDraft !== drawer.priority || (statusDraft === 'resolved' && resolutionDraft.trim() !== drawer.resolution) ? (
                   <span className="tw-unsaved">Unsaved changes</span>
                 ) : null}
-                <button className="btn btn-sm btn-primary" onClick={saveDrawer} disabled={drawerSaving}>
-                  {drawerSaving ? 'Saving…' : <><CheckCircle2 size={14} /> Update</>}
-                </button>
+                <div className="tw-status-control">
+                  <button type="button" className="tw-status-current" onClick={saveDrawer} disabled={drawerSaving} title="Save ticket status">
+                    <span>{STATUS_META[statusDraft]?.label || statusDraft}</span>
+                    <CheckCircle2 size={14} />
+                  </button>
+                  <button type="button" className="tw-status-toggle" onClick={() => setStatusMenuOpen(open => !open)} disabled={drawerSaving} aria-label="Choose ticket status">
+                    <ChevronDown size={14} className={statusMenuOpen ? 'is-open' : ''} />
+                  </button>
+                  {statusMenuOpen && (
+                    <div className="tw-status-menu">
+                      {Object.entries(STATUS_META).map(([value, meta]) => (
+                        <button type="button" key={value} className={value === statusDraft ? 'active' : ''}
+                          onClick={() => { setStatusDraft(value); setStatusMenuOpen(false); }}>
+                          <span className="tw-status-menu-dot" style={{ background: meta.color }} />
+                          {meta.label}
+                          {value === statusDraft && <CheckCircle2 size={13} />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

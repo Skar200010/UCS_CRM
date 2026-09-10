@@ -72,6 +72,13 @@ import simInventoryRoutes from './routes/simInventoryRoutes.js';
 import reminderRoutes from './routes/reminderRoutes.js';
 import assetsRoutes from './routes/assetsRoutes.js';
 import certificateRoutes from './routes/certificateRoutes.js';
+import beneficiaryRoutes from './routes/beneficiaryRoutes.js';
+import beneficiaryImportRoutes from './routes/beneficiaryImportRoutes.js';
+import programRoutes from './routes/programRoutes.js';
+import benefitRoutes from './routes/benefitRoutes.js';
+import distributionRoutes from './routes/distributionRoutes.js';
+import biometricRoutes from './routes/biometricRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
 import { whatsappLogin } from './controllers/froWhatsAppAuthController.js';
 import { authenticate } from './middleware/authMiddleware.js';
 import { ensureEventHeadSchema } from './bootstrap/ensureEventHeadSchema.js';
@@ -82,6 +89,7 @@ import { ensureSalaryHoldSchema } from './bootstrap/ensureSalaryHoldSchema.js';
 import { ensureCertificateSchema } from './bootstrap/ensureCertificateSchema.js';
 import { ensureNoticeSchema } from './bootstrap/ensureNoticeSchema.js';
 import { ensureNotificationLogTypes } from './bootstrap/ensureNotificationLogTypes.js';
+import { ensureBeneficiarySchema } from './bootstrap/ensureBeneficiarySchema.js';
 
 dotenv.config();
 
@@ -233,6 +241,13 @@ app.use('/api/sim-inventory', simInventoryRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/assets', assetsRoutes);
 app.use('/api/certificates', certificateRoutes);
+app.use('/api/beneficiaries', beneficiaryRoutes);
+app.use('/api/beneficiaries/import', beneficiaryImportRoutes);
+app.use('/api/programs', programRoutes);
+app.use('/api/benefits', benefitRoutes);
+app.use('/api/distributions', distributionRoutes);
+app.use('/api/biometrics', biometricRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.get('/api/deploy-test', (req, res) => {
   res.json({ status: 'ok', deployed: true, timestamp: new Date().toISOString(), commit: 'shon2-deploy-test' });
@@ -882,6 +897,7 @@ if (!process.env.VERCEL) {
     await ensureCertificateSchema().catch(e => console.error('ensureCertificateSchema failed:', e?.message || e));
     await ensureNoticeSchema().catch(e => console.error('ensureNoticeSchema failed:', e?.message || e));
     await ensureNotificationLogTypes().catch(e => console.error('ensureNotificationLogTypes failed:', e?.message || e));
+    await ensureBeneficiarySchema().catch(e => console.error('ensureBeneficiarySchema failed:', e?.message || e));
     import('./services/notificationScheduler.js');
     import('./services/dbHealthWatchdog.js');
   });

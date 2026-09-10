@@ -14,6 +14,7 @@ import DocumentationPanel from './panels/documentation/DocumentationPanel'
 import WhatsAppPanel from './panels/whatsapp/WhatsAppPanel'
 import DevPanel from './panels/dev-panel/DevPanel'
 import SimCardPanel from './panels/sim-card/SimCardPanel'
+import BeneficiariesPanel from './panels/beneficiaries/BeneficiariesPanel'
 
 const ROLE_PATHS = {
   super_admin: '/sa',
@@ -29,6 +30,7 @@ const ROLE_PATHS = {
   'Event Head': '/event-head',
   digital: '/dev-panel',
   developers: '/dev-panel',
+  ngo: '/beneficiaries',
 }
 
 const ROLE_PANELS = {
@@ -44,6 +46,7 @@ const ROLE_PANELS = {
   'Event Head': { panel: EventHeadPanel, cls: 'panel-event-head' },
   digital: { panel: DevPanel, cls: 'panel-dev' },
   developers: { panel: DevPanel, cls: 'panel-dev' },
+  ngo: { panel: BeneficiariesPanel, cls: 'panel-beneficiaries' },
 }
 
 function ProtectedRoute({ role, children }) {
@@ -192,6 +195,12 @@ export default function App() {
         <Route path="/sim/*" element={
           <ProtectedRoute role={['super_admin', 'admin', 'hr', 'accounts']}>
             <SimCardPanel />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/beneficiaries/*" element={
+          <ProtectedRoute role={['super_admin', 'admin', 'ngo', 'accounts', 'event_head', 'worker']}>
+            <PanelWrapper roleKey="ngo" />
           </ProtectedRoute>
         } />
 

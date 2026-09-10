@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { apiGet, apiPost, apiDelete, apiPatch } from '../api/auth'
-import { Pencil } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { useRealtime } from '../../../hooks/useRealtime'
 import { formatIndianCurrency, formatReceiptDate, generateReceiptPDF, downloadSinglePDF, downloadAllPDFs } from '../services/pdfGenerator'
 import ReceiptTemplateManncar from '../components/ReceiptTemplateManncar'
@@ -497,6 +497,7 @@ export default function Receipts() {
 
   const [sendingId, setSendingId] = useState(null)
   const [editingId, setEditingId] = useState(null)
+  const [openRowMenu, setOpenRowMenu] = useState(null)
   const [previewRow, setPreviewRow] = useState(null)
   const [previewedIds, setPreviewedIds] = useState(() => new Set())
   const previewBodyRef = useRef(null)
@@ -748,19 +749,30 @@ export default function Receipts() {
   const TemplateComp = currentTpl.comp
 
   return (
-    <div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div
-          onClick={() => setUploadOpen(o => !o)}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', cursor: 'pointer', borderBottom: uploadOpen ? '1px solid var(--line)' : 'none' }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Upload Receipts</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: uploadOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}>
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+    <div className="rx-page">
+      <div>
+        <div className="rx-breadcrumb">Accounts <span className="rx-bc-sep">/</span> Receipts</div>
+        <div className="rx-header">
+          <div>
+            <h2 className="rx-title">Receipts</h2>
+            <p className="rx-subtitle">Import, verify &amp; send donation receipts</p>
+          </div>
         </div>
+      </div>
+
+      <div className="rx-card">
+        <button className="rx-upload-toggle" aria-expanded={uploadOpen} onClick={() => setUploadOpen(o => !o)}>
+          <span className="rx-upload-ico">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+          </span>
+          <span className="rx-upload-titles">
+            <span className="rx-upload-title">Upload Receipts</span>
+            <span className="rx-upload-hint">Import…</span>
+          </span>
+          <svg className="rx-upload-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
         {uploadOpen && (
-        <div className="card-pad">
+        <div className="rx-card-pad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 600 }}>{uploadMode === 'names' ? 'Upload Names' : uploadMode === 'reupload' ? 'Reupload Receipts' : 'Upload Receipts'}</span>
@@ -910,141 +922,161 @@ export default function Receipts() {
         </div>
         )}
       </div>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-pad">
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, flexWrap:'wrap', gap:8 }}>
-            <div>
-              <h3 style={{ margin:0, fontSize:15, fontWeight:600 }}>Verified receipts awaiting WhatsApp {filteredDonors ? <span style={{ fontSize:12, fontWeight:400, color:'#9ca3af' }}>({filteredDonors.length})</span> : <span className="sk" style={{ display:'inline-block', width:60, height:14, borderRadius:3, verticalAlign:'middle' }} />}</h3>
-              <p style={{ margin:'3px 0 0', fontSize:11, color:'var(--ink-soft)' }}>Sent receipts are available only in Donors.</p>
-            </div>
-                <div style={{ display:'flex', gap:8 }}>
-                  <button className="btn btn-sm" style={{ background:'#059669', color:'#fff', border:'none' }}
-                    onClick={handleSendAllWhatsApp}
-                    disabled={bulkState.active || getValidDonors().length === 0 || !getValidDonors().every(v => previewedIds.has(v.receipt_id))}>
-                    Send All ({getValidDonors().length})
-                  </button>
-                  <button className="btn btn-sm" style={{ background:'#2563eb', color:'#fff', border:'none' }}
-                    onClick={handleMarkAllSent}
-                    disabled={markingAllSent || !filteredDonors?.some(donor => donor.receipt_id)}>
-                    {markingAllSent
-                      ? `Updating ${markAllProgress.completed}/${markAllProgress.total}...`
-                      : `Mark all sent (${filteredDonors?.filter(donor => donor.receipt_id).length || 0})`}
-                  </button>
-                </div>
-              </div>
-                <div style={{ display:'flex', gap:6, marginBottom:10, alignItems:'center', flexWrap:'wrap' }}>
-                  <input type="text" placeholder="Search receipt no..."
-                    value={receiptSearch} onChange={e => setReceiptSearch(e.target.value)}
-                    style={{ padding:'5px 10px', borderRadius:6, border:'1px solid #d1d5db', fontSize:12, width:150, marginRight:4 }} />
-                  {[{ k:'all', l:'All' }, ...Object.entries(NGO_MAP).map(([k, v]) => ({ k, l:v.label }))].map(tab => {
-                    const count = tab.k === 'all' ? (donors?.length || 0)
-                      : (donors || []).filter(d => (d['Project'] || 'bsct') === tab.k).length
-                    return (
-                      <button key={tab.k} className="btn btn-sm" onClick={() => setNgoFilter(tab.k)}
-                        style={{ background: ngoFilter === tab.k ? '#5B6B4E' : '#f3f4f6', color: ngoFilter === tab.k ? '#fff' : '#374151', border:'none', fontWeight:600 }}>
-                        {tab.l} <span style={{ fontSize:11, opacity:0.8 }}>({count})</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              <table className="table-wrap" style={{ width:'100%', fontSize:13 }}>
-                <thead>
-                  <tr>
-                    <th>#</th><th>Donor Name</th><th>Amount</th><th>Receipt No.</th><th>Date</th><th>NGO</th><th>Mobile</th><th>Action</th>
+      <div className="rx-card">
+        <div className="rx-card-head">
+          <div>
+            <h3>Verified Receipts {filteredDonors ? <span style={{ fontSize:12, fontWeight:400, color:'var(--ink-soft)' }}>({filteredDonors.length})</span> : <span className="sk" style={{ display:'inline-block', width:60, height:14, borderRadius:3, verticalAlign:'middle' }} />}</h3>
+            <div className="rx-card-sub">Sent receipts are available only in Donors.</div>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button className="btn btn-sm" style={{ background:'#059669', color:'#fff', border:'none' }}
+              onClick={handleSendAllWhatsApp}
+              disabled={bulkState.active || getValidDonors().length === 0 || !getValidDonors().every(v => previewedIds.has(v.receipt_id))}>
+              Send All ({getValidDonors().length})
+            </button>
+            <button className="btn btn-sm" style={{ background:'#2563eb', color:'#fff', border:'none' }}
+              onClick={handleMarkAllSent}
+              disabled={markingAllSent || !filteredDonors?.some(donor => donor.receipt_id)}>
+              {markingAllSent
+                ? `Updating ${markAllProgress.completed}/${markAllProgress.total}...`
+                : `Mark all sent (${filteredDonors?.filter(donor => donor.receipt_id).length || 0})`}
+            </button>
+          </div>
+        </div>
+        <div className="rx-tabs" style={{ paddingLeft:16, paddingRight:16, marginBottom:0, borderBottom:'none', gap:0 }}>
+          <input type="text" placeholder="Search receipt no., donor name or mobile..."
+            value={receiptSearch} onChange={e => setReceiptSearch(e.target.value)}
+            style={{ padding:'7px 10px', borderRadius:8, border:'1px solid var(--line)', fontSize:12, width:220, marginRight:8, background:'var(--card-bg)' }} />
+          {[{ k:'all', l:'All' }, ...Object.entries(NGO_MAP).map(([k, v]) => ({ k, l:v.label }))].map(tab => {
+            const count = tab.k === 'all' ? (donors?.length || 0)
+              : (donors || []).filter(d => (d['Project'] || 'bsct') === tab.k).length
+            return (
+              <button key={tab.k} className="rx-tab" onClick={() => setNgoFilter(tab.k)}
+                style={{ background: ngoFilter === tab.k ? 'var(--sage)' : 'var(--bg)', color: ngoFilter === tab.k ? '#fff' : 'var(--ink-soft)', fontWeight:600, borderRadius:7, padding:'5px 10px', border:'none', fontSize:12 }}>
+                {tab.l} <span style={{ fontSize:11, opacity:0.8 }}>({count})</span>
+              </button>
+            )
+          })}
+        </div>
+        <div className="rx-table-wrap" style={{ margin:12, border:'none', borderRadius:0 }}>
+          <table className="rx-table">
+            <thead>
+              <tr>
+                <th style={{ width:36 }}>#</th>
+                <th>Donor</th>
+                <th>Mobile</th>
+                <th>Receipt No.</th>
+                <th>Amount</th>
+                <th>Date</th>
+                <th>NGO</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={i}>
+                    <td><div className="sk" style={{ width:20, height:12, borderRadius:3 }} /></td>
+                    <td><div className="sk" style={{ width:'55%', height:12, borderRadius:3 }} /></td>
+                    <td><div className="sk" style={{ width:90, height:12, borderRadius:3 }} /></td>
+                    <td><div className="sk" style={{ width:80, height:12, borderRadius:3 }} /></td>
+                    <td><div className="sk" style={{ width:60, height:12, borderRadius:3 }} /></td>
+                    <td><div className="sk" style={{ width:70, height:12, borderRadius:3 }} /></td>
+                    <td><div className="sk" style={{ width:55, height:12, borderRadius:3 }} /></td>
+                    <td><div className="sk" style={{ width:80, height:12, borderRadius:3 }} /></td>
+                    <td><div className="sk" style={{ width:70, height:24, borderRadius:4 }} /></td>
                   </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    Array.from({ length: 8 }).map((_, i) => (
-                      <tr key={i}>
-                        <td><div className="sk" style={{ width:20, height:12, borderRadius:3 }} /></td>
-                        <td><div className="sk" style={{ width:'55%', height:12, borderRadius:3 }} /></td>
-                        <td><div className="sk" style={{ width:60, height:12, borderRadius:3 }} /></td>
-                        <td><div className="sk" style={{ width:80, height:12, borderRadius:3 }} /></td>
-                        <td><div className="sk" style={{ width:70, height:12, borderRadius:3 }} /></td>
-                        <td><div className="sk" style={{ width:55, height:12, borderRadius:3 }} /></td>
-                        <td><div className="sk" style={{ width:90, height:12, borderRadius:3 }} /></td>
-                        <td><div className="sk" style={{ width:70, height:24, borderRadius:4 }} /></td>
-                      </tr>
-                    ))
-                  ) : filteredDonors.length === 0 ? (
-                    <tr><td colSpan={8} style={{ textAlign:'center', padding:30, color:'var(--ink-soft)' }}>{ngoFilter === 'all' ? 'No pending receipts.' : `No pending receipts for ${NGO_MAP[ngoFilter]?.label || ngoFilter}.`}</td></tr>
-                  ) : filteredDonors.slice((receiptPage - 1) * PAGE_SIZE, receiptPage * PAGE_SIZE).map((d, i) => {
-                    const realIdx = (receiptPage - 1) * PAGE_SIZE + i;
-                    const rowId = d.receipt_id;
-                    return (
-                    <tr key={rowId || realIdx} style={{ background: selectedId != null && selectedId === rowId ? '#f0fdf4' : undefined, cursor:'pointer' }}
-                      onClick={() => setSelectedId(rowId)}>
-                      <td>{realIdx + 1}</td>
-                      <td style={{ fontWeight:500 }}>{d['Donor Name']}</td>
-                      <td style={{ color:'#059669', fontWeight:600 }}>{formatIndianCurrency(d['Amount'])}</td>
-                      <td style={{ fontFamily:'monospace', fontSize:12 }}>{d['Receipt No.']}</td>
-                      <td style={{ fontSize:12 }}>{formatReceiptDate(d['Receipt Date'])}</td>
-                      <td>
-                        {(() => {
-                          const ng = d['Project'] || 'bsct'
-                          const st = { bsct:{background:'#dbeafe',color:'#1d4ed8'}, aflf:{background:'#dcfce7',color:'#166534'}, mann:{background:'#fce7f3',color:'#be185d'} }[ng]
-                            || { background:'#f3f4f6', color:'#374151' }
-                          return <span style={{ display:'inline-block', padding:'3px 8px', borderRadius:999, fontSize:11, fontWeight:600, ...st }}>{NGO_MAP[ng]?.label || ng}</span>
-                        })()}
-                      </td>
-                        <td style={{ fontSize:12, cursor:'pointer' }} onClick={e => { e.stopPropagation(); setEditingId(editingId === rowId ? null : rowId) }}>
-                        {editingId === rowId ? (
-                          <input className="field-input" type="tel" value={d['Mobile No.'] || ''} autoFocus
-                            onChange={e => updatePhone(rowId, e.target.value)}
-                            onBlur={() => setEditingId(null)}
-                            onKeyDown={e => { if (e.key === 'Enter') setEditingId(null) }}
-                            style={{ width:120, height:28, padding:'2px 6px', fontSize:12 }}
-                            onClick={e => e.stopPropagation()} />
-                        ) : d['Mobile No.'] || <span style={{ color:'#d1d5db' }}>Click to add</span>}
-                      </td>
-                      <td style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                        {previewedIds.has(rowId) && (
-                          <button className="btn btn-sm" style={{ fontSize:11, padding:'4px 10px', background:'#25D366', color:'#fff', border:'none' }}
-                            onClick={e => { e.stopPropagation(); handleSendSingle(d, rowId) }}
-                            disabled={sendingId === rowId}>
-                            {sendingId === rowId ? '...' : 'Send'}
-                          </button>
-                        )}
-                        <button className="btn btn-sm" style={{ fontSize:11, padding:'4px 6px', background:'#fff', color:'#6b7280', border:'1px solid #d1d5db', display:'flex', alignItems:'center', gap:4 }}
-                          onClick={e => { e.stopPropagation(); handleEditReceipt(d) }}>
-                          <Pencil size={11} strokeWidth={2} /> Edit
-                        </button>
-                        <button className="btn btn-sm" style={{ fontSize:11, padding:'4px 8px', background:'#fff', color:'#b45309', border:'1px solid #fcd34d' }}
-                          onClick={e => { e.stopPropagation(); setGoBackRow(d) }}
-                          title='Undo and return to Bank Audit'>
-                          {'\u21a9 Go Back'}
-                        </button>
-                        <button className="btn btn-sm" style={{ fontSize:11, padding:'4px 10px' }}
-                          onClick={e => { e.stopPropagation(); if (d.receipt_id) setPreviewedIds(prev => new Set(prev).add(d.receipt_id)); setPreviewRow(d) }}>Preview</button>
-                      </td>
-                    </tr>
-                  )})}
-                  {!loading && filteredDonors.length > 0 && (
-                    <tr style={{ borderTop: '2px solid var(--sage)', background: '#F6F8F7', fontWeight: 700 }}>
-                      <td style={{ padding: '9px 12px' }}>Total</td>
-                      <td></td>
-                      <td style={{ padding: '9px 12px', color: '#059669' }}>
-                        {formatIndianCurrency(filteredDonors.reduce((s, d) => s + Number(d['Amount'] || 0), 0))}
-                      </td>
-                      <td></td>
-                      <td></td>
-                      <td></td>
-                      <td></td>
-                      <td style={{ padding: '9px 12px' }}>{filteredDonors.length} rows</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              {filteredDonors && filteredDonors.length > PAGE_SIZE && (
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 0', borderTop:'1px solid var(--line)' }}>
-                  <button className="btn btn-sm" disabled={receiptPage === 1} onClick={() => setReceiptPage(p => Math.max(1, p - 1))}>Prev</button>
-                  <span style={{ fontSize:12, color:'var(--ink-soft)' }}>Page {receiptPage} of {Math.ceil(filteredDonors.length / PAGE_SIZE)} ({filteredDonors.length} records)</span>
-                  <button className="btn btn-sm" disabled={receiptPage >= Math.ceil(filteredDonors.length / PAGE_SIZE)} onClick={() => setReceiptPage(p => p + 1)}>Next</button>
-                </div>
+                ))
+              ) : filteredDonors.length === 0 ? (
+                <tr><td colSpan={9} style={{ textAlign:'center', padding:30, color:'var(--ink-soft)' }}>{ngoFilter === 'all' ? 'No pending receipts.' : `No pending receipts for ${NGO_MAP[ngoFilter]?.label || ngoFilter}.`}</td></tr>
+              ) : filteredDonors.slice((receiptPage - 1) * PAGE_SIZE, receiptPage * PAGE_SIZE).map((d, i) => {
+                const realIdx = (receiptPage - 1) * PAGE_SIZE + i;
+                const rowId = d.receipt_id;
+                const mobile = (d['Mobile No.'] || '').trim();
+                const hasMobile = /^\d{10,13}$/.test(mobile);
+                return (
+                <tr key={rowId || realIdx} style={{ background: selectedId != null && selectedId === rowId ? '#f0fdf4' : undefined, cursor:'pointer' }}
+                  onClick={() => setSelectedId(rowId)}>
+                  <td style={{ color:'var(--ink-soft)', fontSize:11 }}>{realIdx + 1}</td>
+                  <td style={{ fontWeight:500 }}>{d['Donor Name']}</td>
+                  <td style={{ fontSize:12, cursor:'pointer' }} onClick={e => { e.stopPropagation(); setEditingId(editingId === rowId ? null : rowId) }}>
+                    {editingId === rowId ? (
+                      <input className="field-input" type="tel" value={d['Mobile No.'] || ''} autoFocus
+                        onChange={e => updatePhone(rowId, e.target.value)}
+                        onBlur={() => setEditingId(null)}
+                        onKeyDown={e => { if (e.key === 'Enter') setEditingId(null) }}
+                        style={{ width:120, height:28, padding:'2px 6px', fontSize:12 }}
+                        onClick={e => e.stopPropagation()} />
+                    ) : mobile || <span style={{ color:'#d1d5db', fontSize:11 }}>Click to add</span>}
+                  </td>
+                  <td className="rx-mono">{d['Receipt No.']}</td>
+                  <td className="rx-amount">{formatIndianCurrency(d['Amount'])}</td>
+                  <td style={{ fontSize:12 }}>{formatReceiptDate(d['Receipt Date'])}</td>
+                  <td>
+                    {(() => {
+                      const ng = d['Project'] || 'bsct'
+                      const colors = { bsct:{background:'#dbeafe',color:'#1d4ed8'}, aflf:{background:'#dcfce7',color:'#166534'}, mann:{background:'#fce7f3',color:'#be185d'} }
+                      const st = colors[ng] || { background:'var(--bg)', color:'var(--ink-soft)' }
+                      return <span className="rx-ngo-tag" style={st}>{NGO_MAP[ng]?.label || ng}</span>
+                    })()}
+                  </td>
+                  <td>
+                    {hasMobile
+                      ? <span className="rx-row-ready"><span className="rx-row-dot" style={{ background:'#059669' }}/>Ready to Send</span>
+                      : <span className="rx-row-ready" style={{ background:'#fef3c7', color:'#92400e' }}><span className="rx-row-dot" style={{ background:'#d97706' }}/>Needs Mobile</span>
+                    }
+                  </td>
+                  <td className="rx-actions-cell">
+                    <div className="rx-row-menu">
+                      <button type="button" className="rx-row-menu-trigger" aria-label="Receipt actions"
+                        onClick={e => { e.stopPropagation(); setOpenRowMenu(openRowMenu === rowId ? null : rowId) }}>
+                        <MoreHorizontal size={17} strokeWidth={2.2} />
+                      </button>
+                      {openRowMenu === rowId && (
+                        <div className="rx-row-menu-popover" onClick={e => e.stopPropagation()}>
+                          {previewedIds.has(rowId) && (
+                            <button type="button" onClick={() => { setOpenRowMenu(null); handleSendSingle(d, rowId) }} disabled={sendingId === rowId}>
+                              {sendingId === rowId ? 'Sending…' : 'Send receipt'}
+                            </button>
+                          )}
+                          <button type="button" onClick={() => { setOpenRowMenu(null); handleEditReceipt(d) }}>Edit receipt</button>
+                          <button type="button" className="warn" onClick={() => { setOpenRowMenu(null); setGoBackRow(d) }}>Go back</button>
+                          <button type="button" onClick={() => { setOpenRowMenu(null); if (d.receipt_id) setPreviewedIds(prev => new Set(prev).add(d.receipt_id)); setPreviewRow(d) }}>Preview</button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )})}
+              {!loading && filteredDonors.length > 0 && (
+                <tr className="rx-total-row">
+                  <td style={{ padding:'9px 12px' }}>Total</td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td style={{ padding:'9px 12px', color:'#059669' }}>
+                    {formatIndianCurrency(filteredDonors.reduce((s, d) => s + Number(d['Amount'] || 0), 0))}
+                  </td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td style={{ padding:'9px 12px' }}>{filteredDonors.length} rows</td>
+                </tr>
               )}
+            </tbody>
+          </table>
+        </div>
+        {filteredDonors && filteredDonors.length > PAGE_SIZE && (
+          <div className="rx-foot">
+            <span className="rx-pageinfo">Showing {(receiptPage - 1) * PAGE_SIZE + 1}–{Math.min(receiptPage * PAGE_SIZE, filteredDonors.length)} of {filteredDonors.length}</span>
+            <div style={{ display:'flex', gap:4 }}>
+              <button className="btn btn-sm" disabled={receiptPage === 1} onClick={() => setReceiptPage(p => Math.max(1, p - 1))}>Prev</button>
+              <button className="btn btn-sm" disabled={receiptPage >= Math.ceil(filteredDonors.length / PAGE_SIZE)} onClick={() => setReceiptPage(p => p + 1)}>Next</button>
             </div>
           </div>
+        )}
+      </div>
 
           <ReceiptHistory />
 
@@ -1058,19 +1090,23 @@ export default function Receipts() {
           </div>)}
 
           {previewRow && (
-            <div className="modal-overlay" onClick={() => setPreviewRow(null)} style={{ zIndex:3000 }}>
-              <div className="modal" style={{ width:'min(900px, calc(100vw - 40px))', maxWidth:900, height:'min(760px, calc(100vh - 40px))', maxHeight:'calc(100vh - 40px)', display:'flex', flexDirection:'column' }} onClick={e => e.stopPropagation()}>
-                <div className="modal-header" style={{ flexShrink:0 }}>
-                  <h3 style={{ fontSize:15 }}>{previewRow['Donor Name']} — {getNgoSettings(previewRow['Project'] || 'bsct').label}</h3>
-                  <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                    <button className="btn btn-primary btn-sm" onClick={handleDownloadSingle} disabled={downloadSingle}>
-                      {downloadSingle ? 'Generating...' : 'Download PDF'}
-                    </button>
-                    <button className="btn btn-sm" onClick={handlePrint}>Print</button>
-                    <button className="btn btn-sm" onClick={() => setPreviewRow(null)}>Close</button>
+            <>
+              <div className="rx-drawer-mask" style={{ zIndex:3000 }} onClick={() => setPreviewRow(null)} />
+              <div className="rx-drawer" style={{ zIndex:3001 }}>
+                <div className="rx-drawer-head">
+                  <div>
+                    <h3 className="rx-drawer-title">{previewRow['Donor Name']}</h3>
+                    <div className="rx-drawer-sub">{getNgoSettings(previewRow['Project'] || 'bsct').label}</div>
                   </div>
+                  <button className="rx-iconbtn" onClick={() => setPreviewRow(null)}><X size={16}/></button>
                 </div>
-                <div ref={previewBodyRef} className="modal-body" style={{ flex:1, minHeight:0, overflow:'auto', padding:20, display:'flex', alignItems:'flex-start', justifyContent:'center' }}>
+                <div className="rx-drawer-foot">
+                  <button className="btn btn-sm" style={{ background:'#059669', color:'#fff', border:'none' }} onClick={handleDownloadSingle} disabled={downloadSingle}>
+                    {downloadSingle ? 'Generating...' : 'Download PDF'}
+                  </button>
+                  <button className="btn btn-sm" onClick={handlePrint}>Print</button>
+                </div>
+                <div ref={previewBodyRef} className="rx-drawer-body" style={{ display:'flex', alignItems:'flex-start', justifyContent:'center' }}>
                   {(() => {
                     const ngo = previewRow['Project'] || 'bsct'
                     const tpl = getNgoSettings(ngo)
@@ -1083,7 +1119,7 @@ export default function Receipts() {
                   })()}
                 </div>
               </div>
-            </div>
+            </>
           )}
 
           {goBackRow && (
