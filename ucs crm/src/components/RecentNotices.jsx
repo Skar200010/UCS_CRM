@@ -31,6 +31,7 @@ export default function RecentNotices({ limit = 5, title = 'Recent Notices', con
   const [editForms, setEditForms] = useState({})
   const [savingId, setSavingId] = useState(null)
   const role = getRole()
+  const isAdmin = role === 'super_admin'
 
   useEffect(() => {
     const token = getToken()
@@ -137,7 +138,7 @@ export default function RecentNotices({ limit = 5, title = 'Recent Notices', con
             </span>
           )}
         </div>
-        {notices.length > 0 && (
+        {isAdmin && notices.length > 0 && (
           <button
             onClick={toggleEditMode}
             title={editMode ? 'Done editing' : 'Edit notices'}
@@ -171,7 +172,7 @@ export default function RecentNotices({ limit = 5, title = 'Recent Notices', con
                 </span>
               </div>
               <div style={{ minWidth: 0, flex: 1 }}>
-                {editMode ? (
+                {isAdmin && editMode ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <input value={editForms[n.id]?.title || ''} onChange={e => handleEditChange(n.id, 'title', e.target.value)}
                       style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: 7, padding: '5px 9px', outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
@@ -215,7 +216,7 @@ export default function RecentNotices({ limit = 5, title = 'Recent Notices', con
                   </>
                 )}
               </div>
-              {editMode ? (
+              {isAdmin && (editMode ? (
                 <button
                   onClick={() => handleSave(n.id)}
                   disabled={savingId === n.id}
@@ -246,10 +247,10 @@ export default function RecentNotices({ limit = 5, title = 'Recent Notices', con
                   onMouseLeave={e => { e.currentTarget.style.color = '#cbd5e1'; e.currentTarget.style.background = 'transparent' }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                    {deletingId === n.id ? 'hourglass_top' : 'delete'}
+{deletingId === n.id ? 'hourglass_top' : 'delete'}
                   </span>
                 </button>
-              )}
+              ))}
             </div>
           ))}
         </div>

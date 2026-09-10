@@ -31,15 +31,15 @@ jobs:
           npm ci
           npm run build
 
-      - name: Fix ownership + clear old dist
+      - name: Clear old dist
         uses: appleboy/ssh-action@v1
         with:
           host: 13.207.47.116
           username: ec2-user
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            sudo chown -R ec2-user:ec2-user /var/www/crm 2>/dev/null || true
-            sudo rm -rf /var/www/crm/assets /var/www/crm/logo /var/www/crm/receipt-assets /var/www/crm/index.html
+            sudo -n chown -R ec2-user:ec2-user /var/www/crm 2>/dev/null || true
+            rm -rf /var/www/crm/assets /var/www/crm/logo /var/www/crm/receipt-assets /var/www/crm/index.html || true
 
       - name: Deploy dist to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -53,7 +53,7 @@ jobs:
 
       - name: Verify Frontend
         run: |
-          STATUS=$(curl -sf "https://beingsevak.org" -o /dev/null -w "%{http_code}" || echo "000")
+          STATUS=$(curl -sf "https://crm.beingsevak.org" -o /dev/null -w "%{http_code}" || echo "000")
           if [ "$STATUS" = "200" ]; then
             echo "Frontend is live (HTTP $STATUS)"
           else
