@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link2, Loader2, X } from 'lucide-react';
 import { apiGet, apiPost } from '../api/auth';
-import { toast } from '../../../components/Toast';
 import Dashboard from './Dashboard';
 import BankAudit, { AuditStatCards } from './BankAudit';
 import MatchLines from '../components/MatchLines';
 
-function SectionTitle({ children, style }) {
-  return <div className="lead-audit-section-title" style={style}><span>{children}</span></div>;
+function SectionTitle({ children }) {
+  return <div className="lead-audit-section-title"><span>{children}</span></div>;
 }
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '';
@@ -31,8 +30,6 @@ export default function LeadAudit() {
   const [entryDetailView, setEntryDetailView] = useState(null);
   const [matching, setMatching] = useState(false);
   const [receiptNums, setReceiptNums] = useState(null);
-  const [dailyCollections, setDailyCollections] = useState(null);
-  const [alertBusy, setAlertBusy] = useState(false);
   const workspaceRef = useRef(null);
 
   // Last issued + next upcoming receipt number per NGO. Read-only; refetched
@@ -44,24 +41,6 @@ export default function LeadAudit() {
       .catch(() => { if (!cancelled) setReceiptNums([]); });
     return () => { cancelled = true; };
   }, [audit]);
-
-  useEffect(() => {
-    let cancelled = false;
-    apiGet('/accounts/collections/daily')
-      .then(d => { if (!cancelled) setDailyCollections(d || []); })
-      .catch(() => { if (!cancelled) setDailyCollections([]); });
-    return () => { cancelled = true; };
-  }, []);
-
-  const handleAlertNgo = async (ngoKey) => {
-    if (alertBusy) return;
-    setAlertBusy(true);
-    try {
-      const res = await apiPost('/notifications/suspense-alert', { ngo: ngoKey });
-      toast('Alert sent to ' + (res?.count || 0) + ' ' + ngoKey.toUpperCase() + ' FROs', 'success');
-    } catch { toast('Failed to send alert', 'error'); }
-    setTimeout(() => setAlertBusy(false), 10000);
-  };
 
   const handleMatch = async () => {
     if (!selectedLead || !selectedEntry || matching) return;
@@ -155,37 +134,6 @@ export default function LeadAudit() {
             {filterBar}
           </div>
         </div>
-      </div>
-
-      <SectionTitle style={{ marginTop: 16 }}>Daily Collection of NGO</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12, marginBottom: 18 }}>
-        {['bsct', 'mann', 'aflf'].map(key => {
-          const c = NGO_RECEIPT[key] || { bg: '#f1f5f9', accent: '#475569' };
-          const today = dailyCollections?.find(d => d.project_id === key);
-          return (
-            <div key={key} style={{ border: '1px solid ' + c.accent + '44', borderRadius: 14, background: c.bg, boxShadow: '0 6px 24px rgba(30,41,59,.06)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: c.accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{NGO_LABELS[key] || key}</span>
-                <span style={{ fontSize: 10.5, fontWeight: 700, color: c.accent, background: '#ffffffbb', border: '1px solid ' + c.accent + '33', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>
-                  {(today?.count || 0)} receipt{(today?.count || 0) === 1 ? '' : 's'} today
-                </span>
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#111827', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                {dailyCollections === null ? <span className="sk" style={{ display: 'inline-block', width: 96, height: 22, borderRadius: 6, verticalAlign: 'middle' }} /> : currency(today?.total_amount || 0)}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => handleAlertNgo(key)} disabled={alertBusy}
-                  style={{ flex: 1, padding: '7px 6px', border: '1px solid ' + c.accent + '55', borderRadius: 8, background: '#fff', color: c.accent, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: alertBusy ? 'default' : 'pointer', opacity: alertBusy ? .6 : 1 }}>
-                  {alertBusy ? 'Sending…' : '\u{1F514} Alert FRO'}
-                </button>
-                <button onClick={() => {}}
-                  style={{ flex: 1, padding: '7px 6px', border: '1px solid ' + c.accent + '55', borderRadius: 8, background: '#fff', color: c.accent, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
-                  Work
-                </button>
-              </div>
-            </div>
-          );
-        })}
       </div>
 
       <div ref={workspaceRef} className="lead-audit-workspace" style={{ position: 'relative', marginRight: isPanelOpen ? 640 : 0, width: isPanelOpen ? 'calc(100% - 640px)' : '100%', transition: 'width .25s ease, margin-right .25s ease' }}>

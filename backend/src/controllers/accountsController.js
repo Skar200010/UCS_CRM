@@ -3842,26 +3842,6 @@ export const getSuspenseByNgo = async (req, res) => {
   }
 };
 
-// Today's (IST) verified receipts per NGO — used by the Accounts Lead & Audit
-// "Daily Collection" cards.
-export const getDailyCollections = async (_req, res) => {
-  try {
-    const { rows } = await db._pool.query(`
-      SELECT project_id,
-             count(*)::int AS count,
-             COALESCE(round(sum(amount)::numeric, 2), 0)::float8 AS total_amount
-      FROM receipts
-      WHERE receipt_no IS NOT NULL
-        AND receipt_date = (now() AT TIME ZONE 'Asia/Kolkata')::date
-      GROUP BY project_id
-      ORDER BY count(*) DESC
-    `);
-    return res.json(rows);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
 export const quickSearchDonors = async (req, res) => {
   try {
     const { q } = req.query;
