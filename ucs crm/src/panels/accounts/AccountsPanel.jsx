@@ -461,7 +461,7 @@ export default function AccountsPanel() {
             views={settingsViews}
           />
         </header>
-        <div className="content-body" style={{ marginRight: drawerOpen ? rightDrawerWidth : 0, transition: 'margin-right .25s ease' }}>
+        <div className={`content-body${location.pathname.endsWith('/tickets') ? ' content-body-tickets' : ''}`} style={{ marginRight: drawerOpen ? rightDrawerWidth : 0, transition: 'margin-right .25s ease' }}>
           <Routes>
             <Route index element={<Navigate to="leads" replace />} />
             <Route path="leads" element={<LeadAudit />} />
