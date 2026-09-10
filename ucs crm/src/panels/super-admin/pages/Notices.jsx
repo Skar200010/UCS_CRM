@@ -29,6 +29,7 @@ export default function Notices() {
   const [form, setForm] = useState(EMPTY)
   const [err, setErr] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [confirmId, setConfirmId] = useState(null)
   const fileRef = useRef(null)
 
   const load = () => { api('/notices').then(setNotices).catch(e => setErr(e.message)) }
@@ -83,7 +84,7 @@ export default function Notices() {
   }
 
   const remove = async (id) => {
-    if (!confirm('Delete?')) return
+    setConfirmId(null)
     try { await api(`/notices/${id}`, { method: 'DELETE' }); load() }
     catch (e) { setErr(e.message) }
   }
@@ -175,7 +176,14 @@ export default function Notices() {
                 </h4>
                 <div>
                   <button className="btn btn-sm" onClick={() => openEdit(n)}>Edit</button>
-                  <button className="btn btn-sm btn-danger" onClick={() => remove(n.id)} style={{marginLeft:4}}>Del</button>
+                  {confirmId === n.id ? (
+                    <>
+                      <button className="btn btn-sm btn-danger" onClick={() => remove(n.id)} style={{ marginLeft: 4 }}>Confirm</button>
+                      <button className="btn btn-sm" onClick={() => setConfirmId(null)} style={{ marginLeft: 4 }}>Cancel</button>
+                    </>
+                  ) : (
+                    <button className="btn btn-sm btn-danger" onClick={() => setConfirmId(n.id)} style={{ marginLeft: 4 }}>Del</button>
+                  )}
                 </div>
               </div>
               <div className="sa-notice-date">{n.created_at ? new Date(n.created_at).toLocaleDateString() : ''}</div>
