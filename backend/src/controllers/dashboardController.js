@@ -4,6 +4,7 @@ import { getAllHRs } from '../models/hrModel.js';
 import { getAllWorkers, getWorkerById } from '../models/workerModel.js';
 import { getDashboardStats } from '../models/froAssignmentModel.js';
 import { getTotalCollectedByWorker, getWorkerCollectionReceipts } from '../models/froDonorLogModel.js';
+import { cached } from '../utils/ttlCache.js';
 import db from '../config/db.js';
 import { FRO_IDLE_LIVE_COLS } from '../utils/froIdleCols.js';
 import { dayTotalsForWorkers } from '../services/froTimeSessions.js';
@@ -41,6 +42,27 @@ function calcChange(curr, prev) {
 export const getSuperAdminDashboard = async (req, res) => {
   try {
     const period = req.query.period || '30d';
+    const range = calcDateRange(period);
+
+    // This whole payload is a wide set of all-time roll-ups that only move when
+    // someone is hired or a receipt is written, and it was rebuilt from scratch
+    // on every request. Cached at the top so the expensive per-FRO loop below is
+    // not repeated for each super-admin who opens the page.
+    //
+    // Keyed by period because the period-filtered tiles differ, and by user
+    // because the payload is role-scoped. In-flight is shared via cached() so
+    // several super-admins opening it at once cause one rebuild.
+    const payload = await cached(`dash:superadmin:${req.user.id}:${period}`, 60 * 1000,
+      () => buildSuperAdminDashboard(period));
+    return res.json(payload);
+  } catch (err) {
+    console.error('getSuperAdminDashboard failed:', err.message);
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+async function buildSuperAdminDashboard(period) {
+  try {
     const range = calcDateRange(period);
 
     const ngos = await getAllNgos();
@@ -418,11 +440,24 @@ export const getSuperAdminDashboard = async (req, res) => {
       // label ("Agent 13") or a printed-name variant was credited to nobody, and
       // ilike treated `_`/`%` in a name as wildcards. All-time window: this tile
       // is explicitly all-time, unlike the per-month card.
-      for (const w of froNames) {
-        const receipts = await getWorkerCollectionReceipts(w.id, '1970-01-01T00:00:00.000Z', '2099-12-31T23:59:59.999Z');
-        const total = receipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
-        if (total > 0) froTotals[w.id] = total;
-      }
+      //
+      // Two fixes. It was a SEQUENTIAL await inside a loop, so 20 FROs meant 20
+      // scans back to back -- live sampling showed the resulting query firing 264
+      // times in 20 seconds, about 13 a second, and it was the single largest
+      // contributor to the database sitting at 76-85% CPU. Running them
+      // concurrently with Promise.all overlaps the scans instead of serialising
+      // them, and each FRO's result is cached on its own all-time key so a repeat
+      // visit does not rescan.
+      //
+      // The all-time window (1970-2099) is deliberately NOT shared with the
+      // monthly FRO-card cache: different key, different rows, no collision.
+      const ALL_TIME = 'alltime';
+      const loaded = await Promise.all(froNames.map(w =>
+        cached(`dash:supadm:${ALL_TIME}:${w.id}`, 5 * 60 * 1000,
+          () => getWorkerCollectionReceipts(w.id, '1970-01-01T00:00:00.000Z', '2099-12-31T23:59:59.999Z'))
+          .then(receipts => [w.id, receipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0)])
+      ));
+      for (const [id, total] of loaded) if (total > 0) froTotals[id] = total;
       topFros = froWorkersOnly
         .map(w => ({ id: w.id, name: w.name, totalCollection: froTotals[w.id] || 0 }))
         .filter(f => f.totalCollection > 0)
@@ -525,7 +560,7 @@ export const getSuperAdminDashboard = async (req, res) => {
       recentActivities = activities.slice(0, 10);
     } catch (_) { recentActivities = []; }
 
-    return res.json({
+    return {
       ngos: {
         total: stats.totalNgos || 0,
         change: (kpiChanges.totalNgos) || 0,
@@ -587,9 +622,12 @@ export const getSuperAdminDashboard = async (req, res) => {
       upcoming_events: upcomingEvents || [],
       recent_activities: recentActivities,
       froAssignments: [],
-    });
+    };
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    // Rethrow so the shared cached() wrapper evicts the key. Caching a rejected
+    // result would pin the error for the whole TTL and every subsequent load would
+    // replay a transient failure.
+    throw error;
   }
 };
 
