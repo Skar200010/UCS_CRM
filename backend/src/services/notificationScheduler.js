@@ -705,7 +705,7 @@ async function autoReportMissedSchedules() {
 
     const { data: contacts, error } = await db
       .from('fro_scheduled_contacts')
-      .select('*, fro_assignments!inner(id, donor_id, ngo_id, fro_worker_id)')
+      .select('id')
       .eq('is_completed', false)
       .eq('reminded', false)
       .lt('scheduled_at', tenMinAgo);
@@ -713,51 +713,25 @@ async function autoReportMissedSchedules() {
     if (error) throw error;
     if (!contacts || contacts.length === 0) return;
 
-    const workerIds = [...new Set(contacts.map(c => c.fro_assignments?.fro_worker_id).filter(Boolean))];
-    const donorIds = [...new Set(contacts.map(c => c.fro_assignments?.donor_id).filter(Boolean))];
+    // This used to insert one `alerts` row per missed call, joining donors,
+    // workers and assignments purely to build the description string. The alerts
+    // feature was retired, so all of that was wasted work on a 10-minute cron.
+    //
+    // The rows are still marked reminded -- that flag is what stops the next tick
+    // picking the same contact up again. Dropping the write without keeping the
+    // update would make this query return the same rows every 10 minutes for ever.
+    // The contact ids alone are all that is needed now.
+    const { error: updErr } = await db
+      .from('fro_scheduled_contacts')
+      .update({ reminded: true })
+      .in('id', contacts.map(c => c.id));
 
-    const [donorsRes, workersRes] = await Promise.all([
-      donorIds.length > 0 ? db.from('donor_profiles').select('id, name').in('id', donorIds) : { data: [] },
-      workerIds.length > 0 ? db.from('workers').select('id, name').in('id', workerIds) : { data: [] },
-    ]);
-
-    const donorMap = {};
-    for (const d of donorsRes.data || []) donorMap[d.id] = d.name || 'Unknown';
-    const workerMap = {};
-    for (const w of workersRes.data || []) workerMap[w.id] = w.name || 'Unknown';
-
-    for (const c of contacts) {
-      const a = c.fro_assignments;
-      if (!a) continue;
-      const donorName = donorMap[a.donor_id] || 'Unknown';
-      const froName = workerMap[a.fro_worker_id] || 'Unknown';
-
-      const { error: insErr } = await db
-        .from('alerts')
-        .insert([{
-          ngo_id: a.ngo_id,
-          type: 'missed_schedule',
-          title: 'Missed Schedule',
-          description: `${froName} missed a scheduled call to ${donorName} (scheduled at ${new Date(c.scheduled_at).toLocaleString('en-IN')}).`,
-          fro_name: froName,
-          donor_name: donorName,
-          reference_id: c.id,
-        }]);
-
-      if (insErr) {
-        console.error('[autoReportMissedSchedules] insert alert error:', insErr.message);
-        continue;
-      }
-
-      await db
-        .from('fro_scheduled_contacts')
-        .update({ reminded: true })
-        .eq('id', c.id);
+    if (updErr) {
+      console.error('[autoReportMissedSchedules] mark-reminded error:', updErr.message);
+      return;
     }
 
-    if (contacts.length > 0) {
-      console.log(`[autoReportMissedSchedules] Reported ${contacts.length} missed schedules`);
-    }
+    console.log(`[autoReportMissedSchedules] Marked ${contacts.length} missed schedules`);
   } catch (error) {
     console.error('[autoReportMissedSchedules] Error:', error.message);
   }

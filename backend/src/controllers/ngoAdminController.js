@@ -3768,15 +3768,9 @@ export const getAlerts = async (req, res) => {
       }
     }
 
-    try {
-      const { data: alerts } = await db
-        .from('alerts')
-        .select('*')
-        .in('ngo_id', ngoIds)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (alerts) results.push(...alerts);
-    } catch (err) { console.error('Failed to fetch alerts:', err.message); }
+    // The `alerts` half of this list is gone with the rest of that feature. What
+    // remains -- data requests -- is the part this endpoint was actually used
+    // for; alerts were appended alongside it and never surfaced in the UI.
 
     results.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
@@ -3889,23 +3883,10 @@ export const acknowledgeAlert = async (req, res) => {
       return res.json({ message: 'Request acknowledged' });
     }
 
-    const alertId = parseInt(rawId);
-    const { data: alert } = await db
-      .from('alerts')
-      .select('ngo_id')
-      .eq('id', alertId)
-      .maybeSingle();
-
-    if (!alert) return res.status(404).json({ message: 'Alert not found' });
-    if (!ngoIds.includes(alert.ngo_id)) return res.status(403).json({ message: 'Access denied' });
-
-    const { error } = await db
-      .from('alerts')
-      .update({ acknowledged: true, acknowledged_at: new Date().toISOString() })
-      .eq('id', alertId);
-
-    if (error) throw error;
-    return res.json({ message: 'Alert acknowledged' });
+    // Numeric ids were `alerts` rows. That table is gone, so every id this
+    // endpoint can still receive is a data request (prefixed `dr_`). Return a
+    // clear 404 rather than reaching for a table that no longer exists.
+    return res.status(404).json({ message: 'Alert not found' });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

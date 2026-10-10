@@ -678,15 +678,40 @@
       h += '<p class="muted">deadlock_timeout ' + d.deadlock_timeout_ms + 'ms &middot; ' +
            'lock_timeout ' + d.lock_timeout_ms + 'ms</p>';
 
+      if (d.idle_in_transaction > 0) {
+        h += '<p style="color:var(--danger)"><strong>' + d.idle_in_transaction +
+             ' session(s) idle in transaction.</strong> Each one is holding a connection ' +
+             'that nothing will release, which is how a pool silently drains.</p>';
+      } else {
+        h += '<p class="muted">No sessions are idle in transaction.</p>';
+      }
+
+      if (d.long_transactions && d.long_transactions.length) {
+        h += '<h4 style="margin:16px 0 8px">Long transactions (&gt; 30s)</h4>';
+        h += '<table><thead><tr><th>PID</th><th>State</th><th>Tx Age</th><th>Query Age</th><th>Query</th></tr></thead><tbody>' +
+          d.long_transactions.map(function (t) {
+            return '<tr><td class="mono">' + t.pid + '</td>' +
+              '<td>' + (t.state === 'idle in transaction'
+                ? '<span style="color:var(--danger)">' + esc(t.state) + '</span>' : esc(t.state)) + '</td>' +
+              '<td>' + Math.round(t.xact_age_s || 0) + 's</td>' +
+              '<td>' + Math.round(t.query_age_s || 0) + 's</td>' +
+              '<td class="mono">' + esc((t.query || '').slice(0, 120)) + '</td></tr>';
+          }).join('') + '</tbody></table>';
+      }
+
       if (d.blocked_now && d.blocked_now.length) {
         h += '<h4 style="margin:16px 0 8px">Blocked right now (' + d.blocked_now.length + ')</h4>';
-        h += '<table><thead><tr><th>PID</th><th>Wait</th><th>Held for</th><th>Waiting for</th><th>Query</th></tr></thead><tbody>' +
+        h += '<p class="muted">The blocker transaction age is the useful number: seconds is a ' +
+             'normal race, hours means a leaked client.</p>';
+        h += '<table><thead><tr><th>Blocked PID</th><th>Wait</th><th>For</th><th>Blocker PID</th><th>Blocker State</th><th>Blocker Tx Age</th><th>Blocked SQL</th></tr></thead><tbody>' +
           d.blocked_now.map(function (b) {
-            return '<tr><td class="mono">' + b.pid + '</td>' +
-              '<td>' + esc((b.wait_event_type || '') + ' ' + (b.wait_event || '')) + '</td>' +
-              '<td>' + (b.running_s != null ? Math.round(b.running_s) + 's' : '—') + '</td>' +
-              '<td class="mono">' + esc(b.waiting_mode + (b.waiting_on ? ' on ' + b.waiting_on : '')) + '</td>' +
-              '<td class="mono">' + esc((b.query || '').slice(0, 120)) + '</td></tr>';
+            return '<tr><td class="mono">' + b.blocked_pid + '</td>' +
+              '<td>' + esc([b.wait_event_type, b.wait_event].filter(Boolean).join(' ') || '—') + '</td>' +
+              '<td>' + (b.blocked_for_s != null ? Math.round(b.blocked_for_s) + 's' : '—') + '</td>' +
+              '<td class="mono">' + b.blocker_pid + '</td>' +
+              '<td>' + esc(b.blocker_state || '—') + '</td>' +
+              '<td style="color:var(--danger)">' + Math.round(b.blocker_xact_age_s || 0) + 's</td>' +
+              '<td class="mono">' + esc((b.blocked_query || '').slice(0, 140)) + '</td></tr>';
           }).join('') + '</tbody></table>';
       } else {
         h += '<p class="muted" style="margin-top:16px">No sessions are blocked on a lock at this ' +

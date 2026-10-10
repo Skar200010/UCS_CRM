@@ -1143,7 +1143,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 app.get('/api/debug', authenticate, async (req, res) => {
-  const tables = ['rejected_lead_tickets', 'alerts', 'fcm_tokens'];
+  const tables = ['rejected_lead_tickets', 'fcm_tokens'];
   const results = {};
   for (const t of tables) {
     try {

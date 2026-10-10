@@ -519,34 +519,62 @@ router.get('/db', async (req, res) => {
 // the next one.
 router.get('/db/deadlocks', async (req, res) => {
   try {
-    // Locks that have NOT been granted are the ones actually blocked. Granted
-    // locks are just the ordinary noise every session holds (AccessShare on the
-    // catalog tables and so on), so filtering on granted = false is what makes
-    // this read as "who is stuck", not "what is running".
+    // pg_blocking_pids() is the authoritative answer: it lists the sessions
+    // actually holding a lock this one is waiting on. Joining pg_locks instead
+    // (as an earlier version did) reports every ungranted lock, which includes
+    // lock waits that are not contention between sessions and produced the
+    // phantom "7 blocked" reading.
+    //
+    // The blocker transaction's AGE is included because that is what identifies
+    // the real culprit: a session can hold the lock for seconds, or a leaked
+    // 'idle in transaction' can hold it for hours. Only the first one is a
+    // normal race; the second is a bug that never releases.
     const { rows: blocked } = await db._pool.query(`
-      SELECT l.pid,
-             a.application_name,
-             a.state,
-             a.wait_event_type,
-             a.wait_event,
-             EXTRACT(EPOCH FROM (now() - a.query_start)) AS running_s,
-             left(a.query, 400) AS query,
-             l.mode AS waiting_mode,
-             COALESCE(l.relation::regclass::text, '') AS waiting_on,
-             blocker.pid AS blocked_by,
+      SELECT blocked.pid AS blocked_pid,
+             blocked.usename AS blocked_user,
+             COALESCE(NULLIF(blocked.application_name, ''), '(unnamed)') AS blocked_app,
+             EXTRACT(EPOCH FROM (now() - blocked.query_start)) AS blocked_for_s,
+             blocked.state AS blocked_state,
+             blocked.wait_event_type,
+             blocked.wait_event,
+             left(blocked.query, 400) AS blocked_query,
+             blocker.pid AS blocker_pid,
+             blocker.usename AS blocker_user,
+             blocker.state AS blocker_state,
+             EXTRACT(EPOCH FROM (now() - blocker.xact_start)) AS blocker_xact_age_s,
              left(blocker.query, 400) AS blocker_query
-      FROM pg_locks l
-      JOIN pg_stat_activity a ON a.pid = l.pid
-      LEFT JOIN pg_stat_activity blocker
-        ON blocker.pid = ANY(pg_blocking_pids(l.pid))
-      WHERE NOT l.granted AND a.datname = current_database()
-      ORDER BY running_s DESC NULLS LAST
+      FROM pg_stat_activity blocked
+      CROSS JOIN LATERAL unnest(pg_blocking_pids(blocked.pid)) AS b(pid)
+      JOIN pg_stat_activity blocker ON blocker.pid = b.pid
+      WHERE blocked.datname = current_database()
+      ORDER BY blocked.query_start NULLS LAST
+      LIMIT 25
+    `);
+
+    // Sessions holding a transaction open. A leaked client here holds locks AND
+    // consumes pool capacity, which is the failure that makes every other request
+    // queue -- so it is checked separately from blocking, because a session can
+    // idle in a transaction without blocking anything yet.
+    const { rows: longTx } = await db._pool.query(`
+      SELECT pid,
+             COALESCE(NULLIF(application_name, ''), '(unnamed)') AS app,
+             state,
+             EXTRACT(EPOCH FROM (now() - xact_start)) AS xact_age_s,
+             EXTRACT(EPOCH FROM (now() - query_start)) AS query_age_s,
+             wait_event_type, wait_event,
+             left(query, 300) AS query
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND pid <> pg_backend_pid()
+        AND (state = 'idle in transaction'
+             OR (xact_start IS NOT NULL AND now() - xact_start > interval '30 seconds'))
+      ORDER BY xact_start NULLS LAST
       LIMIT 25
     `);
 
     const { rows: settings } = await db._pool.query(`
       SELECT name, setting, unit FROM pg_settings
-      WHERE name IN ('log_lock_waits', 'deadlock_timeout', 'lock_timeout', 'log_min_messages', 'log_line_prefix')
+      WHERE name IN ('log_lock_waits', 'deadlock_timeout', 'lock_timeout', 'log_min_messages', 'log_line_prefix', 'idle_in_transaction_session_timeout')
       ORDER BY name
     `);
 
@@ -566,6 +594,10 @@ router.get('/db/deadlocks', async (req, res) => {
       deadlocks_total: Number(dbRow[0] ? dbRow[0].deadlocks : 0),
       stats_reset: dbRow[0] ? dbRow[0].stats_reset : null,
       blocked_now: blocked,
+      long_transactions: longTx,
+      // The single most important health signal for pool exhaustion: a leaked
+      // client sits here holding a connection that nothing will ever release.
+      idle_in_transaction: longTx.filter((t) => t.state === 'idle in transaction').length,
       now: new Date().toISOString(),
     });
   } catch (err) {
