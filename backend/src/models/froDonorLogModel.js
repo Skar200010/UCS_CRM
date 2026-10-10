@@ -1,4 +1,4 @@
-import db, { sql } from '../config/db.js';
+import db, { sql, replicaSql } from '../config/db.js';
 import { maybeRefreshSpecialIncentives } from '../services/specialIncentiveService.js';
 import { resolveCreditTarget } from '../services/operatorNameService.js';
 import {
@@ -257,10 +257,17 @@ const getAllWorkerNameResolvers = async () => {
  * Category labels ('Suspense', 'PG', 'Library', 'NA') are never matched, so
  * unreconciled bank money is not credited to an FRO who never collected it.
  */
-export const getWorkerCollectionReceipts = async (workerId, monthStart, monthEnd) => {
+export const getWorkerCollectionReceipts = async (workerId, monthStart, monthEnd, opts = {}) => {
   const monthStartDay = String(monthStart).slice(0, 10);
   const monthEndDay = String(monthEnd).slice(0, 10);
   const RECEIPT_COLS = 'id, donor_id, amount, project_id, receipt_date, receipt_no, payment_id, agent_name, log_id, donor_name, donor_mobile, mode';
+
+  // `allowStale` routes the two receipts queries at the read replica. Opt-in per
+  // caller and NEVER on the FRO panel: an officer who just logged a donation and
+  // reloaded must see it, and the replica would not have it yet. The super-admin
+  // all-time leaderboard is safe because it is cached for 5 minutes anyway, so a
+  // second of replication lag changes nothing a user could perceive.
+  const run = opts.allowStale ? (t, p) => replicaSql(t, p, { replicaOptional: true }) : sql;
 
   // The id handed in here is creditWorkerId from the FRO panel, which is the
   // OPERATOR (req.user.imposter_id), not always a workers row: under an agent
@@ -278,7 +285,7 @@ export const getWorkerCollectionReceipts = async (workerId, monthStart, monthEnd
   // so it can never override a name an operator actually confirmed.
   let byLogId = [];
   try {
-    byLogId = await sql(
+    byLogId = await run(
       `SELECT r.id, r.donor_id, r.amount, r.project_id, r.receipt_date, r.receipt_no, r.payment_id, r.agent_name, r.log_id, r.donor_name, r.donor_mobile, r.mode
        FROM receipts r
        JOIN fro_donor_logs l ON l.id = r.log_id
@@ -305,7 +312,7 @@ export const getWorkerCollectionReceipts = async (workerId, monthStart, monthEnd
       // Params start at $3: only the two date bounds precede the name patterns.
       const orClause = patterns.map((_, i) => `lower(btrim(agent_name)) = $${i + 3}`).join(' OR ');
       try {
-        byName = await sql(
+        byName = await run(
           `SELECT ${RECEIPT_COLS}
            FROM receipts r
            WHERE r.receipt_date >= $1 AND r.receipt_date <= $2
