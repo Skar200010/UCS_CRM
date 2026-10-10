@@ -66,13 +66,28 @@ if (process.env.DATABASE_URL) {
 // lock waits (e.g. an UPDATE blocked behind a big transaction) before they
 // silently bind a connection. Both are overridable via env for rare legit
 // long-running jobs.
+//
+// These are NOT lowered to the 3s/15s values commonly suggested for a small CRM.
+// This database runs genuine report jobs: the Accounts aggregates took 704ms and
+// the NGO donation funnel 2.1s before they were cached, and a full recompute can
+// run for minutes. An aggressive statement_timeout would abort real work partway
+// through rather than protecting anything, so the defaults stay generous and
+// remain env-overridable per deployment.
+//
+// idle_in_transaction_session_timeout is the one added here: it reclaims a
+// connection whose transaction was opened and never committed, which is the
+// failure mode that silently consumes pool capacity until every request queues.
+// Checked at 60s because a report that legitimately holds a transaction open
+// across several queries must not be killed mid-write.
 const STATEMENT_TIMEOUT_MS = Number(process.env.PG_STATEMENT_TIMEOUT_MS || 60000);
 const LOCK_TIMEOUT_MS = Number(process.env.PG_LOCK_TIMEOUT_MS || 10000);
+const IDLE_IN_TX_TIMEOUT_MS = Number(process.env.PG_IDLE_IN_TX_TIMEOUT_MS || 60000);
 poolConfig.options = [
   poolConfig.options,
   '-c timezone=Asia/Kolkata',
   `-c statement_timeout=${STATEMENT_TIMEOUT_MS}`,
   `-c lock_timeout=${LOCK_TIMEOUT_MS}`,
+  `-c idle_in_transaction_session_timeout=${IDLE_IN_TX_TIMEOUT_MS}`,
 ].filter(Boolean).join(' ');
 const pgPool = new pg.Pool(poolConfig);
 pgPool.on('error', (err) => console.error('pg pool idle client error:', err.message));
@@ -1653,10 +1668,32 @@ const db = {
       await client.query('COMMIT');
       return result;
     } catch (err) {
-      try { await client.query('ROLLBACK'); } catch (_) { /* connection already dead */ }
+      // If COMMIT itself failed the transaction is already aborted server-side,
+      // and the connection is usually dead with it. Two cases to separate:
+      //
+      //   rollback succeeds -> the client is clean, hand it back to the pool.
+      //   rollback fails   -> the connection is unusable. Releasing it would let
+      //                       a poisoned session back into rotation, so destroy it
+      //                       and let pg open a fresh one. Either way the
+      //                       ORIGINAL error is what propagates: a rollback
+      //                       failure must never replace the real cause.
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        // Log, do not rethrow -- swallowing the original error is worse than a
+        // noisy line, and destroying releases the socket without ending up in the
+        // pool's free list.
+        console.error('db.transaction ROLLBACK failed:', rollbackErr.message);
+        client.release(rollbackErr);
+        throw err;
+      }
       throw err;
     } finally {
-      client.release();
+      // Reached only when the connection was NOT destroyed above (success, or a
+      // clean rollback). destroy() makes release() a no-op, so calling it
+      // unconditionally here is safe and prevents the double-release that the
+      // catch path would otherwise cause.
+      if (!client._ending) client.release();
     }
   },
   rpc,
