@@ -993,7 +993,6 @@ export const getSuperAdminAlerts = async (req, res) => {
     const fourteenDaysAgo = new Date(now); fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
     const threeDaysAgo = new Date(now); threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
     const twentyFourHoursAgo = new Date(now); twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
-    const sevenDaysAgoForWeek = new Date(now); sevenDaysAgoForWeek.setDate(sevenDaysAgoForWeek.getDate() - 7);
 
     const alerts = [];
 
@@ -1182,42 +1181,11 @@ export const getSuperAdminAlerts = async (req, res) => {
     } catch (e) { console.error('Alert error:', e.message); }
 
     // ── 6. Missed Schedules (2+ per FRO this week) ──
-    try {
-      const { data: missedAlerts } = await db
-        .from('alerts')
-        .select('fro_name, fro_worker_id, donor_name')
-        .eq('type', 'missed_schedule')
-        .eq('acknowledged', false)
-        .gte('created_at', sevenDaysAgoForWeek.toISOString());
-
-      const missedByFro = {};
-      for (const a of missedAlerts || []) {
-        const key = a.fro_worker_id || a.fro_name || 'unknown';
-        if (!missedByFro[key]) missedByFro[key] = { name: a.fro_name || 'Unknown', count: 0, donors: [] };
-        missedByFro[key].count++;
-        if (a.donor_name) missedByFro[key].donors.push(a.donor_name);
-      }
-
-      const seriousMissers = Object.values(missedByFro).filter(f => f.count >= 2);
-
-      if (seriousMissers.length > 0) {
-        alerts.push({
-          id: 'missed-schedules',
-          severity: 'warning',
-          category: 'fro',
-          title: `${seriousMissers.length} FRO(s) with multiple missed schedules`,
-          description: `FROs who missed 2+ scheduled calls this week without follow-up.`,
-          count: seriousMissers.reduce((s, f) => s + f.count, 0),
-          actionPanel: 'fro',
-          actionLabel: 'View Missed Schedules',
-          details: seriousMissers.slice(0, 6).map(f => ({
-            name: f.name,
-            value: `${f.count} missed schedule(s)`,
-          })),
-          createdAt: now.toISOString(),
-        });
-      }
-    } catch (e) { console.error('Alert error:', e.message); }
+    // Removed with the `alerts` table. This read counted unacknowledged
+    // missed_schedule rows, which nothing writes any more, so it could only ever
+    // return an empty set. Recomputing the same signal from
+    // fro_scheduled_contacts.reminded would show missed calls regardless of
+    // whether anyone acknowledged an alert row that no longer exists.
 
     // ── 7. Unresolved Data Requests >24h ──
     try {
