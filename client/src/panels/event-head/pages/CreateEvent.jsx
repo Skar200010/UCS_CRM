@@ -1,11 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CATEGORIES, PRIORITIES, fetchWorkspaceNgos, fetchSectors, fetchActivities, createEvent, createActivity, createSector, suggestEventSpelling, suggestDayPrograms, observancesOnDate, fetchCalendarObservances, uploadEventBanner, CHECKLIST_ITEMS, CHECKLIST_MATERIALS, createChecklistItem } from '../store'
+import { CATEGORIES, PRIORITIES, BENEFICIARY_CATEGORIES, fetchWorkspaceNgos, fetchSectors, fetchActivities, createEvent, createActivity, createSector, suggestEventSpelling, suggestDayPrograms, observancesOnDate, fetchCalendarObservances, uploadEventBanner, CHECKLIST_ITEMS, CHECKLIST_MATERIALS, createChecklistItem } from '../store'
 import { PageHeader } from '../components/ui'
 import VoluntaryPicker from '../components/VoluntaryPicker'
 import ActivitySelect from '../components/ActivitySelect'
-import { DistrictSelect, StateSelect } from '../../../components/LocationSelect'
-import { stateForDistrict, districtsOfState as districtsOf } from '../../../utils/indiaLocations'
 import usePasteImage from '../../../utils/usePasteImage'
 
 export default function CreateEvent() {
@@ -17,8 +15,30 @@ export default function CreateEvent() {
   const [form, setForm] = useState({
     name:'', category:'', ngo_id: searchParams.get('ngo_id') || '', sector_id: searchParams.get('sector_id') || '', activityName:'',
     date:'', start_time:'', end_time:'', venue:'', priority:'Medium', banner:'',
-    district:'', state:'', organizer:'', event_manager:'', coordinator:'',
+    description:'', expected_beneficiaries:'', organizer:'', event_manager:'', coordinator:'',
   })
+  /* ── Daily Planning Form block ─────────────────────────────────────────────
+     These fields are saved together in one JSONB column (event_head_events.
+     planning, migration 176): volunteer requirement, beneficiary categories,
+     the distribution/service table and the special-arrangements note. Number
+     of beneficiaries reuses expected_beneficiaries and Description reuses the
+     existing description column, so they live on `form` instead. */
+  const EMPTY_DISTRIBUTION_ROWS = 5
+  const [planning, setPlanning] = useState({
+    volunteers_required: '',
+    volunteer_role: '',
+    beneficiary_categories: [],
+    distribution_items: Array.from({ length: EMPTY_DISTRIBUTION_ROWS }, () => ({ item: '', qty: '', remarks: '' })),
+    special_requirements: '',
+  })
+  const updatePlanning = (patch) => setPlanning(prev => ({ ...prev, ...patch }))
+  const toggleBeneficiaryCategory = (cat) => setPlanning(prev => {
+    const on = prev.beneficiary_categories.includes(cat)
+    return { ...prev, beneficiary_categories: on ? prev.beneficiary_categories.filter(c => c !== cat) : [...prev.beneficiary_categories, cat] }
+  })
+  const addDistributionRow = () => setPlanning(prev => ({ ...prev, distribution_items: [...prev.distribution_items, { item: '', qty: '', remarks: '' }] }))
+  const removeDistributionRow = (index) => setPlanning(prev => ({ ...prev, distribution_items: prev.distribution_items.filter((_, i) => i !== index) }))
+  const updateDistributionRow = (index, patch) => setPlanning(prev => ({ ...prev, distribution_items: prev.distribution_items.map((r, i) => (i === index ? { ...r, ...patch } : r)) }))
   /* Month picker that opens the Monthly Planner on that month. The actual day is
      chosen on the planner's grid, which is where the calendar already lives —
      this form only carries the month, so it never claims a day the user has not
@@ -172,8 +192,8 @@ export default function CreateEvent() {
   const ngoId = form.ngo_id ? String(form.ngo_id) : ''
   const sectorId = form.sector_id ? String(form.sector_id) : ''
 
-  // Fields that support AI spelling suggestions (free-text only). District and
-  // State are picked from fixed lists, so they can never be misspelled and are
+  // Fields that support AI spelling suggestions (free-text only). Picked values
+  // (NGO, sector, activity, dates, priority) can never be misspelled, so they are
   // left out to avoid spending a GROQ call on them.
   const SPELL_FIELDS = ['name', 'activityName', 'category', 'venue', 'organizer', 'event_manager', 'coordinator']
 
@@ -357,33 +377,6 @@ export default function CreateEvent() {
     })
   }
 
-  // District and State are chosen from fixed lists, so keep the pair
-  // consistent instead of letting a district sit under the wrong state.
-  // Picking a district fills in its state when the name is unique to one state
-  // (Bilaspur / Hamirpur / Pratapgarh exist in two, so those need a manual pick).
-  const pickDistrict = (district) => {
-    if (errorField === 'district') clearError()
-    setForm(prev => {
-      const next = { ...prev, district }
-      if (district) {
-        const state = stateForDistrict(district)
-        if (state) next.state = state
-        else if (prev.state && !districtsOf(prev.state).includes(district)) next.state = ''
-      }
-      return next
-    })
-  }
-
-  const pickState = (state) => {
-    if (errorField === 'state') clearError()
-    setForm(prev => {
-      const next = { ...prev, state }
-      // A district from another state would be wrong, so drop it.
-      if (state && prev.district && !districtsOf(state).includes(prev.district)) next.district = ''
-      return next
-    })
-  }
-
   // Picking an existing activity fills in its sector too, because the server
   // rejects an event whose activity belongs to a different sector. A name that
   // does not exist yet is just set as typed — resolveActivity() creates it on
@@ -514,6 +507,16 @@ export default function CreateEvent() {
       // saved without one keeps the typed text in activity_name instead.
       const activity_id = (typedActivity && form.sector_id) ? await resolveActivity() : null
       if (typedActivity && form.sector_id && !activity_id) { fail('Could not resolve the Activity. Please pick an existing sector and try again.', 'sector_id'); return }
+      const distributionItems = planning.distribution_items
+        .map(r => ({ item: String(r.item || '').trim(), qty: String(r.qty || '').trim(), remarks: String(r.remarks || '').trim() }))
+        .filter(r => r.item || r.qty || r.remarks)
+      const planningPayload = {
+        volunteers_required: planning.volunteers_required !== '' ? Number(planning.volunteers_required) : null,
+        volunteer_role: planning.volunteer_role || null,
+        beneficiary_categories: planning.beneficiary_categories,
+        distribution_items: distributionItems,
+        special_requirements: planning.special_requirements || null,
+      }
       const payload = {
         name: form.name,
         category: form.category || null,
@@ -527,12 +530,13 @@ export default function CreateEvent() {
         venue: form.venue || null,
         priority: form.priority || 'Medium',
         banner: form.banner || null,
-        district: form.district || null,
-        state: form.state || null,
+        description: form.description || null,
+        expected_beneficiaries: form.expected_beneficiaries !== '' ? Number(form.expected_beneficiaries) : null,
         organizer: form.organizer || null,
         event_manager: form.event_manager || null,
         coordinator: form.coordinator || null,
         volunteers: volunteers && volunteers.length ? volunteers : null,
+        planning: planningPayload,
       }
       if (draft) payload.status = 'Draft'
       const created = await createEvent(payload)
@@ -555,6 +559,12 @@ export default function CreateEvent() {
 
   const section = (t) => <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--eh-primary)', margin: '20px 0 12px' }}>{t}</div>
 
+  // Shared styles for the Daily Planning Form's Distribution / Service table.
+  const planTh = (width) => ({ padding: '8px 10px', fontWeight: 700, fontSize: 12, color: 'var(--eh-ink-soft,#6a6f8f)', borderBottom: '1px solid var(--eh-line,#e8e6f2)', ...(width ? { width } : {}) })
+  const planTd = { padding: '6px 8px', borderBottom: '1px solid var(--eh-line,#e8e6f2)', verticalAlign: 'middle', fontSize: 13 }
+  const planCellInput = { width: '100%', padding: '6px 9px', fontSize: 12.5, border: '1px solid var(--eh-line,#e8e6f2)', borderRadius: 8, fontFamily: 'inherit' }
+  const taStyle = { resize: 'vertical', minHeight: 68 }
+
   // Inline AI suggestion note shown just under a field when GROQ suggests a fix.
   const inlineSuggestion = (key) => {
     const sug = aiSuggestions[key]
@@ -574,8 +584,8 @@ export default function CreateEvent() {
   return (
     <>
       <PageHeader
-        title="Create New Event"
-        subtitle="Fill in the details and click Create Event"
+        title="Daily Event Planning Form"
+        subtitle="Plan the programme, volunteers, beneficiaries and distribution, then click Create Event"
         actions={<button className="eh-btn" onClick={() => navigate('/event-head/events')}>Cancel</button>}
       />
 
@@ -655,17 +665,24 @@ export default function CreateEvent() {
         <div className="eh-section">
           <div className="eh-section-head">
             <div>
-              <h3>Event</h3>
-              <div className="eh-sub" style={{ fontSize: 12 }}>Program, details and banner</div>
+              <h3>Daily Event Planning Form</h3>
+              <div className="eh-sub" style={{ fontSize: 12 }}>Programme, volunteers, beneficiaries, distribution and requirements</div>
             </div>
           </div>
           <div className="eh-section-body">
-            {section('Program')}
+            {section('1 · Program Details')}
             {/* Field order follows the order the form is actually filled in: pick the
                 NGO, then the month, then jump to the Monthly Planner to click the real
                 day on the grid. The exact date input lives in Event Details below, for
                 the quick case where the day is already known — the festival chips and
                 the suggestion panel read the same form.date either way. */}
+            <div className="form-row">
+              <div className="field">
+                <label>Event Name *</label>
+                <input name="name" value={form.name} onChange={handleChange} ref={registerField('name')} style={fieldStyle('name')} placeholder="e.g. Diwali distribution — Sector 8" />
+                {fieldError('name')}
+              </div>
+            </div>
             <div className="form-row">
               <div className="field"><label>NGO *</label>
                 <select name="ngo_id" value={form.ngo_id} onChange={handleChange} ref={registerField('ngo_id')} style={fieldStyle('ngo_id')}>
@@ -853,7 +870,6 @@ export default function CreateEvent() {
               </div>
             </div>
 
-            {section('Event Details')}
             <div className="form-row">
               <div className="field"><label>Event Date *</label>
                 <input type="date" name="date" value={form.date} onChange={handleChange} required ref={registerField('date')} style={fieldStyle('date')} />
@@ -866,20 +882,90 @@ export default function CreateEvent() {
               </select></div>
             </div>
             <div className="form-row">
-              <div className="field"><label>Venue</label><input name="venue" value={form.venue} onChange={handleChange} placeholder="Full address" />{inlineSuggestion('venue')}</div>
+              <div className="field" style={{ flex: '1 1 100%' }}>
+                <label>Description</label>
+                <textarea name="description" value={form.description} onChange={handleChange} rows={3} placeholder="What is this programme about?" style={taStyle} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="field"><label>Location Decided</label><input name="venue" value={form.venue} onChange={handleChange} placeholder="Venue / full address" />{inlineSuggestion('venue')}</div>
             </div>
 
-            {section('Location & Team')}
+            {section('2 · Volunteer Requirement')}
             <div className="form-row">
-              <div className="field">
-                <label>District</label>
-                <DistrictSelect value={form.district} onChange={v => pickDistrict(v)} ariaLabel="District" />
-                {inlineSuggestion('district')}
+              <div className="field"><label>Number of Volunteers Required</label>
+                <input type="number" min="0" name="volunteers_required" value={planning.volunteers_required} onChange={e => updatePlanning({ volunteers_required: e.target.value })} placeholder="e.g. 10" />
               </div>
-              <div className="field">
-                <label>State</label>
-                <StateSelect value={form.state} onChange={v => pickState(v)} ariaLabel="State" />
-                {inlineSuggestion('state')}
+              <div className="field"><label>Volunteer Role</label>
+                <input name="volunteer_role" value={planning.volunteer_role} onChange={e => updatePlanning({ volunteer_role: e.target.value })} placeholder="e.g. Distribution, Registration" />
+              </div>
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <VoluntaryPicker ngoId={form.ngo_id} value={volunteers} onChange={setVolunteers} />
+            </div>
+
+            {section('3 · Beneficiary Details')}
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label>Beneficiary Categories</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+                {BENEFICIARY_CATEGORIES.map(cat => {
+                  const on = planning.beneficiary_categories.includes(cat)
+                  return (
+                    <label key={cat} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer',
+                      padding: '7px 12px', borderRadius: 999, fontSize: 12.5, fontWeight: 600,
+                      border: `1px solid ${on ? 'var(--eh-primary,#2036bd)' : 'var(--eh-line,#e8e6f2)'}`,
+                      background: on ? 'var(--eh-primary-soft,#e8ecfb)' : 'var(--eh-surface-2,#fff)',
+                      color: on ? 'var(--eh-primary,#2036bd)' : 'var(--eh-ink-soft,#6a6f8f)',
+                    }}>
+                      <input type="checkbox" checked={on} onChange={() => toggleBeneficiaryCategory(cat)} style={{ accentColor: 'var(--eh-primary,#2036bd)' }} />
+                      {cat}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="field"><label>Number of Beneficiaries Required</label>
+                <input type="number" min="0" name="expected_beneficiaries" value={form.expected_beneficiaries} onChange={handleChange} placeholder="e.g. 50" />
+              </div>
+            </div>
+
+            {section('4 · Distribution / Service Details')}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520 }}>
+                <thead>
+                  <tr style={{ background: 'var(--eh-surface-1,#f6f7f9)', textAlign: 'left' }}>
+                    <th style={planTh(52)}>Sr. No</th>
+                    <th style={planTh()}>Item / Service</th>
+                    <th style={planTh(150)}>Quantity Required</th>
+                    <th style={planTh()}>Remarks</th>
+                    <th style={planTh(40)}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {planning.distribution_items.map((row, i) => (
+                    <tr key={i}>
+                      <td style={{ ...planTd, textAlign: 'center', color: 'var(--eh-ink-soft,#6a6f8f)', fontWeight: 600 }}>{i + 1}</td>
+                      <td style={planTd}><input value={row.item} onChange={e => updateDistributionRow(i, { item: e.target.value })} placeholder="Item or service" style={planCellInput} /></td>
+                      <td style={planTd}><input value={row.qty} onChange={e => updateDistributionRow(i, { qty: e.target.value })} placeholder="Qty" style={planCellInput} /></td>
+                      <td style={planTd}><input value={row.remarks} onChange={e => updateDistributionRow(i, { remarks: e.target.value })} placeholder="Remarks" style={planCellInput} /></td>
+                      <td style={{ ...planTd, textAlign: 'center' }}>
+                        <button type="button" onClick={() => removeDistributionRow(i)} title="Remove row" disabled={planning.distribution_items.length <= 1}
+                          style={{ border: 'none', background: 'transparent', color: '#b91c1c', fontSize: 14, cursor: planning.distribution_items.length <= 1 ? 'not-allowed' : 'pointer', opacity: planning.distribution_items.length <= 1 ? 0.4 : 1 }}>✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button type="button" className="eh-btn" onClick={addDistributionRow} style={{ marginTop: 8 }}>+ Add row</button>
+
+            {section('5 · Additional Requirements')}
+            <div className="form-row">
+              <div className="field" style={{ flex: '1 1 100%' }}>
+                <label>Special Requirements / Arrangements</label>
+                <textarea name="special_requirements" value={planning.special_requirements} onChange={e => updatePlanning({ special_requirements: e.target.value })} rows={3} placeholder="Any special arrangement, accessibility or material needed" style={taStyle} />
               </div>
             </div>
             <div className="form-row">
@@ -889,9 +975,6 @@ export default function CreateEvent() {
             <div className="form-row">
               <div className="field"><label>Coordinator</label><input name="coordinator" value={form.coordinator} onChange={handleChange} />{inlineSuggestion('coordinator')}</div>
             </div>
-
-            {section('Voluntary (optional)')}
-            <VoluntaryPicker ngoId={form.ngo_id} value={volunteers} onChange={setVolunteers} />
 
             {section('General Checklist')}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

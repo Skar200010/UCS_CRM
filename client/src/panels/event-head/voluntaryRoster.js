@@ -104,11 +104,13 @@ export const buildRoster = (people, management, ngoList) => {
   const byName = ngoLabelLookup(ngoList);
   const volunteers = (Array.isArray(people) ? people : [])
     .filter((p) => p && cleanName(p.name))
-    .map((p) => ({ id: p.id ?? null, name: cleanName(p.name), ngo: personNgo(p, byName), team: 'Volunteer' }));
+    // ngo_id is carried through so the picker can scope to a single NGO by
+    // identity (exact), not just by the display label.
+    .map((p) => ({ id: p.id ?? null, name: cleanName(p.name), ngo: personNgo(p, byName), team: 'Volunteer', ngo_id: p.ngo_id ?? null }));
   const volNames = new Set(volunteers.map((v) => v.name.toLowerCase()));
   const mgmt = (Array.isArray(management) ? management : [])
     .filter((m) => m && cleanName(m.name) && !volNames.has(cleanName(m.name).toLowerCase()))
-    .map((m) => ({ id: null, name: cleanName(m.name), ngo: m.ngo || DEFAULT_NGO, team: 'Management' }));
+    .map((m) => ({ id: null, name: cleanName(m.name), ngo: m.ngo || DEFAULT_NGO, team: 'Management', ngo_id: null }));
   const out = [];
   const seen = new Set();
   for (const i of [...volunteers, ...mgmt]) {
