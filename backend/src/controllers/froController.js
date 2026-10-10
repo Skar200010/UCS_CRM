@@ -87,10 +87,20 @@ const FRO_SEARCH_SCOPE_TTL_MS = 60 * 1000;
 // cacheGet/cacheSet because it also shares the in-flight promise: several FROs
 // refreshing at once caused one rebuild instead of one each.
 //
-// 60s, not 30s, because this endpoint is refetched on every mount and every
-// filter change -- well above the rate the underlying data changes. Writes still
-// invalidate via invalidateFroCaches(), so a donation shows up immediately.
-const FRO_RECEIPTS_TTL_MS = 60 * 1000;
+// 5 MINUTES, and the number matters more than it looks. /fro/my-performance
+// polls every 30s from every open panel, so ~20 FROs generate ~40 requests a
+// minute. The first attempt used 60s, barely above the 30s poll, and that was
+// the same mistake ttlCache.js warns about in slower motion: unsynchronised polls
+// land on either side of the expiry, so entries die between requests and the
+// expensive query still ran most of the time. Live sampling confirmed it -- the
+// query was firing ~6 times a second and the database sat at 76% CPU on a
+// 4-vCPU instance. 5 minutes puts roughly 10 rebuilds per FRO down to about 1.
+//
+// Staleness is bounded by invalidation, not by the TTL: every disposition and
+// receipt write calls invalidateFroCaches(), so a donation appears immediately.
+// The TTL only governs changes that bypass that path, and 5 minutes is within
+// tolerance for a monthly Collected figure.
+const FRO_RECEIPTS_TTL_MS = 5 * 60 * 1000;
 // My Leads runs 11+ sequential queries per request, so it is the most expensive
 // read in this file and the one refetched most often - the client re-requests it
 // on every mount, on every station/NGO/tab change (up to 3x per load), and on
