@@ -69,6 +69,9 @@ class _BillReminderAppState extends State<BillReminderApp> {
     } catch (_) {}
     String? token;
     try {
+      // Recover a lapsed-but-refreshable session before deciding whether to
+      // show the login screen, so users are not logged out after a few days.
+      await ApiService.ensureSession();
       token = await ApiService.getToken();
     } catch (_) {}
     if (mounted) setState(() => _loggedIn = token != null);
