@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import { execSync, spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import db, { replicaHealth } from '../config/db.js';
+import db, { replicaHealth, replicaSql } from '../config/db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -476,7 +476,7 @@ router.get('/db/replica', async (req, res) => {
   }
 
   try {
-    const { rows } = await db.replicaSql(
+    const { rows } = await replicaSql(
       `SELECT current_database() AS db,
               pg_is_in_recovery() AS in_recovery,
               pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() AS caught_up,
