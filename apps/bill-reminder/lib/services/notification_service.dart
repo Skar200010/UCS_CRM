@@ -74,6 +74,11 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._();
 
+  /// Why push registration is unavailable (null => no problem). Set when
+  /// Firebase fails to initialize, e.g. the app was built without a
+  /// google-services.json for its Firebase project.
+  static String? initError;
+
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
@@ -89,7 +94,15 @@ class NotificationService {
 
     try {
       await Firebase.initializeApp();
-    } catch (_) {}
+      initError = null;
+    } catch (e) {
+      initError = e is FirebaseException
+          ? e.message ?? e.code
+          : e.toString().replaceFirst('Exception: ', '');
+      if (initError!.contains('Default FirebaseOptions')) {
+        initError = 'Firebase is not configured in this build (missing google-services.json / firebase_options.dart)';
+      }
+    }
 
     try {
       await _localNotifications.initialize(

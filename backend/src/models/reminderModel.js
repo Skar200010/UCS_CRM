@@ -2,6 +2,7 @@ import db from '../config/db.js';
 
 const TABLE = 'reminders';
 const HISTORY_TABLE = 'reminder_history';
+const PAYMENT_TABLE = 'reminder_payments';
 const NOTIFICATION_TABLE = 'reminder_notifications';
 const SETTINGS_TABLE = 'reminder_settings';
 const DEVICE_TOKEN_TABLE = 'reminder_device_tokens';
@@ -107,6 +108,37 @@ export const getReminderHistory = async (reminderId) => {
     .select('*')
     .eq('reminder_id', reminderId)
     .order('id', { ascending: true });
+  if (error) throw error;
+  return data || [];
+};
+
+// ---- Reminder payment history (per-payment amounts) ----
+
+export const createReminderPayment = async (entry) => {
+  const { data, error } = await db
+    .from(PAYMENT_TABLE)
+    .insert([entry])
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};
+
+export const getReminderPayments = async (reminderId) => {
+  const { data, error } = await db
+    .from(PAYMENT_TABLE)
+    .select('*')
+    .eq('reminder_id', reminderId)
+    .order('paid_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+};
+
+export const getAllReminderPayments = async () => {
+  const { data, error } = await db
+    .from(PAYMENT_TABLE)
+    .select('*, reminders(title, category, owner)')
+    .order('paid_at', { ascending: false });
   if (error) throw error;
   return data || [];
 };

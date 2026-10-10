@@ -7,6 +7,9 @@ import {
   bulkInsertReminders,
   createReminderHistory,
   getReminderHistory,
+  createReminderPayment,
+  getReminderPayments,
+  getAllReminderPayments,
   createNotification,
   getNotificationsForReminder,
   getAllNotifications,
@@ -357,6 +360,24 @@ export const historyForReminder = async (req, res) => {
   }
 };
 
+export const paymentsForReminder = async (req, res) => {
+  try {
+    const payments = await getReminderPayments(req.params.id);
+    return res.json(payments);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const listAllReminderPayments = async (req, res) => {
+  try {
+    const payments = await getAllReminderPayments();
+    return res.json(payments);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 export const completeReminder = async (req, res) => {
   try {
     const before = await getReminderById(req.params.id);
@@ -397,10 +418,28 @@ export const completeReminder = async (req, res) => {
 
     const reminder = await updateReminder(req.params.id, updates);
 
+    // Record this payment as its own history row — the amount paid can differ
+    // every cycle, so it must outlive the mutable reminders.amount column.
+    try {
+      await createReminderPayment({
+        reminder_id: before.id,
+        amount: updates.amount != null ? Number(updates.amount) : null,
+        paid_at: updates.paid_at,
+        transaction_id: updates.transaction_id || null,
+        paid_by: updates.paid_by || null,
+      });
+    } catch (e) {
+      // non-fatal — the reminder update itself already succeeded
+      console.error('createReminderPayment error:', e.message);
+    }
+
     const changedBy = await validateUser(req, res);
     const changedCols = {
       status: { old: before.status || 'Upcoming', new: updates.status },
     };
+    if (updates.amount != null) {
+      changedCols.amount = { old: before.amount ?? null, new: updates.amount };
+    }
     if (nextDue) changedCols.due_date = { old: before.due_date, new: nextDue };
     if (updates.transaction_id) {
       changedCols.transaction_id = { old: before.transaction_id || null, new: updates.transaction_id };
@@ -581,11 +620,17 @@ export const deleteDeviceToken = async (req, res) => {
 export const sendTestPush = async (req, res) => {
   try {
     const { messaging } = await import('../config/firebase.js');
+    if (!messaging) {
+      return res.status(400).json({
+        message: 'Firebase messaging is not configured on the server (check FIREBASE_PROJECT_ID / FIREBASE_PRIVATE_KEY / FIREBASE_CLIENT_EMAIL).',
+      });
+    }
     const tokens = await listDeviceTokens();
-    if (!tokens.length || !messaging) {
-      return res.status(400).json({ message: 'No device tokens registered yet — open the app and grant notification permission first.' });
+    if (!tokens.length) {
+      return res.status(400).json({ message: 'No device tokens registered yet — open the app, grant notification permission, then tap Re-register push token.' });
     }
     let sent = 0;
+    const errors = [];
     for (const token of tokens) {
       try {
         await messaging.send({
@@ -602,9 +647,19 @@ export const sendTestPush = async (req, res) => {
         sent += 1;
       } catch (e) {
         console.error('test push error:', e.message);
+        if (e.code === 'messaging/registration-token-not-registered' ||
+            e.code === 'messaging/invalid-registration-token') {
+          try { await removeDeviceToken(token); } catch (_) {}
+        }
+        errors.push(e.code || e.message);
       }
     }
-    return res.json({ message: `Test push sent to ${sent} device(s)`, sent });
+    return res.json({
+      message: `Test push sent to ${sent} device(s)${errors.length ? ` — ${errors.length} failed` : ''}`,
+      sent,
+      devices: tokens.length,
+      errors,
+    });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

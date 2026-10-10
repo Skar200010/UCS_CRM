@@ -6,6 +6,8 @@ import {
   editReminder,
   removeReminder,
   historyForReminder,
+  paymentsForReminder,
+  listAllReminderPayments,
   completeReminder,
   snoozeReminder,
   listNotifications,
@@ -28,10 +30,12 @@ const router = Router();
 const ANY_AUTH = authenticate;
 
 router.get('/', ANY_AUTH, listReminders);
+router.get('/payments', ANY_AUTH, listAllReminderPayments);
 router.get('/notifications', ANY_AUTH, listNotifications);
 router.get('/settings', ANY_AUTH, getReminderSettings);
 router.get('/:id', ANY_AUTH, getReminder);
 router.get('/:id/history', ANY_AUTH, historyForReminder);
+router.get('/:id/payments', ANY_AUTH, paymentsForReminder);
 router.get('/:id/notifications', ANY_AUTH, notificationsForReminder);
 
 router.post('/', ANY_AUTH, addReminder);
