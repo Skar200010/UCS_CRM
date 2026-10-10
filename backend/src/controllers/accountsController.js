@@ -9,6 +9,7 @@ import { formatModeLabel } from '../services/modeLabels.js';
 import { normalizeAgentName, resolveAgentToWorker } from '../utils/workerNameMatch.js';
 import { receiptsForDonor } from '../services/receiptLookup.js';
 import { resolveOperatorNames, resolveOperatorName } from '../services/operatorNameService.js';
+import { cached } from '../utils/ttlCache.js';
 import XLSX from 'xlsx';
 import path from 'path';
 import fs from 'fs';
@@ -1801,19 +1802,37 @@ export const getReceiptList = async (req, res) => {
     // list below (receipt_no IS NOT NULL) so the cards always equal the sum of
     // the rows actually shown — suspense/unnumbered receipts are counted on the
     // bank-audit side instead of silently inflating a project's total here.
-    const statsRes = await db._pool.query(
-      `SELECT project_id,
-              count(*)::int AS count,
-              COALESCE(round(sum(amount)::numeric, 2), 0)::float8 AS total_amount,
-              count(DISTINCT COALESCE(NULLIF(donor_mobile, ''), donor_name))::int AS donors
-       FROM receipts
-       WHERE receipt_no IS NOT NULL
-       GROUP BY project_id
-       ORDER BY count(*) DESC`
-    );
-    const projectsRes = await db._pool.query(
-      `SELECT project_id, count(*)::int AS n FROM receipts GROUP BY project_id ORDER BY n DESC`
-    );
+    //
+    // These are UNBOUNDED full-table aggregates over every receipt, including a
+    // count(DISTINCT ...) over the whole table, and they ran on every request to
+    // this endpoint. That made them the single most expensive query in the app:
+    // pg_stat_statements showed 13,524 calls at 704ms mean, more total time than
+    // every other query combined, and it was the direct cause of the database
+    // sitting at 77-89% CPU.
+    //
+    // The totals move only when a receipt is written, not when someone opens the
+    // page, so a 60s TTL is well inside the tolerance of a card showing project
+    // totals. cached() rather than cacheGet/cacheSet so several accounts users
+    // opening this page at once cause one aggregate instead of one each -- the
+    // stampede is exactly what made the volume so high.
+    const allTimeTotals = await cached('acc:receipt-totals:all', 60 * 1000, async () => {
+      const stats = await db._pool.query(
+        `SELECT project_id,
+                count(*)::int AS count,
+                COALESCE(round(sum(amount)::numeric, 2), 0)::float8 AS total_amount,
+                count(DISTINCT COALESCE(NULLIF(donor_mobile, ''), donor_name))::int AS donors
+         FROM receipts
+         WHERE receipt_no IS NOT NULL
+         GROUP BY project_id
+         ORDER BY count(*) DESC`
+      );
+      const projects = await db._pool.query(
+        `SELECT project_id, count(*)::int AS n FROM receipts GROUP BY project_id ORDER BY n DESC`
+      );
+      return { stats: stats.rows, projects: projects.rows };
+    });
+    const statsRes = { rows: allTimeTotals.stats };
+    const projectsRes = { rows: allTimeTotals.projects };
 
     // Month-scoped stats (honours from_date / to_date if provided).
     const monthFrom = (req.query.from_date || '').trim();
