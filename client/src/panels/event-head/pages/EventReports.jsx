@@ -7,39 +7,78 @@ const NGO_THEMES = {
   mann: {
     name: 'MANN',
     fullName: 'Mann Care Foundation',
+    tagline: 'Mann Care Foundation',
     logo: '/logo/mann-logo.png',
     color: '#F42D92',
     colorDark: '#C23875',
-    colorLight: '#FAB6DF',
+    colorLight: '#FDE7F3',
+    accent: '#F42D92',
+    headingColor: '#C23875',
+    footerBg: '#F42D92',
     banner: '/Letter%20Head%20MANN.png',
+    contact: {
+      phone: '+91 7039006300 / +91 7039006400',
+      email: 'manncarefoundation@gmail.com',
+      website: 'www.manncarefoundation.org',
+      address: '1708, One World, S.V. Road, Near N.M. High School, Malad (West), Mumbai - 400064',
+    },
+    social: [],
   },
   bsct: {
     name: 'BSCT',
     fullName: 'Being Sevak Charitable Trust',
+    tagline: 'Being Sevak Charitable Trust',
     logo: '/logo/beingsevak-logo.png',
     color: '#204E8C',
-    colorDark: '#1a3f70',
-    colorLight: '#cfe0f5',
+    colorDark: '#16365f',
+    colorLight: '#EAF1FB',
+    accent: '#FFC72C',
+    headingColor: '#204E8C',
+    footerBg: '#204E8C',
     banner: '/Letter%20Head%20BSCT%20(1).png',
+    contact: {
+      phone: '8879-035-035 / 8879-034-034',
+      email: 'being.sevak@gmail.com',
+      website: 'www.beingsevak.org',
+      address: "401, 4th Floor, 'A' Wing, New Delite Apartment, Chandavarkar Lane, Borivali (West), Mumbai - 92.",
+    },
+    social: [],
   },
   aflf: {
     name: 'AFLF',
-    fullName: 'Ashray for Life Foundation',
+    fullName: 'Ashray For Life Foundation',
+    tagline: 'Ray of Hope',
     logo: '/logo/aflf-logo.png',
-    color: '#6B21A8',
-    colorDark: '#4C1D95',
-    colorLight: '#EDE9FE',
+    color: '#0E6BA8',
+    colorDark: '#0A4E7D',
+    colorLight: '#E6F4FB',
+    accent: '#22D3EE',
+    headingColor: '#DC2626',
+    footerBg: '#0E6BA8',
     banner: '/Letter%20Head%20AFLF.png',
+    contact: {
+      phone: '9930028300 / 9930028200',
+      email: 'ashray.foundation22@gmail.com',
+      website: 'www.aflf.org',
+      address: 'Unit - 218, 2nd Floor, Auris Galleria, New Link Road, Auris Serenity, Malad (West), Mumbai - 400064.',
+    },
+    social: [],
   },
 }
 const DEFAULT_THEME = {
   name: 'REPORT',
   fullName: 'Report',
+  tagline: '',
   logo: null,
   color: '#0f172a',
   colorDark: '#0f172a',
   colorLight: '#e2e8f0',
+  accent: '#0f172a',
+  headingColor: '#0f172a',
+  footerBg: '#0f172a',
   banner: null,
+  contact: {},
+  social: [],
 }
 const ngoTheme = (n) => {
   const code = String(n.code || '').toLowerCase()
@@ -189,70 +228,110 @@ function Table({ cols, rows }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Shared report-card chrome. All three NGO variants (BSCT navy/yellow,
+// MANN pink, AFLF blue/cyan + red) render the same header, activity card
+// and contact footer so the on-screen card and the PDF stay consistent.
+// ─────────────────────────────────────────────────────────────
+function ReportCardHeader({ logo, theme, ngoName, monthLabel, yearLabel, eventCount }) {
+  return (
+    <div style={{ background: theme.color, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', borderBottom: `4px solid ${theme.accent || theme.colorDark}` }}>
+      {logo ? (
+        <img src={logo} alt={ngoName} style={{ width: 52, height: 52, objectFit: 'contain', background: '#fff', borderRadius: 8, padding: 4 }} onError={e => { e.currentTarget.style.display = 'none' }} />
+      ) : (
+        <div style={{ width: 52, height: 52, borderRadius: 8, background: 'rgba(255,255,255,0.25)', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{String(theme.name || 'R').slice(0, 1)}</div>
+      )}
+      <div style={{ flex: 1, minWidth: 160 }}>
+        {theme.tagline && <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.85, fontWeight: 700, color: '#fff', textTransform: 'uppercase' }}>{theme.tagline}</div>}
+        <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: 0.5, color: '#fff' }}>{theme.fullName || ngoName}</div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)' }}>{eventCount} event{eventCount === 1 ? '' : 's'} this month</div>
+      </div>
+      <div style={{ textAlign: 'right', color: '#fff' }}>
+        <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.85, fontWeight: 700 }}>MONTHLY REPORT CARD</div>
+        <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase' }}>{monthLabel} {yearLabel}</div>
+      </div>
+    </div>
+  )
+}
+
+function ActivityCard({ ev, theme, big, wide, badge = true }) {
+  if (!ev) return null
+  const imgH = big ? 190 : (wide ? 150 : 132)
+  const rounded = theme.name === 'AFLF'
+  return (
+    <div className="eh-activity-card" style={{
+      display: 'flex', flexDirection: 'column', background: '#fff', height: '100%',
+      border: `1.5px solid ${theme.accent || theme.colorLight}`,
+      borderRadius: rounded ? 12 : 10, overflow: 'hidden',
+      breakInside: 'avoid', pageBreakInside: 'avoid',
+    }}>
+      <div style={{ position: 'relative', width: '100%', height: imgH, background: '#f1f5f9', overflow: 'hidden', flexShrink: 0, borderRadius: rounded ? 10 : 0 }}>
+        {ev.banner ? (
+          <SafeImg src={ev.banner} alt={ev.name} height="100%" radius={rounded ? 10 : 0} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: `linear-gradient(140deg, ${theme.color}, ${theme.colorDark})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, textAlign: 'center', padding: 8 }}>EVENT BANNER</div>
+        )}
+        {badge && <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700, color: '#fff', background: STATUS_COLOR[ev.status] || '#6b7280', borderRadius: 999, padding: '3px 9px', textTransform: 'uppercase' }}>{ev.status || '—'}</span>}
+      </div>
+      <div style={{ padding: big ? '12px 14px' : '10px 12px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+        <div style={{ fontSize: big ? 15 : 13, fontWeight: 800, color: '#1a1a2e', lineHeight: 1.25 }}>{ev.name}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', fontSize: 11, color: '#6b7280', fontWeight: 600 }}>
+          <span>📅 {fmtDate(ev.date)}{ev.day ? ` · ${ev.day.split(' ')[0]}` : ''}</span>
+          {ev.venue && <span>📍 {ev.venue}</span>}
+        </div>
+        {(ev.sector_name || ev.activity_name) && (
+          <div style={{ fontSize: 11, color: '#4b5563', fontWeight: 600, lineHeight: 1.35 }}>
+            🏷 {ev.sector_name && ev.activity_name ? `${ev.sector_name} · ${ev.activity_name}` : (ev.sector_name || ev.activity_name)}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, borderTop: `1px solid ${theme.colorLight}`, paddingTop: 8, marginTop: 'auto' }}>
+          <span style={{ fontSize: 11, color: '#1a1a2e', fontWeight: 700 }}>
+            👥 {Number(ev.beneficiaries) > 0 ? `${Number(ev.beneficiaries).toLocaleString('en-IN')} families` : 'Expected: —'}
+          </span>
+          <span style={{ fontSize: 11, color: theme.headingColor || theme.color, fontWeight: 700 }}>💰 {money(ev.budget)}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ReportCardFooter({ theme, n, monthLabel, yearLabel }) {
+  const c = theme.contact || {}
+  const hasContact = c.phone || c.email || c.website || c.address
+  return (
+    <div style={{ borderTop: `3px solid ${theme.accent || theme.color}`, background: theme.colorLight, padding: '12px 16px' }}>
+      {hasContact && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 18px', fontSize: 11, color: theme.colorDark, fontWeight: 600 }}>
+          {c.phone && <span>📞 {c.phone}</span>}
+          {c.email && <span>✉️ {c.email}</span>}
+          {c.website && <span>🌐 {c.website}</span>}
+          {c.address && <span style={{ flexBasis: '100%' }}>📍 {c.address}</span>}
+        </div>
+      )}
+      {(theme.social || []).length > 0 && (
+        <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '4px 18px', fontSize: 11, color: theme.colorDark, fontWeight: 600 }}>
+          {theme.social.map((s, i) => <span key={i}>{s.label}: {s.handle}</span>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
 // MANN-only "MONTH IN ACTION" mosaic layout.
 // Featured hero + alternating large/small photo cells + a
 // 3-column impact row. Every event cell shows its banner and
 // all of its information.
 // ─────────────────────────────────────────────────────────────
-function MonthInActionLayout({ n, theme, monthLabel, yearLabel }) {
+function MonthInActionLayout({ n, theme, monthLabel, yearLabel, cardRef }) {
   const events = n.events || []
-  const ev = (i) => events[i]
 
-  const infoLine = (icon, label, value) => (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-      <span style={{ width: 15, textAlign: 'center', fontSize: 11, flexShrink: 0 }}>{icon}</span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.4, color: '#6b7280', fontWeight: 700 }}>{label}</div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#1a1a2e', lineHeight: 1.3, wordBreak: 'break-word' }}>{value || '—'}</div>
-      </div>
-    </div>
-  )
-
-  // An event photo cell with a full-info panel beneath the banner.
-  const Cell = ({ e, big, badge }) => {
-    if (!e) return null
-    const eBadge = badge !== false ? (
-      <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700, color: '#fff', background: STATUS_COLOR[e.status] || '#6b7280', borderRadius: 999, padding: '3px 9px', textTransform: 'uppercase' }}>{e.status || '—'}</span>
-    ) : null
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${theme.colorLight}`, borderRadius: big ? 12 : 10, overflow: 'hidden', background: '#fff' }}>
-        <div style={{ position: 'relative', width: '100%', height: big ? 180 : 130, background: '#f1f5f9', overflow: 'hidden' }}>
-          {e.banner ? (
-            <SafeImg src={e.banner} alt={e.name} height="100%" radius={0} />
-          ) : (
-            <div style={{ width: '100%', height: '100%', background: `linear-gradient(140deg, ${theme.color}, ${theme.colorDark})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, textAlign: 'center', padding: 8 }}>EVENT BANNER</div>
-          )}
-          {eBadge}
-        </div>
-        <div style={{ padding: big ? '12px 14px' : '10px 12px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-          <div style={{ fontSize: big ? 15 : 13, fontWeight: 800, color: '#1a1a2e', lineHeight: 1.25 }}>{e.name}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: big ? 'repeat(2, 1fr)' : '1fr', gap: big ? 8 : 6 }}>
-            {infoLine('📅', 'Date', `${fmtDate(e.date)}${e.day ? ` · ${e.day.split(' ')[0]}` : ''}`)}
-            {infoLine('📍', 'Venue', e.venue)}
-            {infoLine('🏷', 'Sector', e.sector_name)}
-            {infoLine('🎯', 'Activity', e.activity_name)}
-            {infoLine('👥', 'Beneficiaries', Number(e.beneficiaries || 0).toLocaleString('en-IN') + ' families')}
-            {infoLine('💰', 'Budget', money(e.budget))}
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Every event renders through the shared ActivityCard so all three NGO
+  // variants keep the same date / title / description / impact structure.
+  const Cell = ({ e, big, badge }) => <ActivityCard ev={e} theme={theme} big={big} badge={badge} />
 
   return (
-    <div style={{ border: `2px solid ${theme.color}`, borderRadius: 14, overflow: 'hidden', background: '#fff', pageBreakInside: 'avoid' }}>
-      {/* Themed header */}
-      <div style={{ background: theme.color, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <img src={n.logo || theme.logo} alt={n.ngo_name} style={{ width: 46, height: 46, objectFit: 'contain', background: '#fff', borderRadius: 8, padding: 3 }} onError={e => { e.currentTarget.style.display = 'none' }} />
-        <div style={{ flex: 1, minWidth: 150 }}>
-          <div style={{ fontWeight: 900, fontSize: 19, letterSpacing: 0.5, color: '#fff' }}>{n.ngo_name}</div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)' }}>{n.events_count} event{n.events_count === 1 ? '' : 's'} this month</div>
-        </div>
-        <div style={{ textAlign: 'right', color: '#fff' }}>
-          <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.85, fontWeight: 700 }}>MONTHLY REPORT</div>
-          <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase' }}>{monthLabel} {yearLabel}</div>
-        </div>
-      </div>
+    <div ref={cardRef} className="eh-ngo-card" style={{ border: `2px solid ${theme.color}`, borderRadius: 14, overflow: 'hidden', background: '#fff', pageBreakInside: 'avoid' }}>
+      <ReportCardHeader logo={n.logo || theme.logo} theme={theme} ngoName={n.ngo_name} monthLabel={monthLabel} yearLabel={yearLabel} eventCount={n.events_count} />
 
       <div style={{ padding: '16px 16px 8px' }}>
         {events.length === 0 ? (
@@ -309,12 +388,7 @@ function MonthInActionLayout({ n, theme, monthLabel, yearLabel }) {
         )}
       </div>
 
-      {/* Themed footer */}
-      <div style={{ borderTop: `3px solid ${theme.color}`, background: theme.colorLight, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: theme.colorDark }}>Total Family: {n.beneficiaries.toLocaleString('en-IN')}+</div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: theme.colorDark }}>Budget: {money(n.budget)}</div>
-        <div style={{ fontSize: 11, color: theme.colorDark, opacity: 0.8 }}>{n.ngo_name} · {monthLabel} {yearLabel}</div>
-      </div>
+      <ReportCardFooter theme={theme} n={n} monthLabel={monthLabel} yearLabel={yearLabel} />
     </div>
   )
 }
@@ -325,63 +399,17 @@ function MonthInActionLayout({ n, theme, monthLabel, yearLabel }) {
 // then rows of photo cells. Every event shows its banner and all
 // of its information.
 // ─────────────────────────────────────────────────────────────
-function GlimpsesLayout({ n, theme, monthLabel, yearLabel }) {
+function GlimpsesLayout({ n, theme, monthLabel, yearLabel, cardRef }) {
   const events = n.events || []
 
-  const infoLine = (icon, label, value) => (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-      <span style={{ width: 15, textAlign: 'center', fontSize: 11, flexShrink: 0 }}>{icon}</span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 0.4, color: '#6b7280', fontWeight: 700 }}>{label}</div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#1a1a2e', lineHeight: 1.3, wordBreak: 'break-word' }}>{value || '—'}</div>
-      </div>
-    </div>
-  )
-
-  const Cell = ({ e, big, wide }) => {
-    if (!e) return null
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${theme.colorLight}`, borderRadius: big ? 12 : 10, overflow: 'hidden', background: '#fff', height: '100%' }}>
-        <div style={{ position: 'relative', width: '100%', height: big ? 190 : (wide ? 150 : 130), background: '#f1f5f9', overflow: 'hidden', flexShrink: 0 }}>
-          {e.banner ? (
-            <SafeImg src={e.banner} alt={e.name} height="100%" radius={0} />
-          ) : (
-            <div style={{ width: '100%', height: '100%', background: `linear-gradient(140deg, ${theme.color}, ${theme.colorDark})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, textAlign: 'center', padding: 8 }}>EVENT BANNER</div>
-          )}
-          <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700, color: '#fff', background: STATUS_COLOR[e.status] || '#6b7280', borderRadius: 999, padding: '3px 9px', textTransform: 'uppercase' }}>{e.status || '—'}</span>
-        </div>
-        <div style={{ padding: big ? '12px 14px' : '10px 12px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-          <div style={{ fontSize: big ? 15 : 13, fontWeight: 800, color: '#1a1a2e', lineHeight: 1.25 }}>{e.name}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: big || wide ? 'repeat(2, 1fr)' : '1fr', gap: big ? 8 : 6 }}>
-            {infoLine('📅', 'Date', `${fmtDate(e.date)}${e.day ? ` · ${e.day.split(' ')[0]}` : ''}`)}
-            {infoLine('📍', 'Venue', e.venue)}
-            {infoLine('🏷', 'Sector', e.sector_name)}
-            {infoLine('🎯', 'Activity', e.activity_name)}
-            {infoLine('👥', 'Beneficiaries', Number(e.beneficiaries || 0).toLocaleString('en-IN') + ' families')}
-            {infoLine('💰', 'Budget', money(e.budget))}
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const Cell = ({ e, big, wide }) => <ActivityCard ev={e} theme={theme} big={big} wide={wide} />
 
   const ev = (i) => events[i]
   const rest = events.slice(11)
 
   return (
-    <div style={{ border: `2px solid ${theme.color}`, borderRadius: 14, overflow: 'hidden', background: '#fff', pageBreakInside: 'avoid' }}>
-      {/* Themed header */}
-      <div style={{ background: theme.color, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <img src={n.logo || theme.logo} alt={n.ngo_name} style={{ width: 46, height: 46, objectFit: 'contain', background: '#fff', borderRadius: 8, padding: 3 }} onError={e => { e.currentTarget.style.display = 'none' }} />
-        <div style={{ flex: 1, minWidth: 150 }}>
-          <div style={{ fontWeight: 900, fontSize: 19, letterSpacing: 0.5, color: '#fff' }}>{n.ngo_name}</div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)' }}>{n.events_count} event{n.events_count === 1 ? '' : 's'} this month</div>
-        </div>
-        <div style={{ textAlign: 'right', color: '#fff' }}>
-          <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.85, fontWeight: 700 }}>MONTHLY REPORT</div>
-          <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase' }}>{monthLabel} {yearLabel}</div>
-        </div>
-      </div>
+    <div ref={cardRef} className="eh-ngo-card" style={{ border: `2px solid ${theme.color}`, borderRadius: 14, overflow: 'hidden', background: '#fff', pageBreakInside: 'avoid' }}>
+      <ReportCardHeader logo={n.logo || theme.logo} theme={theme} ngoName={n.ngo_name} monthLabel={monthLabel} yearLabel={yearLabel} eventCount={n.events_count} />
 
       <div style={{ padding: '16px 16px 8px' }}>
         {events.length === 0 ? (
@@ -440,12 +468,7 @@ function GlimpsesLayout({ n, theme, monthLabel, yearLabel }) {
         )}
       </div>
 
-      {/* Themed footer */}
-      <div style={{ borderTop: `3px solid ${theme.color}`, background: theme.colorLight, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: theme.colorDark }}>Total Family: {n.beneficiaries.toLocaleString('en-IN')}+</div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: theme.colorDark }}>Budget: {money(n.budget)}</div>
-        <div style={{ fontSize: 11, color: theme.colorDark, opacity: 0.8 }}>{n.ngo_name} · {monthLabel} {yearLabel}</div>
-      </div>
+      <ReportCardFooter theme={theme} n={n} monthLabel={monthLabel} yearLabel={yearLabel} />
     </div>
   )
 }
@@ -587,50 +610,67 @@ export default function EventReports() {
   }
 
   const monthlyReportElRef = useRef(null)
+  const ngoCardRefs = useRef({})
   const exportMonthlyPDF = async () => {
-    const el = monthlyReportElRef.current
-    if (!el) return
+    const ngos = monthlyData?.ngos || []
+    if (!ngos.length) return
     try {
       const { default: html2canvas } = await import('html2canvas')
       const { default: jsPDF } = await import('jspdf')
-      await Promise.all(
-        [...el.querySelectorAll('img')].map(img =>
-          img.complete
-            ? Promise.resolve()
-            : new Promise(resolve => {
-                img.onload = () => resolve()
-                img.onerror = () => resolve()
-              })
-        )
-      )
-      await (document.fonts && document.fonts.ready)
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        imageTimeout: 15000,
-      })
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
       const pdf = new jsPDF('p', 'mm', 'a4')
       const pageW = 210
       const pageH = 297
-      const margin = 6
+      const margin = 8
       const contentW = pageW - margin * 2
       const contentH = pageH - margin * 2
-      const pxW = canvas.width
-      const pxH = canvas.height
-      const pxPerMm = pxW / contentW
-      const pageHeightPx = contentH * pxPerMm
-      let heightLeft = pxH
-      let position = 0
-      pdf.addImage(imgData, 'JPEG', margin, margin, contentW, 0)
-      heightLeft -= pageHeightPx
-      while (heightLeft > 0) {
-        position = heightLeft - pxH
-        pdf.addPage()
-        pdf.addImage(imgData, 'JPEG', margin, margin + position / pxPerMm, contentW, 0)
-        heightLeft -= pageHeightPx
+
+      // One NGO card per page block. Each card is captured on its own so a
+      // page break only ever falls between NGOs; a card taller than one page
+      // is sliced across as few pages as possible.
+      let firstPage = true
+      for (const n of ngos) {
+        const el = ngoCardRefs.current[String(n.ngo_id)]
+        if (!el) continue
+        await Promise.all(
+          [...el.querySelectorAll('img')].map(img =>
+            img.complete
+              ? Promise.resolve()
+              : new Promise(resolve => {
+                  img.onload = () => resolve()
+                  img.onerror = () => resolve()
+                })
+          )
+        )
+        await (document.fonts && document.fonts.ready)
+        const canvas = await html2canvas(el, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          imageTimeout: 15000,
+        })
+        const imgData = canvas.toDataURL('image/jpeg', 0.95)
+        const pxPerMm = canvas.width / contentW
+        const pageHeightPx = contentH * pxPerMm
+        const cardHeightMm = canvas.height / pxPerMm
+
+        if (!firstPage) pdf.addPage()
+        firstPage = false
+
+        if (cardHeightMm <= contentH) {
+          pdf.addImage(imgData, 'JPEG', margin, margin, contentW, 0)
+        } else {
+          let heightLeft = canvas.height
+          let position = 0
+          pdf.addImage(imgData, 'JPEG', margin, margin, contentW, 0)
+          heightLeft -= pageHeightPx
+          while (heightLeft > 0) {
+            position = heightLeft - canvas.height
+            pdf.addPage()
+            pdf.addImage(imgData, 'JPEG', margin, margin + position / pxPerMm, contentW, 0)
+            heightLeft -= pageHeightPx
+          }
+        }
       }
       pdf.save(`monthly-report-${monthlyYearLabel}-${monthlyMonthLabel}.pdf`)
     } catch (err) {
@@ -861,29 +901,12 @@ export default function EventReports() {
                   const headerBg = theme.color
                   const logo = n.logo || theme.logo
                   const bannerSrc = n.banner || theme.banner
+                  const cardRef = el => { ngoCardRefs.current[String(n.ngo_id)] = el }
+                  if (code === 'mann') return <MonthInActionLayout key={String(n.ngo_id)} cardRef={cardRef} n={n} theme={theme} monthLabel={monthlyMonthLabel} yearLabel={monthlyYearLabel} />
+                  if (code === 'aflf') return <GlimpsesLayout key={String(n.ngo_id)} cardRef={cardRef} n={n} theme={theme} monthLabel={monthlyMonthLabel} yearLabel={monthlyYearLabel} />
                   return (
-                    code === 'mann'
-                      ? <MonthInActionLayout n={n} theme={theme} monthLabel={monthlyMonthLabel} yearLabel={monthlyYearLabel} />
-                      : (code === 'aflf'
-                          ? <GlimpsesLayout n={n} theme={theme} monthLabel={monthlyMonthLabel} yearLabel={monthlyYearLabel} />
-                          : (
-                          <div key={String(n.ngo_id)} style={{ border: `2px solid ${headerBg}`, borderRadius: 12, overflow: 'hidden', background: '#fff', pageBreakInside: 'avoid' }}>
-                      {/* Themed header with this NGO's own logo + colors */}
-                      <div style={{ background: headerBg, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                        {logo ? (
-                          <img src={logo} alt={n.ngo_name} style={{ width: 46, height: 46, objectFit: 'contain', background: '#fff', borderRadius: 8, padding: 3 }} onError={e => { e.currentTarget.style.display = 'none' }} />
-                        ) : (
-                          <div style={{ width: 46, height: 46, borderRadius: 8, background: 'rgba(255,255,255,0.25)', color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{theme.name.slice(0, 1)}</div>
-                        )}
-                        <div style={{ flex: 1, minWidth: 150 }}>
-                          <div style={{ fontWeight: 900, fontSize: 19, letterSpacing: 0.5, color: '#fff' }}>{n.ngo_name}</div>
-                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)' }}>{n.events_count} event{n.events_count === 1 ? '' : 's'} this month</div>
-                        </div>
-                        <div style={{ textAlign: 'right', color: '#fff' }}>
-                          <div style={{ fontSize: 10, letterSpacing: 2, opacity: 0.85, fontWeight: 700 }}>MONTHLY REPORT</div>
-                          <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase' }}>{monthlyMonthLabel} {monthlyYearLabel}</div>
-                        </div>
-                      </div>
+                    <div key={String(n.ngo_id)} ref={cardRef} className="eh-ngo-card" style={{ border: `2px solid ${headerBg}`, borderRadius: 12, overflow: 'hidden', background: '#fff', pageBreakInside: 'avoid' }}>
+                      <ReportCardHeader logo={logo} theme={theme} ngoName={n.ngo_name} monthLabel={monthlyMonthLabel} yearLabel={monthlyYearLabel} eventCount={n.events_count} />
 
                       {/* Optional letterhead band */}
                       {bannerSrc && (
@@ -892,95 +915,17 @@ export default function EventReports() {
                         </div>
                       )}
 
-                      {/* Event banner boxes — event images + name + date */}
+                      {/* Event photo cards — date, title, description, impact */}
                       <div style={{ padding: '14px 16px' }}>
                         {n.events.length === 0 && <div style={{ color: '#9ca3af', fontSize: 13, padding: 8 }}>No events for this month.</div>}
-
-                        {code === 'aflf' || code === 'bsct' ? (
-                          /* ── OLD LAYOUT structure (BSCT) with full event info ── */
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 14 }}>
-                            {n.events.map((ev, i) => (
-                              <div key={ev.id ?? i} style={{
-                                border: `1px solid ${theme.colorLight}`, borderRadius: 8, overflow: 'hidden', background: '#fff',
-                                display: 'flex', flexDirection: 'column',
-                              }}>
-                                <div style={{ position: 'relative', width: '100%', height: 140, background: '#f1f5f9', overflow: 'hidden' }}>
-                                  {ev.banner ? (
-                                    <SafeImg src={ev.banner} alt={ev.name} height="100%" radius={0} />
-                                  ) : (
-                                    <div style={{ width: '100%', height: '100%', background: `linear-gradient(140deg, ${theme.color}, ${theme.colorDark})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, textAlign: 'center', padding: 8 }}>EVENT BANNER</div>
-                                  )}
-                                  <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700, color: '#fff', background: STATUS_COLOR[ev.status] || '#6b7280', borderRadius: 999, padding: '2px 8px', textTransform: 'uppercase' }}>{ev.status || '—'}</span>
-                                </div>
-                                <div style={{ padding: '11px 13px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1a1a2e', lineHeight: 1.25 }}>{ev.name}</div>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', fontSize: 11, color: '#6b7280', fontWeight: 600 }}>
-                                    <span>📅 {fmtDate(ev.date)}{ev.day ? ` · ${ev.day.split(' ')[0]}` : ''}</span>
-                                    {ev.venue && <span>📍 {ev.venue}</span>}
-                                  </div>
-                                  {(ev.sector_name || ev.activity_name) && (
-                                    <div style={{ fontSize: 11, color: '#4b5563', fontWeight: 600, lineHeight: 1.35 }}>
-                                      🏷 {ev.sector_name && ev.activity_name ? `${ev.sector_name} · ${ev.activity_name}` : (ev.sector_name || ev.activity_name)}
-                                    </div>
-                                  )}
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, borderTop: `1px solid ${theme.colorLight}`, paddingTop: 7 }}>
-                                    <span style={{ fontSize: 11, color: '#1a1a2e', fontWeight: 700 }}>
-                                      👥 {Number(ev.beneficiaries) > 0 ? `${Number(ev.beneficiaries).toLocaleString('en-IN')} families` : 'Expected: —'}
-                                    </span>
-                                    <span style={{ fontSize: 11, color: theme.color, fontWeight: 700 }}>💰 {money(ev.budget)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          /* ── CURRENT STYLE: larger full-info cards (MANN + others) ── */
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
-                            {n.events.map((ev, i) => (
-                              <div key={ev.id ?? i} style={{
-                                border: `1px solid ${theme.colorLight}`, borderRadius: 10, overflow: 'hidden', background: '#fff',
-                                display: 'flex', flexDirection: 'column',
-                              }}>
-                                <div style={{ position: 'relative', width: '100%', height: 150, background: '#f1f5f9', overflow: 'hidden' }}>
-                                  {ev.banner ? (
-                                    <SafeImg src={ev.banner} alt={ev.name} height="100%" radius={0} />
-                                  ) : (
-                                    <div style={{ width: '100%', height: '100%', background: `linear-gradient(140deg, ${theme.color}, ${theme.colorDark})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, textAlign: 'center', padding: 8 }}>EVENT BANNER</div>
-                                  )}
-                                  <span style={{ position: 'absolute', top: 8, right: 8, fontSize: 9, fontWeight: 700, color: '#fff', background: STATUS_COLOR[ev.status] || '#6b7280', borderRadius: 999, padding: '2px 8px', textTransform: 'uppercase' }}>{ev.status || '—'}</span>
-                                </div>
-                                <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                  <div style={{ fontSize: 14, fontWeight: 800, color: '#1a1a2e', lineHeight: 1.25 }}>{ev.name}</div>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', fontSize: 12, color: '#6b7280', fontWeight: 600 }}>
-                                    <span>📅 {fmtDate(ev.date)}{ev.day ? ` · ${ev.day.split(' ')[0]}` : ''}</span>
-                                    {ev.venue && <span>📍 {ev.venue}</span>}
-                                  </div>
-                                  {(ev.sector_name || ev.activity_name) && (
-                                    <div style={{ fontSize: 11, color: '#4b5563', fontWeight: 600, lineHeight: 1.35 }}>
-                                      🏷 {ev.sector_name && ev.activity_name ? `${ev.sector_name} · ${ev.activity_name}` : (ev.sector_name || ev.activity_name)}
-                                    </div>
-                                  )}
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, borderTop: `1px solid ${theme.colorLight}`, paddingTop: 8 }}>
-                                    <span style={{ fontSize: 12, color: '#1a1a2e', fontWeight: 700 }}>
-                                      👥 {Number(ev.beneficiaries) > 0 ? `${Number(ev.beneficiaries).toLocaleString('en-IN')} families` : 'Expected: —'}
-                                    </span>
-                                    <span style={{ fontSize: 12, color: theme.color, fontWeight: 700 }}>💰 {money(ev.budget)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 14 }}>
+                          {n.events.map((ev, i) => <ActivityCard key={ev.id ?? i} ev={ev} theme={theme} />)}
+                        </div>
                       </div>
 
-                      {/* Themed footer */}
-                      <div style={{ borderTop: `3px solid ${headerBg}`, background: theme.colorLight, padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: theme.colorDark }}>Total Family: {n.beneficiaries.toLocaleString('en-IN')}+</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: theme.colorDark }}>Budget: {money(n.budget)}</div>
-                        <div style={{ fontSize: 11, color: theme.colorDark, opacity: 0.8 }}>{n.ngo_name} · {monthlyMonthLabel} {monthlyYearLabel}</div>
-                      </div>
+                      <ReportCardFooter theme={theme} n={n} monthLabel={monthlyMonthLabel} yearLabel={monthlyYearLabel} />
                     </div>
-                  )))
+                  )
                 })}
               </div>
             </div>
@@ -1125,6 +1070,11 @@ export default function EventReports() {
           .eh-report-body, .eh-print-brand, .eh-print-footer {
             page-break-inside:avoid; break-inside:avoid;
           }
+          /* Each NGO report card starts on its own page and never splits an
+             activity card across a page boundary. */
+          .eh-ngo-card { page-break-inside: avoid; break-inside: avoid; }
+          .eh-ngo-card + .eh-ngo-card { page-break-before: always; break-before: page; }
+          .eh-activity-card { page-break-inside: avoid; break-inside: avoid; }
         }
       `}</style>
     </>
