@@ -3768,15 +3768,9 @@ export const getAlerts = async (req, res) => {
       }
     }
 
-    try {
-      const { data: alerts } = await db
-        .from('alerts')
-        .select('*')
-        .in('ngo_id', ngoIds)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (alerts) results.push(...alerts);
-    } catch (err) { console.error('Failed to fetch alerts:', err.message); }
+    // The `alerts` half of this list is gone with the rest of that feature. What
+    // remains -- data requests -- is the part this endpoint was actually used
+    // for; alerts were appended alongside it and never surfaced in the UI.
 
     results.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
@@ -3889,23 +3883,10 @@ export const acknowledgeAlert = async (req, res) => {
       return res.json({ message: 'Request acknowledged' });
     }
 
-    const alertId = parseInt(rawId);
-    const { data: alert } = await db
-      .from('alerts')
-      .select('ngo_id')
-      .eq('id', alertId)
-      .maybeSingle();
-
-    if (!alert) return res.status(404).json({ message: 'Alert not found' });
-    if (!ngoIds.includes(alert.ngo_id)) return res.status(403).json({ message: 'Access denied' });
-
-    const { error } = await db
-      .from('alerts')
-      .update({ acknowledged: true, acknowledged_at: new Date().toISOString() })
-      .eq('id', alertId);
-
-    if (error) throw error;
-    return res.json({ message: 'Alert acknowledged' });
+    // Numeric ids were `alerts` rows. That table is gone, so every id this
+    // endpoint can still receive is a data request (prefixed `dr_`). Return a
+    // clear 404 rather than reaching for a table that no longer exists.
+    return res.status(404).json({ message: 'Alert not found' });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -4072,13 +4053,58 @@ const NOT_CONNECTED_DISPOSITIONS = ['busy', 'ringing', 'call_waiting', 'unreacha
 // classifyLogSide() counts as connected. Verified against the JS on live data.
 const FUNNEL_INTERESTED_DISPOSITIONS = ['lead_done', 'donation_collected', 'visit_donate', 'will_donate_online', 'promise_to_pay', 'payment_pending'];
 
+// Funnel results are Maps, which callers mutate-free read but which are NOT safe to
+// share across requests if any caller ever writes to one. They are rebuilt rather
+// than handed out by reference concerns: only a handful of NGO admins exist, and a
+// per-key clone on read is far cheaper than the 2.1s query it protects.
+const FUNNEL_TTL_MS = 60 * 1000;
+const _funnelStore = new Map();
+const _funnelInFlight = new Map();
+
+async function _funnelCache(key, build) {
+  const hit = _funnelStore.get(key);
+  if (hit && Date.now() - hit.t < FUNNEL_TTL_MS) return hit.v;
+  if (hit) _funnelStore.delete(key);
+
+  // Share the in-flight promise so several admins opening the dashboard at once
+  // cause one aggregate rather than one each. Failures are never cached.
+  const pending = _funnelInFlight.get(key);
+  if (pending) return pending;
+
+  const p = build()
+    .then((v) => { _funnelStore.set(key, { v, t: Date.now() }); return v; })
+    .catch((err) => { _funnelStore.delete(key); throw err; })
+    .finally(() => { _funnelInFlight.delete(key); });
+  _funnelInFlight.set(key, p);
+  return p;
+}
+
 // combinedOnly skips the per-NGO roll-up for callers that only need the
 // selection-wide totals, which is the NGO Admin dashboard. Grouping by ngo_id
 // there is pure overhead: those numbers are computed and then thrown away.
+//
+// The query itself is already reduced in-database, but it still aggregates every
+// fro_donor_logs row for the selected NGOs: live sampling measured 2.1s per call,
+// second only to the FRO receipts query, and it ran 24 times in 20 seconds. The
+// funnel only moves when a disposition or assignment is written, so a short TTL
+// is safe.
+//
+// Keyed by the NGO set AND combinedOnly, because the two shapes return different
+// row sets -- sharing a key would hand a caller the wrong numbers. NGO ids are
+// sorted so two callers passing the same selection in a different order share one
+// entry instead of each rebuilding it.
 export async function getDonationFunnelCounts(ngoIds, { combinedOnly = false } = {}) {
   const empty = { assignments: new Map(), logs: new Map(), combined: null };
   if (!ngoIds || ngoIds.length === 0) return empty;
 
+  const ids = [...ngoIds].sort().join(',');
+  const funnelKey = `ngo:funnel:${combinedOnly ? 'combined' : 'perngo'}:${ids}`;
+  return _funnelCache(funnelKey, async () => {
+    return buildDonationFunnelCounts(ngoIds, { combinedOnly });
+  });
+}
+
+async function buildDonationFunnelCounts(ngoIds, { combinedOnly = false }) {
   const perNgoSql = combinedOnly ? '' : `
      assigned AS (
        SELECT ngo_id, count(*) AS assigned

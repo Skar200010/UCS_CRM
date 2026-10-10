@@ -48,7 +48,6 @@ import {
   updateDonorLog,
   findLogsByDonorAndWorker,
   findLogsByAssignment,
-  getTotalCollectedByWorker,
   getWorkerCollectionReceipts,
   getCollectedByNgo,
   getTotalCollectedByAssignment,
@@ -81,6 +80,27 @@ const FRO_DASHBOARD_TTL_MS = 30 * 1000;
 const FRO_TARGET_TTL_MS = 30 * 1000;
 const FRO_SEARCH_TTL_MS = 60 * 1000;
 const FRO_SEARCH_SCOPE_TTL_MS = 60 * 1000;
+// The receipts loader behind getWorkerCollectionReceipts is the single most
+// repeated query in the app (pg_stat_statements: 3.1M calls). It was cached for
+// the dashboard but NOT here, so every /fro/my-collections request re-ran the
+// full scan with nothing to collapse concurrent callers. `cached()` rather than
+// cacheGet/cacheSet because it also shares the in-flight promise: several FROs
+// refreshing at once caused one rebuild instead of one each.
+//
+// 5 MINUTES, and the number matters more than it looks. /fro/my-performance
+// polls every 30s from every open panel, so ~20 FROs generate ~40 requests a
+// minute. The first attempt used 60s, barely above the 30s poll, and that was
+// the same mistake ttlCache.js warns about in slower motion: unsynchronised polls
+// land on either side of the expiry, so entries die between requests and the
+// expensive query still ran most of the time. Live sampling confirmed it -- the
+// query was firing ~6 times a second and the database sat at 76% CPU on a
+// 4-vCPU instance. 5 minutes puts roughly 10 rebuilds per FRO down to about 1.
+//
+// Staleness is bounded by invalidation, not by the TTL: every disposition and
+// receipt write calls invalidateFroCaches(), so a donation appears immediately.
+// The TTL only governs changes that bypass that path, and 5 minutes is within
+// tolerance for a monthly Collected figure.
+const FRO_RECEIPTS_TTL_MS = 5 * 60 * 1000;
 // My Leads runs 11+ sequential queries per request, so it is the most expensive
 // read in this file and the one refetched most often - the client re-requests it
 // on every mount, on every station/NGO/tab change (up to 3x per load), and on
@@ -154,6 +174,12 @@ export function invalidateFroCaches(workerId) {
   cacheDelPrefix(`fro:target:${workerId}:`);
   cacheDelPrefix(`fro:search:${workerId}:`);
   cacheDelPrefix(`fro:donors:${workerId}:`);
+  // The receipts cache is keyed by the worker whose money is being counted, which
+  // under work-as is the COVERED worker (imposter_id), not the session holder.
+  // Callers pass that id, so clearing on it keeps a donation visible immediately
+  // instead of after the 60s TTL. Omitting this is what would have made the
+  // Collected card look stale right after a receipt was written.
+  cacheDelPrefix(`fro:receipts:${workerId}:`);
   // Upstash cannot delete a prefix cheaply, but this namespace stays small - one
   // key per live filter combination for that worker, and oversized views are
   // never written - so a bounded SCAN is a couple of round-trips, which is noise
@@ -754,7 +780,14 @@ export const getDashboard = async (req, res) => {
     const monthStr = monthBounds.month;
     const creditWorkerId = req.user.impersonation && req.user.imposter_id ? req.user.imposter_id : workerId;
 
-    const collected = await getTotalCollectedByWorker(creditWorkerId, monthStart, monthEnd);
+    // Cache the ROWS, not the total, and reduce here. getTotalCollectedByWorker is
+    // itself just a reduce over these rows, so caching its scalar under the same
+    // key the collections list uses would have the two callers fight over one
+    // entry -- whoever ran first would leave the other reading a number where it
+    // expected rows. One cache, one type.
+    const collectedRows = await cached(`fro:receipts:${creditWorkerId}:${monthStart}:${monthEnd}`, FRO_RECEIPTS_TTL_MS,
+      () => getWorkerCollectionReceipts(creditWorkerId, monthStart, monthEnd));
+    const collected = (collectedRows || []).reduce((sum, r) => sum + Number(r.amount || 0), 0);
 
     const [manualTarget, priorTarget] = await Promise.all([
       getTargetByWorker(workerId, monthStr),
@@ -1347,7 +1380,13 @@ export const getMyCollections = async (req, res) => {
     // verified-in-month union, so the two disagreed: backdated-but-verified
     // receipts appeared in the total but not in the list, and a printed name
     // needing a trim or a case fold matched one and not the other.
-    const receipts = await getWorkerCollectionReceipts(creditWorkerId, monthStart, monthEnd);
+    // Cached because this is the app's most repeated query, and this handler was
+    // re-running it on every mount and filter change with nothing to collapse
+    // concurrent callers. Keyed by the same (worker, window) pair the loader
+    // actually depends on, so two FROs never share an entry.
+    const receiptsKey = `fro:receipts:${creditWorkerId}:${monthStart}:${monthEnd}`;
+    const receipts = await cached(receiptsKey, FRO_RECEIPTS_TTL_MS, () =>
+      getWorkerCollectionReceipts(creditWorkerId, monthStart, monthEnd));
 
     const { data: allNgos } = await db.from('ngos').select('id, name');
     const normProj = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -3821,7 +3860,12 @@ export const createDonorLogHandler = async (req, res) => {
     // collection, the workable stack and (for a donation) suppression. Drop the
     // cached reads so the refresh the client fires right after this response
     // already sees the new state rather than a pre-disposition payload.
+    //
+    // The receipts cache is keyed by the worker whose money is counted, which
+    // under work-as is the COVERED worker, not the session holder. Invalidate
+    // both or a donation logged while covering stays hidden for the full TTL.
     invalidateFroCaches(req.user.id);
+    if (req.user.impersonation && req.user.imposter_id) invalidateFroCaches(req.user.imposter_id);
 
     return res.json({ message: 'Log entry created', data: result, timer });
   } catch (error) {
@@ -4026,7 +4070,11 @@ export const getMyTarget = async (req, res) => {
 
     const { allowedNgoIds } = await getMyStationScope(workerId, froActPairs(req));
     const creditWorkerId = req.user.impersonation && req.user.imposter_id ? req.user.imposter_id : workerId;
-    const collected = await getTotalCollectedByWorker(creditWorkerId, monthStart, monthEnd);
+    // Same rows as the dashboard and the collections list, reduced here, so all
+    // three share one scan instead of each running its own.
+    const collectedRows = await cached(`fro:receipts:${creditWorkerId}:${monthStart}:${monthEnd}`, FRO_RECEIPTS_TTL_MS,
+      () => getWorkerCollectionReceipts(creditWorkerId, monthStart, monthEnd));
+    const collected = (collectedRows || []).reduce((sum, r) => sum + Number(r.amount || 0), 0);
     const collectedByNgo = await getCollectedByNgo(creditWorkerId, monthStart, monthEnd, allowedNgoIds);
 
     // Resolve NGO names for the breakdown
