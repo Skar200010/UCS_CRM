@@ -54,6 +54,7 @@ export default function EventDetail() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [editBanner, setEditBanner] = useState(null)
+  const [downloading, setDownloading] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -191,6 +192,23 @@ export default function EventDetail() {
     } catch (err) { alert('Failed to update status: ' + (err.message || 'Unknown error')) }
   }
 
+  // Build the "Daily Event Planning Form" PDF for this event. jspdf is imported
+  // lazily so it stays out of the main bundle until the button is used.
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloading(true)
+      const { buildEventPlanningPdf } = await import('../components/eventPlanningPdf.mjs')
+      const doc = buildEventPlanningPdf(event)
+      const base = String(event.name || 'event-planning-form').trim().replace(/[^\w\-]+/g, '_').slice(0, 60) || 'event-planning-form'
+      doc.save(`${base}.pdf`)
+    } catch (err) {
+      console.error('Event planner PDF:', err)
+      alert('Could not create the PDF: ' + (err.message || 'Unknown error'))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   if (loading) return <div className="loading">Loading event...</div>
   if (!event) return (
     <div className="empty-state">
@@ -222,6 +240,9 @@ export default function EventDetail() {
               {EVENT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <button className="btn btn-sm" onClick={startEdit}>Edit</button>
+            <button className="btn btn-sm" onClick={handleDownloadPdf} disabled={downloading}>
+              {downloading ? 'Preparing…' : 'Download PDF'}
+            </button>
             <button className="btn btn-sm" onClick={() => navigate('/event-head/reports')}>Report</button>
           </div>
         )}

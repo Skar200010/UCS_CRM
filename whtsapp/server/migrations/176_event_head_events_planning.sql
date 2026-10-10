@@ -1,0 +1,21 @@
+-- 176: Event Head — Daily Event Planning Form fields.
+-- The Create Event screen was redesigned into a Daily Planning Form with
+-- volunteer requirements, beneficiary categories, a distribution/service
+-- table and special arrangements. Rather than one column per field (most of
+-- which are lists), the whole planning block is stored as a single JSONB
+-- object so the shape can evolve without further migrations:
+--
+--   planning = {
+--     volunteers_required:  int,
+--     volunteer_role:       text,
+--     beneficiary_categories: text[],          -- Visually Impaired, Children, …
+--     distribution_items:   [{ item, qty, remarks }, …],
+--     special_requirements: text
+--   }
+--
+-- Number of beneficiaries reuses the existing expected_beneficiaries INT and
+-- Description reuses the existing description TEXT column, so only this one
+-- column is added here.
+--
+-- Idempotent: safe to re-run on an existing live database.
+ALTER TABLE event_head_events ADD COLUMN IF NOT EXISTS planning JSONB DEFAULT '{}'::jsonb;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
 import { PageHeader, Select, SearchInput, Badge, StatusPill, Empty } from '../components/ui.jsx'
+import MonthlyCalendarView from '../components/planner/MonthlyCalendarView.jsx'
 import {
   fetchWorkspaceNgos,
   fetchSectors,
@@ -978,8 +978,6 @@ function PlanModal({ entry, ngo, month, onClose, onSaved }) {
 /* ── Page ───────────────────────────────────────────────────────────────── */
 
 export default function ActivityPlanner() {
-  const navigate = useNavigate()
-
   const [ngos, setNgos] = useState([])
   const [sectors, setSectors] = useState([])
   const [ngoId, setNgoId] = useState('')
@@ -997,6 +995,9 @@ export default function ActivityPlanner() {
 
   const [toast, setToast] = useState('')
   const [addOpen, setAddOpen] = useState(false)
+  // The in-app month calendar opened by "View in Calendar" — its own overlay, so
+  // the planner never leaves this page for the separate Calendar section.
+  const [calendarOpen, setCalendarOpen] = useState(false)
   const [suggestFor, setSuggestFor] = useState(null)
   // The activity just added from this page. Rows are grouped by sector and
   // sorted by name, so without this a new activity lands wherever the alphabet
@@ -2010,6 +2011,15 @@ const pendingAll = scopedSuggestions
     return merged
   }, [festivalSuggestions, ngos, scopedManual, festivalSuggestionsByKey, festBenef, festLoc, ngo])
 
+  /* The calendar overlay reuses the exact chosen rows the grid and the
+     Excel/PDF downloads render (manual replaces AI, one row per festival), so
+     the calendar, its PDF and the grid can never list a different programme or
+     duplicate one. Built only while the overlay is open. */
+  const calendarProgrammeRows = useMemo(
+    () => (calendarOpen ? buildFestivalExportRows() : []),
+    [calendarOpen, buildFestivalExportRows]
+  )
+
   /* Loads the cut-down rows once, mirrors them into state (which the off-screen
      preview renders and the PDF captures), and waits two frames so the freshly
      committed DOM is what html2canvas sees. Returns the rows for Excel. */
@@ -2329,13 +2339,14 @@ const pendingAll = scopedSuggestions
 
           <SearchInput value={search} onChange={setSearch} placeholder="Search activities…" style={{ flex: '1 1 180px', minWidth: 160 }} />
 
-          {/* Carries the month across, so the calendar opens on the month being planned
-              here instead of jumping to one that has events. After scheduling a
-              programme it opens on that exact day. */}
+          {/* Opens the month calendar in place (its own overlay) on the month
+              being planned here — the planner never leaves for the separate
+              Calendar section. After scheduling a programme it opens on that
+              exact day. */}
           <button
             className="eh-btn"
-            onClick={() => navigate(`/event-head/monthly-planner?month=${month}${lastScheduled ? `&date=${lastScheduled}` : ''}`)}
-            title={`Open the Calendar view on ${monthLabel(month)}`}
+            onClick={() => setCalendarOpen(true)}
+            title={`View ${monthLabel(month)} as a calendar`}
           >
             View in Calendar
           </button>
@@ -3017,6 +3028,18 @@ const pendingAll = scopedSuggestions
           </div>
         )}
       </div>
+
+      {calendarOpen && (
+        <MonthlyCalendarView
+          month={month}
+          ngoLabel={ngo ? ngoShortLabel(ngo) : 'All NGOs'}
+          observancesByDate={observancesByDate}
+          programmeRows={calendarProgrammeRows}
+          initialDate={lastScheduled}
+          onClose={() => setCalendarOpen(false)}
+          onChangeMonth={(ym) => { setMonth(ym); setYear(Number(ym.split('-')[0])) }}
+        />
+      )}
 
       {addOpen && (
         <AddActivityModal

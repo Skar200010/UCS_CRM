@@ -67,6 +67,7 @@ export async function ensureEventHeadSchema() {
     `ALTER TABLE event_head_events ADD COLUMN IF NOT EXISTS sector_id INT REFERENCES event_head_sectors(id) ON DELETE SET NULL`,
     `ALTER TABLE event_head_events ADD COLUMN IF NOT EXISTS activity_id INT REFERENCES event_head_activities(id) ON DELETE SET NULL`,
     `ALTER TABLE event_head_events ADD COLUMN IF NOT EXISTS volunteers JSONB DEFAULT '[]'::jsonb`,
+    `ALTER TABLE event_head_events ADD COLUMN IF NOT EXISTS planning JSONB DEFAULT '{}'::jsonb`,
     `CREATE INDEX IF NOT EXISTS idx_event_head_events_sector ON event_head_events (sector_id)`,
     `CREATE INDEX IF NOT EXISTS idx_event_head_events_activity ON event_head_events (activity_id)`,
   ];

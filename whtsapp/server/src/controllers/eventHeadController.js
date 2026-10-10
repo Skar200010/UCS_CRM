@@ -48,7 +48,7 @@ const ownNgoId = (req) => {
 };
 
 // Static fallback for pickEventColumns, used only when the information_schema
-// query itself fails. Mirrors migration 071 plus the ALTERs in 072 and 115.
+// query itself fails. Mirrors migration 071 plus the ALTERs in 072, 115 and 176.
 // Without this the fallback branch below would throw a ReferenceError and 500
 // every event write.
 const EVENT_COLUMNS = new Set([
@@ -57,6 +57,7 @@ const EVENT_COLUMNS = new Set([
   'organizer', 'event_manager', 'coordinator', 'csr_partner', 'donor',
   'funding_source', 'expected_beneficiaries', 'budget', 'description', 'notes',
   'status', 'approval_status', 'priority', 'banner', 'created_by', 'volunteers',
+  'planning',
 ]);
 
 // Only pass through columns that actually exist on event_head_events. The live

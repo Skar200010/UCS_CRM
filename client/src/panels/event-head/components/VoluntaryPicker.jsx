@@ -74,9 +74,7 @@ export default function VoluntaryPicker({ ngoId, value, onChange }) {
   const [prevEvents, setPrevEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [fileError, setFileError] = useState('')
-  const [ngoFilter, setNgoFilter] = useState('All')
   const [search, setSearch] = useState('')
-  const [defaulted, setDefaulted] = useState(false)
   // { date, byWorker } from the server, or null when the read failed. Null means
   // "no badges at all" rather than "everyone is absent" — a failed request must
   // never be mistaken for an empty attendance day.
@@ -86,8 +84,32 @@ export default function VoluntaryPicker({ ngoId, value, onChange }) {
   // unreachable — an event can still be staffed by someone marked absent, and
   // whoever picks the team may be looking at yesterday's attendance.
   const [presentOnly, setPresentOnly] = useState(true)
+  // Voluntary (volunteer) and Management are shown one team at a time instead of
+  // both stacked, so the two very different lists are never mixed together.
+  const [teamTab, setTeamTab] = useState('Volunteer')
 
   const selectedKeys = useMemo(() => new Set((value || []).map(v => [v.team, v.ngo, v.name].join('|'))), [value])
+
+  // The picker is scoped to the event's NGO: once an NGO is chosen in Program
+  // Details, only that NGO's people are ever listed. The label is resolved the
+  // same way the roster labels are (shortLabel on code||name) so the two agree;
+  // volunteers additionally match by exact ngo_id when the HR row carries one.
+  const selectedNgoLabel = useMemo(() => {
+    if (!ngoId) return null
+    const n = ngos.find(x => String(x.id) === String(ngoId))
+    return n ? shortLabel(n.code || n.name) : null
+  }, [ngos, ngoId])
+
+  const selectedNgoItems = useMemo(() => {
+    if (!ngoId) return []
+    return items.filter(i => {
+      if (i.team === 'Volunteer' && i.ngo_id != null) return String(i.ngo_id) === String(ngoId)
+      return selectedNgoLabel ? shortLabel(i.ngo) === selectedNgoLabel : false
+    })
+  }, [items, ngoId, selectedNgoLabel])
+
+  // Everything below is scoped to the selected NGO and the active team tab.
+  const itemsInTab = useMemo(() => selectedNgoItems.filter(i => i.team === teamTab), [selectedNgoItems, teamTab])
 
   useEffect(() => {
     let cancelled = false
@@ -148,14 +170,6 @@ export default function VoluntaryPicker({ ngoId, value, onChange }) {
     return () => { cancelled = true }
   }, [ngoId])
 
-  const ngoLabels = useMemo(() => [...new Set(items.map(i => i.ngo))].sort(sortNgos), [items])
-
-  const counts = useMemo(() => {
-    const c = {}
-    for (const i of items) c[i.ngo] = (c[i.ngo] || 0) + 1
-    return c
-  }, [items])
-
   // A person's attendance status for the day, or null when there is nothing to
   // show: no attendance read, or a Management entry, which comes from the HR
   // employees file and has no worker id to join on.
@@ -176,38 +190,22 @@ export default function VoluntaryPicker({ ngoId, value, onChange }) {
 const isAbsent = (item) => statusOf(item)?.status === 'absent'
 const isOnLeave = (item) => statusOf(item)?.status === 'leave'
 
-  // Counted across every NGO, not just the visible one: the picker defaults to the
-  // event's NGO, so a per-filter count would hide absentees from other NGOs.
-  //
-  // Stays null until the roster has actually loaded. Attendance usually resolves
-  // first, and an empty roster would otherwise count as zero absentees and claim
-  // "everyone has marked attendance today" — the exact opposite of the truth.
+  // Counted across the selected NGO's volunteers. Stays null until the roster has
+  // actually loaded — an empty roster would otherwise count as zero absentees and
+  // claim "everyone has marked attendance today", the exact opposite of the truth.
   const todayCounts = useMemo(() => {
     if (!attendance || loading || !items.length) return null
     const tally = { absent: 0, present: 0, late: 0, leave: 0, 'half-day': 0 }
-    for (const i of items) {
+    for (const i of selectedNgoItems) {
       const s = statusOf(i)
       if (s && s.status in tally) tally[s.status]++
     }
     return tally
-  }, [items, attendance, loading])
-
-  // Prefer the event's NGO when the picker first opens (once, so a manual
-  // "All NGOs" choice is not overridden afterwards).
-  useEffect(() => {
-    if (loading || defaulted || ngoFilter !== 'All' || ngoLabels.length === 0) return
-    const ngo = ngos.find(n => String(n.id) === String(ngoId))
-    const label = ngo ? shortLabel(ngo.code || ngo.name) : null
-    if (label && ngoLabels.includes(label)) {
-      setNgoFilter(label)
-      setDefaulted(true)
-    }
-  }, [loading, defaulted, ngos, ngoLabels, ngoId, ngoFilter])
+  }, [selectedNgoItems, attendance, loading, items.length])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return items.filter(i => {
-      if (ngoFilter !== 'All' && i.ngo !== ngoFilter) return false
+    return itemsInTab.filter(i => {
       if (q && !i.name.toLowerCase().includes(q)) return false
       // Only applied once attendance is actually known. Without a real read,
       // filtering would empty the list on the strength of a failed request.
@@ -217,14 +215,14 @@ const isOnLeave = (item) => statusOf(item)?.status === 'leave'
       }
       return true
     })
-  }, [items, ngoFilter, search, presentOnly, attendance])
+  }, [itemsInTab, search, presentOnly, attendance])
 
   // How many the present-only toggle is holding back, so the list never looks
   // short without saying why.
   const hiddenOnLeave = useMemo(() => {
     if (!presentOnly || !attendance || loading) return 0
-    return items.filter(i => !isAbsent(i) && isOnLeave(i)).length
-  }, [items, presentOnly, attendance, loading])
+    return itemsInTab.filter(i => !isAbsent(i) && isOnLeave(i)).length
+  }, [itemsInTab, presentOnly, attendance, loading])
 
 // Already-ticked people who are absent. They live in the front block, so this is
   // only a guard for the case where the block is filtered out of view (search text,
@@ -255,15 +253,15 @@ const isOnLeave = (item) => statusOf(item)?.status === 'leave'
 
   const isSelected = (item) => selectedKeys.has([item.team, item.ngo, item.name].join('|'))
 
-  // Everyone absent today, across all NGOs, in one flat list. This is what sits
-  // at the FRONT of the section: the main list below only carries the people who
-  // are in, so without this block an absence would be invisible.
+  // Everyone absent today in the selected NGO, in one flat list. This is what
+  // sits at the FRONT of the section: the main list below only carries the people
+  // who are in, so without this block an absence would be invisible.
   const absentItems = useMemo(() => {
     if (!attendance) return []
-    return items
+    return selectedNgoItems
       .filter(i => statusOf(i)?.status === 'absent')
       .sort((a, b) => a.ngo.localeCompare(b.ngo) || a.name.localeCompare(b.name))
-  }, [items, attendance])
+  }, [selectedNgoItems, attendance])
 
   const toggle = (item) => {
     const key = [item.team, item.ngo, item.name].join('|')
@@ -285,21 +283,59 @@ const isOnLeave = (item) => statusOf(item)?.status === 'leave'
   return (
     <div>
       <div style={{ fontSize: 12, color: 'var(--eh-ink-soft, #6b7280)', marginBottom: 12 }}>
-        Pick the Voluntary (volunteer + management) people for this event — grouped NGO-wise.
-        Anyone absent today is listed first in red; the team list below shows who is in.
-        Volunteers come live from the HR panel, so anyone absconded there is already hidden. Management comes from the HR employees file.
+        Pick the people for this event. Use the Voluntary / Management tabs to switch between
+        the two teams of the selected NGO. Anyone absent today is listed first in red; the list
+        shows who is in. Volunteers come live from the HR panel, so anyone absconded there is
+        already hidden. Management comes from the HR employees file.
       </div>
 
       {loading ? (
         <div style={{ padding: 20, textAlign: 'center', color: '#6b7280', fontSize: 13 }}>Loading voluntary teams…</div>
+      ) : !ngoId ? (
+        <div
+          data-testid="voluntary-no-ngo"
+          style={{
+            padding: '16px 18px', borderRadius: 12, fontSize: 13,
+            border: '1px dashed var(--line)', background: 'var(--card-bg)', color: 'var(--eh-ink-soft, #6b7280)',
+          }}
+        >
+          <b style={{ color: 'var(--ink)' }}>Choose an NGO in Program Details first.</b>{' '}
+          Its Volunteers and Management will appear here once an NGO is selected.
+        </div>
       ) : (
         <>
           {fileError && <div style={{ padding: 12, borderRadius: 10, background: '#fef2f2', color: '#b91c1c', fontSize: 12.5, marginBottom: 10 }}>{fileError}</div>}
 
+          {/* Team tabs: one team at a time. Voluntary = HR-panel volunteers (with
+              attendance); Management = the HR employees file. Both are scoped to
+              the event's NGO. */}
+          <div style={{ display: 'inline-flex', gap: 3, padding: 3, marginBottom: 12, border: '1px solid var(--line)', borderRadius: 999, background: 'var(--card-bg)' }}>
+            {[['Volunteer', 'Voluntary'], ['Management', 'Management']].map(([team, lbl]) => {
+              const active = teamTab === team
+              const n = selectedNgoItems.filter(i => i.team === team).length
+              return (
+                <button
+                  key={team}
+                  type="button"
+                  onClick={() => setTeamTab(team)}
+                  style={{
+                    cursor: 'pointer', border: 'none', borderRadius: 999,
+                    padding: '6px 16px', fontSize: 12.5, fontWeight: active ? 800 : 600,
+                    background: active ? 'var(--eh-primary, #7B5EA7)' : 'transparent',
+                    color: active ? '#fff' : 'var(--ink-soft, #6b7280)',
+                  }}
+                >
+                  {lbl} <span style={{ opacity: 0.8, fontWeight: 700, fontSize: 11.5 }}>{n}</span>
+                </button>
+              )
+            })}
+          </div>
+
           {/* ABSENT FIRST. The list below is present-only, so this is the one place
               an absence is visible. Kept above the summary and the NGO filter on
-              purpose — it is the answer to "who is not in today". */}
-          {attendance && absentItems.length > 0 && (
+              purpose — it is the answer to "who is not in today". Volunteers only —
+              Management has no attendance record. */}
+          {teamTab === 'Volunteer' && attendance && absentItems.length > 0 && (
             <div
               data-testid="voluntary-absent-front"
               style={{
@@ -351,7 +387,7 @@ const isOnLeave = (item) => statusOf(item)?.status === 'leave'
             </div>
           )}
 
-          {todayCounts && (
+          {teamTab === 'Volunteer' && todayCounts && (
             <div
               data-testid="voluntary-attendance-summary"
               style={{
@@ -386,42 +422,9 @@ const isOnLeave = (item) => statusOf(item)?.status === 'leave'
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', alignSelf: 'center', marginRight: 2 }}>NGO:</span>
-            {['All', ...ngoLabels].map(n => {
-              const active = ngoFilter === n
-              const color = n === 'All' ? '#7B5EA7' : ngoColor(n)
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setNgoFilter(active ? 'All' : n)}
-                  title={n === 'All' ? 'Show all NGOs' : `Filter to ${n}`}
-                  style={{
-                    cursor: 'pointer',
-                    border: active ? '1px solid ' + color : '1px solid var(--line)',
-                    background: active ? `${color}18` : 'var(--card-bg)',
-                    borderRadius: 999,
-                    padding: '6px 13px',
-                    fontSize: 12.5,
-                    fontWeight: active ? 700 : 600,
-                    color: active ? color : 'var(--ink)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 7,
-                    boxShadow: 'none',
-                  }}
-                >
-                  {n !== 'All' && <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />}
-                  {n === 'All' ? 'All NGOs' : n}
-                  <span style={{ opacity: 0.75, fontWeight: 700, fontSize: 11.5 }}>{n === 'All' ? items.length : (counts[n] || 0)}</span>
-                </button>
-              )
-            })}
-          </div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search volunteer / management…" style={{ ...inline, flex: 1, minWidth: 180 }} />
-            {attendance && (
+            {teamTab === 'Volunteer' && attendance && (
               <label
                 title={presentOnly
                   ? 'Showing only the people in today. Turn this off to also list people on approved leave.'
@@ -485,14 +488,12 @@ const isOnLeave = (item) => statusOf(item)?.status === 'leave'
               return (
                 <div key={g.ngo} style={{ border: '1px solid var(--line)', borderRadius: 12, marginBottom: 10, overflow: 'hidden' }}>
                   <div
-                    onClick={() => setNgoFilter(ngoFilter === g.ngo ? 'All' : g.ngo)}
-                    style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', cursor: 'pointer', userSelect: 'none' }}
-                    title={ngoFilter === g.ngo ? 'Click to show all NGOs' : `Click to filter to ${g.ngo}`}
+                    style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}
                   >
                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
                     <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '.03em', textTransform: 'uppercase', color: 'var(--ink)' }}>{g.ngo}</span>
                     <span style={{ fontSize: 11.5, color: 'var(--ink-soft)' }}>
-                      {g.volunteer.length} Volunteer · {g.management.length} Management
+                      {teamTab === 'Volunteer' ? `${g.volunteer.length} Volunteer` : `${g.management.length} Management`}
                     </span>
                     {(() => {
                       const n = g.volunteer.filter(v => statusOf(v)?.status === 'absent').length
@@ -503,7 +504,6 @@ const isOnLeave = (item) => statusOf(item)?.status === 'leave'
                         </span>
                       )
                     })()}
-                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--eh-primary, #7B5EA7)', fontWeight: 600 }}>{ngoFilter === g.ngo ? 'Showing only this NGO — click to show all' : 'Click to filter to this NGO'}</span>
                   </div>
 
                   {g.volunteer.length > 0 && (
@@ -558,19 +558,27 @@ const isOnLeave = (item) => statusOf(item)?.status === 'leave'
             })
           )}
 
-          {value && value.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-              <span style={{ fontSize: 12, color: '#6b7280' }}><b>{value.length}</b> selected:</span>
-              {value.map(v => (
-                <span key={v.name + v.team} className="pill pill-green" style={{ fontSize: 11 }}>{v.name} · {v.ngo} · {v.team}</span>
-              ))}
-            </div>
-          )}
+          {value && value.length > 0 && (() => {
+            const inTab = value.filter(v => (v.team === 'Management' ? 'Management' : 'Volunteer') === teamTab)
+            const totalNote = value.length !== inTab.length ? ` · ${value.length} total across both teams` : ''
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                <span style={{ fontSize: 12, color: '#6b7280' }}>
+                  <b>{inTab.length}</b> selected in {teamTab === 'Volunteer' ? 'Voluntary' : 'Management'}{totalNote}:
+                </span>
+                {inTab.length === 0
+                  ? <span style={{ fontSize: 12, color: '#9ca3af' }}>none from this team yet</span>
+                  : inTab.map(v => (
+                    <span key={v.name + v.team} className="pill pill-green" style={{ fontSize: 11 }}>{v.name} · {v.ngo} · {v.team}</span>
+                  ))}
+              </div>
+            )
+          })()}
 
           {/* Someone already ticked but not in today is filtered out of the list
               above, so they would otherwise be impossible to review or untick.
               Surfaced here, where every selected person is already listed. */}
-          {presentOnly && attendance && selectedNotOnDuty.length > 0 && (
+          {teamTab === 'Volunteer' && presentOnly && attendance && selectedNotOnDuty.length > 0 && (
             <div
               data-testid="voluntary-selected-not-present"
               style={{
