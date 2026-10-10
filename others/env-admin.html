@@ -260,6 +260,11 @@
   </section>
 
   <section>
+    <h2>Read Replica</h2>
+    <div id="replicaWrap"></div>
+  </section>
+
+  <section>
     <h2>Database</h2>
     <div class="cards" id="dbCards"></div>
     <div id="dbSplit" style="margin-top:14px"></div>
@@ -726,13 +731,41 @@
   }
 
   function loadDb() {
-    return api('/api/envadmin/db').then(function (d) {
-      renderDb(d);
-    }).catch(function (e) {
-      $('dbCards').innerHTML = card('Database', 'unavailable', { small: true });
-      $('dbWrap').innerHTML = '';
-      $('dbHint').textContent = 'Could not read database stats: ' + e.message;
-    });
+    return api('/api/envadmin/db')
+      .then(function (d) {
+        renderDb(d);
+        loadReplica();
+      })
+      .catch(function (e) {
+        $('dbCards').innerHTML = card('Database', 'unavailable', { small: true });
+        $('dbWrap').innerHTML = '';
+        $('dbHint').textContent = 'Could not read database stats: ' + e.message;
+      });
+  }
+
+  // ---- read replica --------------------------------------------------------
+  function renderReplica(d) {
+    var h = '<div class="cards">';
+    h += '<div class="card"><div class="label">Replica</div><div class="value small">' +
+         (d.configured ? (d.reachable ? 'in use' : 'unreachable') : 'not configured') + '</div></div>';
+    if (d.configured && d.reachable) {
+      h += '<div class="card"><div class="label">Read Only</div><div class="value small">' +
+           (d.in_recovery ? 'yes' : 'NO &mdash; not a replica') + '</div></div>';
+      h += '<div class="card"><div class="label">Replay Delay</div><div class="value small">' +
+           (d.replay_delay_s != null ? Math.round(d.replay_delay_s) + 's' : 'n/a') + '</div></div>';
+      h += '<div class="card"><div class="label">Caught Up</div><div class="value small">' +
+           (d.caught_up ? 'yes' : 'replaying') + '</div></div>';
+    }
+    h += '</div>';
+    if (d.note) h += '<p class="hint">' + esc(d.note) + '</p>';
+    if (d.error) h += '<p class="hint" style="color:var(--warn)">' + esc(d.error) + '</p>';
+    $('replicaWrap').innerHTML = h;
+  }
+
+  function loadReplica() {
+    return api('/api/envadmin/db/replica')
+      .then(renderReplica)
+      .catch(function (e) { $('replicaWrap').innerHTML = '<p class="muted">replica status unavailable: ' + esc(e.message) + '</p>'; });
   }
 
   // ---- projects -----------------------------------------------------------

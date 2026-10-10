@@ -1,4 +1,4 @@
-import db, { sql } from '../config/db.js';
+import db, { sql, replicaSql } from '../config/db.js';
 import { maybeRefreshSpecialIncentives } from '../services/specialIncentiveService.js';
 import { resolveCreditTarget } from '../services/operatorNameService.js';
 import {
@@ -9,6 +9,7 @@ import {
   mergeAttributedReceipts,
   normalizeAgentName,
   paymentIdentity,
+  receiptDayBounds,
 } from '../services/froCollectionMatch.js';
 
 // Keep the id sequence ahead of the highest existing id before inserting, so a
@@ -136,8 +137,8 @@ export function paymentDiscriminant(d) {
 // the number above them whenever a name needed a trim or a case fold. Both now
 // read one deduplicated row set, so the chips summing to the card is structural
 // rather than a coincidence.
-export const getCollectedByNgo = async (workerId, monthStart, monthEnd, allowedNgoIds) => {
-  const receipts = await getWorkerCollectionReceipts(workerId, monthStart, monthEnd);
+export const getCollectedByNgo = async (workerId, monthStart, monthEnd, allowedNgoIds, opts = {}) => {
+  const receipts = await getWorkerCollectionReceipts(workerId, monthStart, monthEnd, opts);
   if (receipts.length === 0) return {};
 
   const { data: ngos } = await db.from('ngos').select('id, name');
@@ -257,10 +258,20 @@ const getAllWorkerNameResolvers = async () => {
  * Category labels ('Suspense', 'PG', 'Library', 'NA') are never matched, so
  * unreconciled bank money is not credited to an FRO who never collected it.
  */
-export const getWorkerCollectionReceipts = async (workerId, monthStart, monthEnd) => {
-  const monthStartDay = String(monthStart).slice(0, 10);
-  const monthEndDay = String(monthEnd).slice(0, 10);
+export const getWorkerCollectionReceipts = async (workerId, monthStart, monthEnd, opts = {}) => {
+  // receipt_date is a DATE holding the IST calendar day, so the comparison
+  // bounds must be IST days -- see receiptDayBounds() for why slicing an
+  // instant is not that conversion and how that produced 8,783 against an
+  // actual 8,733 on the October card.
+  const { startDay: monthStartDay, endDay: monthEndDay } = receiptDayBounds(monthStart, monthEnd, opts);
   const RECEIPT_COLS = 'id, donor_id, amount, project_id, receipt_date, receipt_no, payment_id, agent_name, log_id, donor_name, donor_mobile, mode';
+
+  // `allowStale` routes the two receipts queries at the read replica. Opt-in per
+  // caller and NEVER on the FRO panel: an officer who just logged a donation and
+  // reloaded must see it, and the replica would not have it yet. The super-admin
+  // all-time leaderboard is safe because it is cached for 5 minutes anyway, so a
+  // second of replication lag changes nothing a user could perceive.
+  const run = opts.allowStale ? (t, p) => replicaSql(t, p, { replicaOptional: true }) : sql;
 
   // The id handed in here is creditWorkerId from the FRO panel, which is the
   // OPERATOR (req.user.imposter_id), not always a workers row: under an agent
@@ -278,7 +289,7 @@ export const getWorkerCollectionReceipts = async (workerId, monthStart, monthEnd
   // so it can never override a name an operator actually confirmed.
   let byLogId = [];
   try {
-    byLogId = await sql(
+    byLogId = await run(
       `SELECT r.id, r.donor_id, r.amount, r.project_id, r.receipt_date, r.receipt_no, r.payment_id, r.agent_name, r.log_id, r.donor_name, r.donor_mobile, r.mode
        FROM receipts r
        JOIN fro_donor_logs l ON l.id = r.log_id
@@ -305,7 +316,7 @@ export const getWorkerCollectionReceipts = async (workerId, monthStart, monthEnd
       // Params start at $3: only the two date bounds precede the name patterns.
       const orClause = patterns.map((_, i) => `lower(btrim(agent_name)) = $${i + 3}`).join(' OR ');
       try {
-        byName = await sql(
+        byName = await run(
           `SELECT ${RECEIPT_COLS}
            FROM receipts r
            WHERE r.receipt_date >= $1 AND r.receipt_date <= $2
@@ -319,8 +330,8 @@ export const getWorkerCollectionReceipts = async (workerId, monthStart, monthEnd
   return mergeAttributedReceipts(byName, byLogId, await getAllWorkerNameResolvers(), queryWorkerId);
 };
 
-export const getTotalCollectedByWorker = async (workerId, monthStart, monthEnd) => {
-  const receipts = await getWorkerCollectionReceipts(workerId, monthStart, monthEnd);
+export const getTotalCollectedByWorker = async (workerId, monthStart, monthEnd, opts = {}) => {
+  const receipts = await getWorkerCollectionReceipts(workerId, monthStart, monthEnd, opts);
   return receipts.reduce((sum, r) => sum + Number(r.amount || 0), 0);
 };
 
@@ -332,9 +343,12 @@ export const getTotalCollectedByWorker = async (workerId, monthStart, monthEnd) 
 // was VERIFIED, so the daily AKI days line up with the Verified Today card.
 // That day choice is the only difference; ownership comes from the shared
 // helpers so it cannot drift.
-export const getDailyCollectionByWorker = async (workerId, monthStart, monthEnd) => {
-  const monthStartDay = String(monthStart).slice(0, 10);
-  const monthEndDay = String(monthEnd).slice(0, 10);
+export const getDailyCollectionByWorker = async (workerId, monthStart, monthEnd, opts = {}) => {
+  // receipt_date bounds must be IST days for the same reason as in
+  // getWorkerCollectionReceipts -- see receiptDayBounds(). The verified_at
+  // window below keeps the raw instants, because that column is a timestamptz
+  // and wants them.
+  const { startDay: monthStartDay, endDay: monthEndDay } = receiptDayBounds(monthStart, monthEnd, opts);
 
   // Same operator-vs-worker resolution as the card loader: creditWorkerId may be
   // a crm_agents uuid under an agent login, and a workers-keyed lookup against

@@ -1708,6 +1708,89 @@ export const sql = async (text, params = []) => {
   return rows;
 };
 
+// ---------------------------------------------------------------------------
+// Read replica
+// ---------------------------------------------------------------------------
+// A SEPARATE pool aimed at the RDS read replica, for read-heavy queries where a
+// second of replication lag is acceptable. This is deliberately opt-in per query:
+// a replica is not a load balancer, so nothing routes here unless a call site
+// asks for it.
+//
+// Do NOT use for:
+//   - anything inside db.transaction() -- a transaction must see one connection
+//     and its own writes; a replica would not have them.
+//   - reads that must reflect a just-written receipt or assignment. A receipt
+//     exists on the primary a moment before it appears here, so a user who
+//     creates one and immediately reloads would see it missing.
+//   - writes. This connection is read-only and the server will reject them.
+//
+// Unset READ_DATABASE_URL means there is no replica configured: replicaSql()
+// then falls through to the primary. That is what keeps every existing call site
+// working unchanged on a machine with no replica, including production if the
+// var is never set.
+const READ_DATABASE_URL = process.env.READ_DATABASE_URL;
+
+let readPool = null;
+let readPoolUnavailable = false;
+if (READ_DATABASE_URL) {
+  readPool = new pg.Pool({
+    connectionString: READ_DATABASE_URL,
+    ssl: process.env.DATABASE_SSL !== 'false' ? { rejectUnauthorized: false } : false,
+    // Smaller than the primary pool on purpose: this is for background report
+    // work, and it must never be able to consume the primary's capacity.
+    max: Math.max(1, Math.min(POOL_MAX, 5)),
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 10000,
+    // Same guards as the primary, so a runaway report cannot pin the replica.
+    options: poolConfig.options,
+  });
+  readPool.on('error', (err) => {
+    // Fail open onto the primary rather than surfacing an error to a user: the
+    // replica is an optimisation, not a dependency.
+    console.error('read replica pool error:', err.message);
+  });
+} else {
+  console.warn('READ_DATABASE_URL not set -- replica reads will run on the primary.');
+}
+
+/**
+ * Run a read-only query against the replica, falling back to the primary.
+ *
+ * Set `replicaOptional: true` for anything that is a nice-to-have to have fast,
+ * where serving slightly stale data from the primary is preferable to failing.
+ * Leave it off for queries where correctness beats speed.
+ */
+export const replicaSql = async (text, params = [], { replicaOptional = false } = {}) => {
+  if (!readPool || readPoolUnavailable) {
+    const { rows } = await pool.query(text, params);
+    return rows;
+  }
+  try {
+    const { rows } = await readPool.query(text, params);
+    return rows;
+  } catch (err) {
+    if (replicaOptional) {
+      // One failed attempt is enough to stop trying: if the replica is down, every
+      // request would otherwise pay a connect timeout before falling back, turning
+      // an optimisation into a latency regression across the whole app.
+      if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === '57P03') {
+        readPoolUnavailable = true;
+        console.error(`Read replica unavailable (${err.code}); replica reads now run on the primary.`);
+      }
+      const { rows } = await pool.query(text, params);
+      return rows;
+    }
+    throw err;
+  }
+};
+
+/** Reset the replica circuit breaker after the replica recovers. */
+export const replicaHealth = () => ({
+  configured: Boolean(readPool),
+  inUse: Boolean(readPool) && !readPoolUnavailable,
+  readPoolMax: readPool ? readPool.options.max : 0,
+});
+
 // Named exports of the internals that storage.presignDownload() depends on.
 // They exist for tests: the prefixing behaviour below is what silently
 // mis-addressed a presigned URL once already, and it is not reachable from the

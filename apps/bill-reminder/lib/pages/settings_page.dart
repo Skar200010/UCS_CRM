@@ -7,8 +7,10 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 import '../services/reminders_controller.dart';
 import '../theme.dart';
+import 'all_payments_page.dart';
 
 class SettingsPage extends StatefulWidget {
   final RemindersController controller;
@@ -50,6 +52,15 @@ class _SettingsPageState extends State<SettingsPage> {
         });
       }
     }
+  }
+
+  String? get _pushStatus {
+    if (_checkingFcm) return null;
+    if (_fcmRegistered == true) return 'Registered on this device';
+    if (NotificationService.initError != null) {
+      return 'Unavailable — ${NotificationService.initError}';
+    }
+    return 'Not registered yet — check phone notification permission';
   }
 
   void _snack(String msg) {
@@ -169,11 +180,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           icon: LucideIcons.bellRing,
                           iconBg: const Color(0xFF7c3aed),
                           title: 'Push alerts',
-                          subtitle: _checkingFcm
-                              ? 'Checking…'
-                              : (_fcmRegistered == true
-                                  ? 'Registered on this device'
-                                  : 'Not registered yet'),
+                          subtitle: _pushStatus ?? 'Checking…',
                           trailing: _checkingFcm
                               ? const SizedBox(
                                   width: 16, height: 16,
@@ -249,6 +256,17 @@ class _SettingsPageState extends State<SettingsPage> {
                       const SizedBox(height: 20),
                       _section('Data & Sync'),
                       _card([
+                        _tile(
+                          icon: LucideIcons.history,
+                          iconBg: const Color(0xFFb45309),
+                          title: 'All Payments',
+                          subtitle: 'Combined payment history across every reminder',
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const AllPaymentsPage()),
+                          ),
+                          trailing: Icon(LucideIcons.chevronRight, size: 16, color: p.inkMute),
+                        ),
+                        Divider(height: 1, color: p.line),
                         _tile(
                           icon: LucideIcons.layers,
                           iconBg: const Color(0xFF0891b2),

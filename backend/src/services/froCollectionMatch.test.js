@@ -14,14 +14,17 @@ import {
   buildAgentNameMatches,
   dedupeCollectionReceipts,
   escapeLikePattern,
+  froReceiptsCacheKey,
   isCategoryLabel,
   mergeAttributedReceipts,
   namesAnotherWorker,
   normalizeAgentName,
   paymentIdentity,
+  receiptDayBounds,
   receiptMatchesAgentName,
   totalCollectionAmount,
 } from './froCollectionMatch.js';
+import { istMonthBounds } from '../utils/ist.js';
 
 test('agent names match regardless of case and surrounding whitespace', () => {
   const matches = buildAgentNameMatches('  Sushma Ambokar  ');
@@ -366,4 +369,77 @@ test('the summed total equals the sum of the rows the list renders', () => {
   const summed = listRows.reduce((s, r) => s + r.amount, 0);
   assert.equal(totalCollectionAmount(rows), summed);
   assert.equal(summed, 8000);
+});
+
+// --- The month-boundary window -------------------------------------------------
+//
+// receipt_date is a DATE holding an IST calendar day. The card and the list used
+// to derive that day differently, so a receipt on the last day of the previous
+// month landed on the card but not in the list: 8,783 against an actual 8,733.
+
+test('slicing an IST month-bound instant names the PREVIOUS day', () => {
+  // This is the trap. istMonthBounds() returns 00:00 IST on the 1st, which as an
+  // instant is 18:30 UTC on the last day of the previous month. Anyone who
+  // `slice(0, 10)`s it gets that previous day, and the whole of it enters the
+  // window -- which is exactly how receipt 19741 (Rs 50, 2026-09-30) reached the
+  // October card.
+  const bounds = istMonthBounds(new Date('2026-10-15T12:00:00.000Z'));
+  assert.equal(bounds.startDay, '2026-10-01');
+  assert.equal(String(bounds.start.toISOString()).slice(0, 10), '2026-09-30', 'the slice is a day early');
+  assert.notEqual(String(bounds.start.toISOString()).slice(0, 10), bounds.startDay);
+});
+
+test('explicit IST day bounds override the instant slice', () => {
+  const bounds = istMonthBounds(new Date('2026-10-15T12:00:00.000Z'));
+  const got = receiptDayBounds(bounds.start.toISOString(), bounds.end.toISOString(), {
+    startDay: bounds.startDay,
+    endDay: bounds.endDay,
+  });
+  assert.equal(got.startDay, '2026-10-01');
+  assert.equal(got.endDay, '2026-10-31');
+});
+
+test('a receipt on the last day of the previous month is outside the window', () => {
+  // The concrete regression: the Sept 30 receipt must NOT satisfy an October
+  // window, whichever bound style produced that window.
+  const bounds = istMonthBounds(new Date('2026-10-15T12:00:00.000Z'));
+  const { startDay } = receiptDayBounds(bounds.start.toISOString(), bounds.end.toISOString(), {
+    startDay: bounds.startDay,
+    endDay: bounds.endDay,
+  });
+  assert.equal('2026-09-30' >= startDay, false, 'receipt 19741 must not fall in October');
+  assert.equal('2026-10-01' >= startDay, true);
+});
+
+test('UTC-midnight callers keep deriving the right day without opts', () => {
+  // dashboardController and the all-time range pass plain UTC midnights and no
+  // opts; the fallback must keep working for them.
+  const got = receiptDayBounds('2026-10-01T00:00:00.000Z', '2026-10-31T23:59:59.999Z');
+  assert.equal(got.startDay, '2026-10-01');
+  assert.equal(got.endDay, '2026-10-31');
+});
+
+test('card, list and target all read one cache entry per month', () => {
+  // The other half of the bug: three callers, three key shapes, three entries
+  // free to hold different windows. Keyed by the day window they collapse to one.
+  const bounds = istMonthBounds(new Date('2026-10-15T12:00:00.000Z'));
+  const worker = 'd4ec7cbf-9ffe-4a68-b1d1-854a8fd63eed';
+  const fromBounds = froReceiptsCacheKey(worker, bounds.startDay, bounds.endDay);
+  const card = froReceiptsCacheKey(worker, bounds.startDay, bounds.endDay);
+  const list = froReceiptsCacheKey(worker, bounds.startDay, bounds.endDay);
+  const target = froReceiptsCacheKey(worker, bounds.startDay, bounds.endDay);
+  assert.equal(card, list);
+  assert.equal(list, target);
+  assert.equal(fromBounds, card);
+  assert.equal(fromBounds, `fro:receipts:${worker}:2026-10-01:2026-10-31`);
+});
+
+test('two workers never share a receipts cache entry', () => {
+  const bounds = istMonthBounds(new Date('2026-10-15T12:00:00.000Z'));
+  const a = froReceiptsCacheKey('worker-a', bounds.startDay, bounds.endDay);
+  const b = froReceiptsCacheKey('worker-b', bounds.startDay, bounds.endDay);
+  assert.notEqual(a, b);
+  // Still under the prefix the write path clears, so a new donation shows up
+  // immediately rather than after the TTL.
+  assert.ok(a.startsWith('fro:receipts:worker-a:'));
 });

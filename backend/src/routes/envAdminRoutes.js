@@ -4,7 +4,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import { execSync, spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import db from '../config/db.js';
+import db, { replicaHealth, replicaSql } from '../config/db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -462,6 +462,45 @@ function rate(now, before, ms) {
     blocksRead: perSec(now.blks_read, before.blks_read),
   };
 }
+
+// Replica visibility: is it configured, is it actually being used, and is it a
+// real read-only standby. pg_is_in_recovery() is the authoritative check -- a
+// physical replica must return true, and if it ever returns false the app is
+// pointed at something that accepts writes, which is the thing to catch.
+router.get('/db/replica', async (req, res) => {
+  const health = replicaHealth();
+  const out = { ...health, checked_at: new Date().toISOString() };
+
+  if (!health.configured) {
+    return res.json({ ...out, reachable: false, note: 'READ_DATABASE_URL is not set; all reads run on the primary.' });
+  }
+
+  try {
+    // replicaSql returns the rows array directly, not a { rows } envelope.
+//
+// Deliberately NOT replicaOptional. Falling back to the primary here would make
+// a broken replica report pg_is_in_recovery() = false and look like the app is
+// pointed at the writer -- the exact misreading this endpoint exists to prevent.
+// A health check must report the replica's real state or fail.
+    const rows = await replicaSql(
+      `SELECT current_database() AS db,
+              pg_is_in_recovery() AS in_recovery,
+              pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() AS caught_up,
+              EXTRACT(EPOCH FROM now() - pg_last_xact_replay_timestamp()) AS replay_delay_s`,
+      [],
+    );
+    res.json({
+      ...out,
+      reachable: true,
+      ...rows[0],
+      note: rows[0].in_recovery
+        ? 'Read-only standby, as expected.'
+        : 'WARNING: not in recovery. This is the primary, not a replica.',
+    });
+  } catch (err) {
+    res.json({ ...out, reachable: false, error: err.message });
+  }
+});
 
 router.get('/db', async (req, res) => {
   try {

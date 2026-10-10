@@ -454,7 +454,10 @@ async function buildSuperAdminDashboard(period) {
       const ALL_TIME = 'alltime';
       const loaded = await Promise.all(froNames.map(w =>
         cached(`dash:supadm:${ALL_TIME}:${w.id}`, 5 * 60 * 1000,
-          () => getWorkerCollectionReceipts(w.id, '1970-01-01T00:00:00.000Z', '2099-12-31T23:59:59.999Z'))
+          // allowStale: this all-time leaderboard is cached for 5 minutes, so
+          // running it on the read replica costs nothing in freshness and takes
+          // the heaviest recurring scan off the primary entirely.
+          () => getWorkerCollectionReceipts(w.id, '1970-01-01T00:00:00.000Z', '2099-12-31T23:59:59.999Z', { allowStale: true }))
           .then(receipts => [w.id, receipts.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0)])
       ));
       for (const [id, total] of loaded) if (total > 0) froTotals[id] = total;
