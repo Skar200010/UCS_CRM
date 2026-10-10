@@ -283,3 +283,44 @@ export function dedupeCollectionReceipts(rows) {
 export function totalCollectionAmount(rows) {
   return dedupeCollectionReceipts(rows).reduce((sum, r) => sum + Number(r.amount || 0), 0);
 }
+
+/**
+ * The IST day window to compare receipts.receipt_date against.
+ *
+ * receipt_date is a DATE column holding an IST calendar day, so its bounds must
+ * be 'YYYY-MM-DD' IST days. The month bounds a caller holds are INSTANTS, and
+ * slicing an instant to 10 characters is not that conversion: istMonthBounds()
+ * returns 00:00 IST on the 1st, which as an instant is 18:30 UTC on the LAST day
+ * of the previous month. `slice(0, 10)` therefore named that previous day and
+ * pulled all of it into the window.
+ *
+ * On live data that was receipt 19741 (Sandeep Sharma, Rs 50, receipt_date
+ * 2026-09-30) landing on the October card while the list beneath it, which built
+ * its window from UTC midnight and so sliced correctly, excluded it: the card
+ * read 8,783 against a true 8,733. Two callers, two windows, one month.
+ *
+ * Callers that already hold IST days -- getDashboard, getMyTarget and
+ * getMyCollections all read them off istMonthBounds() -- pass them explicitly.
+ * The slice stays only as a fallback for callers whose instants ARE UTC
+ * midnights (dashboardController's today range, the all-time range), where it
+ * yields the right day.
+ */
+export function receiptDayBounds(monthStart, monthEnd, opts = {}) {
+  return {
+    startDay: opts.startDay || String(monthStart).slice(0, 10),
+    endDay: opts.endDay || String(monthEnd).slice(0, 10),
+  };
+}
+
+/**
+ * The cache key for "this FRO's receipts in this day window".
+ *
+ * Keyed by the DAY window rather than the instants, because one calendar month
+ * can be described by several different instants -- getMyCollections built UTC
+ * midnights while the card used 00:00 IST -- and keying on those left three
+ * cache entries for one month, each free to hold a different window. Keyed by
+ * day, the card, the list and the target endpoint read the same entry and so
+ * cannot disagree.
+ */
+export const froReceiptsCacheKey = (workerId, startDay, endDay) =>
+  `fro:receipts:${workerId}:${startDay}:${endDay}`;

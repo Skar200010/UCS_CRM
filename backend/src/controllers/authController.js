@@ -406,9 +406,9 @@ export const refreshAccessToken = async (req, res) => {
       return res.status(401).json({ message: 'Invalid refresh token' });
     }
 
-    const { id, login_id, ngo_id, name, role, department } = decoded;
+    const { id, login_id, ngo_id, email, name, role, department } = decoded;
     const token = jwt.sign(
-      { id, login_id, ngo_id, name, role, department },
+      { id, login_id, ngo_id, email, name, role, department },
       process.env.JWT_SECRET,
       { expiresIn: TOKEN_EXPIRY }
     );
@@ -508,6 +508,22 @@ export const unifiedLogin = async (req, res) => {
     // every CRM login (/auth/login) -> 24h.
     const expiry = req.route?.path === '/worker/login' ? undefined : TOKEN_EXPIRY;
     const signOptions = expiry ? { expiresIn: expiry } : {};
+
+    // Mobile apps that declare themselves get a long-lived refresh token next
+    // to the access token, so a user is never signed out of the app just
+    // because the access token lapsed. The app silently swaps it at
+    // POST /auth/refresh. The refresh token deliberately carries NO `exp`.
+    const APP_CLIENTS = new Set(['attendance', 'bill_reminder']);
+    const isAppClient = APP_CLIENTS.has(String(req.body.client || '').trim());
+    const attachRefreshToken = (body, claims) => {
+      if (isAppClient && body && claims) {
+        body.refresh_token = jwt.sign(
+          { ...claims, type: 'refresh' },
+          process.env.JWT_SECRET
+        );
+      }
+      return body;
+    };
 
     // Beneficiaries app login gate: when the client declares itself, only
     // accounts in the bnf_operators table may sign in. Everything else is
@@ -632,23 +648,13 @@ export const unifiedLogin = async (req, res) => {
       const claims = { id: worker.id, login_id: worker.login_id, ngo_id: worker.ngo_id, name: worker.name, role, department: worker.department };
 
       // Apps that declare themselves get the short-lived access token +
-      // long-lived refresh token pair. The refresh token is intentionally
-      // issued WITHOUT an expiry so a worker never gets logged out of the
-      // mobile app; access is still capped at 24h and silently renewed.
-      const isAppClient = String(req.body.client || '').trim() === 'attendance';
+      // long-lived refresh token pair; access is capped at 24h and silently
+      // renewed by the app via POST /auth/refresh.
       const token = jwt.sign(
         claims,
         process.env.JWT_SECRET,
         isAppClient ? { expiresIn: TOKEN_EXPIRY } : signOptions
       );
-      let refreshToken = null;
-      if (isAppClient) {
-        // No expiresIn => no `exp` claim => this token does not expire.
-        refreshToken = jwt.sign(
-          { ...claims, type: 'refresh' },
-          process.env.JWT_SECRET
-        );
-      }
 await recordCrmLogin(worker.id, worker.name, role, req.route?.path);
       const body = {
         token,
@@ -656,8 +662,7 @@ await recordCrmLogin(worker.id, worker.name, role, req.route?.path);
         user: { id: worker.id, name: worker.name, email: worker.email, login_id: worker.login_id, ngo_id: worker.ngo_id, gender: worker.gender, dob: worker.dob, department: worker.department },
         message: 'Login successful',
       };
-      if (refreshToken) body.refresh_token = refreshToken;
-      return res.json(body);
+      return res.json(attachRefreshToken(body, claims));
     }
 
     if (isEmail) {
@@ -703,7 +708,10 @@ await recordCrmLogin(worker.id, worker.name, role, req.route?.path);
         );
         await recordCrmLogin(user.id, user.name, user.role, req.route?.path);
         const { password_hash, ...safeUser } = user;
-        return res.json({ token, role: user.role, user: safeUser, message: 'Login successful' });
+        return res.json(attachRefreshToken(
+          { token, role: user.role, user: safeUser, message: 'Login successful' },
+          { id: user.id, ngo_id: user.ngo_id, email: user.email, name: user.name, role: user.role }
+        ));
       }
 
       const hr = await getHRByEmail(identifier);
@@ -722,7 +730,10 @@ await recordCrmLogin(worker.id, worker.name, role, req.route?.path);
         );
         await recordCrmLogin(hr.id, hr.name, 'hr', req.route?.path);
         const { password_hash, ...safeHR } = hr;
-        return res.json({ token, role: 'hr', user: safeHR, message: 'Login successful' });
+        return res.json(attachRefreshToken(
+          { token, role: 'hr', user: safeHR, message: 'Login successful' },
+          { id: hr.id, ngo_id: hr.ngo_id, email: hr.email, name: hr.name, role: 'hr' }
+        ));
       }
 
       // Allow workers to log in with custom ids like ngo@fro (not @ufs). This covers renamed NGO admin logins.
@@ -761,12 +772,15 @@ await recordCrmLogin(worker.id, worker.name, role, req.route?.path);
           signOptions
         );
         await recordCrmLogin(workerByLogin.id, workerByLogin.name, wRole, req.route?.path);
-        return res.json({
+        const wbLoginBody = {
           token,
           role: wRole,
           user: { id: workerByLogin.id, name: workerByLogin.name, email: workerByLogin.email, login_id: workerByLogin.login_id, ngo_id: workerByLogin.ngo_id, department: workerByLogin.department },
           message: 'Login successful',
-        });
+        };
+        return res.json(attachRefreshToken(wbLoginBody, {
+          id: workerByLogin.id, login_id: workerByLogin.login_id, ngo_id: workerByLogin.ngo_id, name: workerByLogin.name, role: wRole, department: workerByLogin.department,
+        }));
       }
 
       // Volunteers on the Online Form do not have a UFS id — their login_id is
@@ -808,12 +822,14 @@ await recordCrmLogin(worker.id, worker.name, role, req.route?.path);
           signOptions
         );
         await recordCrmLogin(workerByEmail.id, workerByEmail.name, eRole, req.route?.path);
-        return res.json({
+        return res.json(attachRefreshToken({
           token,
           role: eRole,
           user: { id: workerByEmail.id, name: workerByEmail.name, email: workerByEmail.email, login_id: workerByEmail.login_id, ngo_id: workerByEmail.ngo_id, department: workerByEmail.department },
           message: 'Login successful',
-        });
+        }, {
+          id: workerByEmail.id, login_id: workerByEmail.login_id, ngo_id: workerByEmail.ngo_id, name: workerByEmail.name, role: eRole, department: workerByEmail.department,
+        }));
       }
 
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -835,7 +851,10 @@ await recordCrmLogin(worker.id, worker.name, role, req.route?.path);
       );
       await recordCrmLogin(userFromName.id, userFromName.name, userFromName.role, req.route?.path);
       const { password_hash, ...safeUser } = userFromName;
-      return res.json({ token, role: userFromName.role, user: safeUser, message: 'Login successful' });
+      return res.json(attachRefreshToken(
+        { token, role: userFromName.role, user: safeUser, message: 'Login successful' },
+        { id: userFromName.id, ngo_id: userFromName.ngo_id, email: userFromName.email, name: userFromName.name, role: userFromName.role }
+      ));
     }
 
     const worker = await getWorkerByLoginId(identifier);
@@ -879,12 +898,14 @@ await recordCrmLogin(worker.id, worker.name, role, req.route?.path);
       signOptions
     );
     await recordCrmLogin(worker.id, worker.name, role, req.route?.path);
-    return res.json({
+    return res.json(attachRefreshToken({
       token,
       role,
       user: { id: worker.id, name: worker.name, email: worker.email, login_id: worker.login_id, ngo_id: worker.ngo_id, gender: worker.gender, dob: worker.dob, department: worker.department },
       message: 'Login successful',
-    });
+    }, {
+      id: worker.id, login_id: worker.login_id, ngo_id: worker.ngo_id, name: worker.name, role, department: worker.department,
+    }));
   } catch (error) {
     console.error('[LOGIN] Error:', error);
     return res.status(500).json({ message: 'Login failed', detail: error.message });

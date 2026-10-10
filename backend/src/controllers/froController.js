@@ -17,7 +17,7 @@ import {
 } from '../models/froAssignmentModel.js';
 import { getTargetByWorker, getLatestTargetBeforeMonth } from '../models/froTargetModel.js';
 import { classifyLogSide, bustTlCache } from './ngoAdminController.js';
-import { isCategoryLabel } from '../services/froCollectionMatch.js';
+import { isCategoryLabel, froReceiptsCacheKey } from '../services/froCollectionMatch.js';
 import { getUserNgoAccess } from '../models/userNgoAccessModel.js';
 import { getOfficeStart, getOfficeEnd } from '../utils/attendanceStatus.js';
 import {
@@ -779,14 +779,24 @@ export const getDashboard = async (req, res) => {
     const monthEnd = monthBounds.end.toISOString();
     const monthStr = monthBounds.month;
     const creditWorkerId = req.user.impersonation && req.user.imposter_id ? req.user.imposter_id : workerId;
+    // Day-accurate window for receipt_date (a DATE column). monthStart as an
+    // instant is 18:30 UTC on the PREVIOUS day, so the loader must not slice it.
+    const startDay = monthBounds.startDay;
+    const endDay = monthBounds.endDay;
 
     // Cache the ROWS, not the total, and reduce here. getTotalCollectedByWorker is
     // itself just a reduce over these rows, so caching its scalar under the same
     // key the collections list uses would have the two callers fight over one
     // entry -- whoever ran first would leave the other reading a number where it
     // expected rows. One cache, one type.
-    const collectedRows = await cached(`fro:receipts:${creditWorkerId}:${monthStart}:${monthEnd}`, FRO_RECEIPTS_TTL_MS,
-      () => getWorkerCollectionReceipts(creditWorkerId, monthStart, monthEnd));
+    //
+    // Keyed by the DAY window, not the instants: getMyCollections used to build
+    // its own UTC-midnight bounds, so it produced a different key for the same
+    // calendar month and the two never shared an entry. Worse, the two windows
+    // were genuinely different -- this one started a day early -- so the card
+    // read 8,783 against a list that summed to 8,733. One key, one window.
+    const collectedRows = await cached(froReceiptsCacheKey(creditWorkerId, startDay, endDay), FRO_RECEIPTS_TTL_MS,
+      () => getWorkerCollectionReceipts(creditWorkerId, monthStart, monthEnd, { startDay, endDay }));
     const collected = (collectedRows || []).reduce((sum, r) => sum + Number(r.amount || 0), 0);
 
     const [manualTarget, priorTarget] = await Promise.all([
@@ -1338,9 +1348,17 @@ export const getMyCollections = async (req, res) => {
     const now = new Date();
     const istOffset = 5.5 * 60 * 60 * 1000;
     const istNow = new Date(now.getTime() + istOffset);
-    let monthStart = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1, 0, 0, 0, 0)).toISOString();
-    const lastDay = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth() + 1, 0)).getUTCDate();
-    let monthEnd = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), lastDay, 23, 59, 59, 999)).toISOString();
+    // IST calendar bounds, same source getDashboard and getMyTarget use. This
+    // used to build its own window from UTC midnight, which sliced to the right
+    // day by luck -- but it produced a DIFFERENT cache key and, because the
+    // other two sliced an istMonthBounds() instant, a genuinely different
+    // window: theirs started a day early and counted the previous month's last
+    // day. That is why the card read 8,783 against a list summing to 8,733.
+    const monthBounds = istMonthBounds(now);
+    let startDay = monthBounds.startDay;
+    let endDay = monthBounds.endDay;
+    let monthStart = monthBounds.start.toISOString();
+    let monthEnd = monthBounds.end.toISOString();
 
     const creditWorkerName = req.user.impersonation && req.user.imposter_name ? String(req.user.imposter_name).trim() : (worker.name || '').trim();
     const workerName = creditWorkerName;
@@ -1372,6 +1390,12 @@ export const getMyCollections = async (req, res) => {
       const end = new Date(Date.UTC(y, m, lastDay, 23, 59, 59, 999));
       monthStart = start.toISOString();
       monthEnd = end.toISOString();
+      // Day strings for the same month, derived as plain calendar days. Only
+      // receipt_date (a DATE column) is compared against these, so they must be
+      // IST days -- which for an explicit YYYY-MM they already are, since y/m
+      // came from the IST month the caller asked for.
+      startDay = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      endDay = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
     }
 
     // The same rows the Collected card totals, from the same loader, so the
@@ -1382,11 +1406,12 @@ export const getMyCollections = async (req, res) => {
     // needing a trim or a case fold matched one and not the other.
     // Cached because this is the app's most repeated query, and this handler was
     // re-running it on every mount and filter change with nothing to collapse
-    // concurrent callers. Keyed by the same (worker, window) pair the loader
-    // actually depends on, so two FROs never share an entry.
-    const receiptsKey = `fro:receipts:${creditWorkerId}:${monthStart}:${monthEnd}`;
+    // concurrent callers. Keyed by the DAY window so this is the same entry
+    // getDashboard and getMyTarget read -- keying on the instants left three
+    // caches for one month, each free to hold a different window.
+    const receiptsKey = froReceiptsCacheKey(creditWorkerId, startDay, endDay);
     const receipts = await cached(receiptsKey, FRO_RECEIPTS_TTL_MS, () =>
-      getWorkerCollectionReceipts(creditWorkerId, monthStart, monthEnd));
+      getWorkerCollectionReceipts(creditWorkerId, monthStart, monthEnd, { startDay, endDay }));
 
     const { data: allNgos } = await db.from('ngos').select('id, name');
     const normProj = (s) => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -4050,6 +4075,11 @@ export const getMyTarget = async (req, res) => {
     const monthStr = monthBounds.month;
     const monthStart = monthBounds.start.toISOString();
     const monthEnd = monthBounds.end.toISOString();
+    // Day-accurate window for receipt_date, shared with getDashboard and
+    // getMyCollections. monthStart as an instant is 18:30 UTC on the previous
+    // day, so slicing it to 10 chars names that previous day.
+    const startDay = monthBounds.startDay;
+    const endDay = monthBounds.endDay;
 
     const [manualTarget, priorTarget] = await Promise.all([
       getTargetByWorker(workerId, monthStr),
@@ -4071,11 +4101,14 @@ export const getMyTarget = async (req, res) => {
     const { allowedNgoIds } = await getMyStationScope(workerId, froActPairs(req));
     const creditWorkerId = req.user.impersonation && req.user.imposter_id ? req.user.imposter_id : workerId;
     // Same rows as the dashboard and the collections list, reduced here, so all
-    // three share one scan instead of each running its own.
-    const collectedRows = await cached(`fro:receipts:${creditWorkerId}:${monthStart}:${monthEnd}`, FRO_RECEIPTS_TTL_MS,
-      () => getWorkerCollectionReceipts(creditWorkerId, monthStart, monthEnd));
+    // three share one scan instead of each running its own. Keyed by the DAY
+    // window (startDay/endDay, declared with monthBounds above) so this entry
+    // is the same entry getDashboard and getMyCollections use -- keying on the
+    // instants split one month across three caches.
+    const collectedRows = await cached(froReceiptsCacheKey(creditWorkerId, startDay, endDay), FRO_RECEIPTS_TTL_MS,
+      () => getWorkerCollectionReceipts(creditWorkerId, monthStart, monthEnd, { startDay, endDay }));
     const collected = (collectedRows || []).reduce((sum, r) => sum + Number(r.amount || 0), 0);
-    const collectedByNgo = await getCollectedByNgo(creditWorkerId, monthStart, monthEnd, allowedNgoIds);
+    const collectedByNgo = await getCollectedByNgo(creditWorkerId, monthStart, monthEnd, allowedNgoIds, { startDay, endDay });
 
     // Resolve NGO names for the breakdown
     const collectedNgoIds = Object.keys(collectedByNgo).filter(id => id !== 'others');
@@ -4107,7 +4140,7 @@ export const getMyTarget = async (req, res) => {
       const ranges = await getAKISlabs();
       const achievements = await getAchievements(creditWorkerId, monthStart, monthEnd);
       const monthlyAchievement = achievements.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
-      const dailyCollection = await getDailyCollectionByWorker(creditWorkerId, monthStart, monthEnd);
+      const dailyCollection = await getDailyCollectionByWorker(creditWorkerId, monthStart, monthEnd, { startDay, endDay });
       const akiPerDay = Object.entries(dailyCollection || {})
         .map(([date, collection]) => ({
           date,
