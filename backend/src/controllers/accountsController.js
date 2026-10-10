@@ -1119,17 +1119,9 @@ export const rejectLead = async (req, res) => {
       ticketCreated = true;
     } catch (err) { console.error('Failed to create rejected lead ticket:', err.message); }
 
-    if (ngoId) {
-      try {
-        await db.from('alerts').insert({
-          ngo_id: ngoId,
-          type: 'lead_rejected',
-          title: 'Lead Rejected',
-          description: `${donorName} (₹${log.amount_collected || 0}) lead rejected. Reason: ${reason}`,
-          donor_name: donorName,
-        });
-      } catch (err) { console.error('Failed to create alert:', err.message); }
-    }
+    // The `alerts` insert that used to sit here is gone with the rest of that
+    // feature. The rejected_lead_ticket above is the durable record of this
+    // action and is what the NGO admin list actually reads.
 
     return res.json({ message: 'Lead rejected', froWorkerId, froNotified, ticketCreated });  } catch (error) {
     return res.status(500).json({ message: error.message });
