@@ -476,13 +476,18 @@ router.get('/db/replica', async (req, res) => {
   }
 
   try {
-    const { rows } = await replicaSql(
+    // replicaSql returns the rows array directly, not a { rows } envelope.
+//
+// Deliberately NOT replicaOptional. Falling back to the primary here would make
+// a broken replica report pg_is_in_recovery() = false and look like the app is
+// pointed at the writer -- the exact misreading this endpoint exists to prevent.
+// A health check must report the replica's real state or fail.
+    const rows = await replicaSql(
       `SELECT current_database() AS db,
               pg_is_in_recovery() AS in_recovery,
               pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn() AS caught_up,
               EXTRACT(EPOCH FROM now() - pg_last_xact_replay_timestamp()) AS replay_delay_s`,
       [],
-      { replicaOptional: true },
     );
     res.json({
       ...out,
