@@ -533,8 +533,8 @@ export const getMySalaryBreakdown = async (req, res) => {
     const monthStr = startDate.slice(0, 7);
     const rollback = await getLateRollback(workerId, monthStr).catch(() => null);
 
-    const calc = computePaidDays({ year, month, daysInMonth, records, createdAt: worker.created_at, holidayDates, lateGraceMinutes: worker.late_grace_minutes ?? null, leaves: leavesForMonth, absenceProofs: proofsForMonth, lateRollbackMinutes: rollback ? Number(rollback.waived_minutes) || 0 : 0 });
-    const { paidDays, totalDueDays, lateDeductionDays, lateDeductionDaysRaw, lateRollbackMinutes, lateRollbackDays, chargeableLateMinutes, lateGraceMinutes, lateThresholds, graceForfeited, sundayDeductionDays, joiningDeduction, halfDayCount, totalLateMinutes, joinedThisMonth, joinDay, deducted, absentDatesAfterJoin, extraSundays, sundayStats } = calc;
+    const calc = computePaidDays({ year, month, daysInMonth, records, createdAt: worker.created_at, holidayDates, includeHolidayPay: true, lateGraceMinutes: worker.late_grace_minutes ?? null, leaves: leavesForMonth, absenceProofs: proofsForMonth, lateRollbackMinutes: rollback ? Number(rollback.waived_minutes) || 0 : 0 });
+    const { paidDays, totalDueDays, lateDeductionDays, lateDeductionDaysRaw, lateRollbackMinutes, lateRollbackDays, chargeableLateMinutes, lateGraceMinutes, lateThresholds, graceForfeited, sundayDeductionDays, joiningDeduction, halfDayCount, totalLateMinutes, joinedThisMonth, joinDay, deducted, absentDatesAfterJoin, extraSundays, sundayStats, holidayPaidDays } = calc;
     const perDay = parseFloat(activeSalary.salary) / daysInMonth;
     const salary = parseFloat(activeSalary.salary);
 
@@ -640,6 +640,7 @@ export const getMySalaryBreakdown = async (req, res) => {
       availableDays: joinedThisMonth ? (daysInMonth - joinDay + 1) : daysInMonth,
       paidDays,
       finalPaidDays: totalDueDays,
+      holidayPaidDays,
       halfDayCount,
       totalLateMinutes,
       lateDeductionDays,

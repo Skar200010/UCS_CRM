@@ -327,6 +327,90 @@ test('new: joining after the 10th still cancels every Sunday', () => {
   assert.deepEqual(r.sundayStats.unpaidSundays, []);
 });
 
+// --- Declared holidays ------------------------------------------------------
+// A holiday row is a paid day: it is never fabricated as an absent day, and
+// includeHolidayPay adds it to the paid total. Absences on other dates keep
+// their normal deduction (no sandwich/forfeiture rule).
+
+function octWeekdayRecords({ skip = [] } = {}) {
+  const dim = daysInMonth(2026, 9);
+  const records = [];
+  for (let d = 1; d <= dim; d++) {
+    const date = `2026-10-${String(d).padStart(2, '0')}`;
+    if (new Date(date + 'T00:00:00Z').getUTCDay() === 0) continue;
+    if (skip.includes(date)) continue;
+    records.push(rec(date, 'present'));
+  }
+  return records;
+}
+
+test('holiday: declared date is a paid day, not an absence', () => {
+  const dim = daysInMonth(2026, 9);
+  const r = paid({
+    year: 2026,
+    month: 9,
+    daysInMonth: dim,
+    records: octWeekdayRecords({ skip: ['2026-10-05'] }),
+    createdAt: '2026-01-01T04:00:00.000Z',
+    holidayDates: ['2026-10-05'],
+    includeHolidayPay: true,
+    viewingToday: dim,
+  });
+  assert.equal(r.holidayPaidDays, 1);
+  assert.ok(!r.absentDatesAfterJoin.includes('2026-10-05'));
+});
+
+test('holiday: extra absence after a holiday is the only deduction', () => {
+  const dim = daysInMonth(2026, 9);
+  const base = octWeekdayRecords({ skip: ['2026-10-05'] });
+  const holidayOnly = paid({
+    year: 2026,
+    month: 9,
+    daysInMonth: dim,
+    records: base,
+    createdAt: '2026-01-01T04:00:00.000Z',
+    holidayDates: ['2026-10-05'],
+    includeHolidayPay: true,
+    viewingToday: dim,
+  });
+  const withAbsence = paid({
+    year: 2026,
+    month: 9,
+    daysInMonth: dim,
+    records: octWeekdayRecords({ skip: ['2026-10-05', '2026-10-06'] }),
+    createdAt: '2026-01-01T04:00:00.000Z',
+    holidayDates: ['2026-10-05'],
+    includeHolidayPay: true,
+    viewingToday: dim,
+  });
+  assert.equal(withAbsence.holidayPaidDays, 1);
+  assert.ok(withAbsence.absentDatesAfterJoin.includes('2026-10-06'));
+  assert.ok(!withAbsence.absentDatesAfterJoin.includes('2026-10-05'));
+  assert.equal(holidayOnly.totalDueDays - withAbsence.totalDueDays, 1);
+});
+
+test('holiday: stale absent rows on declared holidays are not absences', () => {
+  const dim = daysInMonth(2026, 9);
+  const records = octWeekdayRecords({ skip: ['2026-10-05', '2026-10-06'] });
+  // Simulate attendance rows marked absent before the holiday was declared.
+  records.push(rec('2026-10-05', 'absent'), rec('2026-10-06', 'absent'));
+  const r = paid({
+    year: 2026,
+    month: 9,
+    daysInMonth: dim,
+    records,
+    createdAt: '2026-01-01T04:00:00.000Z',
+    holidayDates: ['2026-10-05', '2026-10-06'],
+    includeHolidayPay: true,
+    viewingToday: dim,
+  });
+  assert.equal(r.holidayPaidDays, 2);
+  assert.ok(!r.absentDatesAfterJoin.includes('2026-10-05'));
+  assert.ok(!r.absentDatesAfterJoin.includes('2026-10-06'));
+  assert.equal(r.sundayStats.extraSundays.length, 0);
+  assert.equal(r.sundayDeductionDays, 0);
+});
+
 // --- Joiners from AFTER the exported month ---------------------------------
 
 test('a worker who joined after the month scores a full zero', () => {

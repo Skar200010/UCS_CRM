@@ -40,6 +40,7 @@ const CELL_STATUS = {
   'half-day': { icon: '\u25D0', label: 'HALF DAY', text: '#9a3412', bg: '#ffedd5' },
   absent:     { icon: '\u2715', label: 'ABSENT',   text: '#991b1b', bg: '#fee2e2' },
   leave:      { icon: '\u270B', label: 'LEAVE',    text: '#1e40af', bg: '#dbeafe' },
+  holiday:    { icon: '\u2605', label: 'HOLIDAY',  text: '#075985', bg: '#e0f2fe' },
   off:        { icon: '\u25CB', label: 'OFF',      text: '#6b7280', bg: '#f3f4f6' },
 };
 
@@ -70,6 +71,18 @@ export async function exportAttendanceSheet(exportFrom, exportTo, preload) {
       allRecords = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
     }
 
+    // Declared holidays are paid days. They must read as "H" here, never as
+    // "A", so the exported attendance sheet does not look like a deduction.
+    let holidays = preload?.holidays;
+    if (!holidays) {
+      try { holidays = await apiGet('/holidays'); } catch { holidays = []; }
+    }
+    const holidaySet = new Set(
+      (Array.isArray(holidays) ? holidays : [])
+        .filter((h) => String(h.type || 'holiday') !== 'event')
+        .map((h) => String(h.date || '').slice(0, 10)),
+    );
+
     const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const days = [];
     const cur = new Date(exportFrom + 'T00:00:00+05:30');
@@ -98,15 +111,15 @@ export async function exportAttendanceSheet(exportFrom, exportTo, preload) {
       .filter(w => String(w.employment_status || '').toLowerCase().trim() !== 'absconded')
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-    const totalCols = 3 + days.length + 6;
+    const totalCols = 3 + days.length + 7;
     const wsData = [
-      ['No. ', 'Week ', rangeLabel, ...days.map(d => WEEKDAYS[new Date(d + 'T12:00:00Z').getUTCDay()]), 'Present', 'Absent', 'Sunday', 'Half Day', 'Total Late Minutes', 'Total Late Hours'],
-      ['Sr.', 'Name of the Staff', 'Day ', ...days.map(d => parseInt(d.slice(8), 10)), '', '', '', '', '', ''],
+      ['No. ', 'Week ', rangeLabel, ...days.map(d => WEEKDAYS[new Date(d + 'T12:00:00Z').getUTCDay()]), 'Present', 'Absent', 'Holiday', 'Sunday', 'Half Day', 'Total Late Minutes', 'Total Late Hours'],
+      ['Sr.', 'Name of the Staff', 'Day ', ...days.map(d => parseInt(d.slice(8), 10)), '', '', '', '', '', '', ''],
     ];
 
     activeWorkers.forEach((w, idx) => {
       const joinDate = (w.created_at || '').slice(0, 10);
-      let present = 0, absent = 0, sunday = 0, halfDay = 0, lateMinutes = 0;
+      let present = 0, absent = 0, holiday = 0, sunday = 0, halfDay = 0, lateMinutes = 0;
       const inCells = [];
       const outCells = [];
       for (const ds of days) {
@@ -115,6 +128,12 @@ export async function exportAttendanceSheet(exportFrom, exportTo, preload) {
         if (joinDate && ds < joinDate) { inCells.push(''); outCells.push(''); continue; }
         if (dow === 0) { sunday++; inCells.push(''); outCells.push(''); continue; }
         const rec = recCache[`${w.id}|${ds}`];
+        // A declared holiday with no punch — or with a stale absent/leave row —
+        // is a paid day: count it separately and never as an absent day. A real
+        // punch on that date still wins below.
+        if (holidaySet.has(ds) && (!rec || rec.status === 'absent' || rec.status === 'leave')) {
+          holiday++; inCells.push('H'); outCells.push(''); continue;
+        }
         if (!rec) { absent++; inCells.push('A'); outCells.push(''); continue; }
         lateMinutes += (rec.late_minutes || 0);
         if (rec.status === 'present' || rec.status === 'late') {
@@ -133,13 +152,13 @@ export async function exportAttendanceSheet(exportFrom, exportTo, preload) {
           inCells.push('A'); outCells.push('');
         }
       }
-      wsData.push([idx + 1, w.name || `Worker ${w.id}`, 'In ', ...inCells, present, absent, sunday, halfDay, lateMinutes, Math.round((lateMinutes / 60) * 100) / 100]);
-      wsData.push(['', '', 'Out', ...outCells, '', '', '', '', '', '']);
+      wsData.push([idx + 1, w.name || `Worker ${w.id}`, 'In ', ...inCells, present, absent, holiday, sunday, halfDay, lateMinutes, Math.round((lateMinutes / 60) * 100) / 100]);
+      wsData.push(['', '', 'Out', ...outCells, '', '', '', '', '', '', '']);
       wsData.push(Array(totalCols).fill(''));
     });
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!cols'] = [{ wch: 4 }, { wch: 26 }, { wch: 7 }, ...days.map(() => ({ wch: 8 })), { wch: 9 }, { wch: 9 }, { wch: 8 }, { wch: 9 }, { wch: 12 }, { wch: 12 }];
+    ws['!cols'] = [{ wch: 4 }, { wch: 26 }, { wch: 7 }, ...days.map(() => ({ wch: 8 })), { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 8 }, { wch: 9 }, { wch: 12 }, { wch: 12 }];
 
     for (let r = 0; r < 2; r++) {
       for (let c = 0; c < totalCols; c++) {
@@ -164,10 +183,11 @@ export async function exportAttendanceSheet(exportFrom, exportTo, preload) {
         const cell = ws[addr];
         if (!cell) continue;
         if (v === 'A') cell.s = { fill: { fgColor: { rgb: 'FFFDE2E1' } }, font: { bold: true, color: { rgb: 'FFB91C1C' } } };
+        else if (v === 'H') cell.s = { fill: { fgColor: { rgb: 'FFE0F2FE' } }, font: { bold: true, color: { rgb: 'FF075985' } } };
         else if (v === 'L') cell.s = { fill: { fgColor: { rgb: 'FFFEF3C7' } }, font: { bold: true, color: { rgb: 'FFB45309' } } };
         else if (v === 'HD') cell.s = { fill: { fgColor: { rgb: 'FFFFEDD5' } }, font: { bold: true, color: { rgb: 'FFC2410C' } } };
       }
-      for (let c = totalCols - 6; c < totalCols; c++) {
+      for (let c = totalCols - 7; c < totalCols; c++) {
         const addr = XLSX.utils.encode_cell({ r: rowNum, c });
         if (ws[addr]) ws[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'FFE8F5E9' } } };
       }
@@ -190,6 +210,7 @@ export default function Attendance() {
   const [workers, setWorkers] = useState([]);
   const [todayRecords, setTodayRecords] = useState([]);
   const [allRecords, setAllRecords] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
@@ -244,13 +265,16 @@ export default function Attendance() {
         apiGet('/workers?status=all'),
         apiGet('/attendance/today-all'),
         apiGet('/attendance/all'),
+        apiGet('/holidays'),
       ]);
       const workersData = results[0].status === 'fulfilled' ? results[0].value : [];
       const attendanceData = results[1].status === 'fulfilled' ? results[1].value : [];
       const allData = results[2].status === 'fulfilled' ? results[2].value : [];
+      const holidayData = results[3].status === 'fulfilled' ? results[3].value : [];
       setWorkers(workersData || []);
       setTodayRecords(attendanceData || []);
       setAllRecords(Array.isArray(allData) ? allData : []);
+      setHolidays(Array.isArray(holidayData) ? holidayData : []);
     } catch (e) {
       console.error(e);
       setLoadError(true);
@@ -305,7 +329,7 @@ export default function Attendance() {
     // can drive the same export through its month-picker modal; here we just
     // hand it the data this page already has loaded.
     const [from, to] = exportRange();
-    exportAttendanceSheet(from, to, { workers, allRecords });
+    exportAttendanceSheet(from, to, { workers, allRecords, holidays });
     setExportOpen(false);
   };
 
@@ -382,6 +406,13 @@ export default function Attendance() {
     return filled.reverse();
   })();
 
+  // Declared holidays for the worker calendar. Paid, never absent.
+  const workerHolidaySet = new Set(
+    holidays
+      .filter((h) => String(h.type || 'holiday') !== 'event' && String(h.date || '').startsWith(workerMonth))
+      .map((h) => String(h.date).slice(0, 10)),
+  );
+
   if (selectedWorker) {
     const [y, m] = workerMonth.split('-').map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
@@ -397,14 +428,19 @@ export default function Attendance() {
       setWorkerMonth(nm);
     };
 
-    const resolveStatus = (rec, dow) => {
-      if (rec && rec.id) return rec.status;
+    const resolveStatus = (rec, dow, dateStr) => {
+      if (rec && rec.id) {
+        // A stale absent/leave row on a declared holiday reads as the holiday.
+        if (dateStr && workerHolidaySet.has(dateStr) && (rec.status === 'absent' || rec.status === 'leave')) return 'holiday';
+        return rec.status;
+      }
       if (dow === 0) return 'off';
+      if (dateStr && workerHolidaySet.has(dateStr)) return 'holiday';
       return 'absent';
     };
 
     const calendarDays = [];
-    const counts = { present: 0, late: 0, 'half-day': 0, absent: 0, leave: 0, off: 0 };
+    const counts = { present: 0, late: 0, 'half-day': 0, absent: 0, leave: 0, holiday: 0, off: 0 };
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${workerMonth}-${String(d).padStart(2, '0')}`;
       const dow = new Date(y, m - 1, d).getDay();
@@ -416,7 +452,7 @@ export default function Attendance() {
         isToday: dateStr === todayStr,
         isFuture: dateStr > todayStr,
         rec,
-        status: resolveStatus(rec, dow),
+        status: resolveStatus(rec, dow, dateStr),
       };
       if (!day.isFuture) counts[day.status] = (counts[day.status] || 0) + 1;
       calendarDays.push(day);
@@ -499,6 +535,7 @@ export default function Attendance() {
                     else if (s === 'absent') bg = '#ffe0e0';
                     else if (s === 'leave') bg = '#f3e8ff';
                     else if (s === 'half-day') bg = '#e8d5f5';
+                    else if (s === 'holiday') bg = '#e0f2fe';
                     else if (s === 'off' || d.dow === 0) bg = '#f0f0f0';
                   }
                   const inT = d.rec?.punch_in_time ? formatAttendanceTime(d.rec.punch_in_time) : '';
@@ -509,6 +546,7 @@ export default function Attendance() {
                   const fallback = d.isFuture ? ''
                     : s === 'absent' ? 'Absent'
                     : s === 'leave' ? 'Leave'
+                    : s === 'holiday' ? 'Holiday'
                     : (s === 'off' || d.dow === 0) ? '—'
                     : '';
                   const selected = selectedDay && selectedDay.dateStr === d.dateStr;
@@ -556,6 +594,7 @@ export default function Attendance() {
                       <div className="acc-mob-sub">
                         {d.rec && d.rec.id
                           ? `IN ${d.rec.punch_in_time ? formatAttendanceTime(d.rec.punch_in_time) : '—'}${d.rec.punch_out_time ? ` · OUT ${formatAttendanceTime(d.rec.punch_out_time)}` : ''}`
+                          : d.status === 'holiday' ? 'Declared paid holiday'
                           : d.status === 'absent' || d.status === 'off' ? 'No attendance' : 'Marked leave'}
                       </div>
                     </div>
@@ -616,7 +655,11 @@ export default function Attendance() {
                 </div>
               ) : (
                 <p className="acc-modal-empty">
-                  {selectedDay.status === 'off' ? 'Weekly off — no work scheduled for this day.' : 'No punch-in record found for this day.'}
+                  {selectedDay.status === 'off'
+                    ? 'Weekly off — no work scheduled for this day.'
+                    : selectedDay.status === 'holiday'
+                      ? 'Declared holiday — paid day, no deduction.'
+                      : 'No punch-in record found for this day.'}
                 </p>
               )}
             </div>
