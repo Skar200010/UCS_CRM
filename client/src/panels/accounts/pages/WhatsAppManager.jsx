@@ -5,6 +5,7 @@ import WhatsAppBulk from './WhatsAppBulk';
 import WhatsAppChatWindow from '../components/WhatsAppChatWindow';
 import WhatsAppAccountsManager from '../components/WhatsAppAccountsManager';
 import StatusBadge from '../components/StatusBadge';
+import MetaAdsTab from './MetaAdsTab';
 
 const TABS = ['Chats', 'Accounts', 'Bulk send', 'Campaigns', 'Delivery log', 'Meta Ads'];
 
@@ -91,7 +92,7 @@ export default function WhatsAppManager() {
         ))}
       </div>
 
-{tab !== 'Chats' && (
+{tab !== 'Chats' && tab !== 'Meta Ads' && (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 14 }}>
         <div style={{ background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 1px 3px rgba(20,30,60,.10)' }}>
           <div style={{ fontSize: 12, color: '#5B6070' }}>Accounts</div>
@@ -167,20 +168,7 @@ export default function WhatsAppManager() {
         </div>
       )}
 
-      {tab === 'Meta Ads' && (
-        <div style={{ background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 1px 3px rgba(20,30,60,.10)' }}>
-          <div style={{ fontSize: 13, color: '#5B6070', marginBottom: 12 }}>Connect a Meta Ad Account to view campaigns and insights.</div>
-          <button className="wa-btn wa-btn-primary" onClick={async () => {
-            try {
-              const data = await apiGet('/meta-ads/status');
-              alert(data.message || 'Meta Ads not connected');
-            } catch (e) {
-              alert(e.message);
-            }
-          }}>Connect Meta Account</button>
-          <div style={{ marginTop: 12, fontSize: 12, color: '#5B6070' }}>Status: Disconnected (credentials not configured)</div>
-        </div>
-      )}
+      {tab === 'Meta Ads' && <MetaAdsTab />}
 
       {tab === 'Delivery log' && (
         <div style={{ background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 1px 3px rgba(20,30,60,.10)' }}>

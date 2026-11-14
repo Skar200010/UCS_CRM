@@ -134,7 +134,7 @@ const replyText = (notes) => String(notes || '')
   .split('\n')
   // Keep [Button: ...] / [Reply: ...]: that IS the reply for a template button.
   // Only CRM bookkeeping tags are stripped.
-  .filter((l) => !/^\[(Template|Account|Lead):/i.test(l.trim()))
+  .filter((l) => !/^\[(Template|Account|Lead|Meta Lead|Platform|Campaign|Form):/i.test(l.trim()))
   .join('\n')
   .trim();
 

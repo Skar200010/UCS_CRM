@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {
+  cancelBulkEmailCampaign,
+  createBulkEmailCampaign,
   createBulkEmailTemplate,
   deleteBulkEmailTemplate,
   getBulkEmailLog,
@@ -10,8 +12,7 @@ import {
   listBulkEmailLogs,
   listBulkEmailRecipients,
   listBulkEmailTemplates,
-  saveBulkEmailLog,
-  sendBulkEmail,
+  runBulkEmailCampaign,
   updateBulkEmailTemplate,
 } from '../services/bulkEmailService.js';
 import {
@@ -73,25 +74,54 @@ export async function send(req, res) {
     const attachment = req.file
       ? { filename: req.file.originalname, content: req.file.buffer, contentType: req.file.mimetype }
       : null;
-    const result = await sendBulkEmail({
+    const createdBy = req.user?.name || req.user?.email || req.user?.login_id || null;
+    const campaign = await createBulkEmailCampaign({
       subject,
       text,
       html,
       recipients,
+      source,
       attachment,
-      unsubscribeBaseUrl: publicBaseUrl(req),
+      createdBy,
     });
 
-    try {
-      const createdBy = req.user?.name || req.user?.email || req.user?.login_id || null;
-      const log = await saveBulkEmailLog({ subject, text, source, result, createdBy });
-      result.log_id = log?.id || null;
-    } catch (logError) {
-      console.error('Could not save bulk email log:', logError?.message || logError);
-      result.log_error = 'Campaign sent, but history could not be saved.';
-    }
+    // Send in the background and reply immediately. A 300-400 recipient
+    // campaign runs for several minutes; blocking the HTTP request caused the
+    // client timeout to fire while emails were still going out.
+    runBulkEmailCampaign(campaign.id, { unsubscribeBaseUrl: publicBaseUrl(req) })
+      .catch((error) => console.error(`Bulk email campaign ${campaign.id} failed:`, error?.message || error));
 
-    return res.json(result);
+    return res.status(202).json({
+      log_id: campaign.id,
+      total: campaign.total,
+      skipped: campaign.skipped,
+      status: campaign.status,
+    });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+}
+
+export async function resumeCampaign(req, res) {
+  try {
+    const log = await getBulkEmailLog(req.params.id);
+    if (!log) return res.status(404).json({ message: 'Log not found' });
+    if (log.status === 'processing') {
+      return res.status(409).json({ message: 'This campaign is already sending.' });
+    }
+    runBulkEmailCampaign(log.id, { unsubscribeBaseUrl: publicBaseUrl(req) })
+      .catch((error) => console.error(`Bulk email campaign ${log.id} resume failed:`, error?.message || error));
+    return res.status(202).json({ log_id: log.id, status: 'processing' });
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+}
+
+export async function cancelCampaign(req, res) {
+  try {
+    const cancelled = await cancelBulkEmailCampaign(req.params.id);
+    if (!cancelled) return res.status(404).json({ message: 'No active campaign to cancel' });
+    return res.json({ message: 'Campaign cancelled' });
   } catch (error) {
     return res.status(400).json({ message: error.message });
   }

@@ -5,6 +5,19 @@ import { logOutboundMessage } from '../services/whatsappOutboundLog.js';
 import { verifyReceiptFile } from '../services/receiptFileLink.js';
 import { resolveTemplateHeaderAsset } from '../services/templateHeaderMedia.js';
 import { presignStoredUrl } from '../services/mediaProxy.js';
+import {
+  resolveTemplateComponentsForSend,
+  templateComponentOf,
+} from '../services/whatsappTemplateComponents.js';
+import {
+  cancelWhatsAppCampaign,
+  createWhatsAppCampaign,
+  getWhatsAppCampaignProgress,
+  getWhatsAppCampaignRow,
+  resumeWhatsAppCampaign,
+  runWhatsAppCampaign,
+  sendBulkTemplateToRecipient,
+} from '../services/whatsappBulkCampaignService.js';
 import db from '../config/db.js';
 
 const TEMPLATE_PROJECT_MAP = {
@@ -998,7 +1011,30 @@ export async function listBulkRecipientStatuses(req, res) {
 
 export async function createCampaign(req, res) {
   try {
-    const { name, accountId, templateName } = req.body || {};
+    const body = req.body || {};
+    const { name, accountId, templateName } = body;
+
+    // A body with recipients starts a real background campaign: the queue is
+    // stored first and the browser no longer owns the send loop. Refreshing
+    // or leaving the page therefore cannot stop the campaign.
+    if (Array.isArray(body.recipients) && body.recipients.length) {
+      const campaign = await createWhatsAppCampaign({
+        name,
+        accountId,
+        templateName,
+        templateLang: body.templateLang,
+        headerImageUrl: body.headerImageUrl,
+        headerFormat: body.headerFormat,
+        parameterNames: body.parameterNames,
+        recipients: body.recipients,
+        createdBy: req.user?.name || req.user?.email || req.user?.login_id || null,
+      });
+      runWhatsAppCampaign(campaign.id).catch((error) => {
+        console.error(`WhatsApp campaign ${campaign.id} failed:`, error?.message || error);
+      });
+      return res.status(202).json(campaign);
+    }
+
     const { data, error } = await db.from('campaigns').insert({
       name: name || `Bulk Campaign ${new Date().toISOString().slice(0, 10)}`,
       channel: 'whatsapp',
@@ -1010,17 +1046,23 @@ export async function createCampaign(req, res) {
     if (error) throw error;
     return res.status(201).json(data);
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return res.status(error.statusCode || 500).json({ message: error.message });
   }
 }
 
 export async function listCampaigns(req, res) {
   try {
-    const { data, error } = await db
+    let query = db
       .from('campaigns')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(50);
+    if (String(req.query.active || '') === '1') {
+      query = query
+        .eq('channel', 'whatsapp')
+        .in('status', ['queued', 'processing', 'interrupted']);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     const campaigns = data || [];
     // attach recipient counts
@@ -1062,186 +1104,60 @@ export async function getCampaign(req, res) {
   }
 }
 
-function templateComponentOf(components, type) {
-  return (components || []).find((c) => String(c?.type || '').toUpperCase() === type) || null;
-}
-
-// Bulk send calls sendBulkTemplate once per recipient, so without a cache a
-// template that is not in whatsapp_templates would hit Meta once per phone.
-const templateComponentsCache = new Map();
-const TEMPLATE_COMPONENTS_TTL_MS = 5 * 60 * 1000;
-
-/** Names for a named-parameter template, in placeholder order. */
-function templateParameterNames(components) {
-  const text = templateComponentOf(components, 'BODY')?.text || '';
-  const names = [...new Set(
-    [...text.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
-      .map((match) => match[1])
-      .filter((key) => !/^\d+$/.test(key)),
-  )];
-  return names.length ? names : null;
-}
-
-/** Fill a template's BODY text with the parameters actually sent. */
-function renderTemplateBody(components, parameters) {
-  const text = templateComponentOf(components, 'BODY')?.text || '';
-  if (!text) return null;
-  const params = Array.isArray(parameters) ? parameters : [];
-  const named = [...new Set(
-    [...text.matchAll(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g)]
-      .map((match) => match[1])
-      .filter((key) => !/^\d+$/.test(key)),
-  )];
-  return text.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (token, key) => {
-    const index = /^\d+$/.test(key) ? Number(key) - 1 : named.indexOf(key);
-    const value = params[index];
-    if (value === undefined || value === null || String(value).trim() === '') return token;
-    return String(value);
-  });
-}
-
-/**
- * Resolve a template's components for the send payload.
- *
- * Cache first, then Meta, then the local mirror. Meta has to win over the
- * mirror: `whatsapp_templates.components` stores only each component's
- * type/format/text, so it loses `example.header_handle`. Sending from that
- * stale copy made media-header templates go out with no header component at
- * all (Meta: 132012 "Format mismatch, expected IMAGE, received UNKNOWN").
- */
-async function resolveTemplateComponentsForSend(account, templateName, templateLang, { forceMeta = false } = {}) {
-  const lang = String(templateLang || '').trim();
-  const cacheKey = `${account?.waba_id || account?.id || 'default'}:${templateName}:${lang}`;
-  if (!forceMeta) {
-    const cached = templateComponentsCache.get(cacheKey);
-    if (cached && (Date.now() - cached.at) < TEMPLATE_COMPONENTS_TTL_MS) return cached.components;
-  }
-
-  if (account?.waba_id && account?.access_token) {
-    try {
-      const url = `https://graph.facebook.com/${whatsappConfig.apiVersion}/${account.waba_id}/message_templates`
-        + `?name=${encodeURIComponent(templateName)}&fields=name,language,components`;
-      const response = await fetch(url, { headers: { Authorization: `Bearer ${account.access_token}` } });
-      const json = await response.json();
-      if (response.ok) {
-        const rows = Array.isArray(json?.data) ? json.data : [];
-        const exact = rows.find((r) => !lang || r.language === lang) || rows[0];
-        const components = Array.isArray(exact?.components) ? exact.components : [];
-        if (components.length) {
-          templateComponentsCache.set(cacheKey, { at: Date.now(), components });
-          return components;
-        }
-      }
-    } catch { /* fall through to the local mirror */ }
-  }
-
+export async function getCampaignProgress(req, res) {
   try {
-    let query = db
-      .from('whatsapp_templates')
-      .select('name,language,components,project,updated_at')
-      .eq('name', templateName);
-    if (account?.project) query = query.eq('project', account.project);
-    const { data } = await query.order('updated_at', { ascending: false }).limit(10);
-    const rows = Array.isArray(data) ? data : [];
-    const exact = rows.find((r) => !lang || String(r.language || '') === lang) || rows[0];
-    if (Array.isArray(exact?.components) && exact.components.length) {
-      templateComponentsCache.set(cacheKey, { at: Date.now(), components: exact.components });
-      return exact.components;
-    }
-  } catch { /* no mirror either */ }
+    const data = await getWhatsAppCampaignProgress(req.params.id);
+    if (!data) return res.status(404).json({ message: 'Campaign not found' });
+    return res.json(data);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+}
 
-  return [];
+export async function cancelCampaign(req, res) {
+  try {
+    const cancelled = await cancelWhatsAppCampaign(req.params.id);
+    if (cancelled) return res.json({ message: 'Campaign cancelled', status: 'cancelled' });
+    const row = await getWhatsAppCampaignRow(req.params.id);
+    if (!row) return res.status(404).json({ message: 'Campaign not found' });
+    return res.status(409).json({ message: 'Campaign is not active', status: row.status });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
+export async function resumeCampaign(req, res) {
+  try {
+    const result = await resumeWhatsAppCampaign(req.params.id);
+    if (result.notFound) return res.status(404).json({ message: 'Campaign not found' });
+    if (result.alreadyProcessing) return res.status(409).json({ message: 'This campaign is already sending.' });
+    if (result.noQueue) return res.status(400).json({ message: 'Campaign has no queued recipients' });
+    return res.status(202).json({ id: req.params.id, status: 'processing' });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
 }
 
 export async function sendBulkTemplate(req, res) {
   try {
-    const { accountId, to, templateName, templateLang, parameters, parameterNames, headerImageUrl, headerFormat, recipientName, campaignId } = req.body;
-    const phone = normalizePhone(to || '');
-    if (!phone) return res.status(400).json({ success: false, message: 'Phone number is required' });
-
-    const account = accountId ? await getAccountById(accountId) : await resolveAccount();
-    if (!account) return res.status(400).json({ success: false, message: 'No WhatsApp account configured' });
-
-    const tpl = templateName || account.template_name;
-    if (!tpl) return res.status(400).json({ success: false, message: 'Template name is required' });
-
-    const params = Array.isArray(parameters) ? parameters : [];
-    const resolvedLang = templateLang || account.template_language || 'en';
-
-    // Resolve the template and its header before sending. Chats needs a durable
-    // copy of the header image (Meta's sample URL expires), and the send itself
-    // needs a fresh publicly-fetchable URL.
-    const components = await resolveTemplateComponentsForSend(account, tpl, resolvedLang);
-    const headerComponent = templateComponentOf(components, 'HEADER');
-    const buttonsComponent = templateComponentOf(components, 'BUTTONS');
-    const resolvedHeaderFormat = headerComponent?.format
-      ? String(headerComponent.format).toUpperCase()
-      : (headerFormat ? String(headerFormat).toUpperCase() : null);
-    const isMediaHeader = ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(resolvedHeaderFormat);
-    const headerAsset = isMediaHeader
-      ? await resolveTemplateHeaderAsset({
-        project: account.project || null,
-        templateName: tpl,
-        headerComponent,
-        headerUrl: headerImageUrl,
-      })
-      : null;
-    // If the durable copy could not be made (for example an expired sample or a
-    // storage hiccup) still hand Meta the template's own https sample. Media
-    // headers are mandatory: omitting them makes Meta reject the send with
-    // 132012 "Format mismatch, expected IMAGE/DOCUMENT, received UNKNOWN".
-    const headerSample = headerComponent?.example?.header_handle?.[0]
-      || headerComponent?.example?.header_handle
-      || null;
-    const headerSampleUrl = typeof headerSample === 'string' && /^https?:\/\//i.test(headerSample)
-      ? headerSample
-      : null;
-    const sendHeaderUrl = headerAsset?.signedUrl || headerImageUrl || headerSampleUrl || null;
-    const resolvedParameterNames = Array.isArray(parameterNames) && parameterNames.length
-      ? parameterNames
-      : templateParameterNames(components);
-
-    const result = await sendTemplateMessage(phone, tpl, params, resolvedLang, account, sendHeaderUrl, resolvedHeaderFormat || headerFormat, resolvedParameterNames);
-    const messageId = result?.messages?.[0]?.id || result?.id || null;
-
-    if (!messageId) {
-      console.error('WhatsApp API returned no message ID:', result);
-      return res.status(502).json({
-        success: false,
-        message: 'No WhatsApp message ID returned',
-        result,
-      });
-    }
-
-    // Snapshot the content that went out. The Chats thread reads this instead
-    // of depending on whatsapp_templates still containing the template, which
-    // is why old bulk bubbles used to render with no text or image.
-    const resolvedHeaderUrl = headerAsset?.storedUrl || headerSampleUrl || null;
-    const templateButtons = Array.isArray(buttonsComponent?.buttons) ? buttonsComponent.buttons : null;
-
-    const { error: insertErr } = await db.from('whatsapp_bulk_recipients').insert({
-      account_id: account.id,
-      campaign_id: campaignId || null,
-      template_name: tpl,
-      recipient_name: req.body.recipientName || null,
-      phone,
-      wa_message_id: messageId,
-      status: 'accepted',
-      body_text: renderTemplateBody(components, params),
-      header_format: resolvedHeaderFormat,
-      header_url: resolvedHeaderUrl,
-      template_buttons: templateButtons,
+    const { accountId, to, templateName, templateLang, parameters, parameterNames, headerImageUrl, headerFormat, recipientName, campaignId } = req.body || {};
+    const result = await sendBulkTemplateToRecipient({
+      accountId,
+      to,
+      templateName,
+      templateLang,
+      parameters,
+      parameterNames,
+      headerImageUrl,
+      headerFormat,
+      recipientName,
+      campaignId,
     });
-
-    if (insertErr) {
-      console.error('Bulk recipient log insert failed:', insertErr.message);
-    }
-
     return res.json({
       success: true,
       status: 'accepted',
-      messageId,
-      result,
+      messageId: result.messageId,
+      result: result.result,
     });
   } catch (error) {
     console.error('[whatsapp] send-bulk-template failed:', {
@@ -1249,7 +1165,7 @@ export async function sendBulkTemplate(req, res) {
       accountId: req.body?.accountId,
       error: error?.message || error,
     });
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
 }
 export async function listChats(req, res) {

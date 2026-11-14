@@ -14,6 +14,9 @@ import {
   listCampaigns,
   getCampaign,
   createCampaign,
+  getCampaignProgress,
+  cancelCampaign,
+  resumeCampaign,
   validateWhatsAppContacts,
   getConversationByPhone,
   listChats,
@@ -56,6 +59,9 @@ router.get('/bulk/donors-by-station', whatsappUser, getDonorsByStation);
 router.post('/campaigns', whatsappUser, createCampaign);
 router.get('/campaigns', whatsappUser, listCampaigns);
 router.get('/campaigns/:id', whatsappUser, getCampaign);
+router.get('/campaigns/:id/progress', whatsappUser, getCampaignProgress);
+router.post('/campaigns/:id/cancel', whatsappUser, cancelCampaign);
+router.post('/campaigns/:id/resume', whatsappUser, resumeCampaign);
 
 // Chats tab: conversation list, thread fetch and free-text / media replies.
 router.get('/chats', whatsappUser, listChats);

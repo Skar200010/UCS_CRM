@@ -23,6 +23,10 @@ function dedupeByPhone(rows) {
   });
 }
 
+const CAMPAIGN_STORAGE_KEY = 'wa_bulk_campaign_id';
+const ACTIVE_CAMPAIGN_STATUSES = new Set(['queued', 'processing']);
+const TERMINAL_CAMPAIGN_STATUSES = new Set(['completed', 'partial', 'failed', 'cancelled']);
+
 export default function WhatsAppBulk() {
   const [mode, setMode] = useState('sheet');
   const [accounts, setAccounts] = useState([]);
@@ -45,7 +49,9 @@ export default function WhatsAppBulk() {
   const [loadingStations, setLoadingStations] = useState(false);
   const [fetchingRecipients, setFetchingRecipients] = useState(false);
   const [confirmBulk, setConfirmBulk] = useState({ visible: false, donorCount: 0 });
-  const [bulkState, setBulkState] = useState({ active: false, total: 0, sent: 0, failed: 0, currentBatch: 0, totalBatches: 0, results: [], previousBatches: [] });
+  const [bulkState, setBulkState] = useState({ active: false, status: 'queued', total: 0, sent: 0, failed: 0, unknown: 0, currentBatch: 0, totalBatches: 0, results: [], previousBatches: [] });
+  const [activeCampaignId, setActiveCampaignId] = useState(null);
+  const [progressHidden, setProgressHidden] = useState(false);
   const [deliveryStatuses, setDeliveryStatuses] = useState([]);
   const [statusSummary, setStatusSummary] = useState({});
   const [statusFilter, setStatusFilter] = useState('all');
@@ -53,7 +59,8 @@ export default function WhatsAppBulk() {
   const [healthData, setHealthData] = useState(null);
   const [detailRow, setDetailRow] = useState(null);
   const [showFailureBanner, setShowFailureBanner] = useState(true);
-  const cancelBulkRef = useRef(null);
+  const pollTimer = useRef(null);
+  const campaignIdRef = useRef(null);
   const fileRef = useRef(null);
 
   const loadDeliveryStatuses = async (accountId = selectedAccountId) => {
@@ -72,6 +79,152 @@ export default function WhatsAppBulk() {
       setDeliveryStatuses(Array.isArray(list) ? list : []);
     } catch {}
   };
+
+  const stopPolling = () => {
+    if (pollTimer.current) {
+      clearTimeout(pollTimer.current);
+      pollTimer.current = null;
+    }
+  };
+
+  const applyCampaignProgress = (data) => {
+    const progress = data?.progress || {};
+    const campaign = data?.campaign || {};
+    setBulkState({
+      active: ACTIVE_CAMPAIGN_STATUSES.has(campaign.status),
+      status: campaign.status || 'queued',
+      total: progress.total || campaign.total_count || 0,
+      sent: progress.sent || 0,
+      failed: progress.failed || 0,
+      unknown: progress.unknown || 0,
+      currentBatch: progress.currentBatch || 0,
+      totalBatches: progress.totalBatches || 0,
+      results: Array.isArray(progress.results) ? progress.results : [],
+      previousBatches: Array.isArray(progress.previousBatches) ? progress.previousBatches : [],
+    });
+  };
+
+  const finalizeCampaign = (data) => {
+    const campaign = data?.campaign || {};
+    const retryable = Array.isArray(data?.retryableRecipients)
+      ? data.retryableRecipients.filter(r => campaign.status !== 'cancelled' || r.status !== 'pending')
+      : [];
+    if (retryable.length) {
+      setRecipients(prev => {
+        const byPhone = new Map(retryable.map(r => [String(r.phone), r]));
+        const kept = prev
+          .filter(r => byPhone.has(String(r.phone)))
+          .map(r => ({ ...r, failed: true, error: byPhone.get(String(r.phone))?.error || '' }));
+        const seen = new Set(kept.map(r => String(r.phone)));
+        retryable.forEach(r => {
+          if (seen.has(String(r.phone))) return;
+          kept.push({
+            name: r.name || r.phone,
+            phone: r.phone,
+            station: '',
+            ngo: '',
+            source: 'campaign',
+            valid: true,
+            failed: true,
+            error: r.error || '',
+          });
+        });
+        return kept;
+      });
+      setSelectedRecipients([]);
+    } else {
+      setRecipients([]);
+      setSelectedRecipients([]);
+    }
+
+    setActiveCampaignId(null);
+    campaignIdRef.current = null;
+    localStorage.removeItem(CAMPAIGN_STORAGE_KEY);
+    stopPolling();
+    if (campaign.account_id) loadDeliveryStatuses(campaign.account_id);
+
+    const sent = campaign.sent_count || 0;
+    const failed = campaign.failed_count || 0;
+    const unknown = campaign.unknown_count || 0;
+    if (campaign.status === 'cancelled') {
+      toast('info', `Campaign cancelled. ${sent} sent, ${failed} failed`);
+    } else {
+      toast(failed || unknown ? 'warning' : 'success', `Bulk send ${campaign.status}. ${sent} sent, ${failed} failed${unknown ? `, ${unknown} need review` : ''}`);
+    }
+  };
+
+  const pollCampaign = (id) => {
+    stopPolling();
+    campaignIdRef.current = id;
+    setActiveCampaignId(id);
+    let pollFailed = false;
+    const tick = async () => {
+      let data;
+      try {
+        data = await apiGet(`/whatsapp/campaigns/${id}/progress`);
+        pollFailed = false;
+      } catch (e) {
+        if (!pollFailed) toast('error', e?.message || 'Could not load campaign progress');
+        pollFailed = true;
+        // A transient blip must not strand the modal; retry until the server
+        // answers again (or the user hides the progress).
+        pollTimer.current = setTimeout(tick, 5000);
+        return;
+      }
+      applyCampaignProgress(data);
+      const status = data?.campaign?.status;
+      if (TERMINAL_CAMPAIGN_STATUSES.has(status)) {
+        finalizeCampaign(data);
+        return;
+      }
+      if (status === 'interrupted') {
+        setActiveCampaignId(id);
+        setProgressHidden(false);
+        return;
+      }
+      pollTimer.current = setTimeout(tick, 3000);
+    };
+    tick();
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const attach = async () => {
+      try {
+        let id = localStorage.getItem(CAMPAIGN_STORAGE_KEY);
+        let data = id ? await apiGet(`/whatsapp/campaigns/${id}/progress`).catch(() => null) : null;
+        let status = data?.campaign?.status;
+
+        if (!data || (!ACTIVE_CAMPAIGN_STATUSES.has(status) && status !== 'interrupted')) {
+          if (id) localStorage.removeItem(CAMPAIGN_STORAGE_KEY);
+          const active = await apiGet('/whatsapp/campaigns?active=1').catch(() => []);
+          const row = Array.isArray(active) ? active[0] : null;
+          id = row?.id || null;
+          data = id ? await apiGet(`/whatsapp/campaigns/${id}/progress`).catch(() => null) : null;
+          status = data?.campaign?.status;
+        }
+
+        if (cancelled || !id || !data) return;
+        if (!ACTIVE_CAMPAIGN_STATUSES.has(status) && status !== 'interrupted') return;
+
+        localStorage.setItem(CAMPAIGN_STORAGE_KEY, id);
+        applyCampaignProgress(data);
+        if (ACTIVE_CAMPAIGN_STATUSES.has(status)) {
+          pollCampaign(id);
+        } else {
+          campaignIdRef.current = id;
+          setActiveCampaignId(id);
+          setProgressHidden(false);
+        }
+      } catch { /* no active campaign to re-attach */ }
+    };
+    attach();
+    return () => {
+      cancelled = true;
+      stopPolling();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     apiGet('/whatsapp/accounts').then(data => {
@@ -225,85 +378,73 @@ export default function WhatsAppBulk() {
   const handleConfirmBulkSend = async () => {
     setConfirmBulk({ visible: false, donorCount: 0 });
 
-    let campaignId = null;
-    try {
-      const camp = await apiPost('/whatsapp/campaigns', {
-        name: `Bulk - ${accounts.find(a => String(a.id) === String(selectedAccountId))?.name || 'WhatsApp'} - ${new Date().toISOString().slice(0, 10)}`,
-        accountId: selectedAccountId,
-        templateName: selectedTemplate,
-      });
-      campaignId = camp?.id || null;
-    } catch (e) {
-      console.error('Campaign create failed:', e.message);
-    }
-
-    const batches = [];
-    for (let i = 0; i < validRecipients.length; i += 5) batches.push(validRecipients.slice(i, i + 5));
-    cancelBulkRef.current = false;
-    setBulkState({ active: true, total: validRecipients.length, sent: 0, failed: 0, currentBatch: 0, totalBatches: batches.length, results: [], previousBatches: [] });
-
     const paramsArr = variables.split(',').map(v => v.trim()).filter(Boolean);
     const selectedTpl = templates.find(t => t.name === selectedTemplate);
     const headerComp = (selectedTpl?.components || []).find(c => String(c.type || '').toUpperCase() === 'HEADER');
     const headerImageUrl = (headerComp?.format === 'IMAGE' || headerComp?.format === 'DOCUMENT') ? (headerComp.example?.header_handle?.[0] || '') : '';
     const headerFormat = headerComp?.format || 'IMAGE';
+    const queuedRecipients = validRecipients.map(r => ({
+      phone: r.phone,
+      name: r.name,
+      parameters: paramsArr.map(v => v === '{{name}}' ? r.name : v),
+    }));
 
-    let totalSent = 0, totalFailed = 0;
-    const failedRows = [];
-
-    for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
-      if (cancelBulkRef.current) break;
-      const batch = batches[batchIdx];
-      setBulkState(prev => ({ ...prev, currentBatch: batchIdx + 1, results: batch.map(r => ({ name: r.name, status: 'sending' })) }));
-
-      const batchResults = await Promise.allSettled(batch.map(async (r) => {
-        const res = await apiPost('/whatsapp/send-bulk-template', {
-          accountId: selectedAccountId,
-          to: r.phone,
-          templateName: selectedTemplate,
-          templateLang,
-          headerImageUrl,
-          headerFormat,
-          campaignId,
-          recipientName: r.name,
-          parameters: paramsArr.map(v => v === '{{name}}' ? r.name : v),
-        });
-        if (!res?.success) throw new Error(res?.message || 'Send failed');
-        return res;
-      }));
-
-      const batchSent = batchResults.filter(r => r.status === 'fulfilled').length;
-      const batchFailed = batchResults.filter(r => r.status === 'rejected').length;
-      totalSent += batchSent; totalFailed += batchFailed;
-
-      batchResults.forEach((r, i) => {
-        if (r.status === 'rejected') {
-          failedRows.push({ ...batch[i], error: r.reason?.message || 'Failed' });
-        }
+    try {
+      // The server owns the send loop from here. This request returns as soon
+      // as the queue is stored, so refreshing or leaving the page cannot stop
+      // the campaign.
+      const campaign = await apiPost('/whatsapp/campaigns', {
+        name: `Bulk - ${accounts.find(a => String(a.id) === String(selectedAccountId))?.name || 'WhatsApp'} - ${new Date().toISOString().slice(0, 10)}`,
+        accountId: selectedAccountId,
+        templateName: selectedTemplate,
+        templateLang,
+        headerImageUrl,
+        headerFormat,
+        recipients: queuedRecipients,
       });
+      if (!campaign?.id) throw new Error(campaign?.message || 'Could not start the campaign');
 
-      setBulkState(prev => ({
-        ...prev,
-        sent: totalSent,
-        failed: totalFailed,
-        results: batchResults.map((r, i) => ({ name: batch[i].name, status: r.status === 'fulfilled' ? 'sent' : 'failed', error: r.status === 'rejected' ? r.reason?.message : null })),
-        previousBatches: [...prev.previousBatches, { batch: batchIdx + 1, sent: batchSent, failed: batchFailed }],
-      }));
-      if (batchIdx < batches.length - 1) await new Promise(r => setTimeout(r, 5000));
-    }
-
-    setBulkState(prev => ({ ...prev, active: false }));
-    if (failedRows.length) {
-      setRecipients(prev => {
-        const failedPhones = new Set(failedRows.map(f => f.phone));
-        return prev.filter(r => failedPhones.has(r.phone)).map(r => ({ ...r, failed: true }));
+      localStorage.setItem(CAMPAIGN_STORAGE_KEY, campaign.id);
+      setProgressHidden(false);
+      setBulkState({
+        active: true,
+        status: 'queued',
+        total: queuedRecipients.length,
+        sent: 0,
+        failed: 0,
+        unknown: 0,
+        currentBatch: 0,
+        totalBatches: Math.ceil(queuedRecipients.length / 5),
+        results: [],
+        previousBatches: [],
       });
-    } else {
-      setRecipients([]);
-      setSelectedRecipients([]);
+      pollCampaign(campaign.id);
+    } catch (e) {
+      toast('error', e?.message || 'Could not start the campaign');
     }
-    loadDeliveryStatuses(selectedAccountId);
-    toast(cancelBulkRef.current ? 'info' : 'success', cancelBulkRef.current ? `Cancelled. ${totalSent} sent, ${totalFailed} failed` : `Bulk send complete! ${totalSent} sent, ${totalFailed} failed`);
+  };
+
+  const handleCancelCampaign = async () => {
+    const id = campaignIdRef.current || activeCampaignId;
+    if (!id) return;
+    try {
+      await apiPost(`/whatsapp/campaigns/${id}/cancel`, {});
+      toast('info', 'Cancelling after the current batch...');
+    } catch (e) {
+      toast('error', e?.message || 'Could not cancel the campaign');
+    }
+  };
+
+  const handleResumeCampaign = async () => {
+    const id = campaignIdRef.current || activeCampaignId;
+    if (!id) return;
+    try {
+      await apiPost(`/whatsapp/campaigns/${id}/resume`, {});
+      setProgressHidden(false);
+      pollCampaign(id);
+    } catch (e) {
+      toast('error', e?.message || 'Could not resume the campaign');
+    }
   };
 
   const exportFailed = () => {
@@ -331,6 +472,17 @@ export default function WhatsAppBulk() {
             <button className="wa-btn wa-btn-outline" onClick={() => setStatusFilter('failed')}>Review failures</button>
             <button className="wa-btn wa-btn-outline" onClick={() => setShowFailureBanner(false)}>Dismiss</button>
           </div>
+        </div>
+      )}
+
+      {activeCampaignId && progressHidden && (
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: 12, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <span style={{ color: '#1e3a8a', fontWeight: 600 }}>
+            {bulkState.status === 'interrupted'
+              ? 'Campaign paused — resume to continue sending'
+              : `Sending in the background… ${bulkState.sent + bulkState.failed + bulkState.unknown}/${bulkState.total}`}
+          </span>
+          <button className="wa-btn wa-btn-outline" onClick={() => setProgressHidden(false)}>View progress</button>
         </div>
       )}
 
@@ -516,13 +668,13 @@ export default function WhatsAppBulk() {
               }
             }} disabled={!recipients.length || !selectedAccountId}>Validate WhatsApp</button>
             <button className="wa-btn wa-btn-outline" onClick={exportFailed} disabled={!recipients.length}>Export Failed/Invalid</button>
-            <button className="wa-btn wa-btn-primary" onClick={handleSendAll} disabled={!validRecipients.length || bulkState.active}>
+            <button className="wa-btn wa-btn-primary" onClick={handleSendAll} disabled={!validRecipients.length || bulkState.active || Boolean(activeCampaignId)}>
               {bulkState.active ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin .7s linear infinite', display: 'inline-block' }} />
                   Sending...
                 </span>
-              ) : 'Send Bulk'}
+              ) : activeCampaignId ? 'Campaign in progress' : 'Send Bulk'}
             </button>
           </div>
         </div>
@@ -642,17 +794,21 @@ export default function WhatsAppBulk() {
         />
       )}
 
-      {bulkState.active && (
+      {activeCampaignId && !progressHidden && (
         <BulkProgressModal
-          visible={bulkState.active}
+          visible
+          status={bulkState.status}
           total={bulkState.total}
           sent={bulkState.sent}
           failed={bulkState.failed}
+          unknown={bulkState.unknown}
           currentBatch={bulkState.currentBatch}
           totalBatches={bulkState.totalBatches}
           results={bulkState.results}
           previousBatches={bulkState.previousBatches}
-          onCancel={() => { cancelBulkRef.current = true; }}
+          onCancel={handleCancelCampaign}
+          onHide={() => setProgressHidden(true)}
+          onResume={bulkState.status === 'interrupted' ? handleResumeCampaign : undefined}
         />
       )}
     </div>

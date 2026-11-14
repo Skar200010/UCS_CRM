@@ -173,6 +173,7 @@ import { ensureWhatsAppAccountSchema } from './bootstrap/ensureWhatsAppAccountSc
 import { ensureWhatsAppConversationSchema } from './bootstrap/ensureWhatsAppConversationSchema.js';
 import { ensureWhatsAppBulkSchema } from './bootstrap/ensureWhatsAppBulkSchema.js';
 import { ensureCampaignSchema } from './bootstrap/ensureCampaignSchema.js';
+import { ensureMetaAdsSchema } from './bootstrap/ensureMetaAdsSchema.js';
 import { ensureBulkEmailSchema } from './bootstrap/ensureBulkEmailSchema.js';
 import { aiSuggestionsStartupReport } from './utils/aiSuggestions.js';
 
@@ -1417,8 +1418,21 @@ await ensureSsLeadAiSchema().catch(e => console.error('ensureSsLeadAiSchema fail
     await ensureWhatsAppAccountSchema().catch(e => console.error('ensureWhatsAppAccountSchema failed:', e?.message || e));
     await ensureWhatsAppConversationSchema().catch(e => console.error('ensureWhatsAppConversationSchema failed:', e?.message || e));
     await ensureWhatsAppBulkSchema().catch(e => console.error('ensureWhatsAppBulkSchema failed:', e?.message || e));
-    await ensureCampaignSchema().catch(e => console.error('ensureCampaignSchema failed:', e?.message || e));
+  await ensureCampaignSchema().catch(e => console.error('ensureCampaignSchema failed:', e?.message || e));
+  await ensureMetaAdsSchema().catch(e => console.error('ensureMetaAdsSchema failed:', e?.message || e));
+  await import('./services/metaLeadIngestService.js')
+    .then((m) => m.startMetaLeadPoller?.())
+    .catch(e => console.error('startMetaLeadPoller failed:', e?.message || e));
+  await import('./services/metaAdsService.js')
+    .then((m) => m.startMetaInsightsSync?.())
+    .catch(e => console.error('startMetaInsightsSync failed:', e?.message || e));
+  await import('./services/whatsappBulkCampaignService.js')
+      .then((m) => m.recoverInterruptedWhatsAppCampaigns?.())
+      .catch(e => console.error('recoverInterruptedWhatsAppCampaigns failed:', e?.message || e));
     await ensureBulkEmailSchema().catch(e => console.error('ensureBulkEmailSchema failed:', e?.message || e));
+    await import('./services/bulkEmailService.js')
+      .then((m) => m.recoverInterruptedBulkEmails?.())
+      .catch(e => console.error('recoverInterruptedBulkEmails failed:', e?.message || e));
     import('./services/notificationScheduler.js');
     import('./services/froAutoLogoutScheduler.js');
     import('./services/dbHealthWatchdog.js');

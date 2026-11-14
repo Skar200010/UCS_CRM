@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { authenticateRole } from '../middleware/authMiddleware.js';
 import {
+  cancelCampaign,
   createTemplate,
   deleteTemplate,
   getLog,
@@ -11,6 +12,7 @@ import {
   listRecipients,
   listTemplates,
   previewTemplate,
+  resumeCampaign,
   send,
   updateTemplate,
   uploadAsset,
@@ -51,6 +53,8 @@ router.put('/templates/:id', roles, handleUpload, updateTemplate);
 router.delete('/templates/:id', roles, deleteTemplate);
 router.post('/assets', roles, handleImageUpload, uploadAsset);
 router.get('/logs', roles, listLogs);
+router.post('/logs/:id/resume', roles, resumeCampaign);
+router.post('/logs/:id/cancel', roles, cancelCampaign);
 router.get('/logs/:id', roles, getLog);
 router.post('/send', roles, handleUpload, send);
 

@@ -18,6 +18,40 @@ export async function ensureBulkEmailSchema() {
 
   await db._pool.query(`CREATE INDEX IF NOT EXISTS idx_bulk_email_logs_created_at ON bulk_email_logs(created_at DESC);`);
 
+  // Campaign queue/progress. A campaign row is inserted before sending starts so
+  // a crash or restart cannot lose the record of who was meant to receive it.
+  // `status` moves queued -> processing -> completed | partial | failed |
+  // cancelled | interrupted. `recipients` is an array of
+  // { email, name, ok: true|false|null, error } where null means not yet tried.
+  await db._pool.query(`
+    ALTER TABLE bulk_email_logs
+      ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'queued',
+      ADD COLUMN IF NOT EXISTS processed_count INT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS html TEXT,
+      ADD COLUMN IF NOT EXISTS attachment_name TEXT,
+      ADD COLUMN IF NOT EXISTS attachment_type TEXT,
+      ADD COLUMN IF NOT EXISTS attachment_data BYTEA,
+      ADD COLUMN IF NOT EXISTS last_error TEXT,
+      ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS finished_at TIMESTAMPTZ;
+  `);
+
+  await db._pool.query(`CREATE INDEX IF NOT EXISTS idx_bulk_email_logs_status ON bulk_email_logs(status);`);
+
+  // Backfill status for campaigns that were sent before this column existed so
+  // old history does not show up as "queued" and offer a pointless Resume.
+  await db._pool.query(`
+    UPDATE bulk_email_logs
+       SET status = CASE
+         WHEN sent_count > 0 AND failed_count > 0 THEN 'partial'
+         WHEN sent_count > 0 THEN 'completed'
+         WHEN failed_count > 0 THEN 'failed'
+         ELSE 'completed'
+       END
+     WHERE status = 'queued'
+       AND (sent_count > 0 OR failed_count > 0);
+  `);
+
   await db._pool.query(`
     CREATE TABLE IF NOT EXISTS bulk_email_templates (
       id BIGSERIAL PRIMARY KEY,

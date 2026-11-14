@@ -101,8 +101,17 @@ export default function SocialPanel() {
 
         <nav style={{ flex: 1, padding: '8px 0', overflowY: 'auto' }}>
           {NAV.filter((item) => !item.headOnly || canAssign).map((item) => (
-            <NavLink key={item.id} to={item.path} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: collapsed ? '10px 16px' : '10px 18px', fontSize: 12, fontWeight: 500, color: 'var(--ink-soft)', textDecoration: 'none', transition: 'all .12s', borderLeft: '3px solid transparent' }}
-              className={({ isActive }) => isActive ? 'nav-active' : ''}>
+            <NavLink key={item.id} to={item.path} style={({ isActive }) => ({
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: collapsed ? '10px 16px' : '10px 18px',
+              fontSize: 12,
+              fontWeight: isActive ? 600 : 500,
+              color: isActive ? 'var(--ink)' : 'var(--ink-soft)',
+              textDecoration: 'none',
+              transition: 'all .12s',
+              borderLeft: `3px solid ${isActive ? '#ec4899' : 'transparent'}`,
+              background: isActive ? 'color-mix(in srgb, var(--ink) 7%, var(--card-bg))' : 'transparent',
+            })}>
               <span style={{ flexShrink: 0, display: 'flex' }}>{ICONS[item.icon]}</span>
               {!collapsed && <span>{item.label}</span>}
               {item.id === 'chat' && <ChatNavBadge quiet />}

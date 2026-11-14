@@ -35,6 +35,10 @@ test('Bulk send and its supporting endpoints stay mounted', () => {
     ['POST', '/campaigns'],
     ['GET', '/campaigns'],
     ['GET', '/campaigns/:id'],
+    // Background campaign progress / controls.
+    ['GET', '/campaigns/:id/progress'],
+    ['POST', '/campaigns/:id/cancel'],
+    ['POST', '/campaigns/:id/resume'],
     // Account health card.
     ['GET', '/accounts/:accountId/health'],
   ];

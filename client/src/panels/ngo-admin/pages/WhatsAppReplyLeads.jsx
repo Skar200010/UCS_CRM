@@ -20,20 +20,41 @@ function parseNotes(notes) {
     .split('\n')
     // Keep [Button: ...] / [Reply: ...]: that is the actual answer. Only
     // bookkeeping tags are hidden.
-    .filter((l) => !/^\[(Template|Account|Lead):/i.test(l.trim()))
+    .filter((l) => !/^\[(Template|Account|Lead|Meta Lead|Platform|Campaign|Form):/i.test(l.trim()))
     .join('\n')
     .trim();
   const template = (text.match(/\[Template:\s*([^\]]+)\]/i) || [])[1] || '';
   const account = (text.match(/\[Account:\s*([^\]]+)\]/i) || [])[1] || 'unknown';
-  return { message, template, account };
+  const platform = (text.match(/\[Platform:\s*([^\]]+)\]/i) || [])[1] || '';
+  const campaign = (text.match(/\[Campaign:\s*([^\]]+)\]/i) || [])[1] || '';
+  const form = (text.match(/\[Form:\s*([^\]]+)\]/i) || [])[1] || '';
+  return { message, template, account, platform, campaign, form };
 }
+
+const isMetaLead = (lead) => lead?.source === 'Meta Lead Ad';
+
+const platformOf = (lead) => {
+  const fromColumn = String(lead?.meta_platform || '').toLowerCase();
+  if (fromColumn) return fromColumn;
+  const fromNotes = parseNotes(lead?.notes).platform.toLowerCase();
+  if (fromNotes) return fromNotes;
+  return isMetaLead(lead) ? 'meta' : 'whatsapp';
+};
+
+const platformMeta = (platform) => {
+  const p = String(platform || '').toLowerCase();
+  if (p.includes('instagram')) return { label: 'Instagram', color: '#C13584', bg: '#fce7f3' };
+  if (p.includes('facebook') || p === 'meta') return { label: 'Meta', color: '#0866FF', bg: '#e7f0ff' };
+  return { label: 'WhatsApp', color: '#128C7E', bg: '#dcfce7' };
+};
 
 function ngoNameOf(account) {
   const key = String(account || '').toLowerCase();
   if (key.startsWith('bsct')) return 'BSCT';
   if (key.startsWith('aflf')) return 'AFLF';
   if (key.startsWith('mann')) return 'MANN';
-  return account || 'Unknown';
+  if (!key || key === 'unknown') return 'Unmapped';
+  return account || 'Unmapped';
 }
 
 const accountHue = (ngo) => ACCOUNT_HUES[String(ngo || '').toLowerCase()] || '#64748b';
@@ -58,6 +79,7 @@ export default function WhatsAppReplyLeads() {
   const [adding, setAdding] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [platformFilter, setPlatformFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   // inbox = reply not on a station yet · queue = already placed
@@ -83,13 +105,23 @@ export default function WhatsAppReplyLeads() {
   const aiPending = leads.filter((l) => !l.in_station && !l.ai_at).length;
 
   const ngoGroups = useMemo(() => {
-    const s = new Set(leads.map((l) => ngoNameOf(parseNotes(l.notes).account)));
+    const s = new Set(leads.map((l) => ngoNameOf(l.account_ngo || parseNotes(l.notes).account)));
     return ['all', ...Array.from(s)];
   }, [leads]);
 
   const tabLeads = tab === 'queue' ? queueLeads : inboxLeads;
   const filtered = tabLeads.filter((l) => {
-    if (filter !== 'all' && ngoNameOf(parseNotes(l.notes).account) !== filter) return false;
+    if (filter !== 'all' && ngoNameOf(l.account_ngo || parseNotes(l.notes).account) !== filter) return false;
+    if (platformFilter !== 'all') {
+      const platform = platformOf(l);
+      if (platformFilter === 'meta') {
+        if (!isMetaLead(l)) return false;
+      } else if (platformFilter === 'whatsapp') {
+        if (isMetaLead(l)) return false;
+      } else if (!platform.includes(platformFilter)) {
+        return false;
+      }
+    }
     const q = query.trim().toLowerCase();
     if (!q) return true;
     return String(l.name || '').toLowerCase().includes(q) || String(l.phone || '').includes(q);
@@ -187,7 +219,7 @@ export default function WhatsAppReplyLeads() {
             <div>
               <h3 style={{ margin: '0 0 2px' }}>SS Leads</h3>
               <div style={{ fontSize: 12, color: 'var(--ink-soft, #64748b)' }}>
-                WhatsApp replies. <b>Add to station</b> puts the reply straight into SS-BSCT / SS-AFLF / SS-MANN — the station's FRO picks it up, no FRO picker needed.
+                WhatsApp replies and Meta lead ads. <b>Add to station</b> puts the lead straight into SS-BSCT / SS-AFLF / SS-MANN — the station's FRO picks it up, no FRO picker needed.
               </div>
             </div>
           </div>
@@ -231,11 +263,34 @@ export default function WhatsAppReplyLeads() {
         {ngoGroups.map((a) => {
           const active = filter === a;
           const hue = a === 'all' ? '#0f172a' : accountHue(a);
-          const count = a === 'all' ? tabLeads.length : tabLeads.filter((l) => ngoNameOf(parseNotes(l.notes).account) === a).length;
+          const count = a === 'all' ? tabLeads.length : tabLeads.filter((l) => ngoNameOf(l.account_ngo || parseNotes(l.notes).account) === a).length;
           return (
             <button key={a} onClick={() => setFilter(a)}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 999, border: `1px solid ${active ? hue : 'var(--line, #e2e8f0)'}`, background: active ? hue : 'var(--bg, #fff)', color: active ? '#fff' : 'var(--ink-soft, #64748b)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', transition: 'all .15s' }}>
               {a === 'all' ? 'All NGOs' : a}
+              <span style={{ minWidth: 18, padding: '0 5px', borderRadius: 999, fontSize: 10.5, fontWeight: 800, background: active ? 'rgba(255,255,255,.25)' : 'var(--line, #e2e8f0)', color: active ? '#fff' : 'var(--ink-soft, #64748b)' }}>{count}</span>
+            </button>
+          );
+        })}
+        {[
+          { key: 'all', label: 'All sources' },
+          { key: 'meta', label: 'Meta' },
+          { key: 'facebook', label: 'Facebook' },
+          { key: 'instagram', label: 'Instagram' },
+          { key: 'whatsapp', label: 'WhatsApp' },
+        ].map((s) => {
+          const active = platformFilter === s.key;
+          const count = s.key === 'all'
+            ? tabLeads.length
+            : tabLeads.filter((l) => {
+              if (s.key === 'meta') return isMetaLead(l);
+              if (s.key === 'whatsapp') return !isMetaLead(l);
+              return platformOf(l).includes(s.key);
+            }).length;
+          return (
+            <button key={s.key} onClick={() => setPlatformFilter(s.key)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 999, border: `1px solid ${active ? '#0866FF' : 'var(--line, #e2e8f0)'}`, background: active ? '#0866FF' : 'var(--bg, #fff)', color: active ? '#fff' : 'var(--ink-soft, #64748b)', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all .15s' }}>
+              {s.label}
               <span style={{ minWidth: 18, padding: '0 5px', borderRadius: 999, fontSize: 10.5, fontWeight: 800, background: active ? 'rgba(255,255,255,.25)' : 'var(--line, #e2e8f0)', color: active ? '#fff' : 'var(--ink-soft, #64748b)' }}>{count}</span>
             </button>
           );
@@ -267,8 +322,8 @@ export default function WhatsAppReplyLeads() {
         {!loading && !error && filtered.length === 0 && (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-soft, #64748b)' }}>
             <MessageSquareText size={32} style={{ opacity: .35, marginBottom: 8 }} />
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{tab === 'queue' ? 'Nothing in a station yet' : 'No reply leads in the inbox'}</div>
-            <div style={{ fontSize: 12 }}>{tab === 'queue' ? 'Leads you add will show here with their station.' : 'Bulk template replies will show up here automatically.'}</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{tab === 'queue' ? 'Nothing in a station yet' : 'No leads in the inbox'}</div>
+            <div style={{ fontSize: 12 }}>{tab === 'queue' ? 'Leads you add will show here with their station.' : 'WhatsApp replies and Meta lead ads will show up here automatically.'}</div>
           </div>
         )}
 
@@ -284,9 +339,12 @@ export default function WhatsAppReplyLeads() {
               </thead>
               <tbody>
                 {filtered.map((l) => {
-                  const { message, template, account } = parseNotes(l.notes);
-                  const ngo = ngoNameOf(account);
+                  const { message, template, account, campaign, form } = parseNotes(l.notes);
+                  const ngo = ngoNameOf(l.account_ngo || account);
                   const hue = accountHue(ngo);
+                  const platform = platformMeta(platformOf(l));
+                  const metaLead = isMetaLead(l);
+                  const ngoLabel = ngo;
                   return (
                     <tr key={l.id} style={{ borderBottom: '1px solid var(--line, #e2e8f0)', verticalAlign: 'top' }}>
                       <td style={{ padding: '12px 16px' }}>
@@ -297,7 +355,10 @@ export default function WhatsAppReplyLeads() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-soft, #64748b)', marginTop: 3 }}>
                           <Phone size={11} style={{ opacity: .5 }} />
                           {formatPhone(l.phone)}
-                          <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 800, color: hue, background: `${hue}1a` }}>{ngo}</span>
+                          <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 800, color: hue, background: `${hue}1a` }}>{ngoLabel}</span>
+                          {metaLead && (
+                            <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 800, color: platform.color, background: platform.bg }}>{platform.label}</span>
+                          )}
                         </div>
                       </td>
                       <td style={{ padding: '12px 16px', maxWidth: 300 }}>
@@ -306,6 +367,18 @@ export default function WhatsAppReplyLeads() {
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: '2px 8px', borderRadius: 6, background: 'var(--line, #f1f5f9)', fontSize: 10.5, color: 'var(--ink-soft, #64748b)', maxWidth: '100%' }}>
                             <Tag size={10} />
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{template}</span>
+                          </div>
+                        )}
+                        {metaLead && (campaign || form) && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                            {campaign && (
+                              <span title="Meta campaign" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 6, background: '#e7f0ff', color: '#0866FF', fontSize: 10.5, fontWeight: 700, maxWidth: 260 }}>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{campaign}</span>
+                              </span>
+                            )}
+                            {form && (
+                              <span title="Lead form" style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--line, #f1f5f9)', color: 'var(--ink-soft, #64748b)', fontSize: 10.5, fontWeight: 700 }}>Form: {form}</span>
+                            )}
                           </div>
                         )}
                       </td>
@@ -329,6 +402,11 @@ export default function WhatsAppReplyLeads() {
                           {l.in_station ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 800, color: '#15803d', whiteSpace: 'nowrap' }}>
                               <CheckCircle2 size={13} /> Already in station
+                            </span>
+                          ) : !l.suggested_station && metaLead ? (
+                            <span title="Map this Meta lead form to an NGO in Accounts → WhatsApp Center → Meta Ads"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 9, background: '#fff7ed', color: '#c2410c', fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                              Map form first
                             </span>
                           ) : (
                             <button onClick={() => addToStation(l)} disabled={adding === l.id}

@@ -10,6 +10,12 @@ import db from '../config/db.js';
 import { getLeadById } from '../models/leadModel.js';
 import { materializeReplyLead, scoreSsReply, SS_STATIONS } from '../services/ssLeadService.js';
 import { aiScoreSsReply, SS_AI_VERSION } from '../services/ssLeadAiService.js';
+import { META_LEAD_SOURCE, ngoToAccount } from '../services/metaAdsService.js';
+
+// Both inbox sources share the same triage screen: a WhatsApp template reply
+// and a Meta Lead Ad lead both carry a mobile + [Account:] tag and both are
+// placed with materializeReplyLead().
+const SS_INBOX_SOURCES = ['WhatsApp Bulk Reply', META_LEAD_SOURCE];
 
 const parseReply = (notes) => {
   const text = String(notes || '');
@@ -17,18 +23,31 @@ const parseReply = (notes) => {
   const template = (text.match(/\[Template:\s*([^\]]+)\]/i) || [])[1] || '';
   const message = text
     .split('\n')
-    .filter((l) => !/^\[(Template|Account|Button|Reply|Lead):/i.test(l.trim()))
+    .filter((l) => !/^\[(Template|Account|Button|Reply|Lead|Meta Lead|Platform|Campaign|Form):/i.test(l.trim()))
     .join('\n')
     .trim();
   return { button, template, message };
 };
 
-const ngoOf = (notes) => {
-  const acct = String((notes || '').match(/\[Account:\s*([^\]]+)\]/)?.[1] || '').toLowerCase().trim();
+const normalizeNgo = (value) => {
+  const acct = String(value || '').toLowerCase().trim();
   if (acct.startsWith('bsct')) return 'BSCT';
   if (acct.startsWith('aflf')) return 'AFLF';
   if (acct.startsWith('mann')) return 'MANN';
   return null;
+};
+
+const ngoOf = (notes) => normalizeNgo((notes || '').match(/\[Account:\s*([^\]]+)\]/)?.[1]);
+
+const metaAccountForForm = async (formId) => {
+  if (!formId) return '';
+  const { data } = await db
+    .from('meta_lead_forms')
+    .select('ngo, account, active')
+    .eq('form_id', String(formId))
+    .maybeSingle();
+  if (!data || data.active === false) return '';
+  return data.account || ngoToAccount(data.ngo);
 };
 
 export const listSsReplyLeads = async (req, res) => {
@@ -36,7 +55,7 @@ export const listSsReplyLeads = async (req, res) => {
     const { data: leads, error } = await db
       .from('leads')
       .select('*')
-      .eq('source', 'WhatsApp Bulk Reply')
+      .in('source', SS_INBOX_SOURCES)
       .order('created_at', { ascending: false });
     if (error) throw error;
 
@@ -72,8 +91,24 @@ export const listSsReplyLeads = async (req, res) => {
     );
     const ownerBy = new Map(owners.map((o) => [`${o.ngo_name}|${o.station}`, o]));
 
+    // A form is often mapped after its first leads have already arrived, so the
+    // station suggestion also consults the live form mapping instead of only
+    // the [Account:] tag baked into the notes at ingest time.
+    const formIds = [...new Set((leads || []).map((l) => l.meta_form_id).filter(Boolean))];
+    const formAccountBy = new Map();
+    if (formIds.length) {
+      const { data: forms } = await db
+        .from('meta_lead_forms')
+        .select('form_id, ngo, account, active')
+        .in('form_id', formIds);
+      for (const f of forms || []) {
+        if (f.active === false) continue;
+        formAccountBy.set(f.form_id, f.account || ngoToAccount(f.ngo));
+      }
+    }
+
     const result = (leads || []).map((l) => {
-      const ngo = ngoOf(l.notes);
+      const ngo = ngoOf(l.notes) || normalizeNgo(formAccountBy.get(l.meta_form_id));
       const suggestedStation = ngo ? SS_STATIONS[ngo] : null;
       const placed = placedBy.get(l.id) || null;
       const owner = suggestedStation ? ownerBy.get(`${ngo}|${suggestedStation}`) : null;
@@ -111,11 +146,19 @@ export const addSsReplyLeadToStation = async (req, res) => {
   try {
     const lead = await getLeadById(req.params.id);
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
-    if (lead.source !== 'WhatsApp Bulk Reply') {
-      return res.status(400).json({ message: 'Only WhatsApp reply leads can be placed' });
+    if (!SS_INBOX_SOURCES.includes(lead.source)) {
+      return res.status(400).json({ message: 'Only inbox reply leads can be placed' });
     }
 
-    const placed = await materializeReplyLead(lead, {});
+    let placementLead = lead;
+    if (!ngoOf(lead.notes) && lead.meta_form_id) {
+      const account = await metaAccountForForm(lead.meta_form_id);
+      if (account) {
+        placementLead = { ...lead, notes: `${lead.notes || ''}\n[Account: ${account}]` };
+      }
+    }
+
+    const placed = await materializeReplyLead(placementLead, {});
     if (!placed.ok) return res.status(400).json({ message: placed.reason });
 
     return res.json({
@@ -134,8 +177,8 @@ export const aiScoreSsLead = async (req, res) => {
   try {
     const lead = await getLeadById(req.params.id);
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
-    if (lead.source !== 'WhatsApp Bulk Reply') {
-      return res.status(400).json({ message: 'Only WhatsApp reply leads can be scored' });
+    if (!SS_INBOX_SOURCES.includes(lead.source)) {
+      return res.status(400).json({ message: 'Only inbox reply leads can be scored' });
     }
 
     try {
@@ -171,7 +214,7 @@ export const aiScoreSsLeadsBatch = async (req, res) => {
     const { data: rows, error } = await db
       .from('leads')
       .select('id, notes')
-      .eq('source', 'WhatsApp Bulk Reply')
+      .in('source', SS_INBOX_SOURCES)
       .is('ai_at', null)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -202,7 +245,7 @@ export const aiScoreSsLeadsBatch = async (req, res) => {
     const { count } = await db
       .from('leads')
       .select('id', { count: 'exact', head: true })
-      .eq('source', 'WhatsApp Bulk Reply')
+      .in('source', SS_INBOX_SOURCES)
       .is('ai_at', null);
 
     return res.json({ scored, failed, remaining: count ?? null, errors });

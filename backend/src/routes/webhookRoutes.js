@@ -8,6 +8,7 @@ import {
   deleteRazorpayAccount, getRazorpayAccount,
 } from '../controllers/webhookController.js';
 import { verifyWhatsAppWebhook, whatsappWebhookEntry } from '../controllers/whatsappWebhookController.js';
+import { verifyMetaAdsWebhook, metaAdsWebhookEntry } from '../controllers/metaAdsController.js';
 
 const router = Router();
 
@@ -38,5 +39,10 @@ router.post('/paytm', paytmWebhookEntry);
 // WhatsApp (Meta) webhook — public; GET verifies the subscription, POST handles inbound.
 router.get('/whatsapp', verifyWhatsAppWebhook);
 router.post('/whatsapp', whatsappWebhookEntry);
+
+// Meta Lead Ads webhook — public; GET verifies the subscription, POST receives
+// leadgen notifications. Signature is checked with META_ADS_APP_SECRET when set.
+router.get('/meta', verifyMetaAdsWebhook);
+router.post('/meta', metaAdsWebhookEntry);
 
 export default router;
