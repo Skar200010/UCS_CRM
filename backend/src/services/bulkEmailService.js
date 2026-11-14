@@ -204,7 +204,7 @@ async function finishCampaign(id, recipients, status, lastError = null) {
  * so a crash or restart cannot lose the record of the campaign. Sending itself
  * happens in the background via runBulkEmailCampaign().
  */
-export async function createBulkEmailCampaign({ subject, text, html, source, recipients, attachment, createdBy } = {}) {
+export async function createBulkEmailCampaign({ subject, text, html, source, recipients, attachments, createdBy } = {}) {
   const requested = normalizeRecipients(recipients);
   if (!requested.length) throw new Error('No valid recipients selected');
   if (!String(subject || '').trim()) throw new Error('Subject is required');
@@ -224,9 +224,8 @@ export async function createBulkEmailCampaign({ subject, text, html, source, rec
   const { rows: inserted } = await db._pool.query(
     `INSERT INTO bulk_email_logs
        (subject, body, html, source, total_recipients, sent_count, failed_count,
-        processed_count, recipients, created_by, status,
-        attachment_name, attachment_type, attachment_data)
-     VALUES ($1, $2, $3, $4, $5, 0, 0, 0, $6::jsonb, $7, 'queued', $8, $9, $10)
+        processed_count, recipients, created_by, status)
+     VALUES ($1, $2, $3, $4, $5, 0, 0, 0, $6::jsonb, $7, 'queued')
      RETURNING id, status, total_recipients, created_at`,
     [
       String(subject).trim(),
@@ -236,14 +235,23 @@ export async function createBulkEmailCampaign({ subject, text, html, source, rec
       rows.length,
       JSON.stringify(rows),
       createdBy || null,
-      attachment?.filename || null,
-      attachment?.contentType || null,
-      attachment?.content || null,
     ],
   );
 
+  const campaignId = inserted[0].id;
+  const files = Array.isArray(attachments) ? attachments : [];
+  for (let i = 0; i < files.length; i += 1) {
+    const file = files[i];
+    if (!file?.content) continue;
+    await db._pool.query(
+      `INSERT INTO bulk_email_attachments (owner_type, owner_id, filename, content_type, data, sort_order)
+       VALUES ('campaign', $1, $2, $3, $4, $5)`,
+      [campaignId, file.filename || 'attachment', file.contentType || 'application/octet-stream', file.content, i],
+    );
+  }
+
   return {
-    id: inserted[0].id,
+    id: campaignId,
     status: inserted[0].status,
     total: inserted[0].total_recipients,
     skipped,
@@ -294,18 +302,24 @@ export async function runBulkEmailCampaign(id, { unsubscribeBaseUrl } = {}) {
     let htmlTemplate = inline.html;
     const attachments = [...(inline.attachments || [])];
 
-    // When an image is uploaded as the campaign attachment alongside an HTML
-    // template, embed it at the top of the email body instead of leaving it as
-    // a separate file attachment at the bottom.
-    if (campaign.attachment_data) {
+    // Campaign attachments (one row per file). Images are embedded inline at the
+    // top of the body (one <img> each); everything else is a plain file attachment.
+    const { rows: attachmentRows } = await db._pool.query(
+      `SELECT filename, content_type, data
+         FROM bulk_email_attachments
+        WHERE owner_type = 'campaign' AND owner_id = $1::bigint
+        ORDER BY sort_order ASC, id ASC`,
+      [id],
+    );
+    for (const row of attachmentRows) {
       const attachment = {
-        filename: campaign.attachment_name || 'attachment',
-        contentType: campaign.attachment_type || 'application/octet-stream',
-        content: campaign.attachment_data,
+        filename: row.filename || 'attachment',
+        contentType: row.content_type || 'application/octet-stream',
+        content: row.data,
       };
       if (htmlTemplate && String(attachment.contentType).startsWith('image/')) {
         const cid = `campaignattachment.${crypto.randomBytes(6).toString('hex')}@ucs-crm`;
-        htmlTemplate = `<div style="text-align:center;margin:0 0 16px;"><img src="cid:${cid}" alt="${String(attachment.filename).replace(/"/g, '')}" style="max-width:100%;height:auto;border:0;" /></div>${htmlTemplate}`;
+        htmlTemplate = `${htmlTemplate}<div style="text-align:center;margin:16px 0 0;"><img src="cid:${cid}" alt="${String(attachment.filename).replace(/"/g, '')}" style="max-width:100%;height:auto;border:0;" /></div>`;
         attachments.push({
           filename: attachment.filename,
           content: attachment.content,
@@ -463,55 +477,101 @@ export async function getBulkEmailLog(id) {
 
 export async function listBulkEmailTemplates() {
   const { rows } = await db._pool.query(
-    `SELECT id, name, subject, body, created_by, created_at, updated_at,
-            attachment_name, attachment_type,
-            (attachment_data IS NOT NULL) AS has_attachment,
+    `SELECT t.id, t.name, t.subject, t.body, t.created_by, t.created_at, t.updated_at,
+            t.attachment_name, t.attachment_type,
+            (t.attachment_data IS NOT NULL) AS has_attachment,
+            (SELECT COUNT(*)::int FROM bulk_email_attachments a WHERE a.owner_type = 'template' AND a.owner_id = t.id) AS attachment_count,
+            (SELECT COALESCE(array_agg(a.filename ORDER BY a.sort_order, a.id), ARRAY[]::text[]) FROM bulk_email_attachments a WHERE a.owner_type = 'template' AND a.owner_id = t.id) AS attachment_names,
             (design IS NOT NULL) AS has_design,
             (html IS NOT NULL) AS has_html
-       FROM bulk_email_templates
-      ORDER BY name ASC`,
+       FROM bulk_email_templates t
+       ORDER BY t.name ASC`,
   );
-  return rows;
+  return rows.map((r) => ({
+    ...r,
+    has_attachment: (r.attachment_count || 0) > 0 || r.has_attachment,
+    attachment_name: (Array.isArray(r.attachment_names) && r.attachment_names.length) ? r.attachment_names[0] : r.attachment_name,
+  }));
 }
 
 export async function getBulkEmailTemplate(id) {
   const { rows } = await db._pool.query(
-    `SELECT id, name, subject, body, design, html, created_by, created_at, updated_at,
-            attachment_name, attachment_type,
-            (attachment_data IS NOT NULL) AS has_attachment,
+    `SELECT t.id, t.name, t.subject, t.body, t.design, t.html, t.created_by, t.created_at, t.updated_at,
+            t.attachment_name, t.attachment_type,
+            (t.attachment_data IS NOT NULL) AS has_attachment,
+            (SELECT COUNT(*)::int FROM bulk_email_attachments a WHERE a.owner_type = 'template' AND a.owner_id = t.id) AS attachment_count,
+            (SELECT COALESCE(array_agg(a.filename ORDER BY a.sort_order, a.id), ARRAY[]::text[]) FROM bulk_email_attachments a WHERE a.owner_type = 'template' AND a.owner_id = t.id) AS attachment_names,
             (design IS NOT NULL) AS has_design,
             (html IS NOT NULL) AS has_html
-       FROM bulk_email_templates
-      WHERE id = $1::bigint`,
-    [id],
-  );
-  return rows[0] || null;
-}
-
-export async function getBulkEmailTemplateAttachment(id) {
-  const { rows } = await db._pool.query(
-    `SELECT attachment_name, attachment_type, attachment_data
-       FROM bulk_email_templates
-      WHERE id = $1::bigint`,
+       FROM bulk_email_templates t
+      WHERE t.id = $1::bigint`,
     [id],
   );
   const row = rows[0];
-  if (!row || !row.attachment_data) return null;
+  if (!row) return null;
   return {
-    filename: row.attachment_name || 'attachment',
-    contentType: row.attachment_type || 'application/octet-stream',
-    content: row.attachment_data,
+    ...row,
+    has_attachment: (row.attachment_count || 0) > 0 || row.has_attachment,
+    attachment_name: (Array.isArray(row.attachment_names) && row.attachment_names.length) ? row.attachment_names[0] : row.attachment_name,
   };
 }
 
-export async function createBulkEmailTemplate({ name, subject, body, createdBy, attachment, design, html } = {}) {
+export async function getBulkEmailTemplateAttachments(id) {
+  const { rows } = await db._pool.query(
+    `SELECT id, filename, content_type
+       FROM bulk_email_attachments
+      WHERE owner_type = 'template' AND owner_id = $1::bigint
+      ORDER BY sort_order ASC, id ASC`,
+    [id],
+  );
+  return rows.map((r) => ({ id: r.id, filename: r.filename, contentType: r.content_type || 'application/octet-stream' }));
+}
+
+export async function getBulkEmailTemplateAttachment(id, attachmentId = null) {
+  let row;
+  if (attachmentId) {
+    const { rows } = await db._pool.query(
+      `SELECT filename, content_type, data
+         FROM bulk_email_attachments
+        WHERE owner_type = 'template' AND owner_id = $1::bigint AND id = $2::bigint`,
+      [id, attachmentId],
+    );
+    row = rows[0];
+  } else {
+    const { rows } = await db._pool.query(
+      `SELECT filename, content_type, data
+         FROM bulk_email_attachments
+        WHERE owner_type = 'template' AND owner_id = $1::bigint
+        ORDER BY sort_order ASC, id ASC
+        LIMIT 1`,
+      [id],
+    );
+    row = rows[0];
+    // Fallback to legacy single column for unmigrated rows.
+    if (!row) {
+      const { rows: legacy } = await db._pool.query(
+        `SELECT attachment_name, attachment_type, attachment_data
+           FROM bulk_email_templates
+          WHERE id = $1::bigint`,
+        [id],
+      );
+      const l = legacy[0];
+      if (l?.attachment_data) {
+        return { filename: l.attachment_name || 'attachment', contentType: l.attachment_type || 'application/octet-stream', content: l.attachment_data };
+      }
+      return null;
+    }
+  }
+  if (!row?.data) return null;
+  return { filename: row.filename || 'attachment', contentType: row.content_type || 'application/octet-stream', content: row.data };
+}
+
+export async function createBulkEmailTemplate({ name, subject, body, createdBy, attachments, design, html } = {}) {
   const { rows } = await db._pool.query(
     `INSERT INTO bulk_email_templates
-       (name, subject, body, created_by, attachment_name, attachment_type, attachment_data, design, html)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+       (name, subject, body, created_by, design, html)
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6)
      RETURNING id, name, subject, body, created_by, created_at, updated_at,
-               attachment_name, attachment_type,
-               (attachment_data IS NOT NULL) AS has_attachment,
                (design IS NOT NULL) AS has_design,
                (html IS NOT NULL) AS has_html`,
     [
@@ -519,29 +579,29 @@ export async function createBulkEmailTemplate({ name, subject, body, createdBy, 
       subject,
       body,
       createdBy || null,
-      attachment?.filename || null,
-      attachment?.contentType || null,
-      attachment?.content || null,
       design ? JSON.stringify(design) : null,
       html || null,
     ],
   );
-  return rows[0];
+  const templateId = rows[0].id;
+  const files = Array.isArray(attachments) ? attachments : [];
+  for (let i = 0; i < files.length; i += 1) {
+    const file = files[i];
+    if (!file?.content) continue;
+    await db._pool.query(
+      `INSERT INTO bulk_email_attachments (owner_type, owner_id, filename, content_type, data, sort_order)
+       VALUES ('template', $1, $2, $3, $4, $5)`,
+      [templateId, file.filename || 'attachment', file.contentType || 'application/octet-stream', file.content, i],
+    );
+  }
+  // Return with attachment metadata consistent with list/get.
+  const full = await getBulkEmailTemplate(templateId);
+  return full || rows[0];
 }
 
-export async function updateBulkEmailTemplate(id, { name, subject, body, attachment, removeAttachment, design, html } = {}) {
+export async function updateBulkEmailTemplate(id, { name, subject, body, attachments, removeAttachments, design, html } = {}) {
   const sets = ['name = $2', 'subject = $3', 'body = $4', 'updated_at = NOW()'];
   const params = [id, name, subject, body];
-  if (attachment) {
-    params.push(attachment.filename || null, attachment.contentType || null, attachment.content || null);
-    sets.push(
-      `attachment_name = $${params.length - 2}`,
-      `attachment_type = $${params.length - 1}`,
-      `attachment_data = $${params.length}`,
-    );
-  } else if (removeAttachment) {
-    sets.push('attachment_name = NULL', 'attachment_type = NULL', 'attachment_data = NULL');
-  }
   if (design !== undefined) {
     const value = design ? JSON.stringify(design) : null;
     sets.push(`design = $${params.push(value)}::jsonb`);
@@ -554,17 +614,37 @@ export async function updateBulkEmailTemplate(id, { name, subject, body, attachm
     `UPDATE bulk_email_templates
         SET ${sets.join(', ')}
       WHERE id = $1::bigint
-      RETURNING id, name, subject, body, created_by, created_at, updated_at,
-                attachment_name, attachment_type,
-                (attachment_data IS NOT NULL) AS has_attachment,
-                (design IS NOT NULL) AS has_design,
-                (html IS NOT NULL) AS has_html`,
+      RETURNING id`,
     params,
   );
-  return rows[0] || null;
+  if (!rows[0]) return null;
+
+  if (removeAttachments) {
+    await db._pool.query(
+      `DELETE FROM bulk_email_attachments WHERE owner_type = 'template' AND owner_id = $1::bigint`,
+      [id],
+    );
+  } else if (Array.isArray(attachments)) {
+    await db._pool.query(
+      `DELETE FROM bulk_email_attachments WHERE owner_type = 'template' AND owner_id = $1::bigint`,
+      [id],
+    );
+    for (let i = 0; i < attachments.length; i += 1) {
+      const file = attachments[i];
+      if (!file?.content) continue;
+      await db._pool.query(
+        `INSERT INTO bulk_email_attachments (owner_type, owner_id, filename, content_type, data, sort_order)
+         VALUES ('template', $1, $2, $3, $4, $5)`,
+        [id, file.filename || 'attachment', file.contentType || 'application/octet-stream', file.content, i],
+      );
+    }
+  }
+
+  return getBulkEmailTemplate(id);
 }
 
 export async function deleteBulkEmailTemplate(id) {
+  await db._pool.query(`DELETE FROM bulk_email_attachments WHERE owner_type = 'template' AND owner_id = $1::bigint`, [id]);
   const { rowCount } = await db._pool.query(
     'DELETE FROM bulk_email_templates WHERE id = $1::bigint',
     [id],

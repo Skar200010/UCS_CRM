@@ -9,6 +9,7 @@ import {
   getBulkEmailLog,
   getBulkEmailTemplate,
   getBulkEmailTemplateAttachment,
+  getBulkEmailTemplateAttachments,
   listBulkEmailLogs,
   listBulkEmailRecipients,
   listBulkEmailTemplates,
@@ -71,19 +72,20 @@ export async function send(req, res) {
         recipients = [];
       }
     }
-    const attachment = req.file
-      ? { filename: req.file.originalname, content: req.file.buffer, contentType: req.file.mimetype }
-      : null;
-    const createdBy = req.user?.name || req.user?.email || req.user?.login_id || null;
-    const campaign = await createBulkEmailCampaign({
-      subject,
-      text,
-      html,
-      recipients,
-      source,
-      attachment,
-      createdBy,
-    });
+const attachment = req.files && req.files.length
+  ? req.files.map((f) => ({ filename: f.originalname, content: f.buffer, contentType: f.mimetype }))
+  : null;
+const attachments = attachment || [];
+const createdBy = req.user?.name || req.user?.email || req.user?.login_id || null;
+const campaign = await createBulkEmailCampaign({
+  subject,
+  text,
+  html,
+  recipients,
+  source,
+  attachments,
+  createdBy,
+});
 
     // Send in the background and reply immediately. A 300-400 recipient
     // campaign runs for several minutes; blocking the HTTP request caused the
@@ -168,18 +170,18 @@ export async function createTemplate(req, res) {
     if (!body) return res.status(400).json({ message: 'Template body is required' });
 
     const createdBy = req.user?.name || req.user?.email || req.user?.login_id || null;
-    const attachment = req.file
-      ? { filename: req.file.originalname, content: req.file.buffer, contentType: req.file.mimetype }
-      : null;
-    const template = await createBulkEmailTemplate({
-      name: String(name).trim(),
-      subject: String(subject).trim(),
-      body,
-      createdBy,
-      attachment,
-      design,
-      html: rendered?.html || null,
-    });
+const attachments = req.files && req.files.length
+  ? req.files.map((f) => ({ filename: f.originalname, content: f.buffer, contentType: f.mimetype }))
+  : null;
+const template = await createBulkEmailTemplate({
+  name: String(name).trim(),
+  subject: String(subject).trim(),
+  body,
+  createdBy,
+  attachments: attachments || [],
+  design,
+  html: rendered?.html || null,
+});
     return res.status(201).json(template);
   } catch (error) {
     const message = String(error.message || '');
@@ -208,19 +210,19 @@ export async function updateTemplate(req, res) {
       return res.status(400).json({ message: 'Template body is required' });
     }
 
-    const attachment = req.file
-      ? { filename: req.file.originalname, content: req.file.buffer, contentType: req.file.mimetype }
-      : null;
-    const removeAttachment = String(req.body?.remove_attachment || '') === 'true';
-    const template = await updateBulkEmailTemplate(req.params.id, {
-      name: String(name).trim(),
-      subject: String(subject).trim(),
-      body,
-      attachment,
-      removeAttachment,
-      design: designProvided ? design : undefined,
-      html: designProvided ? (rendered?.html || null) : undefined,
-    });
+const attachments = req.files && req.files.length
+  ? req.files.map((f) => ({ filename: f.originalname, content: f.buffer, contentType: f.mimetype }))
+  : null;
+const removeAttachments = String(req.body?.remove_attachments || '') === 'true';
+const template = await updateBulkEmailTemplate(req.params.id, {
+  name: String(name).trim(),
+  subject: String(subject).trim(),
+  body,
+  attachments: attachments || undefined,
+  removeAttachments,
+  design: designProvided ? design : undefined,
+  html: designProvided ? (rendered?.html || null) : undefined,
+});
     if (!template) return res.status(404).json({ message: 'Template not found' });
     return res.json(template);
   } catch (error) {
@@ -362,9 +364,19 @@ export async function unsubscribeOneClick(req, res) {
   }
 }
 
+export async function listTemplateAttachments(req, res) {
+  try {
+    const attachments = await getBulkEmailTemplateAttachments(req.params.id);
+    return res.json({ attachments });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+}
+
 export async function getTemplateAttachment(req, res) {
   try {
-    const attachment = await getBulkEmailTemplateAttachment(req.params.id);
+    const attachmentId = req.params.aid || null;
+    const attachment = await getBulkEmailTemplateAttachment(req.params.id, attachmentId);
     if (!attachment) return res.status(404).json({ message: 'This template has no attachment' });
     res.setHeader('Content-Type', attachment.contentType);
     res.setHeader('Content-Disposition', `inline; filename="${String(attachment.filename).replace(/"/g, '')}"`);

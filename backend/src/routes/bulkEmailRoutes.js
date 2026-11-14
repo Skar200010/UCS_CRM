@@ -8,6 +8,7 @@ import {
   getLog,
   getTemplate,
   getTemplateAttachment,
+  listTemplateAttachments,
   listLogs,
   listRecipients,
   listTemplates,
@@ -24,11 +25,13 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 
 const uploadImage = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const handleUpload = (req, res, next) => {
-  upload.single('attachment')(req, res, (error) => {
+  upload.array('attachments', 10)(req, res, (error) => {
     if (!error) return next();
     const message = error.code === 'LIMIT_FILE_SIZE'
-      ? 'Attachment must be 20 MB or smaller.'
-      : error.message || 'Could not upload attachment.';
+      ? 'Each attachment must be 20 MB or smaller.'
+      : error.code === 'LIMIT_FILE_COUNT'
+        ? 'You can attach up to 10 files at a time.'
+        : error.message || 'Could not upload attachments.';
     return res.status(400).json({ message });
   });
 };
@@ -47,6 +50,8 @@ router.get('/recipients', roles, listRecipients);
 router.get('/templates', roles, listTemplates);
 router.post('/templates/preview', roles, previewTemplate);
 router.get('/templates/:id/attachment', roles, getTemplateAttachment);
+router.get('/templates/:id/attachments', roles, listTemplateAttachments);
+router.get('/templates/:id/attachments/:aid', roles, getTemplateAttachment);
 router.get('/templates/:id', roles, getTemplate);
 router.post('/templates', roles, handleUpload, createTemplate);
 router.put('/templates/:id', roles, handleUpload, updateTemplate);

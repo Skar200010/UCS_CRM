@@ -77,10 +77,9 @@ export default function BulkEmail() {
   const [loading, setLoading] = useState(false);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [mediaFile, setMediaFile] = useState(null);
-  const [mediaPreview, setMediaPreview] = useState(null);
-  const [mediaError, setMediaError] = useState(null);
-  const [sending, setSending] = useState(false);
+const [mediaFiles, setMediaFiles] = useState([]);
+const [mediaError, setMediaError] = useState(null);
+const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -228,9 +227,9 @@ export default function BulkEmail() {
     tick();
   }, [applyCampaignLog, loadLogs, stopPolling]);
 
-  useEffect(() => () => {
-    if (mediaPreview) URL.revokeObjectURL(mediaPreview);
-  }, [mediaPreview]);
+useEffect(() => () => {
+  mediaFiles.forEach((m) => m.preview && URL.revokeObjectURL(m.preview));
+}, [mediaFiles]);
 
   useEffect(() => {
     if (source === 'manual') {
@@ -281,50 +280,65 @@ export default function BulkEmail() {
   const selectAll = () => setSelected(new Set(recipients.map((r) => r.email)));
   const clearAll = () => setSelected(new Set());
 
-  const pickMedia = (file) => {
-    if (!file) return;
+const pickMedia = (files) => {
+  const list = Array.from(files || []);
+  if (!list.length) return;
+  const accepted = [];
+  let err = null;
+  for (const file of list) {
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
     const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
-    if (!isImage && !isVideo && !isPdf) {
-      setMediaError('Only image, video, or PDF files are allowed.');
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      setMediaError('Attachment must be 20 MB or smaller.');
-      return;
-    }
-    setMediaError(null);
-    setMediaFile(file);
-    setMediaPreview(URL.createObjectURL(file));
-  };
+    if (!isImage && !isVideo && !isPdf) { err = 'Only image, video, or PDF files are allowed.'; continue; }
+    if (file.size > 20 * 1024 * 1024) { err = 'Each attachment must be 20 MB or smaller.'; continue; }
+    accepted.push({ file, preview: isImage || isVideo || isPdf ? URL.createObjectURL(file) : null });
+  }
+  if (err) setMediaError(err);
+  else setMediaError(null);
+  if (accepted.length) setMediaFiles((prev) => [...prev, ...accepted]);
+};
 
-  const removeMedia = () => {
-    setMediaFile(null);
-    setMediaPreview(null);
-    setMediaError(null);
-  };
+const removeMedia = (index) => {
+  setMediaFiles((prev) => {
+    const next = [...prev];
+    const removed = next.splice(index, 1)[0];
+    if (removed?.preview) URL.revokeObjectURL(removed.preview);
+    return next;
+  });
+};
 
-  const loadTemplateMedia = async (template) => {
-    if (!template?.has_attachment) {
-      removeMedia();
-      return;
+const clearMedia = () => {
+  setMediaFiles((prev) => {
+    prev.forEach((m) => m.preview && URL.revokeObjectURL(m.preview));
+    return [];
+  });
+  setMediaError(null);
+};
+
+const loadTemplateMedia = async (template) => {
+  clearMedia();
+  if (!template?.has_attachment && !(template?.attachment_count > 0)) return;
+  try {
+    const meta = await apiGet(`/accounts/bulk-email/templates/${template.id}/attachments`);
+    const list = Array.isArray(meta?.attachments) ? meta.attachments : [];
+    const files = [];
+    for (const a of list) {
+      const blob = await apiGetBlob(`/accounts/bulk-email/templates/${template.id}/attachments/${a.id}`);
+      const file = new File([blob], a.filename || 'attachment', { type: a.contentType || blob.type || 'application/octet-stream' });
+      files.push({ file, preview: (a.contentType || '').startsWith('image/') || (a.contentType || '').startsWith('video/') ? URL.createObjectURL(blob) : null });
     }
-    try {
+    // Fallback for legacy single-attachment templates not yet migrated.
+    if (!files.length && template?.has_attachment) {
       const blob = await apiGetBlob(`/accounts/bulk-email/templates/${template.id}/attachment`);
-      const file = new File([blob], template.attachment_name || 'attachment', {
-        type: template.attachment_type || blob.type || 'application/octet-stream',
-      });
-      setMediaFile(file);
-      setMediaPreview((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(blob);
-      });
-      setMediaError(null);
-    } catch (e) {
-      setMediaError(e?.message || 'Could not load the template attachment.');
+      const file = new File([blob], template.attachment_name || 'attachment', { type: template.attachment_type || blob.type || 'application/octet-stream' });
+      files.push({ file, preview: URL.createObjectURL(blob) });
     }
-  };
+    setMediaFiles(files);
+    setMediaError(null);
+  } catch (e) {
+    setMediaError(e?.message || 'Could not load the template attachments.');
+  }
+};
 
   const applyTemplateById = async (id) => {
     setSelectedTemplateId(id);
@@ -361,11 +375,12 @@ export default function BulkEmail() {
     setTemplateSaving(true);
     setTemplateError(null);
     try {
-      const form = new FormData();
-      form.append('name', templateName.trim());
-      form.append('subject', subject.trim());
-      form.append('body', body);
-      if (mediaFile) form.append('attachment', mediaFile);
+const form = new FormData();
+form.append('name', templateName.trim());
+form.append('subject', subject.trim());
+form.append('body', body);
+mediaFiles.forEach((m) => form.append('attachments', m.file));
+if (!mediaFiles.length) form.append('remove_attachments', 'true');
       const created = await apiPost('/accounts/bulk-email/templates', form);
       setTemplateName('');
       setShowTemplateForm(false);
@@ -479,12 +494,12 @@ export default function BulkEmail() {
     setProgress(null);
     try {
       const form = new FormData();
-      form.append('subject', subject.trim());
-      form.append('text', body);
-      if (htmlBody) form.append('html', htmlBody);
-      form.append('source', source);
-      form.append('recipients', JSON.stringify(chosen));
-      if (mediaFile) form.append('attachment', mediaFile);
+form.append('subject', subject.trim());
+form.append('text', body);
+if (htmlBody) form.append('html', htmlBody);
+form.append('source', source);
+form.append('recipients', JSON.stringify(chosen));
+mediaFiles.forEach((m) => form.append('attachments', m.file));
 
       // The server queues the campaign and replies immediately, then sends in
       // the background. Poll its progress instead of holding one long request
@@ -841,40 +856,45 @@ export default function BulkEmail() {
             </label>
           )}
 
-          <div className="be-field">
-            <span>Attachment (optional)</span>
-            <label className="be-upload">
-              <input
-                type="file"
-                accept="image/*,video/*,application/pdf,.pdf"
-                hidden
-                onChange={(e) => { pickMedia(e.target.files?.[0]); e.target.value = ''; }}
-              />
-              <span className="be-upload-plus">+</span>
-              <span className="be-upload-text">
-                {mediaFile ? 'Replace image, video or PDF' : 'Add image, video or PDF'}
-                <small>Max 20 MB</small>
-              </span>
-            </label>
-          </div>
+<div className="be-field">
+  <span>Attachments (optional, multiple)</span>
+  <label className="be-upload">
+    <input
+      type="file"
+      accept="image/*,video/*,application/pdf,.pdf"
+      multiple
+      hidden
+      onChange={(e) => { pickMedia(e.target.files); e.target.value = ''; }}
+    />
+    <span className="be-upload-plus">+</span>
+    <span className="be-upload-text">
+      Add image, video or PDF
+      <small>Max 20 MB each, up to 10 files</small>
+    </span>
+  </label>
+</div>
 
-          {mediaError && <div className="be-alert">{mediaError}</div>}
+{mediaError && <div className="be-alert">{mediaError}</div>}
 
-           {mediaPreview && (
-             <div className="be-media-preview">
-               {mediaFile?.type.startsWith('video/') ? (
-                 <video src={mediaPreview} controls />
-               ) : mediaFile?.type === 'application/pdf' || /\.pdf$/i.test(mediaFile?.name || '') ? (
-                 <iframe src={mediaPreview} title="PDF preview" style={{ width: '100%', height: 240, border: '1px solid var(--line)' }} />
-               ) : (
-                 <img src={mediaPreview} alt="Attachment preview" />
-               )}
-               <div className="be-media-meta">
-                 <span>{mediaFile?.name}</span>
-                 <button type="button" className="be-link-btn" onClick={removeMedia}>Remove</button>
-               </div>
-             </div>
-           )}
+{mediaFiles.length > 0 && (
+  <div className="be-media-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+    {mediaFiles.map((m, idx) => (
+      <div key={idx} className="be-media-preview" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 8 }}>
+        {m.preview && (m.file.type.startsWith('video/') ? (
+          <video src={m.preview} style={{ width: 64, height: 48, objectFit: 'cover' }} />
+        ) : m.file.type === 'application/pdf' || /\.pdf$/i.test(m.file.name || '') ? (
+          <iframe src={m.preview} title="PDF preview" style={{ width: 64, height: 48, border: '1px solid var(--line)' }} />
+        ) : (
+          <img src={m.preview} alt="Attachment preview" style={{ width: 64, height: 48, objectFit: 'cover' }} />
+        ))}
+        <div className="be-media-meta" style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.file.name}</span>
+          <button type="button" className="be-link-btn" onClick={() => removeMedia(idx)}>Remove</button>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
 
           <div className="be-tokens">
             <span className="be-tokens-label">Personalize</span>
@@ -889,10 +909,10 @@ export default function BulkEmail() {
                 <span className="be-send-count">{selected.size}</span>
                 <span>recipient{selected.size === 1 ? '' : 's'} selected</span>
               </div>
-              {(htmlBody || mediaFile) && (
-                <div className="be-send-tags">
-                  {htmlBody && <span className="be-tag"><LayoutTemplate size={12} strokeWidth={2} /> HTML design</span>}
-                  {mediaFile && <span className="be-tag"><Paperclip size={12} strokeWidth={2} /> Attachment</span>}
+{(htmlBody || mediaFiles.length > 0) && (
+  <div className="be-send-tags">
+    {htmlBody && <span className="be-tag"><LayoutTemplate size={12} strokeWidth={2} /> HTML design</span>}
+    {mediaFiles.length > 0 && <span className="be-tag"><Paperclip size={12} strokeWidth={2} /> {mediaFiles.length} attachment{mediaFiles.length === 1 ? '' : 's'}</span>}
                 </div>
               )}
             </div>
@@ -1069,7 +1089,7 @@ export default function BulkEmail() {
                       <th>Name</th>
                       <th>Subject</th>
                       <th>Type</th>
-                      <th>Attachment</th>
+                      <th>Attachments</th>
                       <th>Updated</th>
                       <th />
                     </tr>
@@ -1080,7 +1100,7 @@ export default function BulkEmail() {
                         <td className="be-table-subject">{t.name}</td>
                         <td>{t.subject}</td>
                         <td>{t.has_design ? 'HTML' : 'Simple'}</td>
-                        <td>{t.has_attachment ? (t.attachment_name || 'Yes') : '-'}</td>
+                        <td>{(t.attachment_count || (t.has_attachment ? 1 : 0)) > 0 ? `${t.attachment_count || 1} file${(t.attachment_count || 1) === 1 ? '' : 's'}${Array.isArray(t.attachment_names) && t.attachment_names.length ? ` (${t.attachment_names.join(', ')})` : (t.attachment_name ? ` (${t.attachment_name})` : '')}` : '-'}</td>
                         <td>{t.updated_at ? new Date(t.updated_at).toLocaleString() : '-'}</td>
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <button type="button" className="be-link-btn" onClick={() => useTemplate(t)}>Use</button>
