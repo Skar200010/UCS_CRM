@@ -381,7 +381,7 @@ form.append('subject', subject.trim());
 form.append('body', body);
 mediaFiles.forEach((m) => form.append('attachments', m.file));
 if (!mediaFiles.length) form.append('remove_attachments', 'true');
-      const created = await apiPost('/accounts/bulk-email/templates', form);
+      const created = await apiPost('/accounts/bulk-email/templates', form, 300000);
       setTemplateName('');
       setShowTemplateForm(false);
       await loadTemplates();
@@ -445,7 +445,7 @@ if (!mediaFiles.length) form.append('remove_attachments', 'true');
       if (editingTemplateId) {
         await apiPut(`/accounts/bulk-email/templates/${editingTemplateId}`, form);
       } else {
-        await apiPost('/accounts/bulk-email/templates', form);
+        await apiPost('/accounts/bulk-email/templates', form, 300000);
       }
       cancelTemplateEdit();
       await loadTemplates();
@@ -504,7 +504,7 @@ mediaFiles.forEach((m) => form.append('attachments', m.file));
       // The server queues the campaign and replies immediately, then sends in
       // the background. Poll its progress instead of holding one long request
       // open (which used to time out after 5 minutes).
-      const data = await apiPost('/accounts/bulk-email/send', form, 60000);
+      const data = await apiPost('/accounts/bulk-email/send', form, 300000);
       setProgress({
         status: data.status || 'queued',
         total: data.total || chosen.length,
@@ -773,7 +773,7 @@ mediaFiles.forEach((m) => form.append('attachments', m.file));
             <span className="be-step" aria-hidden="true">2</span>
             <div className="be-card-head-text">
               <h2>Message</h2>
-              <p>Write the email and add an optional attachment.</p>
+              <p>Write the email and add optional attachments.</p>
             </div>
           </div>
 
@@ -875,6 +875,12 @@ mediaFiles.forEach((m) => form.append('attachments', m.file));
 </div>
 
 {mediaError && <div className="be-alert">{mediaError}</div>}
+
+{mediaFiles.length > 0 && (
+  <div style={{ fontSize: 11, color: '#5B6070', marginBottom: 4 }}>
+    Total: {(mediaFiles.reduce((s, m) => s + m.file.size, 0) / (1024 * 1024)).toFixed(1)} MB
+  </div>
+)}
 
 {mediaFiles.length > 0 && (
   <div className="be-media-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
