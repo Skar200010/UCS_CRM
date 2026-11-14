@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost } from '../api/auth';
+import { API_BASE } from '../../../lib/apiBase';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 
 const NGOS = ['BSCT', 'AFLF', 'MANN'];
@@ -12,6 +13,103 @@ const pct = (v) => `${n(v).toFixed(2)}%`;
 const rate = (a, b) => (n(b) > 0 ? n(a) / n(b) : 0);
 
 const safeGet = (path, fallback) => apiGet(path).catch(() => fallback);
+
+// Editable credential fields. Verify token is deliberately absent: it stays in
+// .env because it is a value we publish into Meta's dashboard.
+const CONFIG_FIELDS = [
+  {
+    key: 'META_ADS_ACCESS_TOKEN',
+    label: 'Access token',
+    secret: true,
+    required: true,
+    hint: 'System user token with leads_retrieval. Starts with EAA… — not the CAPI dataset token.',
+  },
+  {
+    key: 'META_ADS_APP_SECRET',
+    label: 'App secret',
+    secret: true,
+    required: true,
+    hint: 'Meta App → App settings → Basic → App secret.',
+  },
+  {
+    key: 'META_ADS_APP_ID',
+    label: 'App ID',
+    advanced: true,
+    hint: 'Only used to tell which app is installed on the Page.',
+  },
+  {
+    key: 'META_ADS_AD_ACCOUNT_ID',
+    label: 'Ad account id',
+    advanced: true,
+    hint: 'Only for spend and campaign insights. Lead capture works without it.',
+  },
+  {
+    key: 'META_ADS_PAGE_ID',
+    label: 'Page id',
+    advanced: true,
+    hint: 'Needed by "Subscribe Page" when Page discovery is unavailable.',
+  },
+  {
+    key: 'META_ADS_API_VERSION',
+    label: 'API version',
+    advanced: true,
+    hint: 'Leave v23.0 unless Meta requires another version.',
+  },
+];
+
+const SOURCE_LABEL = {
+  database: 'saved',
+  env: '.env',
+  whatsapp_fallback: 'WhatsApp fallback',
+  missing: 'not set',
+};
+
+function sourceTone(info) {
+  if (!info) return { color: '#5B6070', bg: '#eef1f7' };
+  if (info.source === 'database' || info.source === 'env') return { color: '#0B6B3A', bg: '#dcfce7' };
+  if (info.source === 'whatsapp_fallback') {
+    // A WhatsApp token/app secret is a real value but the wrong one for lead
+    // retrieval, so it must not look like a success.
+    return info.key === 'META_ADS_APP_ID' || info.key === 'META_ADS_API_VERSION'
+      ? { color: '#5B6070', bg: '#eef1f7' }
+      : { color: '#b45309', bg: '#fef3c7' };
+  }
+  return { color: '#b91c1c', bg: '#fef2f2' };
+}
+
+function ConfigField({ field, info, value, onChange }) {
+  const tone = sourceTone(info);
+  const placeholder = info?.masked || info?.value || '';
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: '#1C1E21' }}>
+        {field.label}
+        {field.required && <span style={{ color: '#b91c1c' }}>*</span>}
+        <span style={{
+          marginLeft: 'auto', fontSize: 9.5, fontWeight: 800, letterSpacing: 0.2,
+          color: tone.color, background: tone.bg, padding: '2px 7px', borderRadius: 999,
+          textTransform: 'uppercase', whiteSpace: 'nowrap',
+        }}>
+          {SOURCE_LABEL[info?.source] || 'unknown'}
+        </span>
+      </span>
+      <input
+        className="wa-input"
+        type={field.secret ? 'password' : 'text'}
+        autoComplete="off"
+        placeholder={placeholder}
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: '100%', boxSizing: 'border-box', padding: '8px 10px',
+          border: '1px solid #D7DBE5', borderRadius: 8, fontSize: 12.5,
+          background: '#fff', color: '#1C1E21', fontFamily: 'inherit',
+        }}
+      />
+      <span style={{ fontSize: 10.5, color: '#5B6070', lineHeight: 1.35 }}>{field.hint}</span>
+    </label>
+  );
+}
 
 function Card({ title, value, sub, color }) {
   return (
@@ -46,6 +144,12 @@ export default function MetaAdsTab() {
   const [funnel, setFunnel] = useState(null);
   const [forms, setForms] = useState([]);
   const [drafts, setDrafts] = useState({});
+  const [webhookPages, setWebhookPages] = useState([]);
+  const [webhookEvents, setWebhookEvents] = useState([]);
+  const [metaConfig, setMetaConfig] = useState(null);
+  const [configDraft, setConfigDraft] = useState({});
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [newForm, setNewForm] = useState({ form_id: '', ngo: '' });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -56,18 +160,24 @@ export default function MetaAdsTab() {
     setLoading(true);
     setError('');
     try {
-      const [st, cm, sm, fn, fm] = await Promise.all([
+      const [st, cm, sm, fn, fm, wp, we, mc] = await Promise.all([
         safeGet('/meta-ads/status', null),
         safeGet(`/meta-ads/campaigns?days=${days}`, []),
         safeGet(`/meta-ads/insights/summary?days=${days}`, null),
         safeGet(`/meta-ads/funnel?days=${days}`, null),
         safeGet('/meta-ads/forms', []),
+        safeGet('/meta-ads/webhook/pages', { pages: [] }),
+        safeGet('/meta-ads/webhook/events?limit=8', []),
+        safeGet('/meta-ads/config', null),
       ]);
       setStatus(st);
       setCampaigns(Array.isArray(cm) ? cm : []);
       setSummary(sm);
       setFunnel(fn);
       setForms(Array.isArray(fm) ? fm : []);
+      setWebhookPages(Array.isArray(wp?.pages) ? wp.pages : []);
+      setWebhookEvents(Array.isArray(we) ? we : []);
+      setMetaConfig(mc);
       setDrafts((prev) => {
         const next = { ...prev };
         for (const f of Array.isArray(fm) ? fm : []) {
@@ -166,6 +276,57 @@ export default function MetaAdsTab() {
     }
   };
 
+  const saveConfig = async () => {
+    const payload = {};
+    for (const [key, value] of Object.entries(configDraft)) {
+      if (String(value || '').trim()) payload[key] = String(value).trim();
+    }
+    if (!Object.keys(payload).length) {
+      setError('Enter at least one value — an empty form is not saved.');
+      return;
+    }
+    setSavingConfig(true);
+    setError('');
+    setNotice('');
+    try {
+      const res = await apiPost('/meta-ads/config', payload);
+      setMetaConfig(res.config || null);
+      setConfigDraft({});
+      setNotice(res.verification?.ok
+        ? `Saved. Token verified as ${res.verification.name || res.verification.id}.`
+        : 'Saved. Polling and the webhook now use this credential.');
+      await load();
+    } catch (e) {
+      setError(e?.message || 'Could not save Meta credentials');
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const subscribeWebhook = async () => {
+    if (busy) return;
+    setBusy('webhook');
+    setError('');
+    setNotice('');
+    try {
+      const res = await apiPost('/meta-ads/webhook/subscribe', {});
+      const failed = Array.isArray(res.results) ? res.results.filter((r) => !r.ok) : [];
+      if (res.subscribed) {
+        setNotice(`Page subscribed to leadgen (${res.subscribed}/${res.attempted}). Meta will now deliver leads directly.`);
+      } else {
+        setError('No Page could be subscribed. Enter the Page id manually (META_ADS_PAGE_ID) or check the token\'s pages_manage_metadata permission.');
+      }
+      if (failed.length) {
+        setError(failed.map((f) => `Page ${f.page_id}: ${f.error}`).join(' · '));
+      }
+      await load();
+    } catch (e) {
+      setError(e?.message || 'Could not subscribe the Page');
+    } finally {
+      setBusy('');
+    }
+  };
+
   const exportCsv = () => {
     const header = ['Campaign', 'Status', 'Spend', 'Impressions', 'Clicks', 'Meta leads', 'CRM leads', 'CTR %', 'CPC', 'CPL'];
     const rows = campaigns.map((c) => [
@@ -194,6 +355,17 @@ export default function MetaAdsTab() {
 
   const configured = Boolean(status?.configured);
   const hasAccount = Boolean(status?.checks?.ad_account);
+  const webhook = status?.webhook || {};
+  const callbackUrl = `${API_BASE}/webhooks/meta`;
+  const webhookChecks = [
+    ['Access token', webhook.access_token],
+    ['App secret', webhook.app_secret],
+    ['Verify token', webhook.verify_token],
+    ['Signature enforced', webhook.signature_enforced],
+  ];
+  const eventColor = (s) => ({
+    ingested: '#0B6B3A', processing: '#1e40af', unmapped: '#b45309', duplicate: '#5B6070', error: '#b91c1c',
+  }[String(s || '')] || '#5B6070');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -224,18 +396,79 @@ export default function MetaAdsTab() {
         </div>
       </div>
 
+      <form
+        onSubmit={(e) => { e.preventDefault(); if (!savingConfig && !busy) saveConfig(); }}
+        style={{ background: '#fff', borderRadius: 16, padding: 18, boxShadow: '0 1px 3px rgba(20,30,60,.10)' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#1C1E21' }}>Meta connection</div>
+            <div style={{ fontSize: 11.5, color: '#5B6070', marginTop: 3 }}>
+              Only two values are required. They are stored in the database (like WhatsApp accounts), so no restart and no .env edit.
+            </div>
+          </div>
+          <button type="submit" className="wa-btn wa-btn-primary" disabled={savingConfig || !!busy}>
+            {savingConfig ? 'Saving…' : 'Save connection'}
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14 }}>
+          {CONFIG_FIELDS.filter((f) => !f.advanced).map((field) => (
+            <ConfigField
+              key={field.key}
+              field={field}
+              info={metaConfig?.fields?.[field.key.toLowerCase()]}
+              value={configDraft[field.key]}
+              onChange={(v) => setConfigDraft((prev) => ({ ...prev, [field.key]: v }))}
+            />
+          ))}
+        </div>
+
+        <div style={{ borderTop: '1px solid #EBEDF3', marginTop: 14, paddingTop: 10 }}>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11.5, fontWeight: 700, color: '#0866FF' }}
+          >
+            {showAdvanced ? '− Hide optional settings' : '+ Optional settings (ad account, page id, API version)'}
+          </button>
+
+          {showAdvanced && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginTop: 12 }}>
+              {CONFIG_FIELDS.filter((f) => f.advanced).map((field) => (
+                <ConfigField
+                  key={field.key}
+                  field={field}
+                  info={metaConfig?.fields?.[field.key.toLowerCase()]}
+                  value={configDraft[field.key]}
+                  onChange={(v) => setConfigDraft((prev) => ({ ...prev, [field.key]: v }))}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{
+          marginTop: 12, padding: '8px 10px', borderRadius: 8,
+          background: metaConfig?.verify_token_in_env ? '#f4f6fb' : '#fef2f2',
+          fontSize: 11, color: metaConfig?.verify_token_in_env ? '#5B6070' : '#b91c1c',
+        }}>
+          Verify token is read from <code>.env</code> only
+          {' '}({metaConfig?.verify_token_in_env ? 'currently set ✓' : 'missing ✗'}) — it is the value you paste into Meta's webhook form.
+        </div>
+      </form>
+
       {!configured && (
         <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 12, padding: 14, fontSize: 12.5, color: '#9a3412' }}>
           <div style={{ fontWeight: 800, marginBottom: 4 }}>Meta Ads is not connected yet</div>
-          Add these to <code>backend/.env</code>: <code>META_ADS_ACCESS_TOKEN</code>, <code>META_ADS_APP_SECRET</code>,
-          {' '}<code>META_ADS_VERIFY_TOKEN</code> and <code>META_ADS_AD_ACCOUNT_ID</code>. Then point the Meta webhook to
-          {' '}<code>/api/webhooks/meta</code>. Form mapping below works even before the ad account is connected.
+          Save an <b>access token</b> and <b>app secret</b> above. Then point Meta's Page webhook to
+          {' '}<code>/api/webhooks/meta</code> and press <b>Subscribe Page</b> below. Form mapping works even before that.
         </div>
       )}
 
       {status?.lead_capture && !hasAccount && (
         <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: 12, fontSize: 12.5, color: '#1e40af' }}>
-          Add <code>META_ADS_AD_ACCOUNT_ID</code> to load campaigns and insights. Lead capture and form mapping work without it.
+          Add an ad account id under <b>Optional settings</b> to load spend and campaign insights. Lead capture works without it.
         </div>
       )}
 
@@ -245,6 +478,80 @@ export default function MetaAdsTab() {
       {notice && (
         <div style={{ background: '#dcfce7', border: '1px solid #86efac', color: '#15803d', borderRadius: 10, padding: '9px 13px', fontSize: 12.5, fontWeight: 600 }}>{notice}</div>
       )}
+
+      <div style={{ background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 1px 3px rgba(20,30,60,.10)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#1C1E21' }}>Webhook — instant leads</div>
+            <div style={{ fontSize: 11.5, color: '#5B6070', marginTop: 2 }}>
+              Meta posts lead notifications to this URL. The 5-minute polling job stays on as a backup.
+            </div>
+          </div>
+          <button className="wa-btn wa-btn-primary" onClick={subscribeWebhook} disabled={!!busy || !status?.lead_capture}>
+            {busy === 'webhook' ? 'Subscribing…' : 'Subscribe Page'}
+          </button>
+        </div>
+
+        <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {webhookChecks.map(([label, ok]) => (
+            <span key={label} style={{
+              fontSize: 10.5, fontWeight: 700, padding: '3px 8px', borderRadius: 999,
+              background: ok ? '#dcfce7' : '#fef2f2',
+              color: ok ? '#15803d' : '#b91c1c',
+              border: `1px solid ${ok ? '#86efac' : '#fecaca'}`,
+            }}>
+              {ok ? '✓' : '✗'} {label}
+            </span>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: 11, color: '#5B6070' }}>Callback URL</div>
+        <code style={{ display: 'block', marginTop: 2, padding: '6px 8px', background: '#f4f6fb', borderRadius: 8, fontSize: 11.5, overflowX: 'auto' }}>{callbackUrl}</code>
+
+        {webhookPages.length > 0 && (
+          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {webhookPages.map((p) => (
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 11.5, padding: '6px 8px', border: '1px solid #EBEDF3', borderRadius: 8 }}>
+                <span style={{ fontWeight: 700, color: '#1C1E21' }}>
+                  {p.name} <span style={{ color: '#5B6070', fontWeight: 500 }}>· {p.id}</span>
+                </span>
+                <span style={{ fontWeight: 700, color: p.subscribed === null ? '#5B6070' : p.leadgen ? '#0B6B3A' : p.subscribed ? '#b45309' : '#b91c1c' }}>
+                  {p.subscribed === null ? 'unknown' : p.leadgen ? 'leadgen subscribed' : p.subscribed ? 'subscribed (leadgen OFF)' : 'not subscribed'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {webhookEvents.length > 0 && (
+          <div style={{ marginTop: 12, overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>
+              <thead>
+                <tr style={{ background: '#f4f6fb' }}>
+                  {['Lead id', 'Status', 'Platform', 'Form', 'Received'].map((h) => (
+                    <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: 10, textTransform: 'uppercase', color: '#5B6070' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {webhookEvents.map((e) => (
+                  <tr key={e.meta_lead_id} style={{ borderTop: '1px solid #EBEDF3' }}>
+                    <td style={{ padding: '6px 8px', color: '#5B6070' }}>{e.meta_lead_id}</td>
+                    <td style={{ padding: '6px 8px', fontWeight: 700, color: eventColor(e.status) }} title={e.error || ''}>
+                      {e.status}{e.error ? ' ⓘ' : ''}
+                    </td>
+                    <td style={{ padding: '6px 8px' }}>{e.platform || '—'}</td>
+                    <td style={{ padding: '6px 8px' }}>{e.form_id || '—'}</td>
+                    <td style={{ padding: '6px 8px', color: '#5B6070' }}>
+                      {e.received_at ? new Date(e.received_at).toLocaleString('en-IN') : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
         <Card title="Spend" value={money(totals.spend)} sub={`${days} days`} color="#0866FF" />

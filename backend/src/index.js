@@ -174,6 +174,7 @@ import { ensureWhatsAppConversationSchema } from './bootstrap/ensureWhatsAppConv
 import { ensureWhatsAppBulkSchema } from './bootstrap/ensureWhatsAppBulkSchema.js';
 import { ensureCampaignSchema } from './bootstrap/ensureCampaignSchema.js';
 import { ensureMetaAdsSchema } from './bootstrap/ensureMetaAdsSchema.js';
+import { loadMetaConfigFromDb } from './services/metaAdsConfigStore.js';
 import { ensureBulkEmailSchema } from './bootstrap/ensureBulkEmailSchema.js';
 import { aiSuggestionsStartupReport } from './utils/aiSuggestions.js';
 
@@ -1420,6 +1421,11 @@ await ensureSsLeadAiSchema().catch(e => console.error('ensureSsLeadAiSchema fail
     await ensureWhatsAppBulkSchema().catch(e => console.error('ensureWhatsAppBulkSchema failed:', e?.message || e));
   await ensureCampaignSchema().catch(e => console.error('ensureCampaignSchema failed:', e?.message || e));
   await ensureMetaAdsSchema().catch(e => console.error('ensureMetaAdsSchema failed:', e?.message || e));
+  // Credentials saved from the panel live in `settings`; copy them into the
+  // process env before the pollers below decide whether they can start.
+  await loadMetaConfigFromDb()
+    .then((keys) => { if (keys.length) console.log(`[meta] config loaded from settings: ${keys.join(', ')}`); })
+    .catch(e => console.error('loadMetaConfigFromDb failed:', e?.message || e));
   await import('./services/metaLeadIngestService.js')
     .then((m) => m.startMetaLeadPoller?.())
     .catch(e => console.error('startMetaLeadPoller failed:', e?.message || e));
