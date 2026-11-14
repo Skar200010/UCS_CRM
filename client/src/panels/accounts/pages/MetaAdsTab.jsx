@@ -489,7 +489,7 @@ export default function MetaAdsTab() {
       if (lead.platform === 'fb') facebook += 1;
       else if (lead.platform === 'ig') instagram += 1;
     }
-    return { today, facebook, instagram };
+    return { total: leadRows.length, today, facebook, instagram };
   }, [leadRows]);
   const hasAccount = Boolean(status?.checks?.ad_account);
   const webhook = status?.webhook || {};
