@@ -136,6 +136,31 @@ function BarRow({ label, value, max, color, caption }) {
   );
 }
 
+const INTEREST_LABEL = {
+  make_a_donation: 'Donation',
+  'csr_/_corporate_partnership': 'CSR / Corporate',
+  learn_more_about_our_ngo: 'NGO info',
+};
+
+const prettyInterest = (value) => String(value || '')
+  .split(',')
+  .map((part) => part.trim())
+  .filter(Boolean)
+  .map((part) => INTEREST_LABEL[part] || part.replace(/_/g, ' ').replace(/\s+/g, ' ').trim())
+  .join(' · ');
+
+const prettyDate = (value) => {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime())
+    ? date.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : '—';
+};
+
+const PLATFORM_STYLE = {
+  fb: { label: 'Facebook', color: '#0866FF', bg: '#eff4ff' },
+  ig: { label: 'Instagram', color: '#be185d', bg: '#fdf2f8' },
+};
+
 export default function MetaAdsTab() {
   const [days, setDays] = useState(30);
   const [status, setStatus] = useState(null);
@@ -150,6 +175,16 @@ export default function MetaAdsTab() {
   const [configDraft, setConfigDraft] = useState({});
   const [savingConfig, setSavingConfig] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [leadRows, setLeadRows] = useState([]);
+  const [leadTotal, setLeadTotal] = useState(0);
+  const [leadFilters, setLeadFilters] = useState({ days: 30, platform: '', form_id: '', q: '' });
+  const [leadQuery, setLeadQuery] = useState('');
+  const [leadLoading, setLeadLoading] = useState(false);
+  const [showWebhookLog, setShowWebhookLog] = useState(false);
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  const [adAccounts, setAdAccounts] = useState([]);
+  const [findingAccounts, setFindingAccounts] = useState(false);
+  const [showConnection, setShowConnection] = useState(false);
   const [newForm, setNewForm] = useState({ form_id: '', ngo: '' });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -160,14 +195,13 @@ export default function MetaAdsTab() {
     setLoading(true);
     setError('');
     try {
-      const [st, cm, sm, fn, fm, wp, we, mc] = await Promise.all([
+      const [st, cm, sm, fn, fm, wp, mc] = await Promise.all([
         safeGet('/meta-ads/status', null),
         safeGet(`/meta-ads/campaigns?days=${days}`, []),
         safeGet(`/meta-ads/insights/summary?days=${days}`, null),
         safeGet(`/meta-ads/funnel?days=${days}`, null),
         safeGet('/meta-ads/forms', []),
         safeGet('/meta-ads/webhook/pages', { pages: [] }),
-        safeGet('/meta-ads/webhook/events?limit=8', []),
         safeGet('/meta-ads/config', null),
       ]);
       setStatus(st);
@@ -176,7 +210,6 @@ export default function MetaAdsTab() {
       setFunnel(fn);
       setForms(Array.isArray(fm) ? fm : []);
       setWebhookPages(Array.isArray(wp?.pages) ? wp.pages : []);
-      setWebhookEvents(Array.isArray(we) ? we : []);
       setMetaConfig(mc);
       setDrafts((prev) => {
         const next = { ...prev };
@@ -198,6 +231,33 @@ export default function MetaAdsTab() {
   }, [days]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadLeads = useCallback(async () => {
+    setLeadLoading(true);
+    try {
+      const params = new URLSearchParams({ days: String(leadFilters.days), limit: '200' });
+      if (leadFilters.platform) params.set('platform', leadFilters.platform);
+      if (leadFilters.form_id) params.set('form_id', leadFilters.form_id);
+      if (leadFilters.q) params.set('q', leadFilters.q);
+      const res = await safeGet(`/meta-ads/leads?${params.toString()}`, { rows: [], total: 0 });
+      setLeadRows(Array.isArray(res?.rows) ? res.rows : []);
+      setLeadTotal(Number(res?.total) || 0);
+    } finally {
+      setLeadLoading(false);
+    }
+  }, [leadFilters]);
+
+  useEffect(() => { loadLeads(); }, [loadLeads]);
+
+  // The delivery log is a diagnostic, not the main view: it loads on demand and
+  // hides duplicate rows unless the operator asks for them.
+  const loadWebhookEvents = useCallback(async () => {
+    const suffix = showDuplicates ? '&include_duplicates=1' : '';
+    const rows = await safeGet(`/meta-ads/webhook/events?limit=10${suffix}`, []);
+    setWebhookEvents(Array.isArray(rows) ? rows : []);
+  }, [showDuplicates]);
+
+  useEffect(() => { loadWebhookEvents(); }, [loadWebhookEvents]);
 
   const totals = summary?.totals || {};
   const series = useMemo(() => (Array.isArray(summary?.series) ? summary.series : []).map((r) => ({
@@ -222,6 +282,7 @@ export default function MetaAdsTab() {
         setNotice('Done');
       }
       await load();
+      await loadLeads();
     } catch (e) {
       setError(e?.message || 'Action failed');
     } finally {
@@ -327,6 +388,67 @@ export default function MetaAdsTab() {
     }
   };
 
+  const autoMapForms = async () => {
+    if (busy) return;
+    setBusy('auto-map');
+    setError('');
+    setNotice('');
+    try {
+      const res = await apiPost('/meta-ads/forms/auto-map', {});
+      setNotice(`Auto-mapped ${res.mapped || 0} form(s); ${res.leads_updated || 0} lead(s) tagged. Fallback: ${res.fallback}.`);
+      await load();
+      await loadLeads();
+    } catch (e) {
+      setError(e?.message || 'Auto-map failed');
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const findAdAccounts = async () => {
+    setFindingAccounts(true);
+    setError('');
+    setNotice('');
+    try {
+      const list = await apiGet('/meta-ads/ad-accounts');
+      const rows = Array.isArray(list) ? list : [];
+      setAdAccounts(rows);
+      if (!rows.length) {
+        setError('This token cannot see any ad account. Assign one to the system user in Business Settings, then retry.');
+      } else if (rows.length === 1) {
+        const only = rows[0];
+        setConfigDraft((prev) => ({ ...prev, META_ADS_AD_ACCOUNT_ID: only.account_id || only.id }));
+        setNotice(`Found ${only.name || only.id}. Press Save connection to use it.`);
+      } else {
+        setNotice(`Found ${rows.length} ad accounts. Choose one below, then save.`);
+      }
+    } catch (e) {
+      setError(e?.message || 'Could not list ad accounts');
+    } finally {
+      setFindingAccounts(false);
+    }
+  };
+
+  const exportLeadsCsv = () => {
+    if (!leadRows.length) return;
+    const escape = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+    const header = ['created_time', 'name', 'phone', 'email', 'platform', 'state', 'interest', 'form', 'campaign', 'ngo', 'inbox_url', 'lead_id'];
+    const lines = [header.join(',')];
+    for (const r of leadRows) {
+      lines.push([
+        r.created_at, r.name, r.phone, r.email, r.platform, r.state || '', r.interest || '',
+        r.form_name || r.form_id, r.campaign_name || r.campaign_id, r.ngo || '', r.inbox_url || '', r.id,
+      ].map(escape).join(','));
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `meta-leads-${leadFilters.days}d.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const exportCsv = () => {
     const header = ['Campaign', 'Status', 'Spend', 'Impressions', 'Clicks', 'Meta leads', 'CRM leads', 'CTR %', 'CPC', 'CPL'];
     const rows = campaigns.map((c) => [
@@ -354,6 +476,21 @@ export default function MetaAdsTab() {
   };
 
   const configured = Boolean(status?.configured);
+  const insightsReady = Boolean(status?.insights);
+  const connectionOpen = showConnection || !configured;
+  const leadStats = useMemo(() => {
+    const todayKey = new Date().toDateString();
+    let today = 0;
+    let facebook = 0;
+    let instagram = 0;
+    for (const lead of leadRows) {
+      const created = lead.created_at ? new Date(lead.created_at) : null;
+      if (created && created.toDateString() === todayKey) today += 1;
+      if (lead.platform === 'fb') facebook += 1;
+      else if (lead.platform === 'ig') instagram += 1;
+    }
+    return { today, facebook, instagram };
+  }, [leadRows]);
   const hasAccount = Boolean(status?.checks?.ad_account);
   const webhook = status?.webhook || {};
   const callbackUrl = `${API_BASE}/webhooks/meta`;
@@ -407,22 +544,33 @@ export default function MetaAdsTab() {
               Only two values are required. They are stored in the database (like WhatsApp accounts), so no restart and no .env edit.
             </div>
           </div>
-          <button type="submit" className="wa-btn wa-btn-primary" disabled={savingConfig || !!busy}>
-            {savingConfig ? 'Saving…' : 'Save connection'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              type="button"
+              className="wa-btn wa-btn-outline"
+              onClick={() => setShowConnection((v) => !v)}
+            >
+              {showConnection ? 'Hide' : 'Edit'}
+            </button>
+            <button type="submit" className="wa-btn wa-btn-primary" disabled={savingConfig || !!busy}>
+              {savingConfig ? 'Saving…' : 'Save connection'}
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14 }}>
-          {CONFIG_FIELDS.filter((f) => !f.advanced).map((field) => (
-            <ConfigField
-              key={field.key}
-              field={field}
-              info={metaConfig?.fields?.[field.key.toLowerCase()]}
-              value={configDraft[field.key]}
-              onChange={(v) => setConfigDraft((prev) => ({ ...prev, [field.key]: v }))}
-            />
-          ))}
-        </div>
+        {connectionOpen && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14 }}>
+              {CONFIG_FIELDS.filter((f) => !f.advanced).map((field) => (
+                <ConfigField
+                  key={field.key}
+                  field={field}
+                  info={metaConfig?.fields?.[field.key.toLowerCase()]}
+                  value={configDraft[field.key]}
+                  onChange={(v) => setConfigDraft((prev) => ({ ...prev, [field.key]: v }))}
+                />
+              ))}
+            </div>
 
         <div style={{ borderTop: '1px solid #EBEDF3', marginTop: 14, paddingTop: 10 }}>
           <button
@@ -434,16 +582,46 @@ export default function MetaAdsTab() {
           </button>
 
           {showAdvanced && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginTop: 12 }}>
-              {CONFIG_FIELDS.filter((f) => f.advanced).map((field) => (
-                <ConfigField
-                  key={field.key}
-                  field={field}
-                  info={metaConfig?.fields?.[field.key.toLowerCase()]}
-                  value={configDraft[field.key]}
-                  onChange={(v) => setConfigDraft((prev) => ({ ...prev, [field.key]: v }))}
-                />
-              ))}
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+                {CONFIG_FIELDS.filter((f) => f.advanced).map((field) => (
+                  <ConfigField
+                    key={field.key}
+                    field={field}
+                    info={metaConfig?.fields?.[field.key.toLowerCase()]}
+                    value={configDraft[field.key]}
+                    onChange={(v) => setConfigDraft((prev) => ({ ...prev, [field.key]: v }))}
+                  />
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
+                <button
+                  type="button"
+                  className="wa-btn wa-btn-outline"
+                  onClick={findAdAccounts}
+                  disabled={findingAccounts || !status?.lead_capture}
+                >
+                  {findingAccounts ? 'Searching…' : 'Find ad accounts'}
+                </button>
+                {adAccounts.length > 1 && (
+                  <select
+                    className="wa-select"
+                    style={{ minWidth: 240 }}
+                    value={configDraft.META_ADS_AD_ACCOUNT_ID || ''}
+                    onChange={(e) => setConfigDraft((prev) => ({ ...prev, META_ADS_AD_ACCOUNT_ID: e.target.value }))}
+                  >
+                    <option value="">Choose ad account…</option>
+                    {adAccounts.map((account) => (
+                      <option key={account.id} value={account.account_id || account.id}>
+                        {account.name || account.id} ({account.account_id || account.id})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <span style={{ fontSize: 10.5, color: '#5B6070' }}>
+                  Needs the ad account assigned to the system user in Business Settings.
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -456,13 +634,15 @@ export default function MetaAdsTab() {
           Verify token is read from <code>.env</code> only
           {' '}({metaConfig?.verify_token_in_env ? 'currently set ✓' : 'missing ✗'}) — it is the value you paste into Meta's webhook form.
         </div>
+          </>
+        )}
       </form>
 
       {!configured && (
         <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 12, padding: 14, fontSize: 12.5, color: '#9a3412' }}>
           <div style={{ fontWeight: 800, marginBottom: 4 }}>Meta Ads is not connected yet</div>
-          Save an <b>access token</b> and <b>app secret</b> above. Then point Meta's Page webhook to
-          {' '}<code>/api/webhooks/meta</code> and press <b>Subscribe Page</b> below. Form mapping works even before that.
+          Save an <b>access token</b> and <b>app secret</b> in Meta connection. Then point Meta's Page webhook to
+          {' '}<code>/api/webhooks/meta</code> and press <b>Subscribe Page</b>. Form mapping works even before that.
         </div>
       )}
 
@@ -523,8 +703,26 @@ export default function MetaAdsTab() {
           </div>
         )}
 
-        {webhookEvents.length > 0 && (
-          <div style={{ marginTop: 12, overflowX: 'auto' }}>
+        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: '#5B6070' }}>
+            Deliveries: {num(status?.webhook?.counts?.ingested)} ingested · {num(status?.webhook?.counts?.unmapped)} unmapped · {num(status?.webhook?.counts?.error)} errors
+            {status?.webhook?.counts?.duplicate ? ` · ${num(status.webhook.counts.duplicate)} duplicates hidden` : ''}
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowWebhookLog((v) => !v)}
+            style={{ marginLeft: 'auto', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11.5, fontWeight: 700, color: '#0866FF' }}
+          >
+            {showWebhookLog ? '− Hide delivery log' : '+ Show delivery log'}
+          </button>
+        </div>
+
+        {showWebhookLog && (
+          <div style={{ marginTop: 8, overflowX: 'auto' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#5B6070', marginBottom: 6 }}>
+              <input type="checkbox" checked={showDuplicates} onChange={(e) => setShowDuplicates(e.target.checked)} />
+              include duplicates
+            </label>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>
               <thead>
                 <tr style={{ background: '#f4f6fb' }}>
@@ -547,19 +745,179 @@ export default function MetaAdsTab() {
                     </td>
                   </tr>
                 ))}
+                {!webhookEvents.length && (
+                  <tr><td colSpan={5} style={{ padding: 14, textAlign: 'center', color: '#5B6070' }}>No deliveries logged yet.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-        <Card title="Spend" value={money(totals.spend)} sub={`${days} days`} color="#0866FF" />
-        <Card title="Meta leads" value={num(totals.meta_leads)} sub="reported by Meta" color="#7B5CFA" />
-        <Card title="CRM leads" value={num(totals.crm_leads)} sub="received in inbox" color="#0B6B3A" />
-        <Card title="Cost per lead" value={money(totals.cpl)} sub="spend ÷ Meta leads" color="#F97316" />
-        <Card title="CTR" value={pct(totals.ctr)} sub={`${num(totals.clicks)} clicks`} color="#0891b2" />
-        <Card title="CPC" value={money(totals.cpc)} sub={`${num(totals.impressions)} impressions`} color="#be185d" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+        {insightsReady ? (
+          <>
+            <Card title="Spend" value={money(totals.spend)} sub={`last ${days} days`} color="#0866FF" />
+            <Card title="Meta leads" value={num(totals.meta_leads)} sub="reported by Meta" color="#7B5CFA" />
+            <Card title="CRM leads" value={num(totals.crm_leads)} sub="matched to a campaign" color="#0B6B3A" />
+            <Card title="Cost per lead" value={money(totals.cpl)} sub="spend ÷ Meta leads" color="#F97316" />
+            <Card title="CTR" value={pct(totals.ctr)} sub={`${num(totals.clicks)} clicks`} color="#0891b2" />
+            <Card title="CPC" value={money(totals.cpc)} sub={`${num(totals.impressions)} impressions`} color="#be185d" />
+          </>
+        ) : (
+          <>
+            <Card title="Leads captured" value={num(leadStats.total)} sub={`last ${leadFilters.days} days`} color="#0B6B3A" />
+            <Card title="Today" value={num(leadStats.today)} sub="received today" color="#0866FF" />
+            <Card title="Facebook" value={num(leadStats.facebook)} sub="platform split" color="#0866FF" />
+            <Card title="Instagram" value={num(leadStats.instagram)} sub="platform split" color="#be185d" />
+            <Card title="Forms mapped" value={`${num(status?.counts?.mapped_forms)} / ${num(status?.counts?.forms)}`} sub="mapped to an NGO" color="#7B5CFA" />
+            <Card title="Unmapped leads" value={num(leadRows.filter((lead) => !lead.ngo).length)} sub="need a form mapping" color="#F97316" />
+          </>
+        )}
+      </div>
+
+      <div style={{ background: '#fff', borderRadius: 16, padding: 16, boxShadow: '0 1px 3px rgba(20,30,60,.10)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#1C1E21' }}>Meta campaign leads</div>
+            <div style={{ fontSize: 11.5, color: '#5B6070', marginTop: 2 }}>
+              {leadTotal} lead(s) · {leadLoading ? 'loading…' : 'latest first'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="wa-btn wa-btn-outline" onClick={loadLeads} disabled={leadLoading}>Refresh</button>
+            <button className="wa-btn wa-btn-outline" onClick={exportLeadsCsv} disabled={!leadRows.length}>Export CSV</button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '12px 0' }}>
+          <select
+            className="wa-select"
+            style={{ width: 120 }}
+            value={leadFilters.days}
+            onChange={(e) => setLeadFilters((prev) => ({ ...prev, days: Number(e.target.value) }))}
+          >
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
+          <select
+            className="wa-select"
+            style={{ width: 140 }}
+            value={leadFilters.platform}
+            onChange={(e) => setLeadFilters((prev) => ({ ...prev, platform: e.target.value }))}
+          >
+            <option value="">All platforms</option>
+            <option value="fb">Facebook</option>
+            <option value="ig">Instagram</option>
+          </select>
+          <select
+            className="wa-select"
+            style={{ width: 220 }}
+            value={leadFilters.form_id}
+            onChange={(e) => setLeadFilters((prev) => ({ ...prev, form_id: e.target.value }))}
+          >
+            <option value="">All forms</option>
+            {forms.map((form) => (
+              <option key={form.form_id} value={form.form_id}>{form.form_name || form.form_id}</option>
+            ))}
+          </select>
+          <input
+            className="wa-input"
+            style={{ flex: '1 1 200px', minWidth: 160 }}
+            placeholder="Search name, phone or email"
+            value={leadQuery}
+            onChange={(e) => setLeadQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') setLeadFilters((prev) => ({ ...prev, q: leadQuery.trim() }));
+            }}
+          />
+          <button
+            className="wa-btn wa-btn-primary"
+            onClick={() => setLeadFilters((prev) => ({ ...prev, q: leadQuery.trim() }))}
+          >
+            Search
+          </button>
+        </div>
+
+        <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 480, border: '1px solid #EBEDF3', borderRadius: 10 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1020, fontSize: 12 }}>
+            <colgroup>
+              <col style={{ width: 110 }} />
+              <col style={{ width: 190 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 190 }} />
+              <col style={{ width: 105 }} />
+              <col style={{ width: 210 }} />
+              <col style={{ width: 210 }} />
+              <col style={{ width: 95 }} />
+              <col style={{ width: 70 }} />
+            </colgroup>
+            <thead>
+              <tr style={{ background: '#f4f6fb' }}>
+                {['Date', 'Name', 'Platform', 'Contact', 'State', 'Interest', 'Form / Campaign', 'NGO', 'Inbox'].map((heading) => (
+                  <th key={heading} style={{ position: 'sticky', top: 0, zIndex: 1, background: '#f4f6fb', textAlign: 'left', padding: '9px 10px', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3, color: '#5B6070', borderBottom: '1px solid #E3E7F0' }}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {leadRows.map((lead, index) => {
+                const platform = PLATFORM_STYLE[lead.platform] || { label: lead.platform || '—', color: '#5B6070', bg: '#eef1f7' };
+                return (
+                  <tr key={lead.id} style={{ borderTop: index === 0 ? 'none' : '1px solid #EBEDF3', background: index % 2 ? '#fafbfe' : '#fff' }}>
+                    <td style={{ padding: '9px 10px', color: '#5B6070', whiteSpace: 'nowrap' }}>{prettyDate(lead.created_at)}</td>
+                    <td style={{ padding: '9px 10px', fontWeight: 700, color: '#1C1E21', maxWidth: 200 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={lead.name}>{lead.name || '(no name)'}</div>
+                      {lead.is_organic && <span style={{ fontSize: 9.5, fontWeight: 800, color: '#0B6B3A' }}>ORGANIC</span>}
+                    </td>
+                    <td style={{ padding: '9px 10px' }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: platform.color, background: platform.bg, padding: '2px 7px', borderRadius: 999 }}>
+                        {platform.label}
+                      </span>
+                    </td>
+                    <td style={{ padding: '9px 10px' }}>
+                      {lead.phone
+                        ? <a href={`tel:${lead.phone}`} style={{ display: 'block', color: '#0866FF', fontWeight: 600 }}>{lead.phone}</a>
+                        : <span style={{ color: '#5B6070' }}>—</span>}
+                      {lead.email ? (
+                        <a href={`mailto:${lead.email}`} style={{ display: 'block', fontSize: 10.5, color: '#5B6070', maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {lead.email}
+                        </a>
+                      ) : null}
+                    </td>
+                    <td style={{ padding: '9px 10px' }}>{lead.state || '—'}</td>
+                    <td style={{ padding: '9px 10px', maxWidth: 220 }}>{prettyInterest(lead.interest) || '—'}</td>
+                    <td style={{ padding: '9px 10px', color: '#5B6070', maxWidth: 220 }}>
+                      <div style={{ fontWeight: 600, color: '#1C1E21', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={lead.form_name || lead.form_id}>
+                        {lead.form_name || lead.form_id || '—'}
+                      </div>
+                      <div style={{ fontSize: 10.5 }}>
+                        {lead.campaign_name || (lead.campaign_id ? `Campaign ${lead.campaign_id}` : '')}
+                      </div>
+                    </td>
+                    <td style={{ padding: '9px 10px' }}>
+                      {lead.ngo
+                        ? <span style={{ fontSize: 10.5, fontWeight: 800, color: '#0B6B3A', background: '#dcfce7', padding: '2px 7px', borderRadius: 999 }}>{lead.ngo}</span>
+                        : <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b45309' }}>unmapped</span>}
+                    </td>
+                    <td style={{ padding: '9px 10px' }}>
+                      {lead.inbox_url
+                        ? <a href={lead.inbox_url} target="_blank" rel="noreferrer" style={{ color: '#0866FF', fontWeight: 600 }}>Open</a>
+                        : <span style={{ color: '#5B6070' }}>—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!leadRows.length && (
+                <tr>
+                  <td colSpan={9} style={{ padding: 20, textAlign: 'center', color: '#5B6070' }}>
+                    {leadLoading ? 'Loading leads…' : 'No Meta leads in this range yet. Press "Sync leads now" above.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(260px, 1fr)', gap: 14 }}>
@@ -657,6 +1015,9 @@ export default function MetaAdsTab() {
             }
           }} disabled={!!busy || !status?.lead_capture}>
             {busy === 'form:refresh' ? 'Refreshing…' : 'Fetch forms from Meta'}
+          </button>
+          <button className="wa-btn wa-btn-primary" onClick={autoMapForms} disabled={!!busy || !status?.lead_capture}>
+            {busy === 'auto-map' ? 'Mapping…' : 'Auto-map forms'}
           </button>
         </div>
 
