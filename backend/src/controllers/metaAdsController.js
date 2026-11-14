@@ -14,12 +14,25 @@ import {
   isMetaInsightsConfigured,
   isMetaLeadCaptureConfigured,
   listMetaAdAccounts as fetchAdAccounts,
+  listMetaPages,
+  listPageWebhookSubscriptions,
   metaLeadCount,
   metaDateRange,
   ngoToAccount,
+  normalizePageIds,
+  setSyncState,
+  subscribePageWebhook,
   syncInsights,
   verifyMetaSignature,
+  verifyMetaToken,
+  webhookChecklist,
 } from '../services/metaAdsService.js';
+import {
+  META_CONFIG_FIELDS,
+  applyMetaEnvPatch,
+  getMetaConfigView,
+  persistMetaConfig,
+} from '../services/metaAdsConfigStore.js';
 import {
   pollMetaLeadForms,
   processMetaWebhookPayload,
@@ -57,12 +70,43 @@ async function collectStatus() {
     getSyncState('insights').catch(() => null),
   ]);
 
+  // Webhook health: a checklist plus the last delivery, because "webhook not
+  // working" is almost always one of those two things. Both are read from the
+  // local meta_lead_events table, so this stays fast and never calls Graph.
+  const webhook = {
+    ...webhookChecklist(cfg),
+    callback_path: '/api/webhooks/meta',
+    last_event: null,
+    counts: { total: 0, ingested: 0, unmapped: 0, duplicate: 0, error: 0, last_24h: 0 },
+  };
+  try {
+    const { rows } = await db._pool.query(
+      `select
+         count(*)::int as total,
+         count(*) filter (where status in ('ingested', 'processing'))::int as ingested,
+         count(*) filter (where status = 'unmapped')::int as unmapped,
+         count(*) filter (where status = 'duplicate')::int as duplicate,
+         count(*) filter (where status = 'error')::int as error,
+         count(*) filter (where received_at >= now() - interval '24 hours')::int as last_24h,
+         max(received_at) as last_received_at
+       from meta_lead_events`,
+    );
+    if (rows[0]) {
+      const { last_received_at: lastReceivedAt, ...counts } = rows[0];
+      webhook.counts = counts;
+      webhook.last_event = lastReceivedAt || null;
+    }
+  } catch {
+    // Schema not applied yet — the status endpoint must still answer.
+  }
+
   const insightsReady = isMetaInsightsConfigured();
   return {
     connected: insightsReady || checks.token,
     configured,
     lead_capture: checks.token,
     insights: insightsReady,
+    webhook,
     api_version: cfg.apiVersion,
     ad_account_id: cfg.adAccountId || null,
     checks,
@@ -70,8 +114,8 @@ async function collectStatus() {
     lead_sync: leadSync,
     insight_sync: insightSync,
     message: configured
-      ? (checks.ad_account ? 'Meta Ads connected' : 'Add META_ADS_AD_ACCOUNT_ID to load campaigns and insights.')
-      : 'Meta Ads not configured. Add META_ADS_ACCESS_TOKEN, META_ADS_APP_SECRET and META_ADS_VERIFY_TOKEN.',
+      ? (checks.ad_account ? 'Meta Ads connected' : 'Add an ad account id for campaigns and insights. Lead capture works without it.')
+      : 'Meta Ads is not connected. Save an access token and app secret in the Meta connection panel.',
   };
 }
 
@@ -340,7 +384,229 @@ export async function deleteMetaForm(req, res) {
   }
 }
 
+// ---- Config (database backed) ---------------------------------------------
+
+export async function getMetaAdsConfig(req, res) {
+  try {
+    return res.json(await getMetaConfigView());
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+}
+
+// Saves the credential into `settings` and applies it to the running process.
+// A token is verified against Graph BEFORE it is persisted, so a typo can never
+// replace a working configuration.
+export async function saveMetaAdsConfig(req, res) {
+  try {
+    const body = req.body || {};
+    const patch = {};
+    for (const key of META_CONFIG_FIELDS) {
+      if (body[key] !== undefined) {
+        patch[key] = body[key];
+        continue;
+      }
+      const alias = key.replace('META_ADS_', '').toLowerCase();
+      if (body[alias] !== undefined) patch[key] = body[alias];
+    }
+    if (!Object.keys(patch).length) {
+      return res.status(400).json({ message: `Send at least one of: ${META_CONFIG_FIELDS.join(', ')}` });
+    }
+
+    if (patch.META_ADS_PAGE_ID !== undefined && String(patch.META_ADS_PAGE_ID).trim()) {
+      patch.META_ADS_PAGE_ID = normalizePageIds(patch.META_ADS_PAGE_ID).join(',');
+    }
+    if (patch.META_ADS_API_VERSION !== undefined && String(patch.META_ADS_API_VERSION).trim()) {
+      const version = String(patch.META_ADS_API_VERSION).trim();
+      if (!/^v\d{1,3}\.\d{1,2}$/.test(version)) {
+        return res.status(400).json({ message: 'META_ADS_API_VERSION must look like v23.0' });
+      }
+      patch.META_ADS_API_VERSION = version;
+    }
+
+    const previous = {};
+    for (const key of Object.keys(patch)) previous[key] = process.env[key];
+
+    applyMetaEnvPatch(patch);
+
+    let verification = null;
+    const tokenTouched = patch.META_ADS_ACCESS_TOKEN !== undefined;
+    const tokenCleared = tokenTouched && !String(patch.META_ADS_ACCESS_TOKEN).trim();
+    if (tokenTouched && !tokenCleared) {
+      try {
+        const who = await verifyMetaToken();
+        verification = { ok: true, ...who };
+      } catch (e) {
+        // Roll the in-memory value back: a token Meta rejected must never reach
+        // the poller that is about to be started below.
+        for (const [key, value] of Object.entries(previous)) {
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+        }
+        return res.status(400).json({
+          message: `Meta rejected the access token: ${e?.message || e}`,
+          verification: { ok: false, error: e?.message || String(e) },
+        });
+      }
+    }
+
+    await persistMetaConfig(patch);
+
+    // If the token was absent at boot the schedulers returned early; now that it
+    // exists they must be started without waiting for a restart.
+    await Promise.all([
+      import('../services/metaLeadIngestService.js')
+        .then((m) => m.startMetaLeadPoller?.())
+        .catch(() => {}),
+      import('../services/metaAdsService.js')
+        .then((m) => m.startMetaInsightsSync?.())
+        .catch(() => {}),
+    ]);
+
+    return res.json({
+      ok: true,
+      saved: Object.keys(patch),
+      verification,
+      config: await getMetaConfigView(),
+      status: await collectStatus(),
+    });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+}
+
 // ---- Webhook (public) ------------------------------------------------------
+
+export async function getMetaWebhookEvents(req, res) {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const { rows } = await db._pool.query(
+      `select meta_lead_id, form_id, page_id, platform, campaign_id, campaign_name,
+              status, error, lead_id, received_at, processed_at
+         from meta_lead_events
+        order by received_at desc
+        limit $1`,
+      [limit],
+    );
+    return res.json(rows);
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+}
+
+// Which Page(s) this app is installed on, and whether `leadgen` is subscribed.
+// `subscribed: null` means Graph could not be asked (token/permission), which is
+// different from "not subscribed" and must not be shown as a red cross.
+export async function listMetaWebhookPages(req, res) {
+  try {
+    const cfg = getMetaConfig();
+    if (!cfg.accessToken) {
+      return res.json({ pages: [], app_id: cfg.appId || null, note: 'Meta access token not configured' });
+    }
+
+    let pages = [];
+    let graphError = null;
+    try {
+      pages = await listMetaPages();
+    } catch (e) {
+      graphError = e?.message || String(e);
+    }
+
+    if (!pages.length) {
+      const { rows } = await db._pool.query(
+        `select distinct page_id from meta_lead_forms where page_id is not null and page_id <> ''`,
+      );
+      pages = rows.map((r) => ({ id: String(r.page_id), name: `Page ${r.page_id}`, tasks: [] }));
+    }
+
+    const out = [];
+    for (const page of pages) {
+      let subscribed = null;
+      let fields = [];
+      try {
+        const apps = await listPageWebhookSubscriptions(page.id);
+        const mine = cfg.appId
+          ? apps.find((a) => String(a?.id) === String(cfg.appId))
+          : apps[0];
+        subscribed = Boolean(mine);
+        fields = Array.isArray(mine?.subscribed_fields) ? mine.subscribed_fields.map(String) : [];
+      } catch {
+        subscribed = null;
+      }
+      out.push({
+        ...page,
+        subscribed,
+        subscribed_fields: fields,
+        leadgen: fields.includes('leadgen'),
+      });
+    }
+
+    return res.json({ pages: out, app_id: cfg.appId || null, graph_error: graphError });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+}
+
+export async function subscribeMetaWebhook(req, res) {
+  try {
+    const cfg = getMetaConfig();
+    if (!cfg.accessToken) {
+      return res.status(400).json({ message: 'Meta access token not configured (META_ADS_ACCESS_TOKEN)' });
+    }
+
+    // Page resolution order: explicit request → env → pages already mapped to a
+    // form → every Page the token can see. The dashboard's "Subscribe" toggle
+    // only sets the field; the app still has to be installed on the Page.
+    let pageIds = normalizePageIds(req.body?.page_ids ?? req.body?.page_id ?? '');
+    if (!pageIds.length) pageIds = normalizePageIds(process.env.META_ADS_PAGE_ID || '');
+    if (!pageIds.length) {
+      const { rows } = await db._pool.query(
+        `select distinct page_id from meta_lead_forms where page_id is not null and page_id <> ''`,
+      );
+      pageIds = normalizePageIds(rows.map((r) => r.page_id));
+    }
+    if (!pageIds.length) {
+      try {
+        pageIds = normalizePageIds((await listMetaPages()).map((p) => p.id));
+      } catch {
+        pageIds = [];
+      }
+    }
+    if (!pageIds.length) {
+      return res.status(400).json({
+        message: 'No Page found. Pass page_ids, set META_ADS_PAGE_ID, or load forms from Meta first.',
+      });
+    }
+
+    const results = [];
+    for (const pageId of pageIds) {
+      try {
+        const result = await subscribePageWebhook(pageId);
+        results.push({ page_id: pageId, ok: true, result });
+      } catch (e) {
+        results.push({ page_id: pageId, ok: false, error: e?.message || String(e) });
+      }
+    }
+
+    const subscribed = results.filter((r) => r.ok).length;
+    await setSyncState('webhook', {
+      pages: pageIds.length,
+      subscribed,
+      fields: ['leadgen'],
+      callback_path: '/api/webhooks/meta',
+    }).catch(() => {});
+
+    return res.json({
+      ok: subscribed > 0,
+      subscribed,
+      attempted: pageIds.length,
+      results,
+      checklist: webhookChecklist(cfg),
+    });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+}
 
 export function verifyMetaAdsWebhook(req, res) {
   const mode = req.query['hub.mode'];

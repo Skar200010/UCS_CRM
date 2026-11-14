@@ -8,8 +8,10 @@ import {
   mapLeadFields,
   metaLeadCount,
   normalizeAdAccountId,
+  normalizePageIds,
   normalizePhone,
   verifyMetaSignature,
+  webhookChecklist,
 } from './metaAdsService.js';
 import { buildMetaLeadNotes } from './metaLeadIngestService.js';
 
@@ -112,4 +114,35 @@ test('an unmapped form still produces a usable note without [Account:]', () => {
   const notes = buildMetaLeadNotes({ id: '1', form_id: 'form-x', field_data: [] }, null);
   assert.doesNotMatch(notes, /\[Account:/);
   assert.match(notes, /\[Meta Lead: 1\]/);
+});
+
+test('webhook checklist separates a missing secret from a missing verify token', () => {
+  assert.deepEqual(webhookChecklist({ accessToken: 't', appSecret: 's', verifyToken: 'v' }), {
+    access_token: true,
+    app_secret: true,
+    verify_token: true,
+    signature_enforced: true,
+  });
+  // No app secret means Meta signatures are not enforced: the endpoint accepts
+  // unsigned posts, which is the state that lets anyone inject fake leads.
+  assert.deepEqual(webhookChecklist({ accessToken: 't', appSecret: '', verifyToken: 'v' }), {
+    access_token: true,
+    app_secret: false,
+    verify_token: true,
+    signature_enforced: false,
+  });
+});
+
+test('page ids are accepted as ids, lists, comma strings and Page URLs', () => {
+  assert.deepEqual(normalizePageIds('153125381133'), ['153125381133']);
+  assert.deepEqual(normalizePageIds('153125381133, 987654321'), ['153125381133', '987654321']);
+  assert.deepEqual(normalizePageIds(['153125381133', '', '  ']), ['153125381133']);
+  assert.deepEqual(
+    normalizePageIds('https://www.facebook.com/profile.php?id=153125381133&ref=x'),
+    ['153125381133'],
+  );
+  // Nothing usable must yield an empty list, not a garbage id.
+  assert.deepEqual(normalizePageIds(['abc', '', null]), []);
+  // Duplicates collapse so one Page is not subscribed twice.
+  assert.deepEqual(normalizePageIds(['153125381133', '153125381133']), ['153125381133']);
 });

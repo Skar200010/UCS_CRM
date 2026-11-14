@@ -52,6 +52,33 @@ export function isMetaInsightsConfigured() {
   return Boolean(cfg.accessToken && cfg.adAccountId);
 }
 
+// What the /api/webhooks/meta endpoint needs before Meta will accept the
+// subscription. Kept pure so the panel can show a checklist instead of the
+// first symptom being a silent 403 on Meta's side.
+export function webhookChecklist(cfg = getMetaConfig()) {
+  return {
+    access_token: Boolean(cfg.accessToken),
+    app_secret: Boolean(cfg.appSecret),
+    verify_token: Boolean(cfg.verifyToken),
+    signature_enforced: Boolean(cfg.appSecret),
+  };
+}
+
+// Accepts ids, comma separated strings or Page URLs (from Meta dashboard) and
+// returns unique numeric ids. Anything else is ignored rather than throwing:
+// a malformed entry must not stop the other pages from being subscribed.
+export function normalizePageIds(values) {
+  const list = Array.isArray(values) ? values : [values];
+  const out = new Set();
+  for (const value of list) {
+    for (const part of String(value == null ? '' : value).split(/[\s,]+/)) {
+      const match = /(\d{6,})/.exec(part);
+      if (match) out.add(match[1]);
+    }
+  }
+  return [...out];
+}
+
 export function ngoToAccount(ngo) {
   const name = String(ngo || '').trim().toUpperCase();
   return META_NGOS.includes(name) ? name.toLowerCase() : '';
@@ -205,6 +232,58 @@ export async function listMetaAdAccounts() {
   });
   return Array.isArray(res.data) ? res.data : [];
 }
+
+// ---------------------------------------------------------------------------
+// Webhook plumbing.
+//
+// The endpoint itself (GET verify + POST leadgen) is in metaAdsController. What
+// lives here is the other half of the handshake: Meta only delivers a Page's
+// leadgen notifications once this app is installed on that Page and subscribed
+// to the field. That is a Graph call, not a dashboard-only toggle, so the panel
+// can do it without anyone hunting through Graph API Explorer.
+// ---------------------------------------------------------------------------
+
+// Cheap token probe used by the panel before it stores a credential: one call,
+// no Page required. Returns the identity behind the token so the UI can show
+// "connected as <name>" instead of just "saved".
+export async function verifyMetaToken() {
+  const res = await graphRequest('me', { fields: 'id,name' });
+  return { id: res?.id ? String(res.id) : '', name: res?.name || '' };
+}
+
+export async function listMetaPages() {
+  const pages = await paginate('me/accounts', {
+    fields: 'id,name,tasks',
+    limit: 100,
+  }, { pages: 5 });
+  return pages.map((p) => ({
+    id: String(p.id),
+    name: p.name || String(p.id),
+    tasks: Array.isArray(p.tasks) ? p.tasks : [],
+  }));
+}
+
+// Apps currently installed on the Page. When `appId` is known the caller can
+// tell whether THIS app is the one subscribed, not just any app.
+export async function listPageWebhookSubscriptions(pageId) {
+  const res = await graphRequest(`${pageId}/subscribed_apps`);
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function subscribePageWebhook(pageId) {
+  const id = normalizePageIds(pageId)[0];
+  if (!id) throw new Error(`Invalid Page id: ${pageId}`);
+  // Query params (not a JSON body): the subscribed_apps edge reads them from
+  // the request string on both versions this code targets.
+  return graphRequest(`${id}/subscribed_apps`, { subscribed_fields: 'leadgen' }, { method: 'POST' });
+}
+
+export async function unsubscribePageWebhook(pageId) {
+  const id = normalizePageIds(pageId)[0];
+  if (!id) throw new Error(`Invalid Page id: ${pageId}`);
+  return graphRequest(`${id}/subscribed_apps`, {}, { method: 'DELETE' });
+}
+
 
 export async function fetchCampaigns() {
   const cfg = getMetaConfig();
