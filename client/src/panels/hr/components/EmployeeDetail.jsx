@@ -716,7 +716,9 @@ export default function EmployeeDetail({ worker, onBack, onOffboard, accountsMod
     const dayName = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
     const att = payAttendance.find(a => a.date === dateStr);
     let status = att?.status || null;
-    if (!status && d <= viewingToday && dt.getDay() !== 0 && !holidayDates.has(dateStr) && !(joinedThisMonth && dateStr < joinCutoff)) {
+    if (holidayDates.has(dateStr) && (!status || status === 'absent' || status === 'leave')) {
+      status = 'holiday';
+    } else if (!status && d <= viewingToday && dt.getDay() !== 0 && !(joinedThisMonth && dateStr < joinCutoff)) {
       status = 'absent';
     }
     return { date: dateStr, day: d, dayName, att, status };
@@ -729,6 +731,19 @@ export default function EmployeeDetail({ worker, onBack, onOffboard, accountsMod
   const halfDayCount = payAttendance.filter(a =>
     a.status === 'half-day' && (!joinedThisMonth || a.date >= joinCutoff)
   ).length;
+  // A declared holiday is a paid day when the worker did not punch in. If the
+  // worker did work that day, the present row above already counts it — never
+  // double-count the same date.
+  const holidayPaidDays = [...holidayDates].filter(dateStr => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+    if (joinedThisMonth && dateStr < joinCutoff) return false;
+    const dayNum = Number(dateStr.slice(8, 10));
+    if (isCurrentMonth && dayNum > viewingToday) return false;
+    // Sundays already have their own paid/free rule below.
+    if (new Date(dateStr + 'T00:00:00Z').getUTCDay() === 0) return false;
+    const att = monthAttendance.find(a => a.date === dateStr);
+    return !att || att.status === 'absent' || att.status === 'leave';
+  }).length;
   const sundayCount = Array.from({ length: daysInMonth }, (_, i) => {
     const d = i + 1;
     if (joinedThisMonth && d < joinDayNum) return 0;
@@ -764,7 +779,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard, accountsMod
     .filter(d => !attendedEligible.includes(d))
     .slice(0, Math.max(0, eligibleNotWorked - freeCount));
   for (const d of unpaidSundays) deducted.add(d);
-  let paidDays = noAttendanceData ? 0 : presentDays - attendedAll + (halfDayCount * 0.5) + paidSundayCount;
+  let paidDays = noAttendanceData ? 0 : presentDays - attendedAll + (halfDayCount * 0.5) + paidSundayCount + holidayPaidDays;
   if (paidDays < 0) paidDays = 0;
   const JOINING_DEDUCTION = 1.5;
   const joiningDeduction = (joinedThisMonth && monthsEmployed <= 3) ? JOINING_DEDUCTION : 0;
@@ -1330,6 +1345,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard, accountsMod
                           else if (s === 'absent') { bg = '#ffe0e0'; }
                           else if (s === 'leave' || s === 'Leave') { bg = '#f3e8ff'; }
                           else if (s === 'half-day') { bg = '#e8d5f5'; }
+                          else if (s === 'holiday') { bg = '#e0f2fe'; }
                           else if (md.dayName === 'Sun') { bg = '#f0f0f0'; }
                           else { bg = '#fff'; }
                           // Punch times replace the old status icons: the cell
@@ -1342,6 +1358,7 @@ export default function EmployeeDetail({ worker, onBack, onOffboard, accountsMod
                             : s === 'absent' ? 'Absent'
                             : (s === 'leave' || s === 'Leave') ? 'Leave'
                             : s === 'half-day' ? 'HD'
+                            : s === 'holiday' ? 'Holiday'
                             : (md.dayName === 'Sun' && !s) ? '—'
                             : '';
                           cells.push(

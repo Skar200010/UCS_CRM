@@ -1,6 +1,6 @@
 ﻿import { useState, useRef, useEffect } from 'react'
 import { Routes, Route, useLocation, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Users, Wallet, Smartphone, BookOpen, Boxes, Target, CalendarCheck, CalendarClock, Unlock, Lock, MoreHorizontal } from 'lucide-react'
+import { Users, Wallet, Smartphone, BookOpen, Boxes, Target, CalendarCheck, CalendarClock, CalendarDays, Unlock, Lock, MoreHorizontal } from 'lucide-react'
 import { useUcs } from '../../store'
 import { useSalaryPrivacy } from '../../context/SalaryPrivacyContext'
 import { themes, applyTheme } from '../hr/theme'
@@ -23,6 +23,7 @@ import IncentiveVerification from './pages/IncentiveVerification'
 import DonorSection from './components/DonorSection'
 import PageTabs from './components/PageTabs'
 import TeamsManageModal from './components/TeamsManageModal'
+import HolidayManagerModal from './components/HolidayManagerModal'
 import AssetRegister from './pages/AssetRegister'
 import HistoryImport from './pages/HistoryImport'
 import AttendancePage from './pages/Attendance'
@@ -355,6 +356,10 @@ function VolunteerOffboardPage({ theme }) {
 function PayrollSection({ theme }) {
   const { pathname } = useLocation()
   const [teamsOpen, setTeamsOpen] = useState(false)
+  // Holidays are declared company-wide. The row lands in the shared `holidays`
+  // table, so payroll's existing holiday handling (paid day, never absent)
+  // applies without changing any salary maths.
+  const [holidayOpen, setHolidayOpen] = useState(false)
   // Export/manage actions the Workers table owns (targets, attendance Excel,
   // Salary File, Compensations). It hands them up once so the top strip can
   // render the buttons next to Manage Teams while the list page is mounted.
@@ -439,6 +444,10 @@ function PayrollSection({ theme }) {
                     <div style={{ height: 1, background: 'var(--line, #e5e7eb)', margin: '4px 0' }} />
                   </>
                 )}
+                <button role="menuitem" onClick={() => { setActionsOpen(false); setHolidayOpen(true); }}
+                  title="Declare a company-wide holiday. That day is paid and is never marked absent." style={menuItemStyle()}>
+                  <CalendarDays size={14} /> Add Holiday
+                </button>
                 <button role="menuitem" onClick={() => { setActionsOpen(false); setTeamsOpen(true); }}
                   title="Add, rename or remove teams" style={menuItemStyle()}>
                   <Users size={14} /> Manage Teams
@@ -455,6 +464,7 @@ function PayrollSection({ theme }) {
         <Route path=":id/offboard" element={<VolunteerOffboardPage theme={theme} />} />
       </Routes>
       {teamsOpen && <TeamsManageModal onClose={() => setTeamsOpen(false)} />}
+      {holidayOpen && <HolidayManagerModal onClose={() => setHolidayOpen(false)} />}
     </>
   )
 }

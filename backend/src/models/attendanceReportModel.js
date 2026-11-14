@@ -129,7 +129,12 @@ export async function getWorkerAttendanceReport(workerId, month) {
 
     let status;
     if (isBeforeJoin) status = 'not-joined';
-    else if (rec && rec.status) status = rec.status;
+    else if (rec && rec.status) {
+      // A declared holiday wins over a stale absent/leave row for that date.
+      status = (holidaySet.has(dateStr) && (rec.status === 'absent' || rec.status === 'leave'))
+        ? 'holiday'
+        : rec.status;
+    }
     else if (dayName === 'Sun') status = 'sunday';
     else if (holidaySet.has(dateStr)) status = 'holiday';
     else if (d > viewingToday) status = 'future';

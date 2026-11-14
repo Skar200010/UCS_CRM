@@ -178,7 +178,12 @@ export default function AttendanceCalendar({ workerId, worker }) {
       const map = {}
       ;(attList || []).forEach(r => { map[r.date] = r })
       ;(calData.holidays || []).forEach(h => {
-        if (!map[h.date]) map[h.date] = { date: h.date, status: 'holiday' }
+        const existing = map[h.date]
+        // A declared holiday wins over a stale absent/leave row. A real punch
+        // on that date (present/late/half-day) still wins.
+        if (!existing || existing.status === 'absent' || existing.status === 'leave') {
+          map[h.date] = { ...(existing || {}), date: h.date, status: 'holiday' }
+        }
       })
       setRecords(map)
     }).catch(() => { setRecords({}) })

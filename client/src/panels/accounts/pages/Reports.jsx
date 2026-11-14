@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiGet, apiPut, apiPost } from '../api/auth';
+import { apiGet, apiPut, apiPost, apiGetBlob } from '../api/auth';
 import useAccessCode from '../components/AccessGate';
 
 const currency = n => n != null ? '\u20B9' + Number(n).toLocaleString('en-IN') : '\u20B90';
@@ -104,6 +104,8 @@ export default function Reports() {
   const [sourceTab, setSourceTab] = useState('All');
   const [viewTab, setViewTab] = useState('source');
   const [atcTab, setAtcTab] = useState('agent');
+  const [downloadNgo, setDownloadNgo] = useState('all');
+  const [downloading, setDownloading] = useState(false);
   const access = useAccessCode();
   const [locked, setLocked] = useState(true);
 
@@ -403,6 +405,30 @@ export default function Reports() {
     URL.revokeObjectURL(url);
   };
 
+  // One-click station-wise workbook. Sends the same period that is on screen,
+  // so the download cannot describe a different range than the report.
+  const downloadExcel = async () => {
+    setDownloading(true);
+    try {
+      const q = new URLSearchParams();
+      if (reportFrom && reportTo) { q.set('from', reportFrom); q.set('to', reportTo); }
+      else if (reportDay) q.set('date', reportDay);
+      else q.set('month', month);
+      q.set('ngo', downloadNgo);
+      const blob = await apiGetBlob('/accounts/station-collection.xlsx?' + q.toString());
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `station-collection-${downloadNgo}-${(reportFrom && reportTo) ? `${reportFrom}_${reportTo}` : (reportDay || month)}.xlsx`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e.message || 'Could not download the Excel file');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const handlePrint = () => { window.print(); };
 
   return (
@@ -439,6 +465,21 @@ export default function Reports() {
             <input type="month" value={month} style={inputStyle}
               onChange={e => { setMonth(e.target.value); setReportDay(null); setReportFrom(null); setReportTo(null); }} />
           </div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-soft)' }}>Excel</span>
+            <select value={downloadNgo} onChange={e => setDownloadNgo(e.target.value)} style={inputStyle} aria-label="NGO for Excel download">
+              <option value="all">All NGOs</option>
+              <option value="bsct">BSCT</option>
+              <option value="aflf">AFLF</option>
+              <option value="mann">MANN</option>
+            </select>
+          </div>
+          <button className="btn" onClick={downloadExcel} disabled={downloading}
+            title="Download station-wise collection with Count and Range"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+            {downloading ? 'Preparing…' : 'Download Excel'}
+          </button>
           <button className="btn" onClick={() => load()} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
             Refresh

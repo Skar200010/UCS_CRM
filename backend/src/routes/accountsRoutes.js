@@ -3,6 +3,7 @@ import { authenticateRole } from '../middleware/authMiddleware.js';
 import { getLeadList, verifyLead, quickVerifyLead, doneLead, rejectLead, goBackLead, undoLeadVerification, undoReceipt, deleteLead, deleteAllPendingLeads, getSuspenseList, createSuspense, addSuspenseNote, assignSuspense, generateReceipt, getReceipt, getReceiptList, getAddressSuggestions, getPendingReceipts, markReceiptAsSent, patchLeadField, getDonorHistory, getDayEndReport, importReceipts, importReceiptNames, getReceiptByMobile, clearReceipts, getReceiptCount, getReceiptNumbers, getSuspenseByNgo, getDonorsList, getDndDonors, exportDndDonors, quickSearchDonors, exportDonors, exportDuplicateDonorAssignments, getDonorDetail, updateDonor, deleteDonor, createDonorAssignment, importDonorAddresses, getExcludedReceipts, fixAndQueueReceipt, deleteQueueReceipt, getImportNgoOptions, getFroWorkersList, updateReceipt, getStationOptions, updateAssignmentStations, deleteAssignment, replaceAssignment, repairDonorSync, backfillReceiptAssignments, getReportTargets, putReportTargets, getTeamTargets, putTeamTargets, postSyncTeamTargets, getReportData, getAgentTeamCollections, getAccessCodeStatus, createAccessCode, verifyAccessCode, changeAccessCode, getNgoCollections } from '../controllers/accountsController.js';
 import { restoreWrongAssignments } from '../controllers/ngoAdminController.js';
 import { getWorkerOverview, getWorkerCollectionTrend, getWorkerHeatmap, getWorkerTimeline } from '../services/workerOverviewService.js';
+import { downloadStationCollection } from '../controllers/stationCollectionController.js';
 import { parseHistoricalWorkbook, confirmHistoricalBatch, listHistoricalBatches, getWorkerPerformanceHistory } from '../services/historicalImportService.js';
 import multer from 'multer';
 
@@ -128,6 +129,7 @@ router.get('/team-targets', getTeamTargets);
 router.put('/team-targets', putTeamTargets);
 router.post('/team-targets/sync', postSyncTeamTargets);
 router.get('/report-data', getReportData);
+router.get('/station-collection.xlsx', downloadStationCollection);
 router.get('/report-agent-team', getAgentTeamCollections);
 
 export default router;

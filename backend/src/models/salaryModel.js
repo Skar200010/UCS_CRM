@@ -543,6 +543,8 @@ export const getPresentDaysByMonth = async (month) => {
   for (const r of attRecords) {
     if (!attByWorker[r.worker_id]) attByWorker[r.worker_id] = [];
     attByWorker[r.worker_id].push(r);
+    // A pre-existing absent/leave row on a declared holiday is not an absence.
+    if (holidayDates.includes(String(r.date).slice(0, 10)) && (r.status === 'absent' || r.status === 'leave')) continue;
     if (!counts[r.worker_id]) counts[r.worker_id] = { present: 0, late: 0, half: 0, absent: 0, leave: 0 };
     if (counts[r.worker_id][r.status] !== undefined) counts[r.worker_id][r.status]++;
     else counts[r.worker_id][r.status] = 1;
@@ -557,6 +559,9 @@ export const getPresentDaysByMonth = async (month) => {
       records: attByWorker[w.id] || [],
       createdAt: w.created_at || '',
       holidayDates,
+      // A declared holiday is a paid day: it must never show up as a
+      // deduction in the present-days export either.
+      includeHolidayPay: true,
       lateGraceMinutes: graceByWorker[w.id] ?? null,
       leaves: leavesByWorker[w.id] || [],
       absenceProofs: proofsByWorker[w.id] || [],
@@ -584,6 +589,7 @@ export const getPresentDaysByMonth = async (month) => {
       absent_count: calc.absentDatesAfterJoin.length,
       half_days: calc.halfDayCount,
       leave_count: calc.leaveCount,
+      holiday_paid_days: calc.holidayPaidDays,
       sunday_count: calc.sundayStats.totalSundays,
       attended_sundays: calc.sundayStats.attendedSundays,
       unpaid_sundays: calc.sundayStats.unpaidSundays.length,
@@ -1332,7 +1338,10 @@ export const getWorkerAttendanceByName = async (month, name) => {
     const rec = recByDate[dateStr];
     let status;
     if (rec) {
-      status = rec.status;
+      // A declared holiday wins over a stale absent/leave row for that date.
+      status = (holidaySet.has(dateStr) && (rec.status === 'absent' || rec.status === 'leave'))
+        ? 'holiday'
+        : rec.status;
     } else if (leaveDates.has(dateStr)) {
       status = 'leave';
     } else if (beforeJoinSet.has(dateStr) || d > viewDay) {

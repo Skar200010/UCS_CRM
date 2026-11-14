@@ -194,6 +194,19 @@ export function computePaidDays({ year, month, daysInMonth, records, createdAt, 
   const joinDay = joinedThisMonth ? joinDate.getUTCDate() : 1;
   const joinDateStr = `${year}-${pad(month + 1)}-${pad(joinDay)}`;
 
+  // A declared holiday is a paid day even when an attendance row already exists
+  // for that date as absent/leave (for example a day marked before the holiday
+  // was declared). Normalise those rows to 'holiday' so they neither count as
+  // absences nor feed the Sunday clubbing/deduction rules. A real punch on the
+  // holiday (present/late/half-day) is left untouched.
+  const holidaySet = new Set((holidayDates || []).map(d => String(d).slice(0, 10)));
+  records = records.map((r) => {
+    const date = String(r.date || '').slice(0, 10);
+    if (!holidaySet.has(date)) return r;
+    if (r.status === 'absent' || r.status === 'leave') return { ...r, status: 'holiday' };
+    return r;
+  });
+
   const afterJoin = joinedThisMonth ? records.filter(r => r.date >= joinDateStr) : records;
   const halfDayCount = afterJoin.filter(r => r.status === 'half-day').length;
   const presentDays = afterJoin.filter(r => r.status === 'present' || r.status === 'late').length;
@@ -209,7 +222,6 @@ export function computePaidDays({ year, month, daysInMonth, records, createdAt, 
 
   // A weekday with no attendance record counts as absent (same rule as the HR
   // salary page), unless it is a holiday or still in the future of the month.
-  const holidaySet = new Set((holidayDates || []).map(d => String(d).slice(0, 10)));
   const { year: ty, month: tm, day: td } = getISTToday();
   const viewDay = viewingToday != null
     ? viewingToday
@@ -333,7 +345,7 @@ export function computePaidDays({ year, month, daysInMonth, records, createdAt, 
       if (!holidaySet.has(day.date) || beforeJoinSet.has(day.date) || day.day > viewDay) return false;
       const attendance = afterJoin.find((record) => record.date === day.date);
       const compensated = compensationByHolidayDate.get(day.date);
-      if (!compensated) return !attendance || attendance.status === 'absent' || attendance.status === 'leave';
+      if (!compensated) return !attendance || attendance.status === 'absent' || attendance.status === 'leave' || attendance.status === 'holiday';
       const workRecord = afterJoin.find((record) => record.date === compensated.workDate);
       return !workRecord || !['present', 'late', 'half-day'].includes(workRecord.status);
     }).length
